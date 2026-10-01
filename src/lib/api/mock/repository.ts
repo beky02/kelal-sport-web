@@ -12,7 +12,7 @@
  */
 import { ApiError } from "@/lib/api/errors";
 import { addMoney, share } from "@/lib/money";
-import { CASH_OUT_SHARES } from "@/features/bets/lib/figures";
+import { CASH_OUT_SHARES } from "@/config/constants";
 import type { Crest, Localized } from "@/types/common";
 import type { Competition } from "@/features/competitions/types";
 import type {

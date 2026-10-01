@@ -95,7 +95,6 @@ as well as wording. `ቦነስ` and `አኩሙሌተር` are transliterations.
 | `betSlip.totalStake`               | ጠቅላላ የውርርድ መጠን                                           |
 | `betSlip.linesTimesStake`          | {lines} ውርርዶች × {amount}                                 |
 | `betSlip.accaBonus`                | የአኩሙሌተር ቦነስ                                              |
-| `betSlip.taxAbove`                 | ከ{amount} በላይ                                            |
 | `betSlip.rulesLoading`             | የውርርድ ደንቦች እየተጫኑ ነው…                                     |
 | `betSlip.rulesFailed`              | የውርርድ ደንቦችን መጫን አልተሳካም                                   |
 | `betSlip.warnings.remainder`       | {amount} በ{lines} ውርርዶች እኩል አይከፈልም፤ የሚከፍሉት {charged} ነው። |
@@ -114,3 +113,6 @@ as well as wording. `ቦነስ` and `አኩሙሌተር` are transliterations.
 | `betSlip.errors.cannotPriceBody`   | ከኦዶቹ አንዱ ትክክል አይደለም። ያስወግዱት ወይም ቆይተው ይሞክሩ።               |
 | `betSlip.withholdingTax`           | የተቀናሽ ግብር                                                |
 | `betSlip.levy`                     | ቀረጥ                                                      |
+| `betSlip.tax`                      | ግብር                                                      |
+| `betSlip.placeFailedBody`          | ውርርዱን ማስያዝ አልተሳካም። እንደገና ይሞክሩ።                           |
+| `bets.stakeTaxRefund`              | የውርርድ ግብር ተመላሽ                                           |

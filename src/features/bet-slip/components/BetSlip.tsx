@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { CircleAlert } from "lucide-react";
 import { useTranslation } from "@/lib/i18n/use-translation";
+import type { MessageKey } from "@/lib/i18n";
 import { Switch } from "@/components/ui/Switch";
 import { routes } from "@/config/routes";
 import { ApiError } from "@/lib/api/errors";
@@ -23,6 +24,20 @@ import { PlaceBetButton } from "./PlaceBetButton";
 import { SlipAlerts } from "./SlipAlerts";
 import { StakeInput } from "./StakeInput";
 import { TaxBreakdown } from "./TaxBreakdown";
+
+/**
+ * What a refusal from the engine means, by its Problem `code` — never by its
+ * title, which is display text in whatever language the API chose.
+ */
+const PLACE_ERROR_BODY: Record<string, MessageKey> = {
+  BET_RELATED_SELECTIONS: "betSlip.alerts.conflictBody",
+  BET_MARKET_SUSPENDED: "betSlip.alerts.suspendedBody",
+  BET_EVENT_STARTED: "betSlip.alerts.suspendedBody",
+  BET_TOO_MANY_LEGS: "betSlip.errors.cannotPriceBody",
+  BET_TOO_MANY_LINES: "betSlip.errors.cannotPriceBody",
+  VALIDATION_FAILED: "betSlip.errors.cannotPriceBody",
+  RULES_UNAVAILABLE: "betSlip.rulesFailed",
+};
 
 /**
  * The bet slip.
@@ -146,7 +161,10 @@ export function BetSlip({ onClose }: { onClose?: () => void }) {
                       : "betSlip.errors.stakeTooHighBody",
                     { amount: t.money(stakeFix) },
                   )
-                : place.error.message}
+                : t.t(
+                    PLACE_ERROR_BODY[rejection?.code ?? ""] ??
+                      "betSlip.placeFailedBody",
+                  )}
             </div>
           </div>
           {/* A rejection the user can act on carries the fix, rather than

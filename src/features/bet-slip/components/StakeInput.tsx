@@ -83,7 +83,7 @@ export function StakeInput({
               type="button"
               aria-pressed={plain(stake) === plain(amount)}
               onClick={() => setStake(plain(amount))}
-              className="border-divider text-text font-body aria-pressed:border-accent h-10 cursor-pointer rounded-md border bg-transparent text-[13px] font-bold"
+              className="border-divider text-text font-body aria-pressed:border-accent h-11 cursor-pointer rounded-md border bg-transparent text-[13px] font-bold"
             >
               {plain(amount)}
             </button>

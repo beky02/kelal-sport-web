@@ -7,7 +7,8 @@ import { cn } from "@/lib/utils/cn";
 import { useCashOut } from "../hooks/use-bets";
 import { usePublicConfig } from "@/features/config/hooks/use-public-config";
 import { share } from "@/lib/money";
-import { betFigures, CASH_OUT_SHARES } from "../lib/figures";
+import { CASH_OUT_SHARES } from "@/config/constants";
+import { settleBet } from "@/features/bet-slip/lib/calculate";
 import type { Bet } from "../types";
 
 /**
@@ -46,14 +47,17 @@ export function CashOutPanel({
   const part = CASH_OUT_SHARES[shareIndex];
   const all = part.numerator === part.denominator;
   const amount = share(bet.cashOutValue, part.numerator, part.denominator);
-  const figures = betFigures(bet, rules);
-  const rest = figures
-    ? share(
-        figures.netPayout,
-        part.denominator - part.numerator,
-        part.denominator,
+  // What stays on the bet is the remaining stake priced by slipcalc, not a
+  // share of today's payout: the win-tax threshold is all-or-nothing (D1.8).
+  const remaining = rules
+    ? settleBet(
+        bet.legs.length === 1 ? "single" : "multiple",
+        bet.legs.map((leg) => ({ odds: leg.odds, result: "open" as const })),
+        share(bet.stake, part.denominator - part.numerator, part.denominator),
+        rules,
       )
     : null;
+  const rest = remaining?.ok ? remaining.quote.netPayout : null;
   const buttonHeight = size === "ticket" ? "h-12" : "h-11";
 
   if (!asking) {

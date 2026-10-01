@@ -99,7 +99,12 @@ describe("BetSlip", () => {
     expect(screen.getByText("ETB 85.00")).toBeInTheDocument(); // 100 − 15% stake tax
     expect(screen.getByText("Gross return")).toBeInTheDocument();
     expect(screen.getByText("ETB 579.57")).toBeInTheDocument(); // floor(85 × 6.81858)
-    expect(screen.getAllByText("ETB 14.83").length).toBeGreaterThan(0); // 3% of profit
+    // floor((579.57 − 85.00) × 3%) = 14.83, as its own row in the working.
+    const working = screen.getByTestId("calculation-steps");
+    const bonusRow = within(working)
+      .getByText("Accumulator bonus")
+      .closest("div")!;
+    expect(bonusRow).toHaveTextContent(/^\+\s*Accumulator bonus\s*ETB 14\.83$/);
   });
 
   it("states the tenant's tax rates and the win-tax threshold", () => {
@@ -108,7 +113,7 @@ describe("BetSlip", () => {
 
     expect(screen.getByText(/Stake tax/)).toHaveTextContent("Stake tax · 15%");
     expect(screen.getByText(/Winnings tax/)).toHaveTextContent(
-      "Winnings tax · 15% above ETB 1,000.00",
+      "Winnings tax · 15% of the whole win once it’s over ETB 1,000.00",
     );
   });
 
@@ -125,6 +130,7 @@ describe("BetSlip", () => {
     expect(netPayout()).toHaveTextContent("ETB 681.85");
     expect(screen.queryByText(/Stake tax/)).not.toBeInTheDocument();
     expect(screen.queryByText(/Winnings tax/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Taxes are withheld/)).not.toBeInTheDocument();
     expect(
       screen.getByText("Max win per ticket ETB 5,000,000.00.", {
         exact: false,

@@ -75,7 +75,7 @@ export function BetCard({ bet }: { bet: Bet }) {
         <span className="border-divider numeric grid w-full grid-cols-[1fr_1fr_1.4fr] gap-2 border-t pt-2.5">
           <span className="flex flex-col">
             <span className="text-muted text-[11px]">{t.t("bets.stake")}</span>
-            <span className="font-semibold">{t.number(bet.stake)}</span>
+            <span className="font-semibold">{t.money(bet.stake)}</span>
           </span>
           <span className="flex flex-col">
             <span className="text-muted text-[11px]">{t.t("bets.odds")}</span>

@@ -10,6 +10,16 @@ export const BETTING = {
   defaultStake: "100",
 } as const;
 
+/**
+ * The shares a partial cash-out can take, as exact fractions so the preview of
+ * an amount never goes through a float.
+ */
+export const CASH_OUT_SHARES = [
+  { fraction: 0.25, numerator: 1, denominator: 4, labelKey: "bets.part25" },
+  { fraction: 0.5, numerator: 1, denominator: 2, labelKey: "bets.part50" },
+  { fraction: 1, numerator: 1, denominator: 1, labelKey: "bets.partAll" },
+] as const;
+
 export const CURRENCY = { code: "ETB", amharic: "ብር" } as const;
 
 /**

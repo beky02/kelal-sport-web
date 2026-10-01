@@ -2,7 +2,7 @@
 id: F5
 title: Place bet with Idempotency-Key and the 409 flow; My bets; /t/[ticket]
 status: todo
-depends_on: [F3, F4]
+depends_on: [F3a, F3b, F4]
 contract_tags: [Bets, Bookings]
 touches_money: true
 touches_ui: true
@@ -49,3 +49,15 @@ Out: cash out (Release 2 flag stays off).
 - [ ] **AC-3** The ticket shows the API's `net_payout`, not the preview's.
 - [ ] **AC-4** `/t/R7K2-M9XP-K` renders the ticket status with JavaScript disabled.
 - [ ] **AC-5** My bets pages with `next_cursor`.
+
+## Carried over from F3a review (2026-10-01)
+
+- **Tickets must show the server's figures.** F3a recomputes ticket figures with slipcalc and today's
+  rule set because bets are still mocks. Real tickets carry `stake_tax`, `win_tax`, `acca_bonus`,
+  `potential_payout`, `payout`, `bet_type`, `system_sizes` and `rules_version`; put them on the domain
+  `Bet` and show them. Recompute only as a labelled preview, with the bet's own type and rule version
+  (money review M2, quality Q2).
+- **Cash-out remainder** (Release 2) is priced by slipcalc on the remaining stake; replace it with the
+  server's cash-out quote when cash out is built (M4).
+- **Placement** still sends no `Idempotency-Key` and its request/receipt are not the contract's
+  `PlacedBet` shapes; no 409 `BET_ODDS_CHANGED` flow yet (security SEC2, money M9).

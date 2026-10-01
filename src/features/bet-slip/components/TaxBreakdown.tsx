@@ -5,7 +5,7 @@ import type { RuleSetJson } from "@golden/slipcalc";
 import { useTranslation } from "@/lib/i18n/use-translation";
 import { compareMoney } from "@/lib/money";
 import type { BetSlipTotals } from "../lib/calculate";
-import { taxLabel, taxLines } from "../lib/tax-lines";
+import { taxLineLabel, taxLines } from "../lib/tax-lines";
 import { CalculationSteps } from "./CalculationSteps";
 
 function Line({ label, value }: { label: React.ReactNode; value: string }) {
@@ -64,16 +64,7 @@ export function TaxBreakdown({
       {taxLines(rules, quote).map((tax) => (
         <Line
           key={tax.code}
-          label={
-            <>
-              {t.t(taxLabel(tax.code))}{" "}
-              <span className="text-muted">
-                · {t.percent(tax.rate)}
-                {tax.threshold &&
-                  ` ${t.t("betSlip.taxAbove", { amount: t.money(tax.threshold) })}`}
-              </span>
-            </>
-          }
+          label={taxLineLabel(t, tax)}
           value={`− ${amount(tax.amount)}`}
         />
       ))}

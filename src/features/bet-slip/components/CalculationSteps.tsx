@@ -5,7 +5,7 @@ import { useTranslation } from "@/lib/i18n/use-translation";
 import { compareMoney } from "@/lib/money";
 import { cn } from "@/lib/utils/cn";
 import type { SlipQuote } from "../lib/calculate";
-import { taxLabel, taxLines } from "../lib/tax-lines";
+import { taxLineLabel, taxLines } from "../lib/tax-lines";
 import type { BetSlipMode } from "../types";
 
 interface Row {
@@ -43,13 +43,6 @@ export function CalculationSteps({
         ? t.t("betSlip.oddsAcross", { n: quote.lines })
         : t.t("betSlip.oddsEach");
 
-  const taxLabelFor = (tax: (typeof taxes)[number]) =>
-    `${t.t(taxLabel(tax.code))} · ${t.percent(tax.rate)}${
-      tax.threshold
-        ? ` ${t.t("betSlip.taxAbove", { amount: t.money(tax.threshold) })}`
-        : ""
-    }`;
-
   const rows: Row[] = [
     {
       operator: "",
@@ -60,7 +53,7 @@ export function CalculationSteps({
       .filter((tax) => tax.stage === "stake")
       .map((tax) => ({
         operator: "−",
-        label: taxLabelFor(tax),
+        label: taxLineLabel(t, tax),
         value: t.money(tax.amount ?? "0.00"),
       })),
     {
@@ -89,11 +82,21 @@ export function CalculationSteps({
           },
         ]
       : []),
+    // The cap cuts the bonus, then gross, before any payout tax (D1.7).
+    ...(quote.capped
+      ? [
+          {
+            operator: "≤",
+            label: t.t("betSlip.cappedAtMax"),
+            value: t.money(rules.max_payout),
+          },
+        ]
+      : []),
     ...taxes
       .filter((tax) => tax.stage === "payout")
       .map((tax) => ({
         operator: "−",
-        label: taxLabelFor(tax),
+        label: taxLineLabel(t, tax),
         value: t.money(tax.amount ?? "0.00"),
       })),
     {
@@ -108,7 +111,10 @@ export function CalculationSteps({
   ];
 
   return (
-    <div className="bg-ground flex flex-col gap-1.5 rounded-md px-3 py-2.5 text-xs">
+    <div
+      data-testid="calculation-steps"
+      className="bg-ground flex flex-col gap-1.5 rounded-md px-3 py-2.5 text-xs"
+    >
       {rows.map((row, index) => {
         const last = index === rows.length - 1;
         return (

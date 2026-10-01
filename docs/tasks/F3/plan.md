@@ -192,3 +192,9 @@ multi-size system bets (Trixie, Yankee…) in the picker; per-line stake entry.
   instead of being computed in the mock (the mock has no rule set).
 - **Phone `home-slip` screen** has two picks: the contract's Real Madrid market is suspended and the
   phone board shows only 1X2.
+- **Default stake kept**: a fresh slip starts at `"100"` (`BETTING.defaultStake`), as the built slip did.
+  It is a UI convenience, not a commercial rule, and any amount is still checked against the tenant's
+  limits. Listed for product to confirm (spec S4).
+- **Cap row added** to the working when `quote.capped` (spec S5); tax note shown only when the tenant
+  has a tax (S2); tax labels are whole templates (`betSlip.taxRate`, `betSlip.taxRateOver`) whose wording
+  says the tax is on the whole win once over the threshold (S1, D1.8).

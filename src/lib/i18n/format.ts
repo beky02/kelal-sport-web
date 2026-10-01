@@ -26,18 +26,29 @@ export const formatNumber = (n: number | string): string =>
         maximumFractionDigits: 2,
       });
 
+/** Keeps the currency and the amount on one line wherever text wraps. */
+const NBSP = "\u00a0";
+
 /**
  * Money with the currency where that language puts it: `ETB 1,250.00` in
  * English, `1,250.00 ብር` in Amharic.
  */
 export const formatMoney = (n: number | string, lang: Lang): string =>
   lang === "am"
-    ? `${formatNumber(n)} ${CURRENCY.amharic}`
-    : `${CURRENCY.code} ${formatNumber(n)}`;
+    ? `${formatNumber(n)}${NBSP}${CURRENCY.amharic}`
+    : `${CURRENCY.code}${NBSP}${formatNumber(n)}`;
 
-/** Odds to two decimals, for display only (`"2.105"` → `"2.11"`). */
-export const formatOdds = (odds: number | string): string =>
-  Number(odds).toFixed(2);
+/**
+ * Odds to two decimals, for display. A decimal string is floored by moving
+ * characters (`"2.105"` → `"2.10"`), as slipcalc floors total odds (D1.11), so
+ * a button never shows more than the price it is priced at.
+ */
+export const formatOdds = (odds: number | string): string => {
+  if (typeof odds === "number") return odds.toFixed(2);
+  if (!/^\d+(\.\d+)?$/.test(odds)) return odds;
+  const [whole, fraction = ""] = odds.split(".");
+  return `${whole}.${(fraction + "00").slice(0, 2)}`;
+};
 
 /** A rate as a percentage: `"0.15"` → `"15%"`. Display only. */
 export const formatPercent = (rate: number | string): string =>

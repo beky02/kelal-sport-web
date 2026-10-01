@@ -26,7 +26,7 @@ export function usePlaceBet(onPlaced: (receipt: BetReceipt) => void) {
       );
       // The button is disabled without a rule set; this is the backstop.
       if (!config) {
-        throw new ApiError("Betting rules not loaded", 0, "network");
+        throw new ApiError("Betting rules not loaded", 0, "RULES_UNAVAILABLE");
       }
       return placeBet(
         {

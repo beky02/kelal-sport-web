@@ -11,6 +11,7 @@ import { routes } from "@/config/routes";
 import { cn } from "@/lib/utils/cn";
 import { useBets } from "../hooks/use-bets";
 import type { BetsTab } from "../types";
+import { RulesUnavailable } from "@/features/config/components/RulesUnavailable";
 import { BetCard } from "./BetCard";
 import { BetTabs } from "./BetTabs";
 import { TransactionsList } from "./TransactionsList";
@@ -63,6 +64,7 @@ export function MyBetsView({
           <div className={compact ? "" : "mt-3"}>
             <BetTabs value={tab} counts={counts} onChange={setTab} />
           </div>
+          <RulesUnavailable className="mx-3.5 mt-3" />
 
           {isPending ? (
             <div className="flex flex-col gap-3 p-3.5">

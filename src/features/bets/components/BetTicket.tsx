@@ -11,11 +11,12 @@ import { routes } from "@/config/routes";
 import { cn } from "@/lib/utils/cn";
 import { useBet } from "../hooks/use-bets";
 import { usePublicConfig } from "@/features/config/hooks/use-public-config";
-import { taxLabel, taxLines } from "@/features/bet-slip/lib/tax-lines";
+import { taxLineLabel, taxLines } from "@/features/bet-slip/lib/tax-lines";
 import { compareMoney } from "@/lib/money";
 import { betFigures, payoutView, PAYOUT_TONE } from "../lib/figures";
 import { BetStatusBadge, LegDot } from "./BetStatusBadge";
 import { features } from "@/config/features";
+import { RulesUnavailable } from "@/features/config/components/RulesUnavailable";
 import { CashOutPanel } from "./CashOutPanel";
 
 /**
@@ -59,7 +60,7 @@ export function BetTicket({ id }: { id: string }) {
     value ? t.money(value) : "—";
   const taxes = rules ? taxLines(rules, figures) : [];
   const taxRow = (tax: (typeof taxes)[number]) => ({
-    label: `${t.t(taxLabel(tax.code))} · ${t.percent(tax.rate)}`,
+    label: taxLineLabel(t, tax),
     value: `− ${money(tax.amount)}`,
     strong: true,
   });
@@ -87,6 +88,15 @@ export function BetTicket({ id }: { id: string }) {
         ]
       : []),
     ...taxes.filter((tax) => tax.stage === "payout").map(taxRow),
+    // All legs void, and the tenant refunds the stake tax (D1.9).
+    ...(figures && compareMoney(figures.stakeTaxRefund, "0.00") > 0
+      ? [
+          {
+            label: t.t("bets.stakeTaxRefund"),
+            value: `+ ${t.money(figures.stakeTaxRefund)}`,
+          },
+        ]
+      : []),
   ];
 
   return (
@@ -106,6 +116,7 @@ export function BetTicket({ id }: { id: string }) {
       </div>
 
       <Card className="m-4 flex flex-col gap-3 p-3.5">
+        <RulesUnavailable />
         <div className="flex items-center justify-between">
           <BetStatusBadge bet={bet} />
           <span className="text-muted text-[11px]">

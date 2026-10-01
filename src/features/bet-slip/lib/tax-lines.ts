@@ -1,4 +1,5 @@
 import type { RuleSetJson } from "@golden/slipcalc";
+import type { Translator } from "@/lib/i18n/use-translation";
 import { compareMoney } from "@/lib/money";
 import type { SlipQuote } from "./calculate";
 
@@ -47,4 +48,17 @@ export const TAX_LABEL = {
 } as const;
 
 export const taxLabel = (code: string) =>
-  TAX_LABEL[code as keyof typeof TAX_LABEL] ?? "betSlip.winTax";
+  // A code the app has no name for is called just "Tax", never mislabelled.
+  TAX_LABEL[code as keyof typeof TAX_LABEL] ?? "betSlip.tax";
+
+/**
+ * "Winnings tax · 15% of the whole win once it’s over ETB 1,000.00": one
+ * message per shape, so each language orders its own words. The threshold
+ * wording matters — D1.8 taxes the whole base, not the part above it.
+ */
+export function taxLineLabel(t: Translator, tax: TaxLine): string {
+  const values = { tax: t.t(taxLabel(tax.code)), rate: t.percent(tax.rate) };
+  return tax.threshold
+    ? t.t("betSlip.taxRateOver", { ...values, amount: t.money(tax.threshold) })
+    : t.t("betSlip.taxRate", values);
+}

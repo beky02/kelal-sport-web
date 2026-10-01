@@ -4,6 +4,7 @@ import { ArrowRight } from "lucide-react";
 import type { RuleSetJson } from "@golden/slipcalc";
 import { useTranslation } from "@/lib/i18n/use-translation";
 import type { BetSlipTotals } from "../lib/calculate";
+import { taxLines } from "../lib/tax-lines";
 
 /**
  * Stake in, return out — the two numbers people actually read.
@@ -31,8 +32,9 @@ export function PayoutSummary({
   return (
     <>
       <p className="text-muted mx-4 mt-2 text-[11px] leading-[1.45] text-pretty">
-        {t.t("betSlip.maxWin", { amount: t.money(rules.max_payout) })}{" "}
-        {t.t("betSlip.taxNote")}
+        {t.t("betSlip.maxWin", { amount: t.money(rules.max_payout) })}
+        {/* Only where the tenant actually taxes something. */}
+        {taxLines(rules, null).length > 0 && ` ${t.t("betSlip.taxNote")}`}
       </p>
 
       <div className="bg-surface border-border numeric mx-4 mt-3 grid grid-cols-[auto_auto_minmax(0,1fr)] items-end gap-3 rounded-lg border p-3.5">

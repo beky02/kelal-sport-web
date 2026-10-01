@@ -53,6 +53,8 @@ describe("message catalogues", () => {
       "sidebar.licence",
       "bets.part25",
       "bets.part50",
+      // "{tax} · {rate}": both placeholders are filled with Amharic.
+      "betSlip.taxRate",
     ]);
     for (const [key, value] of amharic) {
       if (symbolic.has(key)) continue;

@@ -12,6 +12,27 @@ const MONEY_NAME =
 const moneyMessage =
   "Money and odds are decimal strings (FD4): use lib/money.ts or slipcalc, and format with t.money / t.odds.";
 
+/**
+ * A money-named value as an expression: `stake`, `bet.stake`, `bet?.stake`,
+ * `bet["stake"]`, `stake as string`, `stake!` or a template wrapping one.
+ */
+const moneyValue = [
+  `Identifier[name=${MONEY_NAME}]`,
+  `MemberExpression[property.name=${MONEY_NAME}]`,
+  `MemberExpression[property.value=${MONEY_NAME}]`,
+];
+const wrapped = (inner) => [
+  ...inner,
+  ...inner.map((v) => `ChainExpression:has(> ${v})`),
+  ...inner.map((v) => `TSAsExpression:has(> ${v})`),
+  ...inner.map((v) => `TSNonNullExpression:has(> ${v})`),
+  ...inner.map((v) => `TemplateLiteral:has(> ${v})`),
+];
+const moneySelectors = wrapped(moneyValue).flatMap((value) => [
+  `CallExpression[callee.name=/^(Number|parseInt)$/] > ${value}.arguments`,
+  `UnaryExpression[operator='+'] > ${value}.argument`,
+]);
+
 const noFloatMoney = {
   files: ["**/*.{ts,tsx,mts}"],
   ignores: [
@@ -26,12 +47,10 @@ const noFloatMoney = {
         selector: "CallExpression[callee.name='parseFloat']",
         message: moneyMessage,
       },
-      ...[
-        `CallExpression[callee.name='Number'] > Identifier.arguments[name=${MONEY_NAME}]`,
-        `CallExpression[callee.name='Number'] > MemberExpression.arguments[property.name=${MONEY_NAME}]`,
-        `UnaryExpression[operator='+'] > Identifier.argument[name=${MONEY_NAME}]`,
-        `UnaryExpression[operator='+'] > MemberExpression.argument[property.name=${MONEY_NAME}]`,
-      ].map((selector) => ({ selector, message: moneyMessage })),
+      ...moneySelectors.map((selector) => ({
+        selector,
+        message: moneyMessage,
+      })),
     ],
   },
 };
