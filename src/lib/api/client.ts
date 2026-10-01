@@ -31,7 +31,12 @@ async function request<T>(
   method: "GET" | "POST",
   path: string,
   schema: z.ZodType<T>,
-  options: { params?: Params; body?: unknown; signal?: AbortSignal } = {},
+  options: {
+    params?: Params;
+    body?: unknown;
+    signal?: AbortSignal;
+    headers?: Record<string, string>;
+  } = {},
 ): Promise<T> {
   let response: Response;
   try {
@@ -43,6 +48,7 @@ async function request<T>(
       headers: {
         Accept: "application/json",
         ...(options.body ? { "Content-Type": "application/json" } : {}),
+        ...options.headers,
       },
       body: options.body ? JSON.stringify(options.body) : undefined,
     });
@@ -89,7 +95,7 @@ export const apiClient = {
     path: string,
     schema: z.ZodType<T>,
     body: unknown,
-    options?: { signal?: AbortSignal },
+    options?: { signal?: AbortSignal; headers?: Record<string, string> },
   ) => request("POST", path, schema, { ...options, body }),
 };
 

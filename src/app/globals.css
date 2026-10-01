@@ -44,6 +44,8 @@
 
   --color-live: #ff4d4f;
   --color-warn: #f5b83d;
+  /* Telegram's own blue, for "Share on Telegram" in every theme. */
+  --color-telegram: #229ed9;
   --color-warn-bg: rgb(245 184 61 / 0.12);
 }
 
@@ -133,6 +135,7 @@
 
   --color-live: var(--color-live);
   --color-warn: var(--color-warn);
+  --color-telegram: var(--color-telegram);
   --color-warn-bg: var(--color-warn-bg);
 
   /* The design specifies two desktop layouts: 1280 narrows the sidebars and

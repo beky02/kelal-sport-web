@@ -116,12 +116,11 @@
     "placeFailed": "ውርርዱ አልተቀበለም",
     "bookBet": "ትኬት አስቀምጥ",
     "bookingCode": "የትኬት ኮድ",
-    "validUntilKickoff": "እስከ መጀመሪያው ጨዋታ",
     "copyCode": "ኮድ ቅዳ",
     "copied": "ተቀድቷል",
     "bookHint": "በኋላ ያስይዙት ወይም ያጋሩት። ወኪል ሱቆችም ይህን ኮድ መጫን ይችላሉ።",
     "loadCode": "የትኬት ኮድ ያስገቡ",
-    "loadCodePlaceholder": "ለምሳሌ KS7Q4M2",
+    "loadCodePlaceholder": "ለምሳሌ 7KQ2M9X",
     "load": "ጫን",
     "setMax": "{amount} አድርግ",
     "alerts": {
@@ -527,5 +526,46 @@
     "goBack": "ተመለስ",
     "activeBreak": "ዕረፍት ላይ ነዎት · {period}። ውርርድና ገቢ ቆመዋል።",
     "activeExclusion": "ራስን ማግለል ንቁ ነው · {period}።"
+  },
+  "booking": {
+    "validUntil": "እስከ {day} {date}፣ {time} ያገለግላል",
+    "shareText": "የውርርድ ትኬት {code}",
+    "loaded": "የትኬት ኮድ {code} ትኬትዎ ውስጥ ገብቷል።",
+    "notAddedTitle": "አልተጨመሩም፤ ከእንግዲህ አይገኙም፦",
+    "notAddedLeg": "{event} · {pick}፦ {reason}",
+    "sizesNote": "ይህ ኮድ የሲስተም መጠኖችን {sizes} ያጣምራል። ትኬቱ {k} ያሳያል።",
+    "dismiss": "ዝጋ",
+    "loadIntoSlip": "ወደ ትኬት ጫን",
+    "replacesSlip": "ትኬትዎ ውስጥ ያሉትን {n} ምርጫዎች ይተካል።",
+    "stakeHint": "የተጠቆመ የውርርድ መጠን",
+    "pageTitle": "የውርርድ ትኬት {code}",
+    "selections": "ምርጫዎች",
+    "wasOdds": "ቀድሞ {odds}",
+    "expiredTitle": "ይህ ኮድ ጊዜው አልፏል",
+    "expiredBody": "ኮድ {code} ከእንግዲህ መጫን አይቻልም። አዲስ ኮድ ይጠይቁ ወይም ትኬቱን እንደገና ይሥሩ።",
+    "notFoundTitle": "በዚህ ኮድ የተቀመጠ ትኬት የለም",
+    "notFoundBody": "ኮድ {code}ን ያረጋግጡና እንደገና ይሞክሩ።",
+    "failedTitle": "ይህን ትኬት መጫን አልተሳካም",
+    "failedBody": "ግንኙነትዎን ያረጋግጡ እና እንደገና ይሞክሩ።",
+    "invalidCode": "የትኬት ኮድ 7 ፊደላትና ቁጥሮች ነው፤ ለምሳሌ 7KQ2M9X።",
+    "reason": {
+      "EVENT_STARTED": "ጨዋታው ተጀምሯል",
+      "MARKET_SUSPENDED": "ውርርድ ቆሟል",
+      "MARKET_CLOSED": "ገበያው ተዘግቷል",
+      "NOT_FOUND": "ከእንግዲህ አይቀርብም",
+      "UNPRICED": "አሁን ዋጋ የለውም"
+    },
+    "errors": {
+      "expired": "ኮድ {code} ጊዜው አልፏል።",
+      "notFound": "በኮድ {code} የተቀመጠ ትኬት የለም። ያረጋግጡና እንደገና ይሞክሩ።",
+      "rateLimited": "አሁን በጣም ብዙ የትኬት ኮዶች ተሠርተዋል። ቆይተው ይሞክሩ።",
+      "cannotBook": "ይህ ትኬት እንዳለ ሊቀመጥ አይችልም።",
+      "failed": "የትኬት ኮድ አገልግሎቱን ማግኘት አልተቻለም። እንደገና ይሞክሩ።"
+    },
+    "og": {
+      "description": "ምርጫዎች፦ {picks}",
+      "expired": "ይህ የትኬት ኮድ ጊዜው አልፏል።",
+      "notFound": "በዚህ ኮድ የተቀመጠ ትኬት የለም።"
+    }
   }
 }

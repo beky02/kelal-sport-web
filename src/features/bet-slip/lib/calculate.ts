@@ -80,6 +80,8 @@ export interface BetSlipTotals {
   systemAvailable: boolean;
   /** Clamped into [2, liveCount − 1]. */
   systemK: number;
+  /** What slipcalc is asked to price: one live pick is a single whatever the tab says. */
+  betType: BetType;
   /** Lines the slip places: one per pick, one, or C(n, k). */
   lineCount: number;
 
@@ -96,8 +98,11 @@ export interface BetSlipTotals {
   pendingOddsChanges: BetSelection[];
 }
 
-/** `"12."` is a stake being typed; an empty or zero stake asks nothing yet. */
-function stakeToPrice(stake: string): string | null {
+/**
+ * The typed stake as an amount slipcalc can take, or null. `"12."` is a stake
+ * being typed; an empty or zero stake asks nothing yet.
+ */
+export function stakeToPrice(stake: string): string | null {
   const value = stake.replace(/\.$/, "");
   if (!/^\d+(\.\d{1,2})?$/.test(value)) return null;
   return toSantim(value) > 0n ? value : null;
@@ -205,6 +210,7 @@ export function calculateBetSlip(input: BetSlipInput): BetSlipTotals {
     mode,
     systemAvailable,
     systemK,
+    betType,
     lineCount,
     quote: quoteResult,
     problem,
