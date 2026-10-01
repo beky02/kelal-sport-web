@@ -119,12 +119,14 @@ export const useBetSlipStore = create<BetSlipState>()((set, get) => ({
     const next = selections.some((s) => s.outcomeId === selection.outcomeId)
       ? selections.filter((s) => s.outcomeId !== selection.outcomeId)
       : [...selections, selection];
-    set({ selections: next, index: reindex(next) });
+    // Once the player changes a loaded slip it is theirs: the notice about
+    // what the booking brought no longer describes it.
+    set({ selections: next, index: reindex(next), bookingNotice: null });
   },
 
   removeSelection: (outcomeId) => {
     const next = get().selections.filter((s) => s.outcomeId !== outcomeId);
-    set({ selections: next, index: reindex(next) });
+    set({ selections: next, index: reindex(next), bookingNotice: null });
   },
 
   clear: () =>

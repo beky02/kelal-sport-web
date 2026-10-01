@@ -31,7 +31,9 @@ F1, F2a, F3 and F4 only need F0 and can go in any order. Recommended order: **F3
 currently a float estimate that differs from the backend), F1, F2a, F2b, F4, F5, F6, F7, F8a, F8–F10.
 Whichever of F1, F2a and F3 runs first builds `loadPublicConfig` (`/v1/config/public`, cached per
 tenant); the others reuse it. The "Backend piece" column says when a screen
-can move from Prism to the real API (`API_REAL_TAGS`, D7) — none of the tasks wait for it.
+can move from Prism to the real API (`API_REAL_TAGS`, D7) — none of the tasks wait for it. One exception:
+the server refuses `Bookings` in `API_REAL_TAGS` until contract request 004 (the player's IP and device)
+and a trusted-proxy setting land.
 
 ## Decisions
 

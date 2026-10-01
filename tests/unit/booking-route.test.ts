@@ -126,7 +126,8 @@ describe("GET /api/bookings/[code]", () => {
     expect(sent).toHaveLength(0);
   });
 
-  it("forwards Prism's Prefer header outside production only", async () => {
+  it("forwards Prism's Prefer header under next dev only", async () => {
+    vi.stubEnv("NODE_ENV", "development");
     upstreamAnswers(200, responseExample("/v1/bookings/{code}", "get", 200));
     await get("7KQ2M9X", { prefer: "code=410" });
     expect(sent[0].headers.get("prefer")).toBe("code=410");
@@ -135,10 +136,13 @@ describe("GET /api/bookings/[code]", () => {
     await get("7KQ2M9X", { prefer: "respond-async, wait=5" });
     expect(sent[0].headers.get("prefer")).toBeNull();
 
-    sent = [];
-    vi.stubEnv("NODE_ENV", "production");
-    await get("7KQ2M9X", { prefer: "code=410" });
-    expect(sent[0].headers.get("prefer")).toBeNull();
+    // Fails closed: production, and any other build (test, staging).
+    for (const env of ["production", "test", "staging"]) {
+      sent = [];
+      vi.stubEnv("NODE_ENV", env);
+      await get("7KQ2M9X", { prefer: "code=410" });
+      expect(sent[0].headers.get("prefer"), env).toBeNull();
+    }
   });
 });
 

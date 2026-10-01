@@ -1,4 +1,5 @@
 import type { Localized } from "@/types/common";
+import { compareMoney } from "@/lib/money";
 import type { BetSelection, BetSlipMode } from "@/features/bet-slip/types";
 import type { Booking, BookingLeg } from "../types";
 
@@ -71,7 +72,11 @@ export function slipFromBooking(booking: Booking): SlipFromBooking {
     selections,
     mode: booking.betType,
     systemK: sizes[0] ?? null,
-    stake: booking.stakeHint,
+    // A zero (or negative) hint is no hint: the slip keeps its stake.
+    stake:
+      booking.stakeHint && compareMoney(booking.stakeHint, "0.00") > 0
+        ? booking.stakeHint
+        : null,
     notice: {
       code: booking.code,
       notAdded,

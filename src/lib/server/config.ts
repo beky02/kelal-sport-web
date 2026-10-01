@@ -13,7 +13,16 @@ const schema = z.object({
    * from Prism to the backend one tag at a time as its pieces land.
    */
   apiRealUrl: z.string().url().optional(),
-  apiRealTags: z.array(z.string()),
+  apiRealTags: z
+    .array(z.string())
+    .refine((tags) => !tags.includes("Bookings"), {
+      // Anonymous bookings would reach the API from this server's address, so
+      // its per-IP and per-device limits would be one bucket for every guest.
+      // Refused until contract request 004 (X-Client-IP / X-Client-Device) and a
+      // trusted-proxy setting land.
+      message:
+        "Bookings cannot use the real API yet: contract request 004 (client IP and device) must land first",
+    }),
   /** Tenant for hosts not in the map. `demo` locally. */
   defaultTenant: z.string().min(1),
   /** `host=tenant` pairs, comma-separated: `kelalsport.et=kelal,localhost=demo`. */
@@ -54,9 +63,14 @@ export const serverConfig = parsed.data;
 
 /** Where calls tagged `tag` in the contract go: the real API, or the mock (D7). */
 export function baseUrlFor(tag: ApiTag): string {
-  return serverConfig.apiRealUrl && serverConfig.apiRealTags.includes(tag)
+  return usesRealApi(tag) && serverConfig.apiRealUrl
     ? serverConfig.apiRealUrl
     : serverConfig.apiBaseUrl;
+}
+
+/** True when calls tagged `tag` go to the real API rather than the mock (D7). */
+export function usesRealApi(tag: ApiTag): boolean {
+  return !!serverConfig.apiRealUrl && serverConfig.apiRealTags.includes(tag);
 }
 
 /** OpenAPI tags, as `contracts/openapi.yaml` names them. */

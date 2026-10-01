@@ -2,7 +2,7 @@ import "server-only";
 import createClient from "openapi-fetch";
 import type { paths } from "@/lib/api/schema";
 import type { Lang } from "@/types/common";
-import { baseUrlFor, type ApiTag } from "./config";
+import { baseUrlFor, usesRealApi, type ApiTag } from "./config";
 
 export type Upstream = ReturnType<typeof upstream>;
 
@@ -18,11 +18,13 @@ export interface RequestContext {
 }
 
 /**
- * The browser's `Prefer` header, if it is one of Prism's forms and this is not
- * a production server. Never forwarded in production, and nothing else is.
+ * The browser's `Prefer` header, if it is one of Prism's forms and this is
+ * `next dev`. Fails closed: any other build (production, staging, test)
+ * forwards nothing, and `upstream()` sends it only to the mock, never to the
+ * real API.
  */
 export function mockPreference(header: string | null): string | undefined {
-  if (process.env.NODE_ENV === "production" || !header) return undefined;
+  if (process.env.NODE_ENV !== "development" || !header) return undefined;
   return /^(code=\d{3}|example=[\w-]+)$/.test(header) ? header : undefined;
 }
 
@@ -56,7 +58,7 @@ export function upstream(
     headers: {
       "X-Tenant-Id": tenant,
       "Accept-Language": lang,
-      ...(prefer ? { Prefer: prefer } : {}),
+      ...(prefer && !usesRealApi(tag) ? { Prefer: prefer } : {}),
     },
   });
   client.use({
