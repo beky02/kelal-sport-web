@@ -1,26 +1,221 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+/* ══════════════════════════════════════════════════════════════════════════
+   KelalSport design tokens.
+
+   Ported from the design system in `Kelal Sport Canvas.dc.html` (themes in
+   kelal-data.js). Two layers:
+
+   1. Semantic CSS variables on :root / [data-theme] — swapped at runtime.
+   2. @theme inline, which maps them onto Tailwind utilities. `inline` keeps
+      the var() reference in the generated CSS instead of resolving it, so
+      `bg-surface` follows the active theme.
+
+   Never write a raw hex in a component. Add a token here instead.
+   ══════════════════════════════════════════════════════════════════════ */
+
+:root,
+:root[data-theme="dark"] {
+  color-scheme: dark;
+
+  --color-ground: #0d1116;
+  --color-surface: #161b22;
+  --color-raised: #1f2530;
+  --color-odd: #232a36;
+  --color-line: transparent;
+  --color-border: rgb(255 255 255 / 0.06);
+  --color-divider: rgb(238 241 245 / 0.08);
+  --color-sel-row: rgb(61 139 255 / 0.07);
+
+  --color-text: #eef1f5;
+  --color-muted: #9aa4b2;
+
+  --color-accent: #3d8bff;
+  --color-accent-100: #16233a;
+  --color-accent-600: #5c9dff;
+  --color-accent-700: #7fb2ff;
+  --color-accent-800: #cfe1ff;
+  --color-on-accent: #ffffff;
+
+  --color-win: oklch(0.79 0.16 152);
+  --color-loss: oklch(0.7 0.18 25);
+  --color-win-bg: oklch(0.79 0.16 152 / 0.15);
+  --color-loss-bg: oklch(0.7 0.18 25 / 0.15);
+
+  --color-live: #ff4d4f;
+  --color-warn: #f5b83d;
+  --color-warn-bg: rgb(245 184 61 / 0.12);
+}
+
+:root[data-theme="light"] {
+  color-scheme: light;
+
+  --color-ground: #e4e8ee;
+  --color-surface: #ffffff;
+  --color-raised: #f1f3f7;
+  --color-odd: #f4f6f9;
+  --color-line: rgb(16 20 26 / 0.12);
+  --color-border: rgb(16 20 26 / 0.08);
+  --color-divider: rgb(16 20 26 / 0.09);
+  --color-sel-row: rgb(31 111 229 / 0.06);
+
+  --color-text: #10141a;
+  --color-muted: #566172;
+
+  --color-accent: #1f6fe5;
+  --color-accent-100: #e3edfd;
+  --color-accent-600: #1a5fc6;
+  --color-accent-700: #154fa6;
+  --color-accent-800: #0f3b7d;
+  --color-on-accent: #ffffff;
+
+  --color-win: oklch(0.5 0.14 152);
+  --color-loss: oklch(0.53 0.2 25);
+  --color-win-bg: oklch(0.5 0.14 152 / 0.12);
+  --color-loss-bg: oklch(0.53 0.2 25 / 0.1);
+
+  --color-live: #e02424;
+  --color-warn: #b86e00;
+  --color-warn-bg: rgb(217 140 10 / 0.12);
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+   Script-dependent typography. Ethiopic runs taller and denser than Latin, so
+   Amharic gets more line height, no caps/tracking on labels, one step larger
+   labels, and semibold instead of bold. `--head-stretch` condenses the
+   variable wdth axis of Noto Sans Ethiopic to sit with Barlow Condensed;
+   Barlow itself ignores it.
+   ────────────────────────────────────────────────────────────────────── */
+
+:root,
+:root[lang="en"] {
+  --head-stretch: 100%;
+  --leading-body: 1.4;
+  --label-size: 11px;
+  --label-track: 0.08em;
+  --label-case: uppercase;
+  --weight-strong: 700;
+}
+
+:root[lang="am"] {
+  --head-stretch: 82%;
+  --leading-body: 1.55;
+  --label-size: 12px;
+  --label-track: 0;
+  --label-case: none;
+  --weight-strong: 600;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-ground: var(--color-ground);
+  --color-surface: var(--color-surface);
+  --color-raised: var(--color-raised);
+  --color-odd: var(--color-odd);
+  --color-line: var(--color-line);
+  --color-border: var(--color-border);
+  --color-divider: var(--color-divider);
+  --color-sel-row: var(--color-sel-row);
+
+  --color-text: var(--color-text);
+  --color-muted: var(--color-muted);
+
+  --color-accent: var(--color-accent);
+  --color-accent-100: var(--color-accent-100);
+  --color-accent-600: var(--color-accent-600);
+  --color-accent-700: var(--color-accent-700);
+  --color-accent-800: var(--color-accent-800);
+  --color-on-accent: var(--color-on-accent);
+
+  --color-win: var(--color-win);
+  --color-loss: var(--color-loss);
+  --color-win-bg: var(--color-win-bg);
+  --color-loss-bg: var(--color-loss-bg);
+
+  --color-live: var(--color-live);
+  --color-warn: var(--color-warn);
+  --color-warn-bg: var(--color-warn-bg);
+
+  /* The design specifies two desktop layouts: 1280 narrows the sidebars and
+     the market columns, 1440 is the reference. 1440 falls inside Tailwind's
+     xl, so it needs a stop of its own.
+
+     Set at 1400, not 1440: a media query measures the layout viewport, which
+     excludes the scrollbar, so a 1440px window reports about 1425. Pitching
+     the stop between the two design widths means each window size gets the
+     layout it was drawn for. */
+  --breakpoint-wide: 1400px;
+
+  /* sm = odds, chips, sidebar rows · md = buttons, inputs · lg = cards */
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+
+  --font-body:
+    var(--font-barlow), var(--font-noto-ethiopic), system-ui, sans-serif;
+  --font-heading:
+    var(--font-barlow-condensed), var(--font-noto-ethiopic), system-ui,
+    sans-serif;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+@layer base {
+  * {
+    min-width: 0;
+  }
+
+  html {
+    background: var(--color-ground);
+  }
+
+  body {
+    background: var(--color-ground);
+    color: var(--color-text);
+    font-family: var(--font-body);
+    font-size: 13px;
+    line-height: var(--leading-body);
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    font-family: var(--font-heading);
+    font-stretch: var(--head-stretch);
+    font-weight: 600;
+    line-height: 1.12;
+    letter-spacing: -0.015em;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+  }
+
+  ::selection {
+    background: color-mix(in srgb, var(--color-accent) 30%, transparent);
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+@utility label-caps {
+  font-size: var(--label-size);
+  font-weight: 700;
+  letter-spacing: var(--label-track);
+  text-transform: var(--label-case);
+}
+
+@utility font-display {
+  font-family: var(--font-heading);
+  font-stretch: var(--head-stretch);
+  font-weight: 600;
+}
+
+/* Odds and money must align in a column and stay readable at 11px. */
+@utility numeric {
+  font-variant-numeric: tabular-nums;
+}
+
+@utility no-scrollbar {
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
 }
