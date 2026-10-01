@@ -18,6 +18,8 @@ are created and loaded through the contract.
 
 ## Read first
 
+- `docs/decisions.md` **FD4** (no `decimal.js`; `lib/money.ts` on BigInt santim; lint rule) and **FD3**
+  (`/b/{code}` deep link)
 - `../kelal backend/docs/engineering-decisions.md` D1 (all 12 rules), D7 (quick stakes set the total)
 - `contracts/golden/README.md`, `contracts/golden/ts/slipcalc.ts`, `contracts/golden/ts/golden.test.ts`
 - `../kelal backend/docs/design/components/c07-slip-calculator.md` (worked example, net payout 690.29)
@@ -42,6 +44,10 @@ In:
 - Bookings: create (`POST /v1/bookings`), load by code into the slip, `/b/[code]` page (server-rendered
   with Open Graph metadata); `BOOKING_NOT_FOUND`, `BOOKING_EXPIRED` (410) handled.
 - `golden.test.ts` as a Vitest test over all of `slips.csv`.
+- `lib/money.ts` (FD4): string ↔ BigInt santim with slipcalc's rule, comparisons, sums; a test pins its
+  parse to slipcalc's `money()` round trip. ESLint `no-restricted-syntax` bans `parseFloat`, `Number(…)`
+  and unary `+` on money/odds outside `lib/money.ts`, slipcalc and the display formatters.
+- `loadPublicConfig` in `lib/server` if F1 or F2a has not built it yet.
 
 Out: placing the bet (F5); `POST /v1/slips/quote` only if a screen needs a server quote.
 
@@ -53,9 +59,11 @@ Out: placing the bet (F5); `POST /v1/slips/quote` only if a screen needs a serve
 - [ ] **AC-4** Quick stake 100 on a 3-line system bet charges 99.99 and shows the remainder warning.
 - [ ] **AC-5** Changing the rule set (test fixture with `no_tax`) changes the slip without code changes.
 - [ ] **AC-6** Booking `7KQ2M9X` (Prism) loads its selections into the slip; a 410 shows "expired".
+- [ ] **AC-8** `/b/7KQ2M9X` (unprefixed, FD3) works and `lib/money.ts` round-trips every money value in
+      `slips.csv` exactly; the lint rule fails on a deliberate `parseFloat(stake)` in a fixture file.
 - [ ] **AC-7** The anchor test `1.62 × 3.05 × 1.38 at 100` is updated to D1's figure, with the arithmetic
       in the test comment (it was 507.64 under the old float maths).
 
 ## Notes
 
-Open decision 4 (`decimal.js`) — slipcalc's BigInt rationals are the D1 definition and win for the slip.
+FD4 decided against `decimal.js` (2026-10-01): slipcalc's BigInt rationals are the D1 definition.

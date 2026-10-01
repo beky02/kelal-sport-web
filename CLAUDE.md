@@ -31,8 +31,9 @@ Arsenal v Chelsea, Real Madrid v Barcelona). Ask for an error or a named example
 ## Sources of truth (higher wins)
 
 1. `contracts/openapi.yaml` + `contracts/golden/` → 2. `../kelal backend/docs/engineering-decisions.md`
-   (D1–D9) → 3. `../kelal backend/docs/design/` (C18 is the web client) → 4. the claude.ai design
-   project (look and copy) → 5. `../kelal backend/docs/product/`.
+   (D1–D9) → 3. `docs/decisions.md` (FD1–FD5, this repo's decisions where the sources above leave a
+   choice) → 4. `../kelal backend/docs/design/` (C18 is the web client) → 5. the claude.ai design
+   project (look and copy) → 6. `../kelal backend/docs/product/`.
 
 If they conflict, follow the higher one and note it in the task's plan. If something isn't decided
 anywhere, ask; don't invent product rules (taxes, limits, payouts, regulator behaviour, copy shown to

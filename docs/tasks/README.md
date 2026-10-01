@@ -9,40 +9,35 @@ real operations, map the contract's data onto the domain types, and fix what the
 Engineering Decisions say differently. The order follows the Build Plan's frontend track
 (`../kelal backend/docs/build-plan.md` §2).
 
-| ID                              | Title                                                                                | Depends on    | Backend piece | Status |
-| ------------------------------- | ------------------------------------------------------------------------------------ | ------------- | ------------- | ------ |
-| [F0](F0-contract-wiring.md)     | Wire the catalogue to the contract through route handlers                            | —             | —             | done   |
-| [F1](F1-design-system-shell.md) | Tenant theme from `/v1/config/public`, Ethiopic font, component gallery              | F0            | B1            | todo   |
-| [F2](F2-catalogue.md)           | Catalogue screens: server-rendered lists, `/match/[id]`, popular, search, dictionary | F0            | B4            | todo   |
-| [F3](F3-slip-calculator.md)     | Slip on slipcalc (D1), rules from config, bookings and `/b/[code]`                   | F0            | B3            | todo   |
-| [F4](F4-auth-session.md)        | Auth through route handlers and an httpOnly session cookie; KYC                      | F0            | B5, B12       | todo   |
-| [F5](F5-place-bet-my-bets.md)   | Place bet with `Idempotency-Key` and the 409 flow; My bets; `/t/[ticket]`            | F3, F4        | B6            | todo   |
-| [F6](F6-wallet.md)              | Wallet: balances, deposits with `next_action`, withdrawals, payout accounts, history | F4            | B8            | todo   |
-| [F7](F7-account-rg-inbox.md)    | Account, limits, self-exclusion, reality check, promotions, inbox; delete the mocks  | F4            | B8, B13       | todo   |
-| [F8](F8-terminal.md)            | Shop terminal app                                                                    | F3, workspace | B9            | todo   |
-| [F9](F9-pos.md)                 | Cashier POS app                                                                      | F3, workspace | B9            | todo   |
-| [F10](F10-agent-backoffice.md)  | Agent portal, then back office (Refine)                                              | F4, workspace | B9, B10       | todo   |
+| ID                              | Title                                                                                | Depends on | Backend piece | Status |
+| ------------------------------- | ------------------------------------------------------------------------------------ | ---------- | ------------- | ------ |
+| [F0](F0-contract-wiring.md)     | Wire the catalogue to the contract through route handlers                            | —          | —             | done   |
+| [F1](F1-design-system-shell.md) | Tenant theme from `/v1/config/public`, Ethiopic font, component gallery              | F0         | B1            | todo   |
+| [F2a](F2a-language-routes.md)   | Language in the URL, tenant default language, D7 routes with redirects               | F0         | B1            | todo   |
+| [F2b](F2b-catalogue-screens.md) | Server-rendered catalogue, popular, lazy market groups, paging, phone search         | F2a        | B4            | todo   |
+| [F3](F3-slip-calculator.md)     | Slip on slipcalc (D1), rules from config, bookings and `/b/[code]`                   | F0         | B3            | todo   |
+| [F4](F4-auth-session.md)        | Auth through route handlers and an httpOnly session cookie; KYC                      | F0         | B5, B12       | todo   |
+| [F5](F5-place-bet-my-bets.md)   | Place bet with `Idempotency-Key` and the 409 flow; My bets; `/t/[ticket]`            | F3, F4     | B6            | todo   |
+| [F6](F6-wallet.md)              | Wallet: balances, deposits with `next_action`, withdrawals, payout accounts, history | F4         | B8            | todo   |
+| [F7](F7-account-rg-inbox.md)    | Account, limits, self-exclusion, reality check, promotions, inbox; delete the mocks  | F4         | B8, B13       | todo   |
+| [F8a](F8a-workspace.md)         | Convert to a pnpm + Turborepo workspace: `apps/player`, shared packages              | F7         | —             | todo   |
+| [F8](F8-terminal.md)            | Shop terminal app                                                                    | F8a        | B9            | todo   |
+| [F9](F9-pos.md)                 | Cashier POS app                                                                      | F8a        | B9            | todo   |
+| [F10](F10-agent-backoffice.md)  | Agent portal, then back office (Refine)                                              | F8a        | B9, B10       | todo   |
 
-F1, F2, F3 and F4 only need F0 and can go in any order; F3 first is the best value (every slip number is
-currently a float estimate that differs from the backend). The "Backend piece" column says when a screen
+F1, F2a, F3 and F4 only need F0 and can go in any order. Recommended order: **F3** (every slip number is
+currently a float estimate that differs from the backend), F1, F2a, F2b, F4, F5, F6, F7, F8a, F8–F10.
+Whichever of F1, F2a and F3 runs first builds `loadPublicConfig` (`/v1/config/public`, cached per
+tenant); the others reuse it. The "Backend piece" column says when a screen
 can move from Prism to the real API (`API_REAL_TAGS`, D7) — none of the tasks wait for it.
 
-## Open decisions (ask before the task that needs them)
+## Decisions
 
-These are places where the design docs disagree with what is built, and no higher source settles it.
-
-1. **Workspace layout (before F8).** C18 §3 puts the web apps in a pnpm/Turborepo workspace
-   (`apps/player|terminal|pos|agent|admin`, `packages/api|slipcalc|ui|betslip|i18n`). This repo is a
-   single Next.js app. Convert before F8, or keep separate repos per app?
-2. **Language in the URL (F2).** C18 §4.3: `next-intl`, Amharic default, `/am/...` and `/en/...` paths
-   for indexable pages. Built: language is a stored preference, English default, no URL segment.
-3. **Route names (F2, F5).** D7 deep links are `/match/{id}`, `/b/{code}`, `/t/{ticket}`; C18 §4.1 adds
-   `/sport/[slug]` and `/league/[id]`. Built: `/event/[id]`, `/competition/[id]`. Rename with redirects?
-4. **`decimal.js` (F3).** C18 §4.2 says `decimal.js` for money with an ESLint rule banning `number`; D1
-   (higher) defines the slip on BigInt rationals, which `slipcalc.ts` already does. Use slipcalc for the
-   slip, and `decimal.js` (or plain strings) for everything else?
-5. **Phone tab bar without Live (now).** With live betting off (D8) the phone bar has four tabs and the
-   raised slip button sits second, not centred. Fill the slot (Search? Wallet?) or accept four?
+The open questions found while writing these tasks are decided in [`docs/decisions.md`](../decisions.md)
+(2026-10-01): **FD1** one web workspace, converted in F8a · **FD2** language in the URL, tenant default
+(Amharic for `demo`), in-house i18n kept · **FD3** D7 deep links and C18 route names with redirects ·
+**FD4** no `decimal.js`; strings in, BigInt santim when computed · **FD5** Search takes Live's tab slot
+until Release 2. Each task's "Read first" names the decisions it carries out.
 
 ## Status values
 

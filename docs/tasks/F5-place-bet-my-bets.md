@@ -18,6 +18,8 @@ ticket at `/t/[ticket]`.
 
 ## Read first
 
+- `docs/decisions.md` **FD3** (`/t/{ticket}`, unprefixed, works for links shared from the app) and
+  **FD4** (amounts through `lib/money.ts`)
 - `../kelal backend/docs/engineering-decisions.md` D1.10, D3 (ticket numbers), D7 (`/t/{ticket}`)
 - `../kelal backend/docs/design/components/c08-bet-placement-risk.md`, `c18-client-apps.md` §4.2
 - `contracts/openapi.yaml`: `POST /v1/bets` (`Idempotency-Key`; 409 examples `odds_changed`,

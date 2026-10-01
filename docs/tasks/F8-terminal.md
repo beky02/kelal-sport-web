@@ -2,7 +2,7 @@
 id: F8
 title: Shop terminal app
 status: todo
-depends_on: [F3]
+depends_on: [F8a]
 contract_tags: [Retail - terminal, Catalogue, Config]
 touches_money: true
 touches_ui: true
@@ -17,7 +17,8 @@ the counter, and reset when idle.
 
 ## Read first
 
-- Open decision 1 in `README.md` (workspace layout) — **resolve before planning**.
+- `docs/decisions.md` **FD1** — this app is `apps/<name>` in the workspace F8a creates, built on its
+  shared packages.
 - `../kelal backend/docs/design/components/c19-retail-network.md` §4.1, `c18-client-apps.md` §5
 - `../kelal backend/docs/engineering-decisions.md` D3 (device signatures)
 - `contracts/openapi.yaml`: `POST /v1/retail/terminals/activate`, `GET /v1/retail/terminal`,

@@ -17,6 +17,7 @@ API's `next_action` rather than per-provider code in the UI.
 
 ## Read first
 
+- `docs/decisions.md` **FD4** (limits and balances compared through `lib/money.ts`, never floats)
 - `../kelal backend/docs/design/components/c04-payments.md`, `c03-wallet-ledger.md` (what a player sees)
 - `contracts/openapi.yaml`: `GET /v1/wallet`, `/v1/wallet/transactions`, `/v1/payment-methods`,
   `/v1/me/payout-accounts` (GET/POST/DELETE), `POST /v1/deposits` (examples `redirect`, `ussd_push`),

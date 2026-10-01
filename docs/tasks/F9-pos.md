@@ -2,7 +2,7 @@
 id: F9
 title: Cashier POS app
 status: todo
-depends_on: [F3]
+depends_on: [F8a]
 contract_tags: [Retail - cashier]
 touches_money: true
 touches_ui: true
@@ -17,7 +17,8 @@ cash in and out, close the shift with a Z report.
 
 ## Read first
 
-- Open decision 1 in `README.md` (workspace layout) — **resolve before planning**.
+- `docs/decisions.md` **FD1** — this app is `apps/<name>` in the workspace F8a creates, built on its
+  shared packages.
 - `../kelal backend/docs/design/components/c19-retail-network.md`, `c18-client-apps.md` §5 (receipt
   printing, keyboard shortcuts, scanner input)
 - `contracts/openapi.yaml`: the `Retail - cashier` operations (`/v1/retail/auth/*`, `/shifts/*`,

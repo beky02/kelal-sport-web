@@ -39,7 +39,7 @@ In:
 - `/dev/components` (development only): tokens, both themes, odds button in normal, selected, suspended,
   price-up and price-down states, buttons, fields, sheet — in English and Amharic.
 
-Out: per-tenant language lists in the URL (open decision 2), PWA.
+Out: language in the URL (F2a, FD2), PWA.
 
 ## Acceptance criteria
 
@@ -57,4 +57,5 @@ Out: per-tenant language lists in the URL (open decision 2), PWA.
 
 ## Notes
 
-`/v1/config/public` also carries the betting `RuleSet` — F3 consumes it; load it once here.
+`/v1/config/public` also carries the betting `RuleSet` (F3) and the tenant's languages (F2a). Whichever of
+F1, F2a and F3 runs first builds `loadPublicConfig`; the others reuse it.
