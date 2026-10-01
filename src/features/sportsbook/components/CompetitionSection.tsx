@@ -3,7 +3,7 @@
 import { memo } from "react";
 import { Card } from "@/components/ui/Card";
 import { useUiStore } from "@/stores/ui.store";
-import type { BoardSection } from "@/lib/api/mock/repository";
+import type { BoardSection } from "@/features/events/types";
 import { MarketColumnHeaders } from "./MarketColumnHeaders";
 import { EventRow } from "./EventRow";
 

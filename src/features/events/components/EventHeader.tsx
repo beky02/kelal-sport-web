@@ -8,10 +8,7 @@ import { LiveTag } from "@/components/ui/LiveTag";
 import { TeamCrest } from "@/components/ui/TeamCrest";
 import { routes } from "@/config/routes";
 import { formatKickoff } from "@/lib/i18n/format";
-import {
-  formatEthiopianShort,
-  formatGregorianShort,
-} from "@/lib/i18n/ethiopian-date";
+import { formatShortDate } from "@/lib/i18n/dates";
 import { useUiStore } from "@/stores/ui.store";
 import type { Competition } from "@/features/competitions/types";
 import type { SportEvent } from "../types";
@@ -26,6 +23,7 @@ export function EventHeader({
 }) {
   const t = useTranslation();
   const clock = useUiStore((s) => s.clock);
+  const calendar = useUiStore((s) => s.calendar);
   const live = event.status === "live";
 
   return (
@@ -40,8 +38,14 @@ export function EventHeader({
         </Link>
         <span>·</span>
         <span className="truncate">
-          {t.pick(competition.region.name)} · {t.pick(competition.name)} ·{" "}
-          {t.pick(competition.round)}
+          {/* The round is dropped where the API has none to give. */}
+          {[
+            t.pick(competition.region.name),
+            t.pick(competition.name),
+            t.pick(competition.round),
+          ]
+            .filter(Boolean)
+            .join(" · ")}
         </span>
       </div>
 
@@ -71,10 +75,8 @@ export function EventHeader({
           </>
         ) : (
           <span>
-            {t.lang === "am"
-              ? formatEthiopianShort(event.startDate)
-              : formatGregorianShort(event.startDate)}{" "}
-            · {formatKickoff(event.kickoff, t.lang, clock)} ·{" "}
+            {formatShortDate(event.startDate, calendar)} ·{" "}
+            {formatKickoff(event.kickoff, t.lang, clock)} ·{" "}
             {t.t(clock === "eth" ? "clock.ethiopian" : "clock.eat")}
           </span>
         )}

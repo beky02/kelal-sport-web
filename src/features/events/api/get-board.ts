@@ -1,61 +1,48 @@
 import { z } from "zod";
-import { env } from "@/config/env";
-import { apiClient, assertContract } from "@/lib/api/client";
-import { mockRepository, type EventFilters } from "@/lib/api/mock/repository";
-import {
-  boardSectionSchema,
-  eventSchema,
-  competitionSchema,
-} from "@/lib/api/schemas";
-import type { BoardSection } from "@/lib/api/mock/repository";
+import { apiClient } from "@/lib/api/client";
+import { boardSectionSchema, eventDetailSchema } from "@/lib/api/schemas";
+import type {
+  BoardSection,
+  EventDetail,
+  EventFilters,
+} from "@/features/events/types";
 
 const boardResponse = z.array(boardSectionSchema);
 
 /**
- * The sportsbook board: competitions, their events, and the three market groups
- * each row shows. One request, because the board is one screen.
+ * The sportsbook board: competitions and their fixtures, each with the market
+ * columns a row shows. One request, because the board is one screen; the route
+ * handler turns `/v1/events` and the dictionary into this shape.
  */
 export async function getBoard(
   filters: EventFilters,
   dataSaver: boolean,
   signal?: AbortSignal,
 ): Promise<BoardSection[]> {
-  if (env.useMocks) {
-    return assertContract(
-      "/events/board",
-      boardResponse,
-      await mockRepository.listBoard(filters, dataSaver),
-    );
-  }
-  return apiClient.get("/events/board", boardResponse, {
+  return apiClient.get("/catalogue/board", boardResponse, {
     params: {
       sport: filters.sportId,
       competition: filters.competitionId,
-      live: filters.live,
+      live: filters.live ? 1 : undefined,
       filter: filters.filter,
       date: filters.date,
-      lite: dataSaver || undefined,
+      lite: dataSaver ? 1 : undefined,
     },
     signal,
   });
 }
 
-const eventDetailResponse = z.object({
-  event: eventSchema,
-  competition: competitionSchema,
-});
-
+/** A fixture with its full book, or `null` if there is no such fixture. */
 export async function getEvent(
   id: string,
   dataSaver: boolean,
   signal?: AbortSignal,
-) {
-  if (env.useMocks) {
-    const found = await mockRepository.getEvent(id, dataSaver);
-    if (!found) return null;
-    return assertContract(`/events/${id}`, eventDetailResponse, found);
-  }
-  return apiClient.get(`/events/${id}`, eventDetailResponse, { signal });
+): Promise<EventDetail | null> {
+  return apiClient.get(
+    `/catalogue/events/${encodeURIComponent(id)}`,
+    eventDetailSchema,
+    { params: { lite: dataSaver ? 1 : undefined }, signal },
+  );
 }
 
 export type { EventFilters };

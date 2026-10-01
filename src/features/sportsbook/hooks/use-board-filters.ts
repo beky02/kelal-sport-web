@@ -2,7 +2,7 @@
 
 import { useCallback, useMemo } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { REFERENCE_DATE } from "@/lib/api/mock/fixtures";
+import { todayEat } from "@/lib/i18n/dates";
 
 export type BoardFilter = "top" | "upcoming" | "today";
 
@@ -13,11 +13,12 @@ export interface BoardFilters {
 }
 
 const FILTERS: readonly BoardFilter[] = ["top", "upcoming", "today"];
-const DEFAULTS: BoardFilters = {
+/** Today is the default day, so it is worked out per call, not once at load. */
+const defaults = (): BoardFilters => ({
   sport: "football",
   filter: "top",
-  date: REFERENCE_DATE,
-};
+  date: todayEat(),
+});
 
 /**
  * Board filters live in the URL, not in a store.
@@ -33,21 +34,23 @@ export function useBoardFilters() {
 
   const filters = useMemo<BoardFilters>(() => {
     const filter = params.get("filter");
+    const fallback = defaults();
     return {
-      sport: params.get("sport") ?? DEFAULTS.sport,
+      sport: params.get("sport") ?? fallback.sport,
       filter: FILTERS.includes(filter as BoardFilter)
         ? (filter as BoardFilter)
-        : DEFAULTS.filter,
-      date: params.get("date") ?? DEFAULTS.date,
+        : fallback.filter,
+      date: params.get("date") ?? fallback.date,
     };
   }, [params]);
 
   const set = useCallback(
     (patch: Partial<BoardFilters>) => {
       const next = new URLSearchParams(params.toString());
+      const fallback = defaults();
       for (const [key, value] of Object.entries(patch)) {
         // Keep the default out of the URL so the canonical view has a clean one.
-        if (value === DEFAULTS[key as keyof BoardFilters]) next.delete(key);
+        if (value === fallback[key as keyof BoardFilters]) next.delete(key);
         else next.set(key, String(value));
       }
       const query = next.toString();

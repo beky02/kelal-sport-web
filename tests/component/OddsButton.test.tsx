@@ -13,6 +13,7 @@ import { render } from "./render";
 const market: Market = {
   id: "m3:1x2:",
   eventId: "m3",
+  templateId: "m_1x2",
   type: "1x2",
   category: "main",
   name: { en: "Match result", am: "የጨዋታ ውጤት" },
@@ -20,6 +21,7 @@ const market: Market = {
   status: "open",
   outcomes: [
     {
+      id: "oc_m3_1",
       code: "1",
       label: { en: "Man City", am: "Man City" },
       odds: 1.62,
@@ -27,6 +29,7 @@ const market: Market = {
       movement: null,
     },
     {
+      id: "oc_m3_x",
       code: "X",
       label: { en: "Draw", am: "አቻ" },
       odds: null,

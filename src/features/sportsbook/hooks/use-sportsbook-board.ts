@@ -1,6 +1,7 @@
 "use client";
 
 import { useBoard } from "@/features/events/hooks/use-board";
+import { sportIdFromSlug } from "@/lib/api/mappers/catalogue";
 import { useUiStore } from "@/stores/ui.store";
 import { useBoardFilters } from "./use-board-filters";
 
@@ -18,7 +19,7 @@ export function useSportsbookBoard(live: boolean, competitionId?: string) {
 
   return useBoard(
     {
-      sportId: filters.sport === "football" ? "soccer" : filters.sport,
+      sportId: sportIdFromSlug(filters.sport),
       competitionId,
       filter: filters.filter,
       date: filters.date,

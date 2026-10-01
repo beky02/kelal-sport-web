@@ -35,6 +35,7 @@ export interface CompetitionSummary {
 export interface CountryWithLeagues {
   code: string;
   name: Localized;
-  flag: string;
+  /** Null where there is no flag file for this country yet. */
+  flag: string | null;
   leagues: Array<{ id: string; name: Localized; eventCount: number }>;
 }

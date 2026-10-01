@@ -1,4 +1,6 @@
 import type { Crest, Localized } from "@/types/common";
+import type { Competition } from "@/features/competitions/types";
+import type { Market, MarketGroup } from "@/features/markets/types";
 
 export type EventStatus = "scheduled" | "starting_soon" | "live" | "finished";
 
@@ -40,4 +42,50 @@ export interface SportEvent {
 
   /** Total markets available, for the `+58 ›` affordance. */
   marketCount: number;
+}
+
+/**
+ * The three market columns a board row shows.
+ *
+ * Each can be missing: `/v1/events` carries one `main` market per fixture, so
+ * double chance and total goals are only filled where the API provides them,
+ * and a fixture whose main market is not priced yet has none at all. A missing
+ * market renders as empty cells, never as made-up prices.
+ */
+export interface BoardMarkets {
+  matchResult: Market | null;
+  doubleChance: Market | null;
+  totalGoals: Market | null;
+}
+
+export interface BoardEvent {
+  event: SportEvent;
+  markets: BoardMarkets;
+}
+
+export interface BoardSection {
+  competition: Competition;
+  events: BoardEvent[];
+}
+
+/** A fixture with its full book, for the event page. */
+export interface EventDetail {
+  event: SportEvent;
+  competition: Competition;
+  markets: Market[];
+  /** The groups this fixture has markets in, in dictionary order. */
+  groups: MarketGroup[];
+}
+
+export interface EventFilters {
+  /** Contract sport ID, e.g. `s_football`. */
+  sportId?: string;
+  /** Narrow to one competition, for its own page. */
+  competitionId?: string;
+  /** Only in-play events. Release 2; ignored by the Release 1 catalogue. */
+  live?: boolean;
+  /** `top` sorts by popularity; `upcoming` by kickoff; `today` pins today. */
+  filter?: "top" | "upcoming" | "today";
+  /** Local date (EAT), `YYYY-MM-DD`. */
+  date?: string;
 }

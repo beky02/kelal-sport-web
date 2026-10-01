@@ -7,10 +7,13 @@ import { z } from "zod";
  * Only NEXT_PUBLIC_* belongs here — anything in this file reaches the browser.
  */
 const schema = z.object({
-  apiUrl: z.string().url(),
   wsUrl: z.string().url(),
   appEnv: z.enum(["development", "staging", "production"]),
-  /** Serve the in-repo mock repository instead of calling the backend. */
+  /**
+   * Serve the in-repo mock repository for the features not yet rewired to the
+   * contract (bets, wallet, auth, responsible gaming). The catalogue always
+   * goes through the route handlers — point API_BASE_URL at Prism to mock it.
+   */
   useMocks: z.boolean(),
   /**
    * `on` connects to the gateway, `simulate` drives the same pipeline locally
@@ -20,11 +23,11 @@ const schema = z.object({
 });
 
 const parsed = schema.safeParse({
-  apiUrl: process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000/api/v1",
   wsUrl: process.env.NEXT_PUBLIC_WS_URL ?? "ws://localhost:8000/realtime",
   appEnv: process.env.NEXT_PUBLIC_APP_ENV ?? "development",
   useMocks: (process.env.NEXT_PUBLIC_USE_MOCKS ?? "true") === "true",
-  realtime: process.env.NEXT_PUBLIC_REALTIME ?? "simulate",
+  // Release 1 refreshes odds by polling (D5); live betting is Release 2 (D8).
+  realtime: process.env.NEXT_PUBLIC_REALTIME ?? "off",
 });
 
 if (!parsed.success) {

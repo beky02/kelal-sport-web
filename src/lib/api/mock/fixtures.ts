@@ -7,119 +7,12 @@
  *
  * Reference date: Mon 28 Sep 2026 = Meskerem 18, 2019 E.C.
  */
-import type { Lang, Localized } from "@/types/common";
+import type { Localized } from "@/types/common";
 
 const t = (en: string, am?: string): Localized => ({ en, am: am ?? en });
 
-/** Circle path shared by the ball sports. */
-const CIRCLE = "M12 2a10 10 0 1 0 0 20 10 10 0 1 0 0-20";
-
-export const SPORT_ICONS = {
-  soccer: [
-    CIRCLE,
-    "m12 7 4.5 3.3-1.7 5.2H9.2l-1.7-5.2z",
-    "M12 2v5",
-    "m21.5 9.5-5 .8",
-    "m2.5 9.5 5 .8",
-    "m18 20-3.2-4.5",
-    "m6 20 3.2-4.5",
-  ],
-  basketball: [
-    CIRCLE,
-    "M4.9 4.9c4 4 4 10.2 0 14.2",
-    "M19.1 4.9c-4 4-4 10.2 0 14.2",
-    "M2 12h20",
-    "M12 2v20",
-  ],
-  tennis: [CIRCLE, "M6 5.3a9 9 0 0 1 0 13.4", "M18 5.3a9 9 0 0 0 0 13.4"],
-  volleyball: [
-    CIRCLE,
-    "M11.1 7.1a16.55 16.55 0 0 1 10.9 4",
-    "M12 12a12.6 12.6 0 0 1-8.7 5",
-    "M16.8 13.6a16.55 16.55 0 0 1-9 7.5",
-    "M20.7 17a12.8 12.8 0 0 0-8.7-5 13.3 13.3 0 0 1 0-10",
-    "M6.3 3.8a16.55 16.55 0 0 0 1.9 11.5",
-  ],
-  tableTennis: [
-    "M14.5 15.5a6.5 6.5 0 1 0-6-6z",
-    "m14.5 15.5 5 5a1.4 1.4 0 0 0 2-2l-5-5",
-    "M19.5 5a1.5 1.5 0 1 0 0 .01",
-  ],
-  iceHockey: ["M4 3l8 12h6a2 2 0 0 1 0 4H10.5L3 8", "M16 21h5"],
-} as const;
-
-export const SPORTS = [
-  {
-    id: "soccer",
-    slug: "football",
-    name: t("Soccer", "እግር ኳስ"),
-    total: 612,
-    live: 3,
-    icon: SPORT_ICONS.soccer,
-  },
-  {
-    id: "basketball",
-    slug: "basketball",
-    name: t("Basketball", "ቅርጫት ኳስ"),
-    total: 84,
-    live: 4,
-    icon: SPORT_ICONS.basketball,
-  },
-  {
-    id: "tennis",
-    slug: "tennis",
-    name: t("Tennis", "ቴኒስ"),
-    total: 142,
-    live: 6,
-    icon: SPORT_ICONS.tennis,
-  },
-  {
-    id: "volleyball",
-    slug: "volleyball",
-    name: t("Volleyball", "መረብ ኳስ"),
-    total: 38,
-    live: 1,
-    icon: SPORT_ICONS.volleyball,
-  },
-  {
-    id: "table-tennis",
-    slug: "table-tennis",
-    name: t("Table tennis", "የጠረጴዛ ቴኒስ"),
-    total: 210,
-    live: 9,
-    icon: SPORT_ICONS.tableTennis,
-  },
-  {
-    id: "ice-hockey",
-    slug: "ice-hockey",
-    name: t("Ice hockey", "የበረዶ ሆኪ"),
-    total: 26,
-    live: 0,
-    icon: SPORT_ICONS.iceHockey,
-  },
-] as const;
-
-/** Six days from the reference date, in both calendars. */
 /** Every fixture in this dataset sits on the reference date. */
 export const REFERENCE_DATE = "2026-09-28";
-
-export const DATES: Array<{
-  iso: string;
-  label: Record<Lang, [string, string]>;
-}> = [
-  {
-    iso: "2026-09-28",
-    label: { en: ["Today", "28 Sep"], am: ["ዛሬ", "መስ 18"] },
-  },
-  {
-    iso: "2026-09-29",
-    label: { en: ["Tue", "29 Sep"], am: ["ማክሰኞ", "መስ 19"] },
-  },
-  { iso: "2026-09-30", label: { en: ["Wed", "30 Sep"], am: ["ረቡዕ", "መስ 20"] } },
-  { iso: "2026-10-01", label: { en: ["Thu", "1 Oct"], am: ["ሐሙስ", "መስ 21"] } },
-  { iso: "2026-10-02", label: { en: ["Fri", "2 Oct"], am: ["ዓርብ", "መስ 22"] } },
-  { iso: "2026-10-03", label: { en: ["Sat", "3 Oct"], am: ["ቅዳሜ", "መስ 23"] } },
-];
 
 /** Country code → flag file in /public/flags. */
 export const FLAG_FILE: Record<string, string> = {

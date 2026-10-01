@@ -17,7 +17,7 @@ type Tab = "all" | MarketCategory;
 /**
  * Every market on a fixture, filtered by category.
  *
- * Markets of one type are grouped into a single card — five over/under lines
+ * Markets of one template are grouped into a single card — five over/under lines
  * read as one market with five lines, which is what they are, rather than five
  * unrelated cards.
  */
@@ -30,17 +30,25 @@ export function MarketList({
 }) {
   const t = useTranslation();
   const [tab, setTab] = useState<Tab>("all");
-  const { data: markets, isPending } = useMarkets(eventId);
+  const {
+    data: markets,
+    groups: marketGroups,
+    isPending,
+  } = useMarkets(eventId);
 
   const groups = useMemo(() => {
     const visible = (markets ?? []).filter(
       (m) => tab === "all" || m.category === tab,
     );
-    const byType = new Map<string, typeof visible>();
+    // One card per template: five total-goals lines are one market.
+    const byTemplate = new Map<string, typeof visible>();
     for (const market of visible) {
-      byType.set(market.type, [...(byType.get(market.type) ?? []), market]);
+      byTemplate.set(market.templateId, [
+        ...(byTemplate.get(market.templateId) ?? []),
+        market,
+      ]);
     }
-    return [...byType.values()];
+    return [...byTemplate.values()];
   }, [markets, tab]);
 
   if (isPending) {
@@ -80,18 +88,19 @@ export function MarketList({
         size="sm"
         fill="surface"
         className="self-start"
+        // The book's own groups for this fixture, named by the dictionary.
         options={[
           { value: "all", label: t.t("event.allMarkets") },
-          { value: "main", label: t.t("event.main") },
-          { value: "goals", label: t.t("event.goals") },
-          { value: "hc", label: t.t("event.handicap") },
-          { value: "cs", label: t.t("event.correctScore") },
+          ...marketGroups.map((group) => ({
+            value: group.code,
+            label: t.pick(group.name),
+          })),
         ]}
       />
 
       {groups.map((group) => (
         <MarketGroupCard
-          key={group[0].type}
+          key={group[0].templateId}
           title={t.pick(group[0].name)}
           markets={group}
           eventName={eventName}

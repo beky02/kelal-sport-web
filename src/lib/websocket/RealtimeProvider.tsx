@@ -3,10 +3,9 @@
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { env } from "@/config/env";
-import { eventKeys, marketKeys } from "@/lib/query/keys";
+import { eventKeys } from "@/lib/query/keys";
 import { useBetSlipStore } from "@/features/bet-slip/stores/bet-slip.store";
-import type { BoardSection } from "@/lib/api/mock/repository";
-import type { Market } from "@/features/markets/types";
+import type { BoardSection, EventDetail } from "@/features/events/types";
 import { applyToBoard, applyToMarkets } from "./apply-updates";
 import { RealtimeClient, type RealtimeState } from "./client";
 import { startOddsSimulator } from "./simulator";
@@ -46,9 +45,13 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
       );
 
       if ("eventId" in message) {
-        queryClient.setQueryData<Market[]>(
-          marketKeys.byEvent(message.eventId),
-          (markets) => (markets ? applyToMarkets(markets, message) : markets),
+        queryClient.setQueriesData<EventDetail | null>(
+          { queryKey: eventKeys.details(message.eventId) },
+          (detail) => {
+            if (!detail) return detail;
+            const markets = applyToMarkets(detail.markets, message);
+            return markets === detail.markets ? detail : { ...detail, markets };
+          },
         );
       }
 
@@ -71,8 +74,15 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
       }
     });
 
+    // The simulator moves whatever prices are on screen right now.
+    const onScreen = () =>
+      queryClient
+        .getQueriesData<BoardSection[]>({ queryKey: eventKeys.lists() })
+        .flatMap(([, sections]) => sections ?? []);
     const stopSimulator =
-      env.realtime === "simulate" ? startOddsSimulator(client) : undefined;
+      env.realtime === "simulate"
+        ? startOddsSimulator(client, { board: onScreen })
+        : undefined;
     if (env.realtime === "on") client.connect();
 
     return () => {

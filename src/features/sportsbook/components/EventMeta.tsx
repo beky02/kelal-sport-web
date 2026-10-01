@@ -3,10 +3,7 @@
 import { useTranslation } from "@/lib/i18n/use-translation";
 import { LiveTag } from "@/components/ui/LiveTag";
 import { formatKickoff } from "@/lib/i18n/format";
-import {
-  formatEthiopianShort,
-  formatGregorianShort,
-} from "@/lib/i18n/ethiopian-date";
+import { formatShortDate } from "@/lib/i18n/dates";
 import { useUiStore } from "@/stores/ui.store";
 import type { Competition } from "@/features/competitions/types";
 import type { SportEvent } from "@/features/events/types";
@@ -24,6 +21,7 @@ export function EventMeta({
 }) {
   const t = useTranslation();
   const clock = useUiStore((s) => s.clock);
+  const calendar = useUiStore((s) => s.calendar);
 
   const live = event.status === "live";
   const round = t.pick(competition.round);
@@ -49,9 +47,7 @@ export function EventMeta({
         {live
           ? round
           : [
-              t.lang === "am"
-                ? formatEthiopianShort(event.startDate)
-                : formatGregorianShort(event.startDate),
+              formatShortDate(event.startDate, calendar),
               formatKickoff(event.kickoff, t.lang, clock),
               round,
             ]

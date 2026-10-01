@@ -1,4 +1,4 @@
-import { mockRepository } from "@/lib/api/mock/repository";
+import type { BoardSection } from "@/features/events/types";
 import { useBetSlipStore } from "@/features/bet-slip/stores/bet-slip.store";
 import { outcomeKey } from "@/features/markets/types";
 import type { RealtimeClient } from "./client";
@@ -24,21 +24,28 @@ interface Candidate {
 export function startOddsSimulator(
   client: RealtimeClient,
   {
+    board: readBoard,
     intervalMs = 4000,
     slipBias = 0.5,
-  }: { intervalMs?: number; slipBias?: number } = {},
+  }: {
+    /** The board as currently cached — the prices worth moving. */
+    board: () => BoardSection[];
+    intervalMs?: number;
+    slipBias?: number;
+  },
 ): () => void {
   let stopped = false;
   let timer: ReturnType<typeof setTimeout> | null = null;
 
-  const run = async () => {
-    const board = await mockRepository.listBoard({ sportId: "soccer" });
+  const run = () => {
+    if (stopped) return;
+    const board = readBoard();
 
     const candidates: Candidate[] = board
       .flatMap((section) => section.events)
       .filter(({ event }) => !event.suspended)
       .flatMap(({ event, markets }) =>
-        markets.matchResult.outcomes
+        (markets.matchResult?.outcomes ?? [])
           .filter((outcome) => outcome.odds !== null)
           .map((outcome) => ({
             eventId: event.id,
@@ -47,7 +54,11 @@ export function startOddsSimulator(
           })),
       );
 
-    if (candidates.length === 0) return;
+    // Nothing on screen yet — the board may still be loading.
+    if (candidates.length === 0) {
+      timer = setTimeout(run, intervalMs);
+      return;
+    }
 
     /** A 1X2 pick currently in the slip, if there is one. */
     const held = (): Candidate | null => {
@@ -106,7 +117,7 @@ export function startOddsSimulator(
     timer = setTimeout(tick, intervalMs);
   };
 
-  void run();
+  run();
 
   return () => {
     stopped = true;

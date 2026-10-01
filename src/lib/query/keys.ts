@@ -1,4 +1,4 @@
-import type { EventFilters } from "@/lib/api/mock/repository";
+import type { EventFilters } from "@/features/events/types";
 
 /**
  * Query keys, centralised.
@@ -22,12 +22,10 @@ export const eventKeys = {
   lists: () => [...eventKeys.all, "list"] as const,
   board: (filters: EventFilters, dataSaver: boolean) =>
     [...eventKeys.lists(), { ...filters, dataSaver }] as const,
-  detail: (id: string) => [...eventKeys.all, "detail", id] as const,
-};
-
-export const marketKeys = {
-  all: ["markets"] as const,
-  byEvent: (eventId: string) => [...marketKeys.all, "event", eventId] as const,
+  /** Prefix of every cached copy of one fixture, whatever the data saver. */
+  details: (id: string) => [...eventKeys.all, "detail", id] as const,
+  detail: (id: string, dataSaver: boolean) =>
+    [...eventKeys.details(id), { dataSaver }] as const,
 };
 
 export const searchKeys = {

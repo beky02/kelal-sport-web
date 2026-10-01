@@ -69,3 +69,17 @@ routes that later phases will fill, and should be deleted with the placeholders.
 | `event.noMarketsBody`     | በዚህ ጨዋታ ላይ ውርርድ አልተከፈተም።                              |
 | `event.notFound`          | ጨዋታው አልተገኘም                                           |
 | `event.notFoundBody`      | ይህ ጨዋታ ከዝርዝሩ ወጥቷል።                                    |
+
+## Calendar preference
+
+Composed, not from the design. The design showed Ethiopian dates whenever the
+language was Amharic; Release 1 shows Gregorian dates by default (D7) and makes
+the Ethiopian calendar a setting in Profile → Preferences.
+
+| Key                                | Amharic                      |
+| ---------------------------------- | ---------------------------- |
+| `profile.calendar`                 | የቀን አቆጣጠር                    |
+| `profile.gregorian`                | ጎርጎርዮሳዊ                      |
+| `profile.ethiopianCalendar`        | የኢትዮጵያ (as `ethiopianClock`) |
+| `profile.calendarExampleGregorian` | ኦክቶበር 4 እንደ 04/10 ይታያል       |
+| `profile.calendarExampleEthiopian` | 04/10 እንደ መስ 24 ይታያል         |

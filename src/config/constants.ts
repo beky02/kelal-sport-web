@@ -47,13 +47,19 @@ export const LICENCE = {
 } as const;
 
 /**
- * Cache windows per the data's own volatility. Live odds are NOT refreshed by
- * query staleness — they arrive over the realtime channel.
+ * Cache windows per the data's own volatility.
  */
 export const STALE_TIME = {
   sports: 30 * 60 * 1000,
   competitions: 10 * 60 * 1000,
-  events: 45 * 1000,
+  events: 30 * 1000,
   eventDetail: 30 * 1000,
   wallet: 15 * 1000,
 } as const;
+
+/**
+ * How often the board and event page re-read prices while realtime is off.
+ * Release 1 polls every 30 s (D5); with realtime on, prices arrive as messages
+ * and nothing polls.
+ */
+export const ODDS_REFRESH_MS = 30 * 1000;

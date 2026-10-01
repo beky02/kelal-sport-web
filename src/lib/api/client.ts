@@ -1,14 +1,19 @@
 import { z } from "zod";
-import { env } from "@/config/env";
-import { ApiError, ContractError } from "./errors";
+import { ApiError, ContractError, type ProblemFieldError } from "./errors";
 
 type Params = Record<string, string | number | boolean | undefined>;
 
+/**
+ * The browser only ever talks to this app's own route handlers under `/api`
+ * (D3). They call the sportsbook API from the server, with the tenant header
+ * and the session cookie the browser never sees.
+ */
+const BASE_PATH = "/api/";
+
 function buildUrl(path: string, params?: Params): string {
-  const url = new URL(
-    path.replace(/^\//, ""),
-    env.apiUrl.endsWith("/") ? env.apiUrl : `${env.apiUrl}/`,
-  );
+  const origin =
+    typeof window === "undefined" ? "http://localhost" : window.location.origin;
+  const url = new URL(`${BASE_PATH}${path.replace(/^\//, "")}`, origin);
   for (const [key, value] of Object.entries(params ?? {})) {
     if (value !== undefined) url.searchParams.set(key, String(value));
   }
@@ -16,11 +21,11 @@ function buildUrl(path: string, params?: Params): string {
 }
 
 /**
- * The single place the frontend talks HTTP.
+ * The single place the browser talks HTTP.
  *
  * Every response is validated against a Zod schema before it reaches a hook, so
- * a backend that starts sending `"1.62"` where the contract says `1.62` fails
- * here with a clear message instead of rendering `NaN` inside an odds button.
+ * a route handler whose mapping drifts from the domain types fails here with a
+ * clear message instead of rendering `NaN` inside an odds button.
  */
 async function request<T>(
   method: "GET" | "POST",
@@ -33,9 +38,8 @@ async function request<T>(
     response = await fetch(buildUrl(path, options.params), {
       method,
       signal: options.signal,
-      // Session material lives in an HttpOnly cookie set by the backend, never
-      // in localStorage — this is a financial product.
-      credentials: "include",
+      // Same origin, so the session's HttpOnly cookie goes along by default.
+      // It never reaches JavaScript — this is a financial product.
       headers: {
         Accept: "application/json",
         ...(options.body ? { "Content-Type": "application/json" } : {}),
@@ -52,13 +56,18 @@ async function request<T>(
   }
 
   if (!response.ok) {
-    const payload = await response.json().catch(() => null);
+    // RFC 7807 `Problem`, passed through from the API by the route handler.
+    const problem = (await response.json().catch(() => null)) as {
+      title?: string;
+      code?: string;
+      errors?: ProblemFieldError[];
+    } | null;
     throw new ApiError(
-      (payload as { message?: string } | null)?.message ??
-        `${method} ${path} failed with ${response.status}`,
+      problem?.title ?? `${method} ${path} failed with ${response.status}`,
       response.status,
-      (payload as { code?: string } | null)?.code ?? "http_error",
-      payload,
+      problem?.code ?? "http_error",
+      problem,
+      problem?.errors ?? [],
     );
   }
 

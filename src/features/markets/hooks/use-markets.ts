@@ -1,15 +1,20 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
-import { STALE_TIME } from "@/config/constants";
-import { marketKeys } from "@/lib/query/keys";
-import { getMarkets } from "../api/get-markets";
+import { useEvent } from "@/features/events/hooks/use-board";
+import { useUiStore } from "@/stores/ui.store";
 
+/**
+ * A fixture's markets and the groups they fall into.
+ *
+ * Read from the same query as the event header — `/v1/events/{id}` returns
+ * both — so the page makes one request, not two.
+ */
 export function useMarkets(eventId: string) {
-  return useQuery({
-    queryKey: marketKeys.byEvent(eventId),
-    queryFn: ({ signal }) => getMarkets(eventId, signal),
-    staleTime: STALE_TIME.eventDetail,
-    enabled: eventId.length > 0,
-  });
+  const dataSaver = useUiStore((s) => s.dataSaver);
+  const query = useEvent(eventId, dataSaver);
+  return {
+    ...query,
+    data: query.data?.markets,
+    groups: query.data?.groups ?? [],
+  };
 }

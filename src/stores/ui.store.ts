@@ -2,7 +2,12 @@
 
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
-import type { ClockConvention, Lang, Theme } from "@/types/common";
+import type {
+  CalendarSystem,
+  ClockConvention,
+  Lang,
+  Theme,
+} from "@/types/common";
 
 export const UI_STORAGE_KEY = "kelal.ui";
 
@@ -13,6 +18,7 @@ interface UiState {
   theme: Theme;
   lang: Lang;
   clock: ClockConvention;
+  calendar: CalendarSystem;
   /** Drops flags and crests. Matters on a metered connection. */
   dataSaver: boolean;
 
@@ -28,6 +34,7 @@ interface UiState {
   setTheme: (theme: Theme) => void;
   setLang: (lang: Lang) => void;
   setClock: (clock: ClockConvention) => void;
+  setCalendar: (calendar: CalendarSystem) => void;
   setDataSaver: (on: boolean) => void;
 
   setMobileSlipOpen: (open: boolean) => void;
@@ -51,18 +58,20 @@ export const useUiStore = create<UiState>()(
       theme: "dark",
       lang: "en",
       clock: "eat",
+      calendar: "gregorian",
       dataSaver: false,
 
       mobileSlipOpen: false,
       sidebarOpen: false,
       asidePanel: "slip",
-      expandedCountries: { ENG: true },
-      favouriteEvents: { m1: true, m3: true },
-      favouriteCompetitions: { epl: true, eth: true },
+      expandedCountries: {},
+      favouriteEvents: {},
+      favouriteCompetitions: {},
 
       setTheme: (theme) => set({ theme }),
       setLang: (lang) => set({ lang }),
       setClock: (clock) => set({ clock }),
+      setCalendar: (calendar) => set({ calendar }),
       setDataSaver: (dataSaver) => set({ dataSaver }),
 
       setMobileSlipOpen: (mobileSlipOpen) => set({ mobileSlipOpen }),
@@ -100,6 +109,7 @@ export const useUiStore = create<UiState>()(
         theme: state.theme,
         lang: state.lang,
         clock: state.clock,
+        calendar: state.calendar,
         dataSaver: state.dataSaver,
         favouriteEvents: state.favouriteEvents,
         favouriteCompetitions: state.favouriteCompetitions,

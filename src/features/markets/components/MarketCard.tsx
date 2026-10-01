@@ -44,11 +44,15 @@ export function MarketCard({
       >
         {market.outcomes.map((outcome) => (
           <OddsButton
-            key={outcome.code}
+            key={outcome.id}
             market={market}
             outcome={outcome}
             eventName={eventName}
-            showLabel={market.type !== "1x2" && market.type !== "dc"}
+            showLabel={
+              market.type !== "1x2" &&
+              market.type !== "ml" &&
+              market.type !== "dc"
+            }
           />
         ))}
       </div>

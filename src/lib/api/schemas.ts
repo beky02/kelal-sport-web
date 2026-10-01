@@ -13,8 +13,14 @@ import type {
   CountryWithLeagues,
   Region,
 } from "@/features/competitions/types";
-import type { SportEvent, Team } from "@/features/events/types";
-import type { Market, Outcome } from "@/features/markets/types";
+import type {
+  BoardSection,
+  EventDetail,
+  SportEvent,
+  Team,
+} from "@/features/events/types";
+import type { Market, MarketGroup, Outcome } from "@/features/markets/types";
+import type { SearchResults } from "@/features/search/types";
 import type { Sport } from "@/features/sports/types";
 import type { Bet, Transaction } from "@/features/bets/types";
 import type {
@@ -57,7 +63,7 @@ export const regionSchema = z.object({
 export const countryWithLeaguesSchema = z.object({
   code: z.string(),
   name: localizedSchema,
-  flag: z.string(),
+  flag: z.string().nullable(),
   leagues: z.array(
     z.object({
       id: z.string(),
@@ -107,10 +113,12 @@ export const eventSchema = z.object({
 }) satisfies z.ZodType<SportEvent>;
 
 /**
- * Odds are numbers. A backend sending `"1.62"` is a contract break we want to
- * hear about, so this deliberately does not coerce.
+ * Odds are numbers here: the route handler parses the contract's decimal
+ * strings for display. Anything else arriving is a mapping bug we want to hear
+ * about, so this deliberately does not coerce.
  */
 export const outcomeSchema = z.object({
+  id: z.string(),
   code: z.string(),
   label: localizedSchema,
   odds: z.number().positive().nullable(),
@@ -121,8 +129,9 @@ export const outcomeSchema = z.object({
 export const marketSchema = z.object({
   id: z.string(),
   eventId: z.string(),
-  type: z.enum(["1x2", "dc", "ou", "btts", "hc", "cs"]),
-  category: z.enum(["main", "goals", "hc", "cs"]),
+  templateId: z.string(),
+  type: z.enum(["1x2", "ml", "dc", "ou", "btts", "hc", "cs", "other"]),
+  category: z.string(),
   name: localizedSchema,
   line: z.string().nullable(),
   status: z.enum(["open", "suspended"]),
@@ -135,13 +144,28 @@ export const boardSectionSchema = z.object({
     z.object({
       event: eventSchema,
       markets: z.object({
-        matchResult: marketSchema,
-        doubleChance: marketSchema,
-        totalGoals: marketSchema,
+        matchResult: marketSchema.nullable(),
+        doubleChance: marketSchema.nullable(),
+        totalGoals: marketSchema.nullable(),
       }),
     }),
   ),
-});
+}) satisfies z.ZodType<BoardSection>;
+
+export const marketGroupSchema = z.object({
+  code: z.string(),
+  name: localizedSchema,
+}) satisfies z.ZodType<MarketGroup>;
+
+/** `null` when the fixture does not exist. */
+export const eventDetailSchema = z
+  .object({
+    event: eventSchema,
+    competition: competitionSchema,
+    markets: z.array(marketSchema),
+    groups: z.array(marketGroupSchema),
+  })
+  .nullable() satisfies z.ZodType<EventDetail | null>;
 
 export const searchResultsSchema = z.object({
   leagues: z.array(
@@ -153,7 +177,7 @@ export const searchResultsSchema = z.object({
   events: z.array(
     z.object({ event: eventSchema, competition: competitionSchema }),
   ),
-});
+}) satisfies z.ZodType<SearchResults>;
 
 const betLegSchema = z.object({
   market: localizedSchema,

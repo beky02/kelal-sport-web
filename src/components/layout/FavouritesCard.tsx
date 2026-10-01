@@ -74,8 +74,12 @@ export function FavouritesCard({ live }: { live: boolean }) {
               </>
             ) : (
               <>
-                {formatKickoff(event.kickoff, t.lang, clock)} ·{" "}
-                {t.pick(competition.round)}
+                {[
+                  formatKickoff(event.kickoff, t.lang, clock),
+                  t.pick(competition.round),
+                ]
+                  .filter(Boolean)
+                  .join(" · ")}
               </>
             )}
           </span>

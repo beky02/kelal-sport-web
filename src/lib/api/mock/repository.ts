@@ -1,25 +1,31 @@
 /**
- * In-memory implementation of the backend contract.
+ * In-memory stand-in for the features not yet wired to the contract.
  *
- * This is the seam described in the architecture: every feature's `api/` module
- * calls either this or the real HTTP client, and the UI cannot tell which. When
- * the backend lands, delete nothing here — just flip NEXT_PUBLIC_USE_MOCKS.
+ * The catalogue no longer comes from here: it goes through the route handlers
+ * to the API, and Prism serves the contract's own examples locally. What is
+ * left — bets, wallet, responsible gaming, session activity — moves to the
+ * contract task by task (F4–F7), after which this folder is deleted.
+ *
+ * `listBoard` and `listMarkets` remain only as fixtures for the realtime tests,
+ * which need live fixtures, scores and many lines per market — shapes the
+ * Release 1 contract examples do not have.
  */
 import { ApiError } from "@/lib/api/errors";
 import type { Crest, Localized } from "@/types/common";
+import type { Competition } from "@/features/competitions/types";
 import type {
-  Competition,
-  CompetitionSummary,
-  CountryWithLeagues,
-} from "@/features/competitions/types";
-import type { SportEvent, Team } from "@/features/events/types";
+  BoardMarkets,
+  BoardSection,
+  EventFilters,
+  SportEvent,
+  Team,
+} from "@/features/events/types";
 import type {
   Market,
   MarketCategory,
   MarketType,
   Outcome,
 } from "@/features/markets/types";
-import type { Sport } from "@/features/sports/types";
 import {
   remainingDepositAllowance,
   type PaymentMethod,
@@ -45,7 +51,6 @@ import {
   MARKET_TEMPLATE,
   NATIONAL_FLAG,
   REFERENCE_DATE,
-  SPORTS,
   flagUrl,
   type RawGroup,
   type RawMatch,
@@ -200,15 +205,18 @@ function buildMarket(
   previous: Array<number | null> = [],
 ): Market {
   const suspended = raw.suspended ?? false;
+  const id = marketId(event.id, type, line);
   return {
-    id: marketId(event.id, type, line),
+    id,
     eventId: event.id,
+    templateId: `m_${type}`,
     type,
     category,
     name,
     line,
     status: suspended ? "suspended" : "open",
     outcomes: prices.map(([code, odds], i): Outcome => ({
+      id: `${id}:${code}`,
       code,
       label: labelOutcome(event, type, line, code),
       odds: suspended ? null : odds,
@@ -216,23 +224,6 @@ function buildMarket(
       movement: suspended ? null : (movement[i] ?? null),
     })),
   };
-}
-
-/** The three market groups the board shows for every row. */
-export interface BoardMarkets {
-  matchResult: Market;
-  doubleChance: Market;
-  totalGoals: Market;
-}
-
-export interface BoardEvent {
-  event: SportEvent;
-  markets: BoardMarkets;
-}
-
-export interface BoardSection {
-  competition: Competition;
-  events: BoardEvent[];
 }
 
 function boardMarkets(event: SportEvent, raw: RawMatch): BoardMarkets {
@@ -308,22 +299,6 @@ export interface SessionActivity {
   net: number;
 }
 
-export interface SearchResults {
-  leagues: Array<{ competition: Competition; eventCount: number }>;
-  events: Array<{ event: SportEvent; competition: Competition }>;
-}
-
-export interface EventFilters {
-  sportId?: string;
-  /** Narrow to one competition, for its own page. */
-  competitionId?: string;
-  /** Only in-play events. */
-  live?: boolean;
-  /** `top` keeps everything; `upcoming` drops live; `today` keeps today's card. */
-  filter?: "top" | "upcoming" | "today";
-  date?: string;
-}
-
 /**
  * Cash-outs made during this session.
  *
@@ -350,64 +325,6 @@ const responsibleGaming: ResponsibleGamingStatus = {
 };
 
 export const mockRepository = {
-  async listSports(): Promise<Sport[]> {
-    await delay(120);
-    return SPORTS.map((s) => ({
-      id: s.id,
-      slug: s.slug,
-      name: s.name,
-      eventCount: s.total,
-      liveCount: s.live,
-      iconPaths: s.icon,
-    }));
-  },
-
-  async listCountries(): Promise<CountryWithLeagues[]> {
-    await delay(120);
-    return COUNTRIES.map((c) => ({
-      code: c.code,
-      name: c.name,
-      flag: flagUrl(c.code),
-      leagues: c.leagues.map((l) => ({
-        id: l.id,
-        name: l.name,
-        eventCount: l.n,
-      })),
-    }));
-  },
-
-  async listTopCompetitions(): Promise<CompetitionSummary[]> {
-    await delay(120);
-    // Curated, not derived — the book decides what to promote.
-    const promoted: Array<[string, number]> = [
-      ["epl", 10],
-      ["ucl", 18],
-      ["eth", 8],
-      ["lal", 10],
-      ["afc", 24],
-    ];
-    return promoted.map(([id, eventCount]) => {
-      const group = GROUPS.find((g) => g.id === id);
-      if (group) {
-        return {
-          id,
-          name: group.league,
-          eventCount,
-          flag: group.countryCode ? flagUrl(group.countryCode) : null,
-        };
-      }
-      // Continental cups live on a country entry rather than a board group.
-      const country = COUNTRIES.find((c) => c.leagues.some((l) => l.id === id));
-      const league = country?.leagues.find((l) => l.id === id);
-      return {
-        id,
-        name: league?.name ?? t(id),
-        eventCount,
-        flag: country ? flagUrl(country.code) : null,
-      };
-    });
-  },
-
   async listBoard(
     filters: EventFilters = {},
     dataSaver = false,
@@ -436,23 +353,6 @@ export const mockRepository = {
         };
       })
       .filter((section) => section.events.length > 0);
-  },
-
-  async getEvent(
-    id: string,
-    dataSaver = false,
-  ): Promise<{ event: SportEvent; competition: Competition } | null> {
-    await delay(160);
-    for (const group of GROUPS) {
-      const raw = group.matches.find((m) => m.id === id);
-      if (raw) {
-        return {
-          event: toEvent(raw, group, dataSaver),
-          competition: toCompetition(group),
-        };
-      }
-    }
-    return null;
   },
 
   async listMarkets(eventId: string): Promise<Market[]> {
@@ -549,49 +449,6 @@ export const mockRepository = {
         ),
       ];
     });
-  },
-
-  /**
-   * Free-text search over leagues and fixtures.
-   *
-   * Matches either script, so a reader typing Amharic finds an English-named
-   * club and the reverse. Leagues come first and are capped tight — the point is
-   * to get someone to a match, not to page through results.
-   */
-  async search(query: string, dataSaver = false): Promise<SearchResults> {
-    await delay(140);
-    const needle = query.trim().toLowerCase();
-    if (needle === "") return { leagues: [], events: [] };
-
-    const hits = (values: Array<string | undefined>) =>
-      values.some((v) => v?.toLowerCase().includes(needle));
-
-    const leagues = GROUPS.filter((group) =>
-      hits([
-        group.league.en,
-        group.league.am,
-        group.country.en,
-        group.country.am,
-      ]),
-    )
-      .slice(0, 3)
-      .map((group) => ({
-        competition: toCompetition(group),
-        eventCount: group.matches.length,
-      }));
-
-    const events = GROUPS.flatMap((group) =>
-      group.matches
-        .filter((raw) =>
-          hits([raw.home.en, raw.home.am, raw.away.en, raw.away.am]),
-        )
-        .map((raw) => ({
-          event: toEvent(raw, group, dataSaver),
-          competition: toCompetition(group),
-        })),
-    ).slice(0, 6);
-
-    return { leagues, events };
   },
 
   /**

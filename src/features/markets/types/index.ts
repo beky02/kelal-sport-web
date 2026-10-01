@@ -1,14 +1,35 @@
 import type { Localized } from "@/types/common";
 
-export type MarketType = "1x2" | "dc" | "ou" | "btts" | "hc" | "cs";
+/**
+ * What the UI knows how to lay out. Derived from the contract's `template_id`
+ * (`m_1x2` → `1x2`, `m_total` → `ou`…); a template the UI has no layout for is
+ * `other` and renders as a plain grid of labelled prices.
+ */
+export type MarketType =
+  "1x2" | "ml" | "dc" | "ou" | "btts" | "hc" | "cs" | "other";
 
-export type MarketCategory = "main" | "goals" | "hc" | "cs";
+/**
+ * The market group code from the dictionary: `main`, `goals`, `halves`,
+ * `handicap`, `corners`, `player`. A string, because the book adds groups.
+ */
+export type MarketCategory = string;
+
+/** A market group the event page can filter by, named in both languages. */
+export interface MarketGroup {
+  code: MarketCategory;
+  name: Localized;
+}
 
 export type MarketStatus = "open" | "suspended";
 
 export type OddsMovement = "up" | "down";
 
 export interface Outcome {
+  /**
+   * The contract's outcome ID (`oc_ac_1`). This, not the code, is what goes into
+   * slips, bookings and bets.
+   */
+  id: string;
   /** Stable within a market: `1`, `X`, `2`, `Over`, `Yes`, `2–1`… */
   code: string;
   /** Resolved for display, e.g. "Man City" for `1`, "Over 2.5" for `Over`. */
@@ -21,9 +42,11 @@ export interface Outcome {
 }
 
 export interface Market {
-  /** `${eventId}:${type}:${line ?? ""}` */
+  /** The contract's market ID (`mk_ac_1x2`). */
   id: string;
   eventId: string;
+  /** Dictionary template (`m_total`); markets sharing one are shown as one card. */
+  templateId: string;
   type: MarketType;
   category: MarketCategory;
   name: Localized;

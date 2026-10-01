@@ -1,7 +1,5 @@
 import { z } from "zod";
-import { env } from "@/config/env";
-import { apiClient, assertContract } from "@/lib/api/client";
-import { mockRepository } from "@/lib/api/mock/repository";
+import { apiClient } from "@/lib/api/client";
 import {
   competitionSummarySchema,
   countryWithLeaguesSchema,
@@ -11,28 +9,17 @@ import type { CompetitionSummary, CountryWithLeagues } from "../types";
 const topSchema = z.array(competitionSummarySchema);
 const countriesSchema = z.array(countryWithLeaguesSchema);
 
+/** Derived from the dictionary and `/v1/sports` counts by the route handler. */
 export async function getTopCompetitions(
   signal?: AbortSignal,
 ): Promise<CompetitionSummary[]> {
-  if (env.useMocks) {
-    return assertContract(
-      "/competitions/top",
-      topSchema,
-      await mockRepository.listTopCompetitions(),
-    );
-  }
-  return apiClient.get("/competitions/top", topSchema, { signal });
+  return apiClient.get("/catalogue/competitions/top", topSchema, { signal });
 }
 
 export async function getCountries(
   signal?: AbortSignal,
 ): Promise<CountryWithLeagues[]> {
-  if (env.useMocks) {
-    return assertContract(
-      "/countries",
-      countriesSchema,
-      await mockRepository.listCountries(),
-    );
-  }
-  return apiClient.get("/countries", countriesSchema, { signal });
+  return apiClient.get("/catalogue/competitions/countries", countriesSchema, {
+    signal,
+  });
 }

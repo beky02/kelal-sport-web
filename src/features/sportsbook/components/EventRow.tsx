@@ -8,10 +8,11 @@ import { routes } from "@/config/routes";
 import { cn } from "@/lib/utils/cn";
 import { OddsButton } from "@/features/odds/components/OddsButton";
 import { OddsGroup } from "@/features/odds/components/OddsGroup";
+import { NoPrices } from "@/features/odds/components/NoPrices";
 import { useEventHasSelection } from "@/features/bet-slip/stores/bet-slip.store";
 import { useUiStore } from "@/stores/ui.store";
 import type { Competition } from "@/features/competitions/types";
-import type { BoardEvent } from "@/lib/api/mock/repository";
+import type { BoardEvent } from "@/features/events/types";
 import { BOARD_GRID, HIDE_BELOW_XL } from "../lib/grid";
 import { EventMeta } from "./EventMeta";
 import { SuspendedBanner } from "./SuspendedBanner";
@@ -33,6 +34,7 @@ function EventRowImpl({
   competition: Competition;
 }) {
   const { event, markets } = boardEvent;
+  const { matchResult, doubleChance, totalGoals } = markets;
   const t = useTranslation();
 
   const pinned = useUiStore((s) => s.favouriteEvents[event.id] === true);
@@ -86,47 +88,61 @@ function EventRowImpl({
       ) : (
         <>
           <OddsGroup className="border-t-0 border-l-0 pb-2 md:border-l md:pb-0">
-            {markets.matchResult.outcomes.map((outcome) => (
-              <OddsButton
-                key={outcome.code}
-                market={markets.matchResult}
-                outcome={outcome}
-                eventName={eventName}
-                size="sm"
-              />
-            ))}
+            {matchResult ? (
+              matchResult.outcomes.map((outcome) => (
+                <OddsButton
+                  key={outcome.id}
+                  market={matchResult}
+                  outcome={outcome}
+                  eventName={eventName}
+                  size="sm"
+                />
+              ))
+            ) : (
+              <NoPrices />
+            )}
           </OddsGroup>
 
           <OddsGroup className={HIDE_BELOW_XL}>
-            {markets.doubleChance.outcomes.map((outcome) => (
-              <OddsButton
-                key={outcome.code}
-                market={markets.doubleChance}
-                outcome={outcome}
-                eventName={eventName}
-                size="sm"
-              />
-            ))}
+            {doubleChance ? (
+              doubleChance.outcomes.map((outcome) => (
+                <OddsButton
+                  key={outcome.id}
+                  market={doubleChance}
+                  outcome={outcome}
+                  eventName={eventName}
+                  size="sm"
+                />
+              ))
+            ) : (
+              <NoPrices />
+            )}
           </OddsGroup>
 
           {/* Over · line · Under, with the goal line in the middle track so the
               two prices sit under the O and U captions in the header. */}
           <OddsGroup className={HIDE_BELOW_XL}>
-            <OddsButton
-              market={markets.totalGoals}
-              outcome={markets.totalGoals.outcomes[0]}
-              eventName={eventName}
-              size="sm"
-            />
-            <span className="text-muted numeric text-center text-xs font-bold">
-              {markets.totalGoals.line}
-            </span>
-            <OddsButton
-              market={markets.totalGoals}
-              outcome={markets.totalGoals.outcomes[1]}
-              eventName={eventName}
-              size="sm"
-            />
+            {totalGoals && totalGoals.outcomes.length === 2 ? (
+              <>
+                <OddsButton
+                  market={totalGoals}
+                  outcome={totalGoals.outcomes[0]}
+                  eventName={eventName}
+                  size="sm"
+                />
+                <span className="text-muted numeric text-center text-xs font-bold">
+                  {totalGoals.line}
+                </span>
+                <OddsButton
+                  market={totalGoals}
+                  outcome={totalGoals.outcomes[1]}
+                  eventName={eventName}
+                  size="sm"
+                />
+              </>
+            ) : (
+              <NoPrices />
+            )}
           </OddsGroup>
         </>
       )}

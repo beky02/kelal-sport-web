@@ -63,7 +63,7 @@ describe("parseServerMessage", () => {
 describe("applyToBoard", () => {
   it("updates the addressed price", () => {
     const next = applyToBoard(board, oddsUpdate("m3", "1", 1.67, "up"));
-    const outcome = find(next, "m3").markets.matchResult.outcomes[0];
+    const outcome = find(next, "m3").markets.matchResult!.outcomes[0];
 
     expect(outcome.odds).toBe(1.67);
     expect(outcome.movement).toBe("up");
@@ -106,11 +106,11 @@ describe("applyToBoard", () => {
     expect(after.event).toBe(before.event);
     expect(after.markets.doubleChance).toBe(before.markets.doubleChance);
     expect(after.markets.totalGoals).toBe(before.markets.totalGoals);
-    expect(after.markets.matchResult.outcomes[1]).toBe(
-      before.markets.matchResult.outcomes[1],
+    expect(after.markets.matchResult!.outcomes[1]).toBe(
+      before.markets.matchResult!.outcomes[1],
     );
-    expect(after.markets.matchResult.outcomes[0]).not.toBe(
-      before.markets.matchResult.outcomes[0],
+    expect(after.markets.matchResult!.outcomes[0]).not.toBe(
+      before.markets.matchResult!.outcomes[0],
     );
   });
 
@@ -124,7 +124,7 @@ describe("applyToBoard", () => {
 
   it("closes a price", () => {
     const next = applyToBoard(board, oddsUpdate("m3", "1", null));
-    expect(find(next, "m3").markets.matchResult.outcomes[0].odds).toBeNull();
+    expect(find(next, "m3").markets.matchResult!.outcomes[0].odds).toBeNull();
   });
 
   it("suspends and reopens a market", () => {
@@ -135,7 +135,7 @@ describe("applyToBoard", () => {
       line: null,
       status: "suspended",
     });
-    expect(find(suspended, "m3").markets.matchResult.status).toBe("suspended");
+    expect(find(suspended, "m3").markets.matchResult!.status).toBe("suspended");
     // The other markets on the same event are untouched objects.
     expect(find(suspended, "m3").markets.totalGoals).toBe(
       find(board, "m3").markets.totalGoals,
@@ -264,7 +264,7 @@ describe("market identity", () => {
     const boardOdds = board
       .flatMap((s) => s.events)
       .find((e) => e.event.id === "m3")!
-      .markets.matchResult.outcomes.map((o) => o.odds);
+      .markets.matchResult!.outcomes.map((o) => o.odds);
 
     const detail = await mockRepository.listMarkets("m3");
     const detailOdds = detail

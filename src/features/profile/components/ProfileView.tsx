@@ -13,15 +13,20 @@ import { useAuthStore } from "@/features/auth/stores/auth.store";
 import { PAYOUT_ACCOUNT } from "@/lib/api/mock/wallet";
 import { useSessionStore } from "@/stores/session.store";
 import { useUiStore } from "@/stores/ui.store";
-import type { ClockConvention, Lang, Theme } from "@/types/common";
+import type {
+  CalendarSystem,
+  ClockConvention,
+  Lang,
+  Theme,
+} from "@/types/common";
 import { cn } from "@/lib/utils/cn";
 import { InfoRow, SettingsRow, SettingsSection } from "./SettingsRow";
 
 /**
  * Account and settings.
  *
- * The home for the two preferences that have nowhere else to live — the Ethiopian
- * clock and data saver — alongside language and theme, which are also in the
+ * The home for the preferences that have nowhere else to live — the Ethiopian
+ * clock and calendar, and data saver — alongside language and theme, which are also in the
  * header because they are needed mid-task.
  *
  * Nothing here is a profile "edit" form: name, date of birth and Fayda number
@@ -37,6 +42,8 @@ export function ProfileView() {
   const setTheme = useUiStore((s) => s.setTheme);
   const clock = useUiStore((s) => s.clock);
   const setClock = useUiStore((s) => s.setClock);
+  const calendar = useUiStore((s) => s.calendar);
+  const setCalendar = useUiStore((s) => s.setCalendar);
   const dataSaver = useUiStore((s) => s.dataSaver);
   const setDataSaver = useUiStore((s) => s.setDataSaver);
 
@@ -208,6 +215,26 @@ export function ProfileView() {
             options={[
               { value: "eat", label: "EAT 24h" },
               { value: "eth", label: t.t("profile.ethiopianClock") },
+            ]}
+          />
+        </SettingsRow>
+
+        <SettingsRow
+          label={t.t("profile.calendar")}
+          note={t.t(
+            calendar === "ethiopian"
+              ? "profile.calendarExampleEthiopian"
+              : "profile.calendarExampleGregorian",
+          )}
+        >
+          <Segmented<CalendarSystem>
+            value={calendar}
+            onChange={setCalendar}
+            size="sm"
+            fill="ground"
+            options={[
+              { value: "gregorian", label: t.t("profile.gregorian") },
+              { value: "ethiopian", label: t.t("profile.ethiopianCalendar") },
             ]}
           />
         </SettingsRow>

@@ -1,6 +1,9 @@
-import type { BoardSection } from "@/lib/api/mock/repository";
 import type { Market, Outcome } from "@/features/markets/types";
-import type { SportEvent } from "@/features/events/types";
+import type {
+  BoardMarkets,
+  BoardSection,
+  SportEvent,
+} from "@/features/events/types";
 import type { ServerMessage } from "./messages";
 
 /**
@@ -111,16 +114,15 @@ export function applyToBoard(
   return sectionsChanged ? next : sections;
 }
 
-type BoardMarkets = BoardSection["events"][number]["markets"];
-
 /** Maps over the board's three market slots, preserving identity. */
 function updateMarkets(
   markets: BoardMarkets,
   update: (market: Market) => Market,
 ): BoardMarkets {
-  const matchResult = update(markets.matchResult);
-  const doubleChance = update(markets.doubleChance);
-  const totalGoals = update(markets.totalGoals);
+  const slot = (market: Market | null) => (market ? update(market) : null);
+  const matchResult = slot(markets.matchResult);
+  const doubleChance = slot(markets.doubleChance);
+  const totalGoals = slot(markets.totalGoals);
 
   if (
     matchResult === markets.matchResult &&

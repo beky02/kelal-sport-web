@@ -12,6 +12,12 @@ export type Theme = "dark" | "light";
  */
 export type ClockConvention = "eat" | "eth";
 
+/**
+ * Which calendar dates are shown in. Gregorian by default for Release 1 (D7);
+ * the Ethiopian calendar is a preference.
+ */
+export type CalendarSystem = "gregorian" | "ethiopian";
+
 /** How a team is badged. `none` is the data-saver path — no images at all. */
 export type Crest =
   | { kind: "flag"; src: string }
