@@ -20,6 +20,8 @@ const schema = z.object({
    * so the realtime path is exercised without one, `off` disables it.
    */
   realtime: z.enum(["off", "simulate", "on"]),
+  /** Release 2 features — see `config/features.ts`. */
+  features: z.object({ live: z.boolean(), cashOut: z.boolean() }),
 });
 
 const parsed = schema.safeParse({
@@ -28,6 +30,10 @@ const parsed = schema.safeParse({
   useMocks: (process.env.NEXT_PUBLIC_USE_MOCKS ?? "true") === "true",
   // Release 1 refreshes odds by polling (D5); live betting is Release 2 (D8).
   realtime: process.env.NEXT_PUBLIC_REALTIME ?? "off",
+  features: {
+    live: process.env.NEXT_PUBLIC_FEATURE_LIVE === "true",
+    cashOut: process.env.NEXT_PUBLIC_FEATURE_CASH_OUT === "true",
+  },
 });
 
 if (!parsed.success) {

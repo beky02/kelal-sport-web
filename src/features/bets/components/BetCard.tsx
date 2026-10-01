@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils/cn";
 import { betFigures, payoutView, PAYOUT_TONE } from "../lib/figures";
 import type { Bet } from "../types";
 import { BetStatusBadge, LegDot } from "./BetStatusBadge";
+import { features } from "@/config/features";
 import { CashOutPanel } from "./CashOutPanel";
 
 /**
@@ -98,7 +99,7 @@ export function BetCard({ bet }: { bet: Bet }) {
         )}
       </Link>
 
-      {bet.status === "open" && (
+      {features.cashOut && bet.status === "open" && (
         <div className="px-3 pb-3">
           <CashOutPanel bet={bet} />
         </div>

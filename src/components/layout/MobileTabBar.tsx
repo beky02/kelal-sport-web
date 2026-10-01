@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { ClipboardCheck, Menu, Radio, Ticket } from "lucide-react";
 import { useTranslation } from "@/lib/i18n/use-translation";
 import { SportIcon } from "@/components/ui/SportIcon";
+import { features } from "@/config/features";
 import { routes } from "@/config/routes";
 import { useAuthStore } from "@/features/auth/stores/auth.store";
 import { useBetSlipStore } from "@/features/bet-slip/stores/bet-slip.store";
@@ -71,7 +72,13 @@ export function MobileTabBar() {
   const tone = (tab: Tab) => (active === tab ? "text-accent" : "text-muted");
 
   return (
-    <nav className="bg-surface border-divider fixed inset-x-0 bottom-0 z-30 grid h-[calc(60px+env(safe-area-inset-bottom))] grid-cols-5 border-t pb-[env(safe-area-inset-bottom)] md:hidden">
+    <nav
+      className={cn(
+        "bg-surface border-divider fixed inset-x-0 bottom-0 z-30 grid h-[calc(60px+env(safe-area-inset-bottom))] border-t pb-[env(safe-area-inset-bottom)] md:hidden",
+        // Four tabs until live betting ships (Release 2).
+        features.live ? "grid-cols-5" : "grid-cols-4",
+      )}
+    >
       <Link
         href={routes.home}
         aria-current={active === "sports" ? "page" : undefined}
@@ -81,21 +88,23 @@ export function MobileTabBar() {
         {t.t("nav.sports")}
       </Link>
 
-      <Link
-        href={routes.live}
-        aria-current={active === "live" ? "page" : undefined}
-        className={cn(ITEM, tone("live"))}
-      >
-        <span className="relative grid">
-          <Radio size={21} strokeWidth={1.5} aria-hidden />
-          {liveCount > 0 && (
-            <span className="bg-live absolute -top-1 -right-3 grid h-4 min-w-4 place-items-center rounded-full px-1 text-[9px] font-extrabold text-white">
-              {liveCount}
-            </span>
-          )}
-        </span>
-        {t.t("nav.live")}
-      </Link>
+      {features.live && (
+        <Link
+          href={routes.live}
+          aria-current={active === "live" ? "page" : undefined}
+          className={cn(ITEM, tone("live"))}
+        >
+          <span className="relative grid">
+            <Radio size={21} strokeWidth={1.5} aria-hidden />
+            {liveCount > 0 && (
+              <span className="bg-live absolute -top-1 -right-3 grid h-4 min-w-4 place-items-center rounded-full px-1 text-[9px] font-extrabold text-white">
+                {liveCount}
+              </span>
+            )}
+          </span>
+          {t.t("nav.live")}
+        </Link>
+      )}
 
       <button
         type="button"

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useTranslation } from "@/lib/i18n/use-translation";
 import { CountBadge } from "@/components/ui/CountBadge";
+import { features } from "@/config/features";
 import { routes } from "@/config/routes";
 import { useAuthStore } from "@/features/auth/stores/auth.store";
 import { useLiveEventCount } from "@/features/sports/hooks/use-sports";
@@ -19,7 +20,9 @@ const LINKS: Array<{
   requiresAccount?: boolean;
 }> = [
   { href: routes.home, label: "nav.sports" },
-  { href: routes.live, label: "nav.live", live: true },
+  ...(features.live
+    ? [{ href: routes.live, label: "nav.live" as const, live: true }]
+    : []),
   { href: routes.myBets, label: "nav.myBets", requiresAccount: true },
   { href: routes.wallet, label: "nav.wallet", requiresAccount: true },
 ];

@@ -13,6 +13,7 @@ import { cn } from "@/lib/utils/cn";
 import { useBet } from "../hooks/use-bets";
 import { betFigures, payoutView, PAYOUT_TONE } from "../lib/figures";
 import { BetStatusBadge, LegDot } from "./BetStatusBadge";
+import { features } from "@/config/features";
 import { CashOutPanel } from "./CashOutPanel";
 
 /**
@@ -180,7 +181,8 @@ export function BetTicket({ id }: { id: string }) {
           {t.t("bets.shareTelegram")}
         </button>
 
-        <CashOutPanel bet={bet} size="ticket" />
+        {/* Cash out is Release 2 (D8). */}
+        {features.cashOut && <CashOutPanel bet={bet} size="ticket" />}
       </Card>
     </>
   );
