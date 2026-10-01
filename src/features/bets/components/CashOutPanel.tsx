@@ -5,7 +5,9 @@ import { CircleAlert, Loader2, Lock } from "lucide-react";
 import { useTranslation } from "@/lib/i18n/use-translation";
 import { cn } from "@/lib/utils/cn";
 import { useCashOut } from "../hooks/use-bets";
-import { betFigures, CASH_OUT_FRACTIONS } from "../lib/figures";
+import { usePublicConfig } from "@/features/config/hooks/use-public-config";
+import { share } from "@/lib/money";
+import { betFigures, CASH_OUT_SHARES } from "../lib/figures";
 import type { Bet } from "../types";
 
 /**
@@ -25,10 +27,9 @@ export function CashOutPanel({
 }) {
   const t = useTranslation();
   const [asking, setAsking] = useState(false);
-  const [fractionIndex, setFractionIndex] = useState(
-    CASH_OUT_FRACTIONS.length - 1,
-  );
+  const [shareIndex, setShareIndex] = useState(CASH_OUT_SHARES.length - 1);
   const cashOut = useCashOut();
+  const rules = usePublicConfig().data?.betting.calc ?? null;
 
   if (bet.status !== "open") return null;
 
@@ -41,9 +42,18 @@ export function CashOutPanel({
     );
   }
 
-  const fraction = CASH_OUT_FRACTIONS[fractionIndex];
-  const amount = bet.cashOutValue * fraction;
-  const figures = betFigures(bet);
+  // Previews only: the amount actually paid is the server's.
+  const part = CASH_OUT_SHARES[shareIndex];
+  const all = part.numerator === part.denominator;
+  const amount = share(bet.cashOutValue, part.numerator, part.denominator);
+  const figures = betFigures(bet, rules);
+  const rest = figures
+    ? share(
+        figures.netPayout,
+        part.denominator - part.numerator,
+        part.denominator,
+      )
+    : null;
   const buttonHeight = size === "ticket" ? "h-12" : "h-11";
 
   if (!asking) {
@@ -71,14 +81,14 @@ export function CashOutPanel({
       {size === "card" && (
         <>
           <div className="grid grid-cols-3 gap-1.5">
-            {CASH_OUT_FRACTIONS.map((value, index) => {
-              const on = index === fractionIndex;
+            {CASH_OUT_SHARES.map((option, index) => {
+              const on = index === shareIndex;
               return (
                 <button
-                  key={value}
+                  key={option.labelKey}
                   type="button"
                   aria-pressed={on}
-                  onClick={() => setFractionIndex(index)}
+                  onClick={() => setShareIndex(index)}
                   className={cn(
                     "font-body h-9 cursor-pointer rounded-lg border bg-transparent text-xs font-bold",
                     on
@@ -86,23 +96,17 @@ export function CashOutPanel({
                       : "border-divider text-text",
                   )}
                 >
-                  {t.t(
-                    value === 1
-                      ? "bets.partAll"
-                      : value === 0.5
-                        ? "bets.part50"
-                        : "bets.part25",
-                  )}
+                  {t.t(option.labelKey)}
                 </button>
               );
             })}
           </div>
 
           <span className="text-muted text-[11px]">
-            {fraction === 1
+            {all
               ? t.t("bets.cashOutAll")
               : t.t("bets.cashOutRest", {
-                  amount: t.money(figures.payout * (1 - fraction)),
+                  amount: rest ? t.money(rest) : "—",
                 })}
           </span>
         </>
@@ -132,7 +136,9 @@ export function CashOutPanel({
         <button
           type="button"
           disabled={cashOut.isPending}
-          onClick={() => cashOut.mutate({ id: bet.id, fraction })}
+          onClick={() =>
+            cashOut.mutate({ id: bet.id, fraction: part.fraction })
+          }
           className={cn(
             "bg-accent text-on-accent font-body flex cursor-pointer items-center justify-center gap-2 rounded-md text-sm font-bold disabled:opacity-60",
             buttonHeight,

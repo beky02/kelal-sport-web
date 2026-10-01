@@ -3,9 +3,10 @@ import { z } from "zod";
 /**
  * The realtime contract.
  *
- * Validated on arrival for the same reason REST responses are: a gateway that
- * starts sending `"1.67"` where the contract says `1.67` should be a loud
- * failure in one place, not a `NaN` that reaches an odds button.
+ * Validated on arrival for the same reason REST responses are: odds are decimal
+ * strings on every wire (FD4), so a gateway that starts sending `1.67` where
+ * `"1.67"` belongs should be a loud failure in one place, not a float that
+ * reaches the slip.
  */
 const marketRef = {
   eventId: z.string(),
@@ -19,7 +20,10 @@ export const serverMessageSchema = z.discriminatedUnion("type", [
     ...marketRef,
     outcomeCode: z.string(),
     /** Null closes the price. */
-    odds: z.number().positive().nullable(),
+    odds: z
+      .string()
+      .regex(/^\d+(\.\d{1,3})?$/)
+      .nullable(),
     movement: z.enum(["up", "down"]).nullable().default(null),
   }),
   z.object({

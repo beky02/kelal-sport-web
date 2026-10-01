@@ -9,7 +9,7 @@ const board = await mockRepository.listBoard({ sportId: "soccer" });
 const oddsUpdate = (
   eventId: string,
   outcomeCode: string,
-  odds: number | null,
+  odds: string | null,
   movement: "up" | "down" | null = null,
 ): ServerMessage => ({
   type: "ODDS_UPDATED",
@@ -28,7 +28,7 @@ describe("parseServerMessage", () => {
   it("parses a price move", () => {
     expect(
       parseServerMessage(
-        '{"type":"ODDS_UPDATED","eventId":"m3","marketType":"1x2","outcomeCode":"1","odds":1.67,"movement":"up"}',
+        '{"type":"ODDS_UPDATED","eventId":"m3","marketType":"1x2","outcomeCode":"1","odds":"1.67","movement":"up"}',
       ),
     ).toEqual({
       type: "ODDS_UPDATED",
@@ -36,15 +36,15 @@ describe("parseServerMessage", () => {
       marketType: "1x2",
       line: null,
       outcomeCode: "1",
-      odds: 1.67,
+      odds: "1.67",
       movement: "up",
     });
   });
 
-  it("drops a frame whose odds arrived as a string", () => {
+  it("drops a frame whose odds arrived as a number (FD4: decimal strings)", () => {
     expect(
       parseServerMessage(
-        '{"type":"ODDS_UPDATED","eventId":"m3","marketType":"1x2","outcomeCode":"1","odds":"1.67"}',
+        '{"type":"ODDS_UPDATED","eventId":"m3","marketType":"1x2","outcomeCode":"1","odds":1.67}',
       ),
     ).toBeNull();
   });
@@ -62,12 +62,12 @@ describe("parseServerMessage", () => {
 
 describe("applyToBoard", () => {
   it("updates the addressed price", () => {
-    const next = applyToBoard(board, oddsUpdate("m3", "1", 1.67, "up"));
+    const next = applyToBoard(board, oddsUpdate("m3", "1", "1.67", "up"));
     const outcome = find(next, "m3").markets.matchResult!.outcomes[0];
 
-    expect(outcome.odds).toBe(1.67);
+    expect(outcome.odds).toBe("1.67");
     expect(outcome.movement).toBe("up");
-    expect(outcome.previousOdds).toBe(1.62);
+    expect(outcome.previousOdds).toBe("1.62");
   });
 
   /**
@@ -76,7 +76,7 @@ describe("applyToBoard", () => {
    * tick, which is exactly what the architecture sets out to avoid.
    */
   it("returns every untouched object by reference", () => {
-    const next = applyToBoard(board, oddsUpdate("m3", "1", 1.67));
+    const next = applyToBoard(board, oddsUpdate("m3", "1", "1.67"));
 
     // Sections other than the one holding m3 are the same objects.
     for (let i = 0; i < board.length; i++) {
@@ -115,11 +115,15 @@ describe("applyToBoard", () => {
   });
 
   it("returns the same array when the price did not actually change", () => {
-    expect(applyToBoard(board, oddsUpdate("m3", "1", 1.62))).toBe(board);
+    expect(applyToBoard(board, oddsUpdate("m3", "1", "1.62"))).toBe(board);
+  });
+
+  it("treats a respelled price as unchanged", () => {
+    expect(applyToBoard(board, oddsUpdate("m3", "1", "1.620"))).toBe(board);
   });
 
   it("returns the same array for an event that is not on the board", () => {
-    expect(applyToBoard(board, oddsUpdate("nope", "1", 2))).toBe(board);
+    expect(applyToBoard(board, oddsUpdate("nope", "1", "2.00"))).toBe(board);
   });
 
   it("closes a price", () => {
@@ -194,13 +198,13 @@ describe("applyToMarkets", () => {
       marketType: "ou",
       line: "2.5",
       outcomeCode: "Over",
-      odds: 1.8,
+      odds: "1.80",
       movement: "up",
     });
 
     const over25 = next.find((m) => m.type === "ou" && m.line === "2.5")!;
-    expect(over25.outcomes[0].odds).toBe(1.8);
-    expect(over25.outcomes[0].previousOdds).toBe(1.72);
+    expect(over25.outcomes[0].odds).toBe("1.80");
+    expect(over25.outcomes[0].previousOdds).toBe("1.72");
 
     // Every other line keeps its identity.
     for (let i = 0; i < markets.length; i++) {

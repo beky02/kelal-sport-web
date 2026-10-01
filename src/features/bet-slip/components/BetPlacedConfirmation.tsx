@@ -26,7 +26,7 @@ export function BetPlacedConfirmation({
   // A multiple has one accumulated price. Singles and systems are several
   // separate bets, so quoting a product of their odds would be a number that
   // appears nowhere on the ticket — show what was actually placed instead.
-  const combined = receipt.mode === "multiple";
+  const combined = receipt.mode === "multiple" && receipt.totalOdds !== null;
   const typeLabel = combined
     ? t.t("betSlip.multipleLabel", { n: receipt.betCount })
     : receipt.mode === "system"
@@ -50,7 +50,7 @@ export function BetPlacedConfirmation({
         <div className="flex justify-between">
           <span className="text-muted">{typeLabel}</span>
           <span className="font-bold">
-            {combined
+            {combined && receipt.totalOdds
               ? t.odds(receipt.totalOdds)
               : `${receipt.betCount} ${t.t("betSlip.bets")}`}
           </span>

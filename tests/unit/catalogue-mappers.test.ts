@@ -71,7 +71,7 @@ describe("toBoard", () => {
     expect(event.marketCount).toBe(184);
   });
 
-  it("carries the real outcome IDs, prices and team-name labels", () => {
+  it("carries the real outcome IDs, prices as the contract's strings, and team-name labels", () => {
     const market = board[1].events[0].markets.matchResult!;
     expect(market.id).toBe("mk_ac_1x2");
     expect(market.type).toBe("1x2");
@@ -79,9 +79,9 @@ describe("toBoard", () => {
     expect(
       market.outcomes.map((o) => [o.id, o.code, o.label.en, o.odds]),
     ).toEqual([
-      ["oc_ac_1", "1", "Arsenal", 2.1],
-      ["oc_ac_x", "X", "Draw", 3.4],
-      ["oc_ac_2", "2", "Chelsea", 3.3],
+      ["oc_ac_1", "1", "Arsenal", "2.10"],
+      ["oc_ac_x", "X", "Draw", "3.40"],
+      ["oc_ac_2", "2", "Chelsea", "3.30"],
     ]);
   });
 

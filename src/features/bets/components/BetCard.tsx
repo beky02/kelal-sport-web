@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useTranslation } from "@/lib/i18n/use-translation";
 import { routes } from "@/config/routes";
 import { cn } from "@/lib/utils/cn";
+import { usePublicConfig } from "@/features/config/hooks/use-public-config";
 import { betFigures, payoutView, PAYOUT_TONE } from "../lib/figures";
 import type { Bet } from "../types";
 import { BetStatusBadge, LegDot } from "./BetStatusBadge";
@@ -19,7 +20,8 @@ import { CashOutPanel } from "./CashOutPanel";
  */
 export function BetCard({ bet }: { bet: Bet }) {
   const t = useTranslation();
-  const figures = betFigures(bet);
+  const rules = usePublicConfig().data?.betting.calc ?? null;
+  const figures = betFigures(bet, rules);
   const payout = payoutView(bet, figures);
 
   return (
@@ -77,19 +79,21 @@ export function BetCard({ bet }: { bet: Bet }) {
           </span>
           <span className="flex flex-col">
             <span className="text-muted text-[11px]">{t.t("bets.odds")}</span>
-            <span className="font-semibold">{t.odds(figures.odds)}</span>
+            <span className="font-semibold">
+              {figures?.totalOdds ? t.odds(figures.totalOdds) : "—"}
+            </span>
           </span>
           <span className="flex flex-col items-end">
             <span className="text-muted text-[11px]">
               {t.t(payout.labelKey as "bets.netPayout")}
             </span>
             <span className={cn("text-sm font-bold", PAYOUT_TONE[payout.tone])}>
-              {t.money(payout.amount)}
+              {payout.amount ? t.money(payout.amount) : "—"}
             </span>
           </span>
         </span>
 
-        {bet.status === "won" && (
+        {bet.status === "won" && figures && (
           <span className="text-muted numeric text-[11px]">
             {t.t("bets.taxWithheld", {
               winnings: t.money(figures.winTax),

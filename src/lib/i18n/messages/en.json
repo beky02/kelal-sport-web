@@ -77,8 +77,6 @@
     "emptyTitle": "Your bet slip is empty",
     "emptyBody": "Tap any odds to add a selection.",
     "stake": "Stake",
-    "stakePerBet": "Stake per bet",
-    "stakePerCombination": "Stake per combination",
     "clearStake": "Clear stake",
     "balance": "Balance",
     "totalOdds": "Total odds",
@@ -87,13 +85,11 @@
     "netStake": "Net stake",
     "winTax": "Winnings tax",
     "grossReturn": "Gross return",
-    "winnings": "Winnings (gross return − stake)",
     "oddsEach": "Each pick at its own odds",
     "oddsAcross": "Across {n} combinations",
     "totalReturn": "Total return",
     "maxReturn": "Max return",
     "youStake": "You stake",
-    "returns": "Returns",
     "cappedAtMax": "Capped at max win",
     "maxWin": "Max win per ticket {amount}.",
     "taxNote": "Taxes are withheld as required by Ethiopian law.",
@@ -127,8 +123,6 @@
     "loadCode": "Load booking code",
     "loadCodePlaceholder": "e.g. KS7Q4M2",
     "load": "Load",
-    "rejectedTitle": "Bet not accepted",
-    "rejectedBody": "Max stake on this selection is {amount}. Lower your stake and try again.",
     "setMax": "Set {amount}",
     "alerts": {
       "oddsChangedTitle": "Odds changed",
@@ -142,7 +136,33 @@
       "insufficientTitle": "Insufficient balance",
       "insufficientBody": "Your balance is {amount}.",
       "deposit": "Deposit to continue"
-    }
+    },
+    "totalStake": "Total stake",
+    "linesTimesStake": "{lines} bets × {amount}",
+    "accaBonus": "Accumulator bonus",
+    "taxAbove": "above {amount}",
+    "rulesLoading": "Loading betting rules…",
+    "rulesFailed": "Couldn’t load the betting rules",
+    "warnings": {
+      "remainder": "{amount} can’t be split evenly across {lines} bets, so you’ll be charged {charged}.",
+      "bonusCapped": "Accumulator bonus capped at {amount}.",
+      "maxPayout": "Max payout of {amount} reached."
+    },
+    "errors": {
+      "stakeTooLowTitle": "Stake too low",
+      "stakeTooLowBody": "The minimum total stake is {amount}.",
+      "stakeTooHighTitle": "Stake too high",
+      "stakeTooHighBody": "The maximum total stake is {amount}.",
+      "tooManyLegsTitle": "Too many selections",
+      "tooManyLegsBody": "A slip can hold up to {n} selections. Remove some to continue.",
+      "tooManyLinesTitle": "Too many combinations",
+      "tooManyLinesBody": "A system can have up to {n} bets. Pick a smaller size or use Multiple.",
+      "useMultiple": "Use Multiple",
+      "cannotPriceTitle": "Can’t price this slip",
+      "cannotPriceBody": "One of the prices isn’t valid. Remove it or try again later."
+    },
+    "withholdingTax": "Withholding tax",
+    "levy": "Levy"
   },
   "clock": {
     "eat": "EAT · UTC+3",

@@ -30,6 +30,7 @@ import type { Sport } from "@/features/sports/types";
 import type { SearchResults } from "@/features/search/types";
 import { SPORT_ICONS } from "@/components/ui/sport-icons";
 import { toEat } from "@/lib/i18n/dates";
+import { compareOdds } from "@/lib/money";
 
 type Schemas = components["schemas"];
 export type Dictionary = Schemas["Dictionary"];
@@ -364,11 +365,13 @@ const unlined = (template: string | undefined) =>
     .replace(/\s*\(\s*\)/g, "")
     .trim();
 
-/** `"2.10"` → `2.1`. Display only — the slip does its maths on the strings. */
-function parseOdds(odds: string): number | null {
-  if (!/^\d+(\.\d+)?$/.test(odds)) return null;
-  const value = Number(odds);
-  return value > 1 ? value : null;
+/**
+ * The contract's odds string, kept as-is (FD4) when it is a price that can be
+ * backed; anything else closes the outcome rather than showing a bad number.
+ */
+function validOdds(odds: string): string | null {
+  if (!/^\d+(\.\d{1,3})?$/.test(odds)) return null;
+  return compareOdds(odds, "1") > 0 ? odds : null;
 }
 
 export function toMarket(
@@ -412,7 +415,7 @@ export function toMarket(
       id: outcome.id,
       code: OUTCOME_CODE[outcome.tpl] ?? outcome.tpl,
       label: label(outcome.tpl),
-      odds: open && outcome.active ? parseOdds(outcome.odds) : null,
+      odds: open && outcome.active ? validOdds(outcome.odds) : null,
       previousOdds: null,
       movement: null,
     })),

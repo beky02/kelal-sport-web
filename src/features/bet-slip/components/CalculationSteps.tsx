@@ -1,88 +1,138 @@
 "use client";
 
+import type { RuleSetJson } from "@golden/slipcalc";
 import { useTranslation } from "@/lib/i18n/use-translation";
-import { BETTING } from "@/config/constants";
+import { compareMoney } from "@/lib/money";
 import { cn } from "@/lib/utils/cn";
-import type { BetSlipTotals } from "../lib/calculate";
+import type { SlipQuote } from "../lib/calculate";
+import { taxLabel, taxLines } from "../lib/tax-lines";
+import type { BetSlipMode } from "../types";
+
+interface Row {
+  operator: string;
+  label: string;
+  value: string;
+  /** A subtotal or the final figure: ruled off and bold. */
+  total?: boolean;
+}
 
 /**
- * The payout, worked out line by line.
+ * The payout, worked out line by line, in D1's order: stake tax per line, net
+ * stake, odds, gross, accumulator bonus, the cap, payout taxes.
  *
- * Two taxes and a per-ticket cap stand between a stake and a payout; a user who
- * cannot see where the money went has to take the final figure on trust. Each
- * line carries its operator so the arithmetic can be followed by eye.
+ * A user who cannot see where the money went has to take the final figure on
+ * trust. Each row carries its operator so the arithmetic can be followed by
+ * eye — but every figure is slipcalc's, never recomputed here.
  */
-export function CalculationSteps({ totals }: { totals: BetSlipTotals }) {
+export function CalculationSteps({
+  quote,
+  rules,
+  mode,
+}: {
+  quote: SlipQuote;
+  rules: RuleSetJson;
+  mode: BetSlipMode;
+}) {
   const t = useTranslation();
+  const taxes = taxLines(rules, quote);
 
   const oddsLabel =
-    totals.mode === "multiple"
+    mode === "multiple"
       ? t.t("betSlip.totalOdds")
-      : totals.mode === "system"
-        ? t.t("betSlip.oddsAcross", { n: totals.combinationCount })
+      : mode === "system"
+        ? t.t("betSlip.oddsAcross", { n: quote.lines })
         : t.t("betSlip.oddsEach");
 
-  const returnLabel =
-    totals.mode === "system"
-      ? t.t("betSlip.maxReturn")
-      : t.t("betSlip.totalReturn");
+  const taxLabelFor = (tax: (typeof taxes)[number]) =>
+    `${t.t(taxLabel(tax.code))} · ${t.percent(tax.rate)}${
+      tax.threshold
+        ? ` ${t.t("betSlip.taxAbove", { amount: t.money(tax.threshold) })}`
+        : ""
+    }`;
 
-  const rows: Array<[operator: string, label: string, value: string]> = [
-    ["", t.t("betSlip.stake"), t.money(totals.totalStake)],
-    [
-      "−",
-      `${t.t("betSlip.stakeTax")} · ${t.percent(BETTING.stakeTaxRate)}`,
-      t.money(totals.stakeTax),
-    ],
-    ["=", t.t("betSlip.netStake"), t.money(totals.netStake)],
-    [
-      "×",
-      oddsLabel,
-      totals.mode === "multiple" ? t.odds(totals.totalOdds) : "",
-    ],
-    ["=", t.t("betSlip.grossReturn"), t.money(totals.grossReturn)],
-    [
-      "",
-      t.t("betSlip.winnings"),
-      t.money(Math.max(0, totals.grossReturn - totals.totalStake)),
-    ],
-    [
-      "−",
-      `${t.t("betSlip.winTax")} · ${t.percent(BETTING.winTaxRate)}`,
-      t.money(totals.winTax),
-    ],
-    ["=", returnLabel, t.money(totals.payout)],
+  const rows: Row[] = [
+    {
+      operator: "",
+      label: t.t("betSlip.stake"),
+      value: t.money(quote.totalStake),
+    },
+    ...taxes
+      .filter((tax) => tax.stage === "stake")
+      .map((tax) => ({
+        operator: "−",
+        label: taxLabelFor(tax),
+        value: t.money(tax.amount ?? "0.00"),
+      })),
+    {
+      operator: "=",
+      label: t.t("betSlip.netStake"),
+      value: t.money(quote.netStake),
+      total: true,
+    },
+    {
+      operator: "×",
+      label: oddsLabel,
+      value: quote.totalOdds ? t.odds(quote.totalOdds) : "",
+    },
+    {
+      operator: "=",
+      label: t.t("betSlip.grossReturn"),
+      value: t.money(quote.grossPayout),
+      total: true,
+    },
+    ...(compareMoney(quote.accaBonus, "0.00") > 0
+      ? [
+          {
+            operator: "+",
+            label: t.t("betSlip.accaBonus"),
+            value: t.money(quote.accaBonus),
+          },
+        ]
+      : []),
+    ...taxes
+      .filter((tax) => tax.stage === "payout")
+      .map((tax) => ({
+        operator: "−",
+        label: taxLabelFor(tax),
+        value: t.money(tax.amount ?? "0.00"),
+      })),
+    {
+      operator: "=",
+      label:
+        mode === "system"
+          ? t.t("betSlip.maxReturn")
+          : t.t("betSlip.totalReturn"),
+      value: t.money(quote.netPayout),
+      total: true,
+    },
   ];
 
   return (
     <div className="bg-ground flex flex-col gap-1.5 rounded-md px-3 py-2.5 text-xs">
-      {rows.map(([operator, label, value], index) => {
+      {rows.map((row, index) => {
         const last = index === rows.length - 1;
-        // Rules under the two subtotals and the final figure.
-        const subtotal = index === 2 || index === 4;
-
         return (
           <div
-            key={label}
+            key={row.label}
             className={cn(
               "flex justify-between gap-3",
-              (last || subtotal) && "border-divider border-t pt-1.5",
+              row.total && "border-divider border-t pt-1.5",
               last && "font-bold",
             )}
           >
             <span className="flex min-w-0 gap-2">
               <span className="text-muted w-2.5 shrink-0 font-bold">
-                {operator}
+                {row.operator}
               </span>
-              <span>{label}</span>
+              <span>{row.label}</span>
             </span>
             <span
               className={cn(
                 "whitespace-nowrap",
-                last || subtotal ? "font-bold" : "font-medium",
+                row.total ? "font-bold" : "font-medium",
               )}
             >
-              {value}
+              {row.value}
             </span>
           </div>
         );

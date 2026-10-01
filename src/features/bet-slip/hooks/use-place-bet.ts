@@ -1,7 +1,9 @@
 "use client";
 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { walletKeys } from "@/lib/query/keys";
+import { configKeys, walletKeys } from "@/lib/query/keys";
+import { ApiError } from "@/lib/api/errors";
+import type { PublicConfigView } from "@/features/config/types";
 import { useBetSlipStore } from "../stores/bet-slip.store";
 import { placeBet, type BetReceipt } from "../api/place-bet";
 
@@ -19,19 +21,25 @@ export function usePlaceBet(onPlaced: (receipt: BetReceipt) => void) {
   return useMutation({
     mutationFn: async () => {
       const { selections, mode, stake, systemK } = useBetSlipStore.getState();
+      const config = queryClient.getQueryData<PublicConfigView>(
+        configKeys.public(),
+      );
+      // The button is disabled without a rule set; this is the backstop.
+      if (!config) {
+        throw new ApiError("Betting rules not loaded", 0, "network");
+      }
       return placeBet(
         {
           mode,
           stake,
           systemK,
           selections: selections.map((s) => ({
-            eventId: s.eventId,
-            marketId: s.marketId,
-            outcomeCode: s.outcomeCode,
+            outcomeId: s.outcomeId,
             odds: s.currentOdds,
           })),
         },
         selections,
+        config.betting.calc,
       );
     },
     onSuccess: (receipt) => {

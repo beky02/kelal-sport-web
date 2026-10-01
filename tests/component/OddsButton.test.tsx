@@ -25,7 +25,7 @@ const market: Market = {
       id: "oc_m3_1",
       code: "1",
       label: { en: "Man City", am: "Man City" },
-      odds: 1.62,
+      odds: "1.62",
       previousOdds: null,
       movement: null,
     },
@@ -151,12 +151,12 @@ describe("OddsButton → bet slip", () => {
     const { selections } = useBetSlipStore.getState();
     expect(selections).toHaveLength(1);
     expect(selections[0]).toMatchObject({
-      uid: "m3#1x2||1",
+      outcomeId: "oc_m3_1",
       eventId: "m3",
       marketType: "1x2",
       outcomeCode: "1",
-      initialOdds: 1.62,
-      currentOdds: 1.62,
+      initialOdds: "1.62",
+      currentOdds: "1.62",
       suspended: false,
     });
   });

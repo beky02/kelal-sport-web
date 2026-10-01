@@ -1,30 +1,31 @@
 import { z } from "zod";
+import type { RuleSetJson } from "@golden/slipcalc";
 import { env } from "@/config/env";
-import { BETTING } from "@/config/constants";
 import { apiClient, assertContract } from "@/lib/api/client";
 import { ApiError } from "@/lib/api/errors";
+import { moneySchema, oddsSchema } from "@/lib/api/schemas";
 import { calculateBetSlip } from "../lib/calculate";
 import type { BetSelection, BetSlipMode } from "../types";
 
 export interface PlaceBetRequest {
   mode: BetSlipMode;
-  stake: number;
+  /** The total stake, a decimal string. */
+  stake: string;
   systemK: number;
   selections: Array<{
-    eventId: string;
-    marketId: string;
-    outcomeCode: string;
-    /** The price the user agreed to. The book re-checks it. */
-    odds: number;
+    /** The contract's outcome ID. */
+    outcomeId: string;
+    /** The price the user agreed to, as the API sent it. The book re-checks it. */
+    odds: string;
   }>;
 }
 
 /**
  * What the backend says happened.
  *
- * Every figure here is the server's, not the slip's: the slip shows an estimate
- * while the user builds a bet, and this replaces it. Ethiopian withholding, the
- * per-ticket cap and the odds themselves are all re-derived server-side.
+ * Every figure here is the server's, not the slip's: the slip shows slipcalc's
+ * preview while the user builds a bet, and this replaces it. Amounts are
+ * decimal strings (FD4).
  */
 export const betReceiptSchema = z.object({
   ticketId: z.string(),
@@ -35,12 +36,12 @@ export const betReceiptSchema = z.object({
    * of separate bets placed (N singles, or C system combinations).
    */
   betCount: z.number().int().positive(),
-  /** The accumulated price. Only meaningful on a multiple. */
-  totalOdds: z.number(),
-  totalStake: z.number(),
-  stakeTax: z.number(),
-  winTax: z.number(),
-  payout: z.number(),
+  /** The accumulated price; null when the ticket is more than one line. */
+  totalOdds: oddsSchema.nullable(),
+  totalStake: moneySchema,
+  stakeTax: moneySchema,
+  winTax: moneySchema,
+  payout: moneySchema,
 });
 
 export type BetReceipt = z.infer<typeof betReceiptSchema>;
@@ -57,20 +58,21 @@ function ticketId(now: Date): string {
 }
 
 /**
- * Stands in for the betting engine.
+ * Stands in for the betting engine until F5.
  *
- * Deliberately re-runs the maths rather than trusting anything the client sent,
- * and refuses the same cases the real engine would. Keeping those refusals here
- * means the UI's error paths are exercised long before there is a backend.
+ * Re-prices with slipcalc rather than trusting anything the client sent, and
+ * refuses with the codes slipcalc and the engine use, so the UI's error paths
+ * are exercised before there is a backend.
  */
 async function placeBetAgainstMock(
   request: PlaceBetRequest,
   selections: readonly BetSelection[],
+  rules: RuleSetJson,
 ): Promise<BetReceipt> {
   await new Promise((resolve) => setTimeout(resolve, 650));
 
   if (selections.length === 0) {
-    throw new ApiError("Bet slip is empty", 422, "empty_slip");
+    throw new ApiError("Bet slip is empty", 422, "VALIDATION_FAILED");
   }
 
   const totals = calculateBetSlip({
@@ -78,13 +80,9 @@ async function placeBetAgainstMock(
     mode: request.mode,
     stake: request.stake,
     systemK: request.systemK,
-    rates: {
-      stakeTax: BETTING.stakeTaxRate,
-      winTax: BETTING.winTaxRate,
-      maxWinPerTicket: BETTING.maxWinPerTicket,
-    },
+    rules,
     balance: null,
-    acceptedUids: new Set(selections.map((s) => s.uid)),
+    acceptedIds: new Set(selections.map((s) => s.outcomeId)),
     acceptAllOddsChanges: true,
   });
 
@@ -92,52 +90,50 @@ async function placeBetAgainstMock(
     throw new ApiError(
       "Selections from the same event cannot be combined",
       422,
-      "same_event_conflict",
+      "BET_RELATED_SELECTIONS",
     );
   }
   if (totals.suspendedSelection) {
-    throw new ApiError("A selection is suspended", 409, "selection_suspended");
+    throw new ApiError("A selection is suspended", 409, "BET_MARKET_SUSPENDED");
   }
-  if (request.stake <= 0) {
-    throw new ApiError("Stake must be greater than zero", 422, "invalid_stake");
-  }
-  // The book caps what it will take on one selection. The client shows a limit
-  // as a hint; this is the rule.
-  if (request.stake > BETTING.maxStakePerSelection) {
+  if (!totals.quote) {
+    const problem = totals.problem ?? { code: "VALIDATION_FAILED" as const };
     throw new ApiError(
-      `Max stake per selection is ${BETTING.maxStakePerSelection}`,
+      "The bet was refused",
       422,
-      "stake_too_high",
-      { maxStake: BETTING.maxStakePerSelection },
+      problem.code,
+      undefined,
+      "stake" in problem
+        ? [{ field: "stake", code: "LIMIT", limit: problem.stake }]
+        : [],
     );
   }
 
+  const q = totals.quote;
   const now = new Date();
   return {
     ticketId: ticketId(now),
     placedAt: now.toISOString(),
     mode: totals.mode,
-    betCount:
-      totals.mode === "multiple"
-        ? totals.liveCount
-        : Math.max(1, totals.combinationCount),
-    totalOdds: totals.totalOdds,
-    totalStake: totals.totalStake,
-    stakeTax: totals.stakeTax,
-    winTax: totals.winTax,
-    payout: totals.payout,
+    betCount: totals.mode === "multiple" ? totals.liveCount : q.lines,
+    totalOdds: q.totalOdds,
+    totalStake: q.totalStake,
+    stakeTax: q.stakeTax,
+    winTax: q.winTax,
+    payout: q.netPayout,
   };
 }
 
 export async function placeBet(
   request: PlaceBetRequest,
   selections: readonly BetSelection[],
+  rules: RuleSetJson,
 ): Promise<BetReceipt> {
   if (env.useMocks) {
     return assertContract(
       "/bets",
       betReceiptSchema,
-      await placeBetAgainstMock(request, selections),
+      await placeBetAgainstMock(request, selections, rules),
     );
   }
   return apiClient.post("/bets", betReceiptSchema, request);

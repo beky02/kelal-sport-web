@@ -22,7 +22,8 @@ export function oddsAriaLabel({
   /** Usually the event name, so the price is not announced out of context. */
   context?: string;
   outcome: string;
-  odds: number | null;
+  /** The contract's decimal string. */
+  odds: string | null;
   movement: OddsMovement | null;
   selected: boolean;
   suspended: boolean;

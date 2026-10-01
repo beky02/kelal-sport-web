@@ -4,9 +4,7 @@
  * Covers the states the screen has to handle: open, live, cash-out suspended,
  * won, won with a void leg, lost, and cashed out.
  */
-import { BETTING } from "@/config/constants";
-import { settleBet } from "@/features/bet-slip/lib/calculate";
-import { totalOdds, type Bet, type Transaction } from "@/features/bets/types";
+import type { Bet, Transaction } from "@/features/bets/types";
 import type { Localized } from "@/types/common";
 
 const t = (en: string, am?: string): Localized => ({ en, am: am ?? en });
@@ -20,8 +18,8 @@ export const BETS: Bet[] = [
     status: "open",
     live: false,
     placedAt: t("Today 16:51", "ዛሬ 16:51"),
-    stake: 100,
-    cashOutValue: 142.3,
+    stake: "100.00",
+    cashOutValue: "142.30",
     cashOutBlocked: false,
     cashedOutAmount: null,
     legs: [
@@ -29,7 +27,7 @@ export const BETS: Bet[] = [
         market: MATCH_RESULT,
         pick: t("Man City"),
         match: t("Man City – Newcastle"),
-        odds: 1.62,
+        odds: "1.62",
         status: "open",
         result: t("19:30 EAT"),
       },
@@ -37,7 +35,7 @@ export const BETS: Bet[] = [
         market: MATCH_RESULT,
         pick: t("Draw", "አቻ"),
         match: t("Saint George – Fasil Kenema", "ቅዱስ ጊዮርጊስ – ፋሲል ከነማ"),
-        odds: 3.05,
+        odds: "3.05",
         status: "open",
         result: t("19:00 EAT"),
       },
@@ -45,7 +43,7 @@ export const BETS: Bet[] = [
         market: MATCH_RESULT,
         pick: t("Barcelona"),
         match: t("Barcelona – Sevilla"),
-        odds: 1.38,
+        odds: "1.38",
         status: "open",
         result: t("22:00 EAT"),
       },
@@ -56,8 +54,8 @@ export const BETS: Bet[] = [
     status: "open",
     live: true,
     placedAt: t("Today 16:05", "ዛሬ 16:05"),
-    stake: 200,
-    cashOutValue: 268.4,
+    stake: "200.00",
+    cashOutValue: "268.40",
     cashOutBlocked: false,
     cashedOutAmount: null,
     legs: [
@@ -65,7 +63,7 @@ export const BETS: Bet[] = [
         market: MATCH_RESULT,
         pick: t("Arsenal"),
         match: t("Arsenal – Chelsea"),
-        odds: 1.85,
+        odds: "1.85",
         status: "live",
         result: t("1–0 · 63'"),
       },
@@ -76,7 +74,7 @@ export const BETS: Bet[] = [
     status: "open",
     live: true,
     placedAt: t("Today 15:40", "ዛሬ 15:40"),
-    stake: 100,
+    stake: "100.00",
     cashOutValue: null,
     // A leg's market is suspended, so the book will not quote a buy-back.
     cashOutBlocked: true,
@@ -86,7 +84,7 @@ export const BETS: Bet[] = [
         market: MATCH_RESULT,
         pick: t("Bayern"),
         match: t("Bayern – Leipzig"),
-        odds: 1.45,
+        odds: "1.45",
         status: "live",
         result: t("2–1 · 71'"),
       },
@@ -94,7 +92,7 @@ export const BETS: Bet[] = [
         market: MATCH_RESULT,
         pick: t("Inter"),
         match: t("Inter – Torino"),
-        odds: 1.7,
+        odds: "1.70",
         status: "live",
         result: t("0–0 · 38'"),
       },
@@ -105,7 +103,7 @@ export const BETS: Bet[] = [
     status: "won",
     live: false,
     placedAt: t("Sat 26 Sep 21:10", "ቅዳሜ 21:10"),
-    stake: 150,
+    stake: "150.00",
     cashOutValue: null,
     cashOutBlocked: false,
     cashedOutAmount: null,
@@ -114,7 +112,7 @@ export const BETS: Bet[] = [
         market: MATCH_RESULT,
         pick: t("Liverpool"),
         match: t("Liverpool – Everton"),
-        odds: 1.75,
+        odds: "1.75",
         status: "won",
         result: t("2–1"),
       },
@@ -122,7 +120,7 @@ export const BETS: Bet[] = [
         market: OVER_UNDER,
         pick: t("Over 2.5", "ከ2.5 በላይ"),
         match: t("Liverpool – Everton"),
-        odds: 2.64,
+        odds: "2.64",
         status: "won",
         result: t("3 goals", "3 ጎሎች"),
       },
@@ -133,7 +131,7 @@ export const BETS: Bet[] = [
     status: "won",
     live: false,
     placedAt: t("Sat 26 Sep 17:20", "ቅዳሜ 17:20"),
-    stake: 100,
+    stake: "100.00",
     cashOutValue: null,
     cashOutBlocked: false,
     cashedOutAmount: null,
@@ -142,16 +140,17 @@ export const BETS: Bet[] = [
         market: MATCH_RESULT,
         pick: t("Saint George", "ቅዱስ ጊዮርጊስ"),
         match: t("Saint George – Hawassa City", "ቅዱስ ጊዮርጊስ – ሀዋሳ ከተማ"),
-        odds: 1.8,
+        odds: "1.80",
         status: "won",
         result: t("2–0"),
       },
-      // Postponed: priced at 1.00 so it neither wins nor loses the ticket.
+      // Postponed: the leg keeps the price it was taken at, and its void
+      // result counts it as 1.00 (D1.5), so it neither wins nor loses.
       {
         market: MATCH_RESULT,
         pick: t("Fasil Kenema", "ፋሲል ከነማ"),
         match: t("Fasil Kenema – Wolkite City", "ፋሲል ከነማ – ወልቂጤ ከተማ"),
-        odds: 1.0,
+        odds: "2.05",
         status: "void",
         result: t("Postponed", "ተራዝሟል"),
       },
@@ -162,7 +161,7 @@ export const BETS: Bet[] = [
     status: "lost",
     live: false,
     placedAt: t("Fri 25 Sep 18:30", "ዓርብ 18:30"),
-    stake: 100,
+    stake: "100.00",
     cashOutValue: null,
     cashOutBlocked: false,
     cashedOutAmount: null,
@@ -174,7 +173,7 @@ export const BETS: Bet[] = [
           "Ethiopian Coffee – Bahir Dar Kenema",
           "ኢትዮጵያ ቡና – ባሕር ዳር ከነማ",
         ),
-        odds: 3.1,
+        odds: "3.10",
         status: "lost",
         result: t("2–0"),
       },
@@ -185,16 +184,16 @@ export const BETS: Bet[] = [
     status: "cashed",
     live: false,
     placedAt: t("Thu 24 Sep 20:00", "ሐሙስ 20:00"),
-    stake: 80,
+    stake: "80.00",
     cashOutValue: null,
     cashOutBlocked: false,
-    cashedOutAmount: 96,
+    cashedOutAmount: "96.00",
     legs: [
       {
         market: MATCH_RESULT,
         pick: t("Real Madrid"),
         match: t("Real Madrid – Getafe"),
-        odds: 1.4,
+        odds: "1.40",
         status: "won",
         result: t("1–0"),
       },
@@ -202,7 +201,7 @@ export const BETS: Bet[] = [
         market: MATCH_RESULT,
         pick: t("Inter"),
         match: t("Inter – Torino"),
-        odds: 1.55,
+        odds: "1.55",
         status: "lost",
         result: t("1–1"),
       },
@@ -211,20 +210,12 @@ export const BETS: Bet[] = [
 ];
 
 /**
- * The winnings credited for a settled ticket, derived rather than typed in.
- *
- * A hardcoded figure here would sooner or later disagree with the ticket's own
- * breakdown, and a wallet line that does not match the bet it came from is the
- * kind of discrepancy users escalate.
+ * The winnings credited for the won ticket `KS-260926-1177`: its net payout
+ * under the contract's example rule set. `tests/unit/bets-figures.test.ts`
+ * recomputes it with slipcalc, so the wallet line can never disagree with the
+ * ticket it came from.
  */
-function winningsFor(betId: string): number {
-  const bet = BETS.find((b) => b.id === betId)!;
-  return settleBet(bet.stake, totalOdds(bet.legs), {
-    stakeTax: BETTING.stakeTaxRate,
-    winTax: BETTING.winTaxRate,
-    maxWinPerTicket: BETTING.maxWinPerTicket,
-  }).payout;
-}
+export const WON_TICKET_WINNINGS = "589.05";
 
 /** Amounts are signed: negative leaves the wallet. */
 export const TRANSACTIONS: Transaction[] = [
@@ -234,7 +225,7 @@ export const TRANSACTIONS: Transaction[] = [
     status: "success",
     name: t("Bet stake · KS-260927-3381", "ውርርድ · KS-260927-3381"),
     meta: t("16:51"),
-    amount: -100,
+    amount: "-100.00",
     date: "2026-09-28",
   },
   {
@@ -243,7 +234,7 @@ export const TRANSACTIONS: Transaction[] = [
     status: "success",
     name: t("Bet stake · KS-260927-2954", "ውርርድ · KS-260927-2954"),
     meta: t("16:05"),
-    amount: -200,
+    amount: "-200.00",
     date: "2026-09-28",
   },
   {
@@ -252,7 +243,7 @@ export const TRANSACTIONS: Transaction[] = [
     status: "success",
     name: t("Deposit · telebirr", "ገቢ · telebirr"),
     meta: t("14:02 · TX-8841-2207"),
-    amount: 500,
+    amount: "500.00",
     date: "2026-09-28",
   },
   {
@@ -261,7 +252,7 @@ export const TRANSACTIONS: Transaction[] = [
     status: "pending",
     name: t("Withdrawal · CBE Birr", "ወጪ · CBE Birr"),
     meta: t("11:40 · TX-8839-1180"),
-    amount: -300,
+    amount: "-300.00",
     date: "2026-09-28",
   },
   {
@@ -270,7 +261,7 @@ export const TRANSACTIONS: Transaction[] = [
     status: "success",
     name: t("Winnings · KS-260926-1177", "አሸናፊነት · KS-260926-1177"),
     meta: t("23:58 · after tax", "23:58 · ግብር ተቀንሷል"),
-    amount: winningsFor("KS-260926-1177"),
+    amount: WON_TICKET_WINNINGS,
     date: "2026-09-27",
   },
   {
@@ -279,7 +270,7 @@ export const TRANSACTIONS: Transaction[] = [
     status: "failed",
     name: t("Deposit · Chapa", "ገቢ · Chapa"),
     meta: t("19:15 · TX-8826-0412"),
-    amount: 200,
+    amount: "200.00",
     date: "2026-09-27",
   },
 ];

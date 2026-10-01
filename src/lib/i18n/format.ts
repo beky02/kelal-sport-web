@@ -1,26 +1,47 @@
 import { CURRENCY } from "@/config/constants";
 import type { ClockConvention, Lang } from "@/types/common";
 
-/** Two decimals, grouped — the house style for money and odds alike. */
-export const formatNumber = (n: number): string =>
-  n.toLocaleString("en-US", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
+/**
+ * A decimal string grouped for display, `"1250.00"` → `"1,250.00"`, by moving
+ * characters only — the amount never passes through a float (FD4).
+ */
+function groupDecimal(value: string): string {
+  if (!/^-?\d+(\.\d+)?$/.test(value)) return value;
+  const negative = value.startsWith("-");
+  const [whole, fraction = ""] = value.replace("-", "").split(".");
+  const grouped = whole.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+  return `${negative ? "-" : ""}${grouped}.${(fraction + "00").slice(0, 2)}`;
+}
+
+/**
+ * Two decimals, grouped — the house style for money and odds alike. Amounts
+ * from the API are decimal strings; numbers remain only where a screen has not
+ * moved to strings yet (wallet, F6).
+ */
+export const formatNumber = (n: number | string): string =>
+  typeof n === "string"
+    ? groupDecimal(n)
+    : n.toLocaleString("en-US", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      });
 
 /**
  * Money with the currency where that language puts it: `ETB 1,250.00` in
  * English, `1,250.00 ብር` in Amharic.
  */
-export const formatMoney = (n: number, lang: Lang): string =>
+export const formatMoney = (n: number | string, lang: Lang): string =>
   lang === "am"
     ? `${formatNumber(n)} ${CURRENCY.amharic}`
     : `${CURRENCY.code} ${formatNumber(n)}`;
 
-export const formatOdds = (n: number): string => n.toFixed(2);
+/** Odds to two decimals, for display only (`"2.105"` → `"2.11"`). */
+export const formatOdds = (odds: number | string): string =>
+  Number(odds).toFixed(2);
 
-export const formatPercent = (rate: number): string =>
-  `${Math.round(rate * 1000) / 10}%`;
+/** A rate as a percentage: `"0.15"` → `"15%"`. Display only. */
+export const formatPercent = (rate: number | string): string =>
+  `${Math.round(Number(rate) * 1000) / 10}%`;
 
 const PERIOD: Record<Lang, [string, string, string, string]> = {
   en: ["night", "morning", "afternoon", "evening"],

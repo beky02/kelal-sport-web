@@ -20,7 +20,7 @@ const STATUS_TONE: Record<TransactionStatus, string> = {
  */
 export function TransactionRow({ transaction }: { transaction: Transaction }) {
   const t = useTranslation();
-  const outgoing = transaction.amount < 0;
+  const outgoing = transaction.amount.startsWith("-");
 
   const statusLabel: Record<TransactionStatus, string> = {
     success: t.t("bets.txSuccess"),
@@ -51,7 +51,7 @@ export function TransactionRow({ transaction }: { transaction: Transaction }) {
             transaction.status === "failed" && "line-through",
           )}
         >
-          {outgoing ? "−" : "+"} {t.number(Math.abs(transaction.amount))}
+          {outgoing ? "−" : "+"} {t.number(transaction.amount.replace("-", ""))}
         </span>
         <span
           className={cn(

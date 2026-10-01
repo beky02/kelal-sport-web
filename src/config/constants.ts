@@ -1,21 +1,13 @@
 /**
- * Commercial placeholders. The backend is authoritative for every one of
- * these — the values here only drive the display estimate in the bet slip and
- * must be replaced by whatever /config returns once that endpoint exists.
+ * Slip behaviour that is the UI's own. Every commercial number — taxes, stake
+ * limits, the payout cap, the accumulator bonus, quick stakes — is the tenant's
+ * rule set from `/v1/config/public` (D1.12), never a constant here.
  */
 export const BETTING = {
-  /** Withheld from the stake before odds are applied. */
-  stakeTaxRate: 0.15,
-  /** Withheld from winnings (gross return − stake). */
-  winTaxRate: 0.15,
-  /** Payout ceiling per ticket, applied per bet before winnings tax. */
-  maxWinPerTicket: 1_000_000,
-  /** System bets need at least this many live selections. */
+  /** System bets need at least this many live selections (2/3 is the smallest). */
   minSystemSelections: 3,
-  /** Ceiling the book applies to a single selection. Server-enforced. */
-  maxStakePerSelection: 500,
-  defaultStake: 100,
-  stakeChips: [10, 50, 100, 500],
+  /** The total stake a fresh slip starts with. */
+  defaultStake: "100",
 } as const;
 
 export const CURRENCY = { code: "ETB", amharic: "ብር" } as const;
@@ -55,6 +47,8 @@ export const STALE_TIME = {
   events: 30 * 1000,
   eventDetail: 30 * 1000,
   wallet: 15 * 1000,
+  /** `/v1/config/public` says `max-age=60`. */
+  config: 60 * 1000,
 } as const;
 
 /**

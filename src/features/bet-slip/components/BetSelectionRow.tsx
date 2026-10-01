@@ -2,6 +2,7 @@
 
 import { Lock, X } from "lucide-react";
 import { useTranslation } from "@/lib/i18n/use-translation";
+import { compareOdds } from "@/lib/money";
 import { cn } from "@/lib/utils/cn";
 import { useBetSlipStore } from "../stores/bet-slip.store";
 import type { BetSelection } from "../types";
@@ -18,7 +19,6 @@ export function BetSelectionRow({
   first,
   conflict,
   pending,
-  singleReturn,
 }: {
   selection: BetSelection;
   first: boolean;
@@ -26,14 +26,13 @@ export function BetSelectionRow({
   conflict: boolean;
   /** Price moved and has not been accepted yet. */
   pending: boolean;
-  /** Return for this leg on its own, shown only in single mode. */
-  singleReturn: number | null;
 }) {
   const t = useTranslation();
   const removeSelection = useBetSlipStore((s) => s.removeSelection);
   const acceptSelection = useBetSlipStore((s) => s.acceptSelection);
 
   const pick = t.pick(selection.outcomeName);
+  const rising = compareOdds(selection.currentOdds, selection.initialOdds) > 0;
 
   return (
     <div
@@ -65,12 +64,6 @@ export function BetSelectionRow({
             {t.t("betSlip.suspended")}
           </div>
         )}
-
-        {singleReturn !== null && !selection.suspended && (
-          <div className="text-muted numeric text-[11px]">
-            {t.t("betSlip.returns")} {t.money(singleReturn)}
-          </div>
-        )}
       </div>
 
       <div className="numeric flex flex-col items-end gap-1">
@@ -83,18 +76,15 @@ export function BetSelectionRow({
               <span
                 className={cn(
                   "text-[15px] font-extrabold",
-                  selection.currentOdds > selection.initialOdds
-                    ? "text-win"
-                    : "text-loss",
+                  rising ? "text-win" : "text-loss",
                 )}
               >
-                {selection.currentOdds > selection.initialOdds ? "▲" : "▼"}{" "}
-                {t.odds(selection.currentOdds)}
+                {rising ? "▲" : "▼"} {t.odds(selection.currentOdds)}
               </span>
             </span>
             <button
               type="button"
-              onClick={() => acceptSelection(selection.uid)}
+              onClick={() => acceptSelection(selection.outcomeId)}
               className="bg-accent text-on-accent font-body h-7 cursor-pointer rounded-md px-2.5 text-[11px] font-bold"
             >
               {t.t("betSlip.accept")}
@@ -115,7 +105,7 @@ export function BetSelectionRow({
       <button
         type="button"
         aria-label={t.t("betSlip.remove", { pick })}
-        onClick={() => removeSelection(selection.uid)}
+        onClick={() => removeSelection(selection.outcomeId)}
         className="text-muted hover:text-text grid size-11 cursor-pointer place-items-center bg-transparent"
       >
         <X size={15} strokeWidth={1.5} aria-hidden />

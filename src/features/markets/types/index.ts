@@ -34,9 +34,12 @@ export interface Outcome {
   code: string;
   /** Resolved for display, e.g. "Man City" for `1`, "Over 2.5" for `Over`. */
   label: Localized;
-  /** Null means this outcome is closed — render the lock, never a price. */
-  odds: number | null;
-  previousOdds: number | null;
+  /**
+   * The contract's decimal string (`"2.10"`). Null means this outcome is closed —
+   * render the lock, never a price. Parsed only to display (FD4).
+   */
+  odds: string | null;
+  previousOdds: string | null;
   /** Set for a few seconds after a move, to tint the button and show ▲ / ▼. */
   movement: OddsMovement | null;
 }

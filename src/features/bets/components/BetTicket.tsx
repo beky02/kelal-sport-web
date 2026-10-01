@@ -7,10 +7,12 @@ import { StateMessage } from "@/components/feedback/StateMessage";
 import { Barcode } from "@/components/ui/Barcode";
 import { Card } from "@/components/ui/Card";
 import { Skeleton } from "@/components/ui/Skeleton";
-import { BETTING } from "@/config/constants";
 import { routes } from "@/config/routes";
 import { cn } from "@/lib/utils/cn";
 import { useBet } from "../hooks/use-bets";
+import { usePublicConfig } from "@/features/config/hooks/use-public-config";
+import { taxLabel, taxLines } from "@/features/bet-slip/lib/tax-lines";
+import { compareMoney } from "@/lib/money";
 import { betFigures, payoutView, PAYOUT_TONE } from "../lib/figures";
 import { BetStatusBadge, LegDot } from "./BetStatusBadge";
 import { features } from "@/config/features";
@@ -27,6 +29,7 @@ import { CashOutPanel } from "./CashOutPanel";
 export function BetTicket({ id }: { id: string }) {
   const t = useTranslation();
   const { data: bet, isPending } = useBet(id);
+  const rules = usePublicConfig().data?.betting.calc ?? null;
 
   if (isPending) {
     return (
@@ -50,27 +53,40 @@ export function BetTicket({ id }: { id: string }) {
     );
   }
 
-  const figures = betFigures(bet);
+  const figures = betFigures(bet, rules);
   const payout = payoutView(bet, figures);
+  const money = (value: string | null | undefined) =>
+    value ? t.money(value) : "—";
+  const taxes = rules ? taxLines(rules, figures) : [];
+  const taxRow = (tax: (typeof taxes)[number]) => ({
+    label: `${t.t(taxLabel(tax.code))} · ${t.percent(tax.rate)}`,
+    value: `− ${money(tax.amount)}`,
+    strong: true,
+  });
 
+  // D1's order: stake tax per line, net stake, gross, bonus, payout taxes.
   const rows: Array<{ label: string; value: string; strong?: boolean }> = [
-    { label: t.t("bets.totalOdds"), value: t.odds(figures.odds), strong: true },
-    { label: t.t("bets.stake"), value: t.money(bet.stake) },
     {
-      label: `${t.t("bets.stakeTax")} · ${t.percent(BETTING.stakeTaxRate)}`,
-      value: `− ${t.money(figures.stakeTax)}`,
+      label: t.t("bets.totalOdds"),
+      value: figures?.totalOdds ? t.odds(figures.totalOdds) : "—",
       strong: true,
     },
-    { label: t.t("bets.netStake"), value: t.money(figures.netStake) },
+    { label: t.t("bets.stake"), value: t.money(bet.stake) },
+    ...taxes.filter((tax) => tax.stage === "stake").map(taxRow),
+    { label: t.t("bets.netStake"), value: money(figures?.netStake) },
     {
       label: bet.status === "won" ? t.t("bets.win") : t.t("bets.potentialWin"),
-      value: t.money(figures.grossReturn),
+      value: money(figures?.grossPayout),
     },
-    {
-      label: `${t.t("bets.winTax")} · ${t.percent(BETTING.winTaxRate)}`,
-      value: `− ${t.money(bet.status === "lost" ? 0 : figures.winTax)}`,
-      strong: true,
-    },
+    ...(figures && compareMoney(figures.accaBonus, "0.00") > 0
+      ? [
+          {
+            label: t.t("betSlip.accaBonus"),
+            value: `+ ${t.money(figures.accaBonus)}`,
+          },
+        ]
+      : []),
+    ...taxes.filter((tax) => tax.stage === "payout").map(taxRow),
   ];
 
   return (
@@ -167,7 +183,7 @@ export function BetTicket({ id }: { id: string }) {
             <span
               className={cn("font-display text-2xl", PAYOUT_TONE[payout.tone])}
             >
-              {t.money(payout.amount)}
+              {money(payout.amount)}
             </span>
           </div>
         </div>

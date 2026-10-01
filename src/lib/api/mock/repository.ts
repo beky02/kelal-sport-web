@@ -11,6 +11,8 @@
  * Release 1 contract examples do not have.
  */
 import { ApiError } from "@/lib/api/errors";
+import { addMoney, share } from "@/lib/money";
+import { CASH_OUT_SHARES } from "@/features/bets/lib/figures";
 import type { Crest, Localized } from "@/types/common";
 import type { Competition } from "@/features/competitions/types";
 import type {
@@ -193,6 +195,13 @@ function labelOutcome(
 const marketId = (eventId: string, type: MarketType, line: string | null) =>
   `${eventId}:${type}:${line ?? ""}`;
 
+/**
+ * Fixture prices are written as numbers for readability; the domain carries the
+ * contract's decimal strings (FD4), so they are spelled out here, once.
+ */
+const priceText = (odds: number | null): string | null =>
+  odds === null ? null : odds.toFixed(2);
+
 function buildMarket(
   event: SportEvent,
   raw: RawMatch,
@@ -220,8 +229,8 @@ function buildMarket(
       id: `${id}:${code}`,
       code,
       label: labelOutcome(event, type, line, code),
-      odds: suspended ? null : odds,
-      previousOdds: previous[i] ?? null,
+      odds: suspended ? null : priceText(odds),
+      previousOdds: priceText(previous[i] ?? null),
       movement: suspended ? null : (movement[i] ?? null),
     })),
   };
@@ -507,10 +516,13 @@ export const mockRepository = {
     if (bet.cashOutBlocked || bet.cashOutValue === null)
       throw new ApiError("Cash out unavailable", 409, "cash_out_unavailable");
 
-    const paid = bet.cashOutValue * fraction;
+    const part = CASH_OUT_SHARES.find((s) => s.fraction === fraction);
+    if (!part) throw new ApiError("Unknown share", 422, "VALIDATION_FAILED");
+    const { numerator: n, denominator: d } = part;
+    const paid = share(bet.cashOutValue, n, d);
 
     const settled: Bet =
-      fraction >= 1
+      n === d
         ? {
             ...bet,
             status: "cashed",
@@ -519,9 +531,9 @@ export const mockRepository = {
           }
         : {
             ...bet,
-            stake: bet.stake * (1 - fraction),
-            cashOutValue: bet.cashOutValue * (1 - fraction),
-            cashedOutAmount: (bet.cashedOutAmount ?? 0) + paid,
+            stake: share(bet.stake, d - n, d),
+            cashOutValue: share(bet.cashOutValue, d - n, d),
+            cashedOutAmount: addMoney(bet.cashedOutAmount ?? "0.00", paid),
           };
 
     cashOuts.set(id, settled);

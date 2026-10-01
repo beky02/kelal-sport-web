@@ -1,19 +1,27 @@
 "use client";
 
 import { ArrowRight } from "lucide-react";
+import type { RuleSetJson } from "@golden/slipcalc";
 import { useTranslation } from "@/lib/i18n/use-translation";
-import { BETTING } from "@/config/constants";
 import type { BetSlipTotals } from "../lib/calculate";
 
 /**
  * Stake in, return out — the two numbers people actually read.
  *
  * The return is the largest type in the slip because it is the answer to the
- * question they came with. When the per-ticket ceiling bites, that is said
- * plainly rather than left as a number that quietly stops growing.
+ * question they came with. When the tenant's payout cap bites, that is said
+ * plainly rather than left as a number that quietly stops growing. Both are
+ * slipcalc's figures; "—" until there is a quote.
  */
-export function PayoutSummary({ totals }: { totals: BetSlipTotals }) {
+export function PayoutSummary({
+  totals,
+  rules,
+}: {
+  totals: BetSlipTotals;
+  rules: RuleSetJson;
+}) {
   const t = useTranslation();
+  const { quote } = totals;
 
   const returnLabel =
     totals.mode === "system"
@@ -23,7 +31,7 @@ export function PayoutSummary({ totals }: { totals: BetSlipTotals }) {
   return (
     <>
       <p className="text-muted mx-4 mt-2 text-[11px] leading-[1.45] text-pretty">
-        {t.t("betSlip.maxWin", { amount: t.money(BETTING.maxWinPerTicket) })}{" "}
+        {t.t("betSlip.maxWin", { amount: t.money(rules.max_payout) })}{" "}
         {t.t("betSlip.taxNote")}
       </p>
 
@@ -33,7 +41,7 @@ export function PayoutSummary({ totals }: { totals: BetSlipTotals }) {
             {t.t("betSlip.youStake")}
           </span>
           <span className="text-base font-bold whitespace-nowrap">
-            {t.money(totals.totalStake)}
+            {quote ? t.money(quote.totalStake) : "—"}
           </span>
         </div>
 
@@ -46,15 +54,18 @@ export function PayoutSummary({ totals }: { totals: BetSlipTotals }) {
 
         <div className="flex min-w-0 flex-col items-end gap-1">
           <span className="text-muted flex items-center gap-1.5 text-[11px]">
-            {totals.capped && (
+            {quote?.capped && (
               <span className="bg-raised text-text rounded-full px-[7px] py-px text-[10px] font-bold">
                 {t.t("betSlip.cappedAtMax")}
               </span>
             )}
             {returnLabel}
           </span>
-          <span className="font-display text-[28px] leading-none whitespace-nowrap">
-            {t.money(totals.payout)}
+          <span
+            data-testid="net-payout"
+            className="font-display text-[28px] leading-none whitespace-nowrap"
+          >
+            {quote ? t.money(quote.netPayout) : "—"}
           </span>
         </div>
       </div>

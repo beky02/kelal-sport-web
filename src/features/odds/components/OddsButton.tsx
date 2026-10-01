@@ -2,11 +2,7 @@
 
 import { memo, useCallback, useMemo } from "react";
 import { useTranslation } from "@/lib/i18n/use-translation";
-import {
-  outcomeKey,
-  type Market,
-  type Outcome,
-} from "@/features/markets/types";
+import type { Market, Outcome } from "@/features/markets/types";
 import {
   selectionFrom,
   useBetSlipStore,
@@ -58,8 +54,7 @@ function OddsButtonImpl({
     [market.eventId, market.type, market.line, outcome.code],
   );
 
-  const uid = outcomeKey(ref);
-  const selected = useIsSelected(uid);
+  const selected = useIsSelected(outcome.id);
 
   const toggleSelection = useBetSlipStore((s) => s.toggleSelection);
   const showSlipPanel = useUiStore((s) => s.setAsidePanel);
@@ -75,6 +70,7 @@ function OddsButtonImpl({
 
     toggleSelection(
       selectionFrom({
+        outcomeId: outcome.id,
         ref,
         marketId: market.id,
         eventName,
@@ -92,6 +88,7 @@ function OddsButtonImpl({
     outcome.odds,
     outcome.label,
     toggleSelection,
+    outcome.id,
     ref,
     market.id,
     market.name,

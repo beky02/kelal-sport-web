@@ -1,13 +1,13 @@
 import type { BoardSection } from "@/features/events/types";
 import { useBetSlipStore } from "@/features/bet-slip/stores/bet-slip.store";
-import { outcomeKey } from "@/features/markets/types";
+import { compareOdds, scaleOdds } from "@/lib/money";
 import type { RealtimeClient } from "./client";
 import type { ServerMessage } from "./messages";
 
 interface Candidate {
   eventId: string;
   outcomeCode: string;
-  odds: number;
+  odds: string;
 }
 
 /**
@@ -71,12 +71,8 @@ export function startOddsSimulator(
       return (
         candidates.find(
           (c) =>
-            outcomeKey({
-              eventId: c.eventId,
-              marketType: "1x2",
-              line: null,
-              outcomeCode: c.outcomeCode,
-            }) === target.uid,
+            c.eventId === target.eventId &&
+            c.outcomeCode === target.outcomeCode,
         ) ?? null
       );
     };
@@ -90,14 +86,11 @@ export function startOddsSimulator(
 
       const current = target.odds;
       const direction = Math.random() > 0.5 ? 1 : -1;
-      // A believable single step: a few percent, never below evens.
-      const next =
-        Math.round(
-          Math.max(
-            1.01,
-            current * (1 + direction * (0.02 + Math.random() * 0.06)),
-          ) * 100,
-        ) / 100;
+      // A believable single step: 2–8 %, never below 1.01.
+      const next = scaleOdds(
+        current,
+        direction * (2 + Math.floor(Math.random() * 7)),
+      );
 
       const message: ServerMessage = {
         type: "ODDS_UPDATED",
@@ -106,7 +99,7 @@ export function startOddsSimulator(
         line: null,
         outcomeCode: target.outcomeCode,
         odds: next,
-        movement: next > current ? "up" : "down",
+        movement: compareOdds(next, current) > 0 ? "up" : "down",
       };
       target.odds = next;
       client.inject(message);

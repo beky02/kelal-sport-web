@@ -6,6 +6,11 @@ import type { EventFilters } from "@/features/events/types";
  * Hierarchical on purpose: invalidating `eventKeys.lists()` drops every board
  * variant without touching a cached event detail.
  */
+export const configKeys = {
+  all: ["config"] as const,
+  public: () => [...configKeys.all, "public"] as const,
+};
+
 export const sportKeys = {
   all: ["sports"] as const,
   list: () => [...sportKeys.all, "list"] as const,

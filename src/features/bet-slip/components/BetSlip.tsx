@@ -36,7 +36,8 @@ export function BetSlip({ onClose }: { onClose?: () => void }) {
   const router = useRouter();
 
   const openAuth = useAuthStore((s) => s.open);
-  const { totals, cta, isGuest, balance } = useBetSlip();
+  const { totals, cta, isGuest, balance, rules, rulesState, retryRules } =
+    useBetSlip();
   const selections = useBetSlipStore((s) => s.selections);
   const clear = useBetSlipStore((s) => s.clear);
   const acceptAnyChange = useBetSlipStore((s) => s.acceptAnyChange);
@@ -47,12 +48,14 @@ export function BetSlip({ onClose }: { onClose?: () => void }) {
   const [booked, setBooked] = useState(false);
   const place = usePlaceBet(setReceipt);
 
-  // The engine refused the stake and told us its ceiling, so the alert can
-  // offer to set it rather than just reporting the problem.
-  const rejectedStake =
-    place.error instanceof ApiError && place.error.code === "stake_too_high"
-      ? ((place.error.details as { maxStake?: number } | undefined)?.maxStake ??
-        null)
+  // The engine refused the stake and said what it would take, so the alert
+  // can offer to set it rather than just reporting the problem.
+  const rejection = place.error instanceof ApiError ? place.error : null;
+  const stakeFix =
+    rejection &&
+    (rejection.code === "BET_STAKE_TOO_HIGH" ||
+      rejection.code === "BET_STAKE_TOO_LOW")
+      ? (rejection.errors.find((e) => e.field === "stake")?.limit ?? null)
       : null;
 
   /**
@@ -64,7 +67,7 @@ export function BetSlip({ onClose }: { onClose?: () => void }) {
   const bookingCode = useMemo(() => {
     let hash = 5381;
     for (const selection of selections) {
-      for (const character of selection.uid) {
+      for (const character of selection.outcomeId) {
         hash = (Math.imul(hash, 33) + character.charCodeAt(0)) >>> 0;
       }
     }
@@ -81,7 +84,7 @@ export function BetSlip({ onClose }: { onClose?: () => void }) {
     [totals.conflictEventIds],
   );
   const pending = useMemo(
-    () => new Set(totals.pendingOddsChanges.map((s) => s.uid)),
+    () => new Set(totals.pendingOddsChanges.map((s) => s.outcomeId)),
     [totals.pendingOddsChanges],
   );
 
@@ -115,7 +118,12 @@ export function BetSlip({ onClose }: { onClose?: () => void }) {
         />
       )}
 
-      <SlipAlerts totals={totals} />
+      <SlipAlerts
+        totals={totals}
+        rules={rules?.calc ?? null}
+        rulesState={rulesState}
+        onRetryRules={retryRules}
+      />
 
       {place.isError && (
         <div
@@ -129,31 +137,30 @@ export function BetSlip({ onClose }: { onClose?: () => void }) {
             className="text-loss shrink-0"
           />
           <div className="min-w-0 flex-1">
-            <div className="font-bold">
-              {t.t(
-                rejectedStake ? "betSlip.rejectedTitle" : "betSlip.placeFailed",
-              )}
-            </div>
+            <div className="font-bold">{t.t("betSlip.placeFailed")}</div>
             <div className="text-muted text-xs">
-              {rejectedStake
-                ? t.t("betSlip.rejectedBody", {
-                    amount: t.money(rejectedStake),
-                  })
+              {stakeFix
+                ? t.t(
+                    rejection?.code === "BET_STAKE_TOO_LOW"
+                      ? "betSlip.errors.stakeTooLowBody"
+                      : "betSlip.errors.stakeTooHighBody",
+                    { amount: t.money(stakeFix) },
+                  )
                 : place.error.message}
             </div>
           </div>
           {/* A rejection the user can act on carries the fix, rather than
               leaving them to work out what number would be accepted. */}
-          {rejectedStake && (
+          {stakeFix && (
             <button
               type="button"
               onClick={() => {
-                setStake(rejectedStake);
+                setStake(stakeFix);
                 place.reset();
               }}
-              className="bg-raised text-text font-body h-9 shrink-0 cursor-pointer rounded-lg px-3 text-xs font-bold"
+              className="bg-raised text-text font-body min-h-11 shrink-0 cursor-pointer rounded-lg px-3 text-xs font-bold"
             >
-              {t.t("betSlip.setMax", { amount: t.number(rejectedStake) })}
+              {t.t("betSlip.setMax", { amount: t.number(stakeFix) })}
             </button>
           )}
         </div>
@@ -166,23 +173,32 @@ export function BetSlip({ onClose }: { onClose?: () => void }) {
           <div className="bg-surface mx-3 overflow-hidden rounded-lg">
             {selections.map((selection, index) => (
               <BetSelectionRow
-                key={selection.uid}
+                key={selection.outcomeId}
                 selection={selection}
                 first={index === 0}
                 conflict={conflicts.has(selection.eventId)}
-                pending={pending.has(selection.uid)}
-                singleReturn={
-                  totals.mode === "single"
-                    ? (totals.returnByUid[selection.uid] ?? null)
-                    : null
-                }
+                pending={pending.has(selection.outcomeId)}
               />
             ))}
           </div>
 
-          <StakeInput mode={totals.mode} balance={balance} />
-          <TaxBreakdown totals={totals} />
-          <PayoutSummary totals={totals} />
+          <StakeInput
+            totals={totals}
+            quickStakes={rules?.quickStakes ?? []}
+            balance={balance}
+          />
+          {rules ? (
+            <>
+              <TaxBreakdown totals={totals} rules={rules.calc} />
+              <PayoutSummary totals={totals} rules={rules.calc} />
+            </>
+          ) : (
+            rulesState === "loading" && (
+              <p role="status" className="text-muted mx-4 mt-3 text-[11px]">
+                {t.t("betSlip.rulesLoading")}
+              </p>
+            )
+          )}
 
           <div className="px-4">
             <Switch

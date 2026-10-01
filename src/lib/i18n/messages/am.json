@@ -77,8 +77,6 @@
     "emptyTitle": "ትኬትዎ ባዶ ነው",
     "emptyBody": "ምርጫ ለመጨመር ማንኛውንም ኦድ ይንኩ።",
     "stake": "የውርርድ መጠን",
-    "stakePerBet": "ለእያንዳንዱ ውርርድ",
-    "stakePerCombination": "ለእያንዳንዱ ጥምረት",
     "clearStake": "መጠኑን አጽዳ",
     "balance": "ቀሪ ሂሳብ",
     "totalOdds": "ጠቅላላ ኦድ",
@@ -87,13 +85,11 @@
     "netStake": "የተጣራ መጠን",
     "winTax": "የአሸናፊነት ግብር",
     "grossReturn": "ጠቅላላ ገቢ",
-    "winnings": "ትርፍ (ጠቅላላ ገቢ − መጠን)",
     "oddsEach": "እያንዳንዱ ምርጫ በራሱ ኦድ",
     "oddsAcross": "በ{n} ጥምረቶች",
     "totalReturn": "ጠቅላላ ተመላሽ",
     "maxReturn": "ከፍተኛ ተመላሽ",
     "youStake": "የሚያስይዙት",
-    "returns": "ተመላሽ",
     "cappedAtMax": "ከፍተኛው ገደብ",
     "maxWin": "የአንድ ትኬት ከፍተኛ ክፍያ {amount} ነው።",
     "taxNote": "ግብሮች በኢትዮጵያ ሕግ መሠረት ይቀነሳሉ።",
@@ -127,8 +123,6 @@
     "loadCode": "የትኬት ኮድ ያስገቡ",
     "loadCodePlaceholder": "ለምሳሌ KS7Q4M2",
     "load": "ጫን",
-    "rejectedTitle": "ውርርዱ አልተቀበለም",
-    "rejectedBody": "በዚህ ምርጫ ከፍተኛው መጠን {amount} ነው። መጠኑን ቀንሰው እንደገና ይሞክሩ።",
     "setMax": "{amount} አድርግ",
     "alerts": {
       "oddsChangedTitle": "ኦድ ተቀይሯል",
@@ -142,7 +136,33 @@
       "insufficientTitle": "በቂ ቀሪ ሂሳብ የለም",
       "insufficientBody": "ቀሪ ሂሳብዎ {amount} ነው።",
       "deposit": "ገንዘብ ያስገቡ"
-    }
+    },
+    "totalStake": "ጠቅላላ የውርርድ መጠን",
+    "linesTimesStake": "{lines} ውርርዶች × {amount}",
+    "accaBonus": "የአኩሙሌተር ቦነስ",
+    "taxAbove": "ከ{amount} በላይ",
+    "rulesLoading": "የውርርድ ደንቦች እየተጫኑ ነው…",
+    "rulesFailed": "የውርርድ ደንቦችን መጫን አልተሳካም",
+    "warnings": {
+      "remainder": "{amount} በ{lines} ውርርዶች እኩል አይከፈልም፤ የሚከፍሉት {charged} ነው።",
+      "bonusCapped": "የአኩሙሌተር ቦነስ በ{amount} ተገድቧል።",
+      "maxPayout": "ከፍተኛው ክፍያ {amount} ደርሷል።"
+    },
+    "errors": {
+      "stakeTooLowTitle": "የውርርድ መጠኑ ዝቅተኛ ነው",
+      "stakeTooLowBody": "ዝቅተኛው ጠቅላላ የውርርድ መጠን {amount} ነው።",
+      "stakeTooHighTitle": "የውርርድ መጠኑ ከፍተኛ ነው",
+      "stakeTooHighBody": "ከፍተኛው ጠቅላላ የውርርድ መጠን {amount} ነው።",
+      "tooManyLegsTitle": "ምርጫዎች በዝተዋል",
+      "tooManyLegsBody": "አንድ ትኬት እስከ {n} ምርጫዎች ይይዛል። ለመቀጠል የተወሰኑትን ያስወግዱ።",
+      "tooManyLinesTitle": "ጥምረቶች በዝተዋል",
+      "tooManyLinesBody": "ሲስተም እስከ {n} ውርርዶች ይይዛል። ትንሽ መጠን ይምረጡ ወይም ጥምር ይጠቀሙ።",
+      "useMultiple": "ጥምር",
+      "cannotPriceTitle": "ይህን ትኬት ማስላት አይቻልም",
+      "cannotPriceBody": "ከኦዶቹ አንዱ ትክክል አይደለም። ያስወግዱት ወይም ቆይተው ይሞክሩ።"
+    },
+    "withholdingTax": "የተቀናሽ ግብር",
+    "levy": "ቀረጥ"
   },
   "clock": {
     "eat": "EAT (UTC+3)",

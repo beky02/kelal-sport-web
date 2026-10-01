@@ -2,48 +2,66 @@
 
 import { create } from "zustand";
 import { BETTING } from "@/config/constants";
-import { outcomeKey, type OutcomeRef } from "@/features/markets/types";
-import type { BetSelection, BetSlipMode } from "../types";
+import type { OutcomeRef } from "@/features/markets/types";
+import { oddsMoved, type BetSelection, type BetSlipMode } from "../types";
 
 interface BetSlipState {
   selections: BetSelection[];
   /**
-   * uid → true. Kept alongside the array so an odds button's "am I in the slip?"
-   * check is O(1) and does not walk the list on every render.
+   * outcomeId → true. Kept alongside the array so an odds button's "am I in the
+   * slip?" check is O(1) and does not walk the list on every render.
    */
   index: Record<string, true>;
 
   mode: BetSlipMode;
-  /** Per bet: per selection in single, per combination in system. */
-  stake: number;
+  /**
+   * The **total** stake for the slip, as typed (`"100"`, `"12.5"`, or `""`).
+   * slipcalc splits it across lines (D1.3); quick stakes set it (D7).
+   */
+  stake: string;
   systemK: number;
 
-  /** Odds moves the user accepted one at a time. */
-  acceptedUids: Set<string>;
+  /** Odds moves the user accepted one at a time, by outcomeId. */
+  acceptedIds: Set<string>;
   /** Standing consent to any move, from the toggle at the foot of the slip. */
   acceptAnyChange: boolean;
 
   toggleSelection: (selection: BetSelection) => void;
-  removeSelection: (uid: string) => void;
+  removeSelection: (outcomeId: string) => void;
   clear: () => void;
 
   setMode: (mode: BetSlipMode) => void;
-  setStake: (stake: number) => void;
-  addToStake: (amount: number) => void;
+  /** From the keyboard: keeps digits and up to two decimals. */
+  setStake: (raw: string) => void;
   setSystemK: (k: number) => void;
 
-  acceptSelection: (uid: string) => void;
+  acceptSelection: (outcomeId: string) => void;
   acceptAllPending: () => void;
   setAcceptAnyChange: (on: boolean) => void;
 
   /** Realtime: a price moved. Updates in place, keeping `initialOdds`. */
-  applyOddsUpdate: (ref: OutcomeRef, odds: number | null) => void;
+  applyOddsUpdate: (ref: OutcomeRef, odds: string | null) => void;
   /** Realtime: an event's markets were suspended or reopened. */
   applyEventSuspension: (eventId: string, suspended: boolean) => void;
 }
 
 const reindex = (selections: BetSelection[]): Record<string, true> =>
-  Object.fromEntries(selections.map((s) => [s.uid, true as const]));
+  Object.fromEntries(selections.map((s) => [s.outcomeId, true as const]));
+
+/** `"0012.345x"` → `"12.34"`: digits, one point, two decimals at most. */
+export function sanitiseStake(raw: string): string {
+  const [whole = "", ...rest] = raw.replace(/[^\d.]/g, "").split(".");
+  const integer = whole.replace(/^0+(?=\d)/, "");
+  return rest.length
+    ? `${integer || "0"}.${rest.join("").slice(0, 2)}`
+    : integer;
+}
+
+const sameRef = (s: BetSelection, ref: OutcomeRef) =>
+  s.eventId === ref.eventId &&
+  s.marketType === ref.marketType &&
+  s.line === ref.line &&
+  s.outcomeCode === ref.outcomeCode;
 
 /**
  * The bet slip.
@@ -61,19 +79,19 @@ export const useBetSlipStore = create<BetSlipState>()((set, get) => ({
   mode: "multiple",
   stake: BETTING.defaultStake,
   systemK: 2,
-  acceptedUids: new Set<string>(),
+  acceptedIds: new Set<string>(),
   acceptAnyChange: false,
 
   toggleSelection: (selection) => {
     const { selections } = get();
-    const next = selections.some((s) => s.uid === selection.uid)
-      ? selections.filter((s) => s.uid !== selection.uid)
+    const next = selections.some((s) => s.outcomeId === selection.outcomeId)
+      ? selections.filter((s) => s.outcomeId !== selection.outcomeId)
       : [...selections, selection];
     set({ selections: next, index: reindex(next) });
   },
 
-  removeSelection: (uid) => {
-    const next = get().selections.filter((s) => s.uid !== uid);
+  removeSelection: (outcomeId) => {
+    const next = get().selections.filter((s) => s.outcomeId !== outcomeId);
     set({ selections: next, index: reindex(next) });
   },
 
@@ -81,36 +99,33 @@ export const useBetSlipStore = create<BetSlipState>()((set, get) => ({
     set({
       selections: [],
       index: {},
-      acceptedUids: new Set<string>(),
+      acceptedIds: new Set<string>(),
       acceptAnyChange: false,
     }),
 
   setMode: (mode) => set({ mode }),
-  // Stakes are whole birr and never negative.
-  setStake: (stake) => set({ stake: Math.max(0, Math.floor(stake) || 0) }),
-  addToStake: (amount) => set({ stake: get().stake + amount }),
+  setStake: (raw) => set({ stake: sanitiseStake(raw) }),
   setSystemK: (systemK) => set({ systemK }),
 
-  acceptSelection: (uid) =>
-    set({ acceptedUids: new Set(get().acceptedUids).add(uid) }),
+  acceptSelection: (outcomeId) =>
+    set({ acceptedIds: new Set(get().acceptedIds).add(outcomeId) }),
 
   acceptAllPending: () => {
-    const accepted = new Set(get().acceptedUids);
+    const accepted = new Set(get().acceptedIds);
     for (const s of get().selections) {
-      if (s.currentOdds !== s.initialOdds) accepted.add(s.uid);
+      if (oddsMoved(s)) accepted.add(s.outcomeId);
     }
-    set({ acceptedUids: accepted });
+    set({ acceptedIds: accepted });
   },
 
   setAcceptAnyChange: (acceptAnyChange) => set({ acceptAnyChange }),
 
   applyOddsUpdate: (ref, odds) => {
-    const uid = outcomeKey(ref);
-    if (!get().index[uid]) return;
+    if (!get().selections.some((s) => sameRef(s, ref))) return;
 
     set({
       selections: get().selections.map((s) =>
-        s.uid === uid
+        sameRef(s, ref)
           ? {
               ...s,
               // A closed price suspends the leg rather than pricing it at zero.
@@ -134,8 +149,8 @@ export const useBetSlipStore = create<BetSlipState>()((set, get) => ({
 }));
 
 /** Narrow selector so one odds button re-renders when its own state flips. */
-export const useIsSelected = (uid: string): boolean =>
-  useBetSlipStore((s) => s.index[uid] === true);
+export const useIsSelected = (outcomeId: string): boolean =>
+  useBetSlipStore((s) => s.index[outcomeId] === true);
 
 /** True when any pick on this event is in the slip — used to tint the row. */
 export const useEventHasSelection = (eventId: string): boolean =>
@@ -143,15 +158,17 @@ export const useEventHasSelection = (eventId: string): boolean =>
 
 /** Builds a slip selection from a board or detail market outcome. */
 export function selectionFrom(args: {
+  outcomeId: string;
   ref: OutcomeRef;
   marketId: string;
   eventName: BetSelection["eventName"];
   marketName: BetSelection["marketName"];
   outcomeName: BetSelection["outcomeName"];
-  odds: number;
+  /** The contract's decimal string. */
+  odds: string;
 }): BetSelection {
   return {
-    uid: outcomeKey(args.ref),
+    outcomeId: args.outcomeId,
     eventId: args.ref.eventId,
     marketId: args.marketId,
     marketType: args.ref.marketType,

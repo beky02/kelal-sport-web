@@ -52,7 +52,7 @@ export function PlaceBetButton({
         return acceptAllPending();
       case "remove-suspended":
         return totals.suspendedSelection
-          ? removeSelection(totals.suspendedSelection.uid)
+          ? removeSelection(totals.suspendedSelection.outcomeId)
           : undefined;
       case "deposit":
         return onDeposit();
@@ -63,7 +63,8 @@ export function PlaceBetButton({
     }
   };
 
-  const showAmount = action === "place" && !pending;
+  const stake = totals.quote?.totalStake;
+  const showAmount = action === "place" && !pending && stake !== undefined;
 
   return (
     <div className="px-4 pt-1 pb-4.5">
@@ -81,8 +82,8 @@ export function PlaceBetButton({
       >
         {pending && <Loader2 size={18} className="animate-spin" aria-hidden />}
         <span>{label[action]}</span>
-        {showAmount && (
-          <span className="numeric">{t.money(totals.totalStake)}</span>
+        {showAmount && stake && (
+          <span className="numeric">{t.money(stake)}</span>
         )}
       </button>
     </div>

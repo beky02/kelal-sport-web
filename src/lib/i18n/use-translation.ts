@@ -12,10 +12,11 @@ export interface Translator {
   t: (key: MessageKey, values?: Interpolations) => string;
   /** A `Localized` value that came from the API. */
   pick: (value: Localized) => string;
-  money: (amount: number) => string;
-  number: (value: number) => string;
-  odds: (value: number) => string;
-  percent: (rate: number) => string;
+  /** A decimal-string amount (or a number, until the wallet moves to strings). */
+  money: (amount: string | number) => string;
+  number: (value: string | number) => string;
+  odds: (value: string | number) => string;
+  percent: (rate: string | number) => string;
 }
 
 /**

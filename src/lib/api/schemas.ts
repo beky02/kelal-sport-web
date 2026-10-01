@@ -23,6 +23,7 @@ import type { Market, MarketGroup, Outcome } from "@/features/markets/types";
 import type { SearchResults } from "@/features/search/types";
 import type { Sport } from "@/features/sports/types";
 import type { Bet, Transaction } from "@/features/bets/types";
+import type { BettingRules, PublicConfigView } from "@/features/config/types";
 import type {
   PaymentMethod,
   PaymentResult,
@@ -113,16 +114,20 @@ export const eventSchema = z.object({
 }) satisfies z.ZodType<SportEvent>;
 
 /**
- * Odds are numbers here: the route handler parses the contract's decimal
- * strings for display. Anything else arriving is a mapping bug we want to hear
- * about, so this deliberately does not coerce.
+ * Odds stay the contract's decimal strings (FD4). A number arriving here is a
+ * mapping bug we want to hear about, so this deliberately does not coerce.
  */
+export const oddsSchema = z.string().regex(/^\d+(\.\d{1,3})?$/);
+
+/** A decimal-string amount of money, `"1250.00"`. */
+export const moneySchema = z.string().regex(/^-?\d+\.\d{2}$/);
+
 export const outcomeSchema = z.object({
   id: z.string(),
   code: z.string(),
   label: localizedSchema,
-  odds: z.number().positive().nullable(),
-  previousOdds: z.number().positive().nullable(),
+  odds: oddsSchema.nullable(),
+  previousOdds: oddsSchema.nullable(),
   movement: z.enum(["up", "down"]).nullable(),
 }) satisfies z.ZodType<Outcome>;
 
@@ -184,7 +189,7 @@ const betLegSchema = z.object({
   market: localizedSchema,
   pick: localizedSchema,
   match: localizedSchema,
-  odds: z.number().positive(),
+  odds: oddsSchema,
   status: z.enum(["open", "live", "won", "lost", "void"]),
   result: localizedSchema,
 });
@@ -194,10 +199,10 @@ export const betSchema = z.object({
   status: z.enum(["open", "won", "lost", "cashed"]),
   live: z.boolean(),
   placedAt: localizedSchema,
-  stake: z.number().nonnegative(),
-  cashOutValue: z.number().nonnegative().nullable(),
+  stake: moneySchema,
+  cashOutValue: moneySchema.nullable(),
   cashOutBlocked: z.boolean(),
-  cashedOutAmount: z.number().nonnegative().nullable(),
+  cashedOutAmount: moneySchema.nullable(),
   legs: z.array(betLegSchema).min(1),
 }) satisfies z.ZodType<Bet>;
 
@@ -217,7 +222,7 @@ export const transactionSchema = z.object({
   status: z.enum(["success", "pending", "failed"]),
   name: localizedSchema,
   meta: localizedSchema,
-  amount: z.number(),
+  amount: moneySchema,
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
 }) satisfies z.ZodType<Transaction>;
 
@@ -266,3 +271,37 @@ export const paymentResultSchema = z.object({
 }) satisfies z.ZodType<PaymentResult>;
 
 export type BoardSectionDto = z.infer<typeof boardSectionSchema>;
+
+/** A plain decimal string: a rate (`"0.15"`) or a percentage (`"8"`). */
+const decimalSchema = z.string().regex(/^\d+(\.\d+)?$/);
+
+export const bettingRulesSchema = z.object({
+  version: z.number().int(),
+  quickStakes: z.array(moneySchema),
+  calc: z.object({
+    min_stake: moneySchema,
+    max_stake: moneySchema,
+    max_payout: moneySchema,
+    max_legs: z.number().int().positive(),
+    max_lines: z.number().int().positive(),
+    acca_bonus_table: z.array(
+      z.object({ min_legs: z.number().int(), pct: decimalSchema }),
+    ),
+    acca_bonus_min_leg_odds: oddsSchema,
+    acca_bonus_max: moneySchema,
+    taxes: z.array(
+      z.object({
+        code: z.string(),
+        base: z.enum(["stake", "gross_win", "net_win", "profit"]),
+        rate: decimalSchema,
+        threshold: moneySchema.optional(),
+        deduct_from: z.enum(["stake", "payout", "operator"]),
+      }),
+    ),
+    refund_stake_tax_on_void: z.boolean().optional(),
+  }),
+}) satisfies z.ZodType<BettingRules>;
+
+export const publicConfigSchema = z.object({
+  betting: bettingRulesSchema,
+}) satisfies z.ZodType<PublicConfigView>;

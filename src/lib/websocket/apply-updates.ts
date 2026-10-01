@@ -4,7 +4,12 @@ import type {
   BoardSection,
   SportEvent,
 } from "@/features/events/types";
+import { compareOdds } from "@/lib/money";
 import type { ServerMessage } from "./messages";
+
+/** Same price, even if spelled `"2.1"` one time and `"2.10"` the next. */
+const sameOdds = (a: string | null, b: string | null) =>
+  a === null || b === null ? a === b : compareOdds(a, b) === 0;
 
 /**
  * Applies one realtime message to a cached board.
@@ -36,7 +41,7 @@ export function applyToBoard(
           const updated = updateMarkets(boardEvent.markets, (market) =>
             market.type === message.marketType && market.line === message.line
               ? updateOutcome(market, message.outcomeCode, (outcome) =>
-                  outcome.odds === message.odds &&
+                  sameOdds(outcome.odds, message.odds) &&
                   outcome.movement === message.movement
                     ? outcome
                     : {
