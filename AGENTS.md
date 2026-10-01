@@ -10,68 +10,102 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 # KelalSport web
 
-Sportsbook frontend for Ethiopia. The backend is a **separate service** — nothing
-server-side belongs in this repo beyond rendering.
+Sportsbook frontend for Ethiopia. The backend is a **separate service**
+(`../kelal backend`, FastAPI) that owns the API contract. This repo renders
+screens and runs the route handlers that call the API on the browser's behalf
+(D3) — no business rules live here.
 
 ## The rule that matters most
 
 The frontend never decides money. It displays state and collects actions.
 
-`features/bet-slip/lib/calculate.ts` computes a _display estimate_ so the user can
-see what a stake would return. The betting engine recomputes stake tax, winnings
-tax, the per-ticket cap and the final payout when the bet is placed, and its
-answer is the one that counts. If you find yourself reconciling the two in the
-browser, stop.
+Every number on the slip — stake per line, stake tax, gross, accumulator
+bonus, win tax, net payout — comes from the shared slip calculator
+`contracts/golden/ts/slipcalc.ts` (Engineering Decisions D1), which matches
+the backend to the santim on all 366 golden rows. It is a _preview_; the
+betting engine re-prices when the bet is placed and its answer is the one that
+counts. Until F3 lands, `features/bet-slip/lib/calculate.ts` is a float
+estimate known to differ from D1 — don't extend it, replace it.
 
 Optimistic updates are fine for selecting odds, opening panels and switching
 filters. They are not fine for placing a bet, depositing, withdrawing or cashing
 out: those wait for the server.
 
+## How data flows
+
+```
+browser ──/api/*──▶ route handler (src/app/api) ──openapi-fetch──▶ sportsbook API
+        ◀─domain JSON── lib/server/* + lib/api/mappers/* ◀──contract JSON──
+```
+
+- The browser only calls this app's own `/api/*` route handlers. They add
+  `X-Tenant-Id` (from the host, `TENANT_HOST_MAP`), `Accept-Language` and
+  `X-Request-Id`, and hold the session token in an httpOnly cookie the browser
+  never reads (D3, from F4).
+- `lib/server/upstream.ts` routes each call by its contract tag: tags in
+  `API_REAL_TAGS` go to the real backend, the rest to Prism (D7).
+- `lib/api/mappers/` turns contract shapes into the domain types the
+  components use. Mappers are pure and tested against the contract's own
+  examples (`tests/contract.ts`).
+
 ## Where state lives
 
-| Kind     | Home                                      | Examples                              |
-| -------- | ----------------------------------------- | ------------------------------------- |
-| Server   | TanStack Query                            | events, markets, competitions, wallet |
-| Realtime | `lib/websocket` → patches the Query cache | odds, scores, suspensions             |
-| Client   | Zustand (`stores/ui.store.ts`)            | theme, language, clock, what is open  |
-| Bet slip | Zustand (`features/bet-slip/stores`)      | selections, mode, stake               |
-| Filters  | **The URL**                               | sport, date, filter                   |
+| Kind     | Home                                      | Examples                                       |
+| -------- | ----------------------------------------- | ---------------------------------------------- |
+| Server   | TanStack Query, fed by route handlers     | events, markets, competitions, wallet          |
+| Realtime | `lib/websocket` → patches the Query cache | Release 2; off — prices poll every 30 s (D5)   |
+| Client   | Zustand (`stores/ui.store.ts`)            | theme, language, clock, calendar, what is open |
+| Bet slip | Zustand (`features/bet-slip/stores`)      | selections, mode, stake                        |
+| Filters  | **The URL**                               | sport, date, filter                            |
 
 Board filters go in the URL so refresh, back and sharing work. Don't move them
 into a store. Don't copy query results into Zustand.
 
 ## Conventions
 
+- **Contract first.** Every call goes through the generated types in
+  `src/lib/api/schema.d.ts` (`pnpm api:types`, never edited by hand). The
+  contract in `contracts/` is a copy of the backend's — update it with
+  `pnpm contract:sync`, never by hand. Need a field or endpoint the contract
+  lacks? That is a contract request to the backend (`/contract-request`), not
+  a local workaround.
+- **Money and odds are decimal strings on the wire** (`"1250.00"`, `"2.10"`).
+  Parse at the boundary; never do float arithmetic on them. Odds become
+  numbers only for display; slip maths uses the strings (slipcalc).
+- **Names come from the dictionary.** The API returns one language per
+  request; sport, tournament, market and outcome names are templates from
+  `/v1/dictionary` (`Total {total}` → `Total 2.5`). The route handlers fetch
+  both languages so the UI keeps its `Localized` pairs.
 - **Tokens, not hex.** Colours, radii and fonts are CSS variables in
   `app/globals.css`, exposed as Tailwind utilities (`bg-surface`, `text-muted`,
   `rounded-lg`). A raw `#hex` in a component is a bug.
 - **Both languages, always.** Add every string to `en.json` _and_ `am.json`;
   `tests/unit/i18n.test.ts` fails otherwise. Never concatenate translated
-  fragments — add a key with a `{placeholder}`.
+  fragments — add a key with a `{placeholder}`. Composed Amharic goes in
+  `TRANSLATION-NOTES.md` for review.
 - **Amharic is not just longer.** It needs more line height and no uppercasing.
   That is handled by tokens keyed off `<html lang>`; don't hardcode `uppercase`
   or `tracking-*` on a label.
-- **Validate at the boundary.** Every response goes through a Zod schema in
-  `lib/api/schemas.ts`, mocks included. Schemas carry
-  `satisfies z.ZodType<Domain>` so a schema and its interface cannot drift.
+- **Dates are Gregorian, times East Africa Time** in Release 1 (D7). The
+  Ethiopian calendar and clock are preferences, never the default.
+- **Validate at the boundary.** Upstream responses are typed by the generated
+  schema; what a route handler returns to the browser is checked by the Zod
+  schemas in `lib/api/schemas.ts`, which carry `satisfies z.ZodType<Domain>`
+  so a schema and its interface cannot drift.
+- **Release 2 stays behind flags.** Live betting, realtime and cash out are
+  built but off (`config/features.ts`, D8). Don't remove them; don't ship them on.
 - **Preserve identity in realtime updates.** `applyToBoard` returns untouched
   objects by reference, and rows are `memo`ised, so one price moving re-renders
-  one button. `tests/unit/realtime.test.ts` guards this — if it fails, the board
-  has started re-rendering wholesale.
+  one button. `tests/unit/realtime.test.ts` guards this.
 - **Compose, don't add props.** An `EventRow` is assembled from `TeamLine`,
   `EventMeta` and `OddsGroup`. Resist the 20-prop component.
-- **Safety state is server state.** A responsible-gaming break lives behind
-  `features/responsible-gaming` and is read with a query, never a Zustand store.
-  A break a user could end by reloading would not be one. Same reasoning for
-  balance, withdrawable and KYC status.
-- **One definition of the money.** `settleBet` in
-  `features/bet-slip/lib/calculate.ts` is the only place Ethiopian withholding is
-  expressed for a single price; tickets and the slip both go through it, and a
-  test pins them together. Don't write the formula a third time.
+- **Safety state is server state.** A responsible-gaming break is read with a
+  query, never a Zustand store. A break a user could end by reloading would not
+  be one. Same for balance, withdrawable, limits and KYC status.
 - **A custom breakpoint sorts before the built-ins.** Tailwind emits `wide:`
   ahead of `lg:`/`xl:`, so overlapping responsive rules are decided by source
   order, not width. `SportsbookShell` uses bounded ranges (`lg:max-xl:`,
   `xl:max-wide:`, `wide:`) for that reason — don't collapse it into a cascade.
-- **Rejections carry their fix.** When the engine refuses something it returns a
-  code and the limit in `details`; the UI offers the correction rather than
-  reporting the problem and stopping.
+- **Rejections carry their fix.** Errors are RFC 7807 Problems; switch on
+  `code` (`BET_ODDS_CHANGED`…), never on `title`. `errors[]` carries `current`
+  and `limit` — the UI offers the correction rather than reporting and stopping.

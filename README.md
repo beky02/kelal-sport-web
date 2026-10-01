@@ -6,20 +6,29 @@ its working. Built from the design project **Kelal Sport Ethiopia**
 
 ```bash
 pnpm install
+cp .env.example .env.local
 pnpm dev          # http://localhost:3000
 ```
 
-Runs against an in-repo mock repository by default — no backend needed.
+The catalogue comes from the API contract (`contracts/openapi.yaml`, owned by the
+backend repo) through this app's route handlers. Locally the API is **Prism**
+serving the contract's examples on `:4010` — the backend's `make up` starts it,
+or run `pnpm mock`. Bets, wallet, auth and responsible gaming still use the
+in-repo mock repository until tasks F4–F7 rewire them (`docs/tasks/`).
 
-| Script            |                        |
-| ----------------- | ---------------------- |
-| `pnpm dev`        | dev server (Turbopack) |
-| `pnpm build`      | production build       |
-| `pnpm test`       | unit + component tests |
-| `pnpm test:watch` | tests in watch mode    |
-| `pnpm typecheck`  | `tsc --noEmit`         |
-| `pnpm lint`       | ESLint                 |
-| `pnpm format`     | Prettier               |
+| Script               |                                                              |
+| -------------------- | ------------------------------------------------------------ |
+| `pnpm dev`           | dev server (Turbopack)                                       |
+| `pnpm mock`          | Prism on :4010 (if the backend's compose isn't running it)   |
+| `pnpm check`         | typecheck, lint, Prettier, unit + component tests            |
+| `pnpm verify`        | check + generated types + contract drift + build + UI check  |
+| `pnpm ui`            | every screen, phone and desktop, English and Amharic → PNGs  |
+| `pnpm api:types`     | regenerate `src/lib/api/schema.d.ts` from the contract       |
+| `pnpm contract:sync` | copy `contracts/` from the backend repo and regenerate types |
+| `pnpm test:watch`    | tests in watch mode                                          |
+
+Working with Claude Code: open the session in this folder and run `/task F3`
+(see `CLAUDE.md` and `docs/tasks/README.md`).
 
 ## Stack
 
@@ -75,14 +84,15 @@ actions, no betting logic. The backend stays independent.
   need real Code 128 before agent shops scan tickets — only `pattern()` in
   `components/ui/Barcode.tsx` has to change.
 - Deposit and loss limits are local state. They belong to the account and must
-  move to the backend: a limit that lives in one browser is not a limit.
+  move to the backend: a limit that lives in one browser is not a limit (F7).
 - Notification preferences are local for the same reason.
+- Everything else is in `docs/tasks/` (F1–F10), in build-plan order.
 
 ## Layout
 
 ```
 src/
-├── app/                 routes, providers, design tokens
+├── app/                 routes, providers, design tokens, api/ route handlers
 ├── components/
 │   ├── ui/              primitives (Button, Segmented, Sheet, OddsButtonView…)
 │   ├── layout/          header, sidebar, shell
@@ -92,7 +102,9 @@ src/
 │   ├── bet-slip/        selections, payout maths, the slip UI
 │   └── wallet/
 ├── lib/
-│   ├── api/             client, Zod schemas, mock repository
+│   ├── api/             browser client, Zod schemas, generated contract types,
+│   │                    mappers (contract → domain), mock repository (until F7)
+│   ├── server/          server only: upstream client, catalogue loaders, respond()
 │   ├── query/           QueryClient, query keys
 │   ├── i18n/            catalogues, formatting, Ethiopian calendar
 │   ├── websocket/       contract, client, cache patching, dev simulator
@@ -106,36 +118,42 @@ src/
 
 Copy `.env.example` to `.env.local`.
 
-| Variable                |                                          |
-| ----------------------- | ---------------------------------------- |
-| `NEXT_PUBLIC_API_URL`   | backend REST base, versioned (`/api/v1`) |
-| `NEXT_PUBLIC_WS_URL`    | realtime gateway                         |
-| `NEXT_PUBLIC_USE_MOCKS` | `true` serves the in-repo repository     |
-| `NEXT_PUBLIC_REALTIME`  | `off` · `simulate` · `on`                |
+| Variable                                                   |                                                                |
+| ---------------------------------------------------------- | -------------------------------------------------------------- |
+| `API_BASE_URL`                                             | server only: the API — Prism `http://localhost:4010` locally   |
+| `API_REAL_URL`, `API_REAL_TAGS`                            | server only: send these contract tags to the real backend (D7) |
+| `DEFAULT_TENANT`, `TENANT_HOST_MAP`                        | server only: `X-Tenant-Id` by host (D3)                        |
+| `NEXT_PUBLIC_USE_MOCKS`                                    | `true` serves the mock repository for not-yet-rewired features |
+| `NEXT_PUBLIC_REALTIME`                                     | `off` (Release 1, polls every 30 s) · `simulate` · `on`        |
+| `NEXT_PUBLIC_WS_URL`                                       | realtime gateway (Release 2)                                   |
+| `NEXT_PUBLIC_FEATURE_LIVE`, `NEXT_PUBLIC_FEATURE_CASH_OUT` | Release 2 screens, off by default (D8)                         |
 
-`NEXT_PUBLIC_REALTIME=simulate` drives the real parse → patch → re-render path
-with no gateway, biased towards prices already in the slip so the
-accept-odds-changes flow is visible. Switching to the backend is two env vars and
-no UI changes — that is the point of `lib/api`.
-
-Nothing secret goes in a `NEXT_PUBLIC_*` variable; it reaches the browser.
+The browser never calls the API: it calls `/api/*` here, and the route handlers
+call the API with the tenant header (D3). Nothing secret goes in a
+`NEXT_PUBLIC_*` variable; it reaches the browser.
 
 ## The money rule
 
-The frontend never decides money. `features/bet-slip/lib/calculate.ts` produces a
-display estimate; the engine recomputes everything on placement and wins. The tax
-rates and max-win cap in `config/constants.ts` are **placeholders** pending a
-`/config` endpoint, as are the licence number and helpline copy.
+The frontend never decides money. The slip's figures must come from the shared
+calculator `contracts/golden/ts/slipcalc.ts` (Engineering Decisions D1) with the
+tenant's rule set from `/v1/config/public`; the engine re-prices on placement
+and wins. Until F3 lands, `features/bet-slip/lib/calculate.ts` is a float
+estimate that differs from D1, and the tax rates, max-win cap, licence number and
+helpline in `config/constants.ts` are **placeholders**.
 
 ## Tests
 
-`pnpm test` — 92 tests.
+`pnpm test` — 118 tests. `pnpm ui` — 44 screen checks.
 
 The ones to keep an eye on:
 
+- `tests/unit/catalogue-mappers.test.ts` — contract → domain mapping, using the
+  contract's own examples (`tests/contract.ts`), so a contract change that breaks
+  a screen fails here.
 - `tests/unit/calculate.test.ts` — payout maths in all three modes, the cap,
   conflicts, suspensions, balance. Anchored on the design's own reference slip
-  (1.62 × 3.05 × 1.38 at a 100 stake → **ETB 507.64**).
+  (1.62 × 3.05 × 1.38 at a 100 stake → ETB 507.64 under the old float maths; F3
+  replaces it with the D1 figure).
 - `tests/component/BetSlip.test.tsx` — the journey that matters most: a price
   moves while the pick is in the slip, and the bet cannot proceed until the user
   accepts it.
@@ -145,8 +163,10 @@ The ones to keep an eye on:
 - `tests/unit/ethiopian-date.test.ts` — calendar conversion, round-tripped across
   a leap cycle.
 
-Playwright is not installed. When it is, the first journey to automate is the one
-above, end to end in a browser.
+- `tests/e2e/screens.spec.ts` (`pnpm ui`) — every screen at 375 and 1440 px in
+  English and Amharic, failing on console errors, sideways scroll, raw message
+  keys or unfilled placeholders. Uses the installed Chrome; screenshots land in
+  `test-results/ui/`.
 
 ## Translations
 
