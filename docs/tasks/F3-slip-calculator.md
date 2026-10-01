@@ -1,7 +1,7 @@
 ---
 id: F3
 title: Slip on slipcalc (D1), rules from config, bookings and /b/[code]
-status: todo
+status: planned
 depends_on: [F0]
 contract_tags: [Config, Slips, Bookings]
 touches_money: true
@@ -52,6 +52,8 @@ In:
 Out: placing the bet (F5); `POST /v1/slips/quote` only if a screen needs a server quote.
 
 ## Acceptance criteria
+
+Split into [F3a](F3a-slip-calculator.md) (calculator) and [F3b](F3b-bookings.md) (bookings) on 2026-10-01; F3 is done when both are.
 
 - [ ] **AC-1** Vitest runs all 366 golden rows: 366 passed, 0 mismatches, 0 skipped.
 - [ ] **AC-2** The C07 worked example shows net payout `690.29` on the slip (component test).
