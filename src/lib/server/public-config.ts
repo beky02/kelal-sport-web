@@ -1,6 +1,7 @@
 import "server-only";
 import type { components } from "@/lib/api/schema";
 import type { PublicConfigView } from "@/features/config/types";
+import type { Lang } from "@/types/common";
 import { toPublicConfigView } from "@/lib/api/mappers/config";
 import { unwrap, upstream } from "./upstream";
 
@@ -29,4 +30,29 @@ export async function loadPublicConfigView(
   tenant: string,
 ): Promise<PublicConfigView> {
   return toPublicConfigView(await loadPublicConfig(tenant));
+}
+
+/**
+ * What a page a link-preview bot reads needs from config: the language (with
+ * no language in the URL yet and no stored choice, the tenant's default —
+ * FD2), the brand, and whether booking codes are on. If config can't be read
+ * the page still renders — in English, with no brand rather than another
+ * tenant's.
+ */
+export async function loadPageLocale(tenant: string): Promise<{
+  lang: Lang;
+  siteName: string | null;
+  bookingCodes: boolean;
+}> {
+  try {
+    const config = await loadPublicConfig(tenant);
+    return {
+      lang: config.default_language,
+      siteName: config.brand.name,
+      bookingCodes: toPublicConfigView(config).features.bookingCodes,
+    };
+  } catch (error) {
+    console.error(error);
+    return { lang: "en", siteName: null, bookingCodes: true };
+  }
 }

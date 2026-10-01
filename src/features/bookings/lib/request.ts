@@ -1,4 +1,7 @@
-import { stakeToPrice, type BetSlipTotals } from "@/features/bet-slip/lib/calculate";
+import {
+  stakeToPrice,
+  type BetSlipTotals,
+} from "@/features/bet-slip/lib/calculate";
 import type { BetSelection } from "@/features/bet-slip/types";
 import { normaliseMoney } from "@/lib/money";
 import type { BookingRequest } from "../types";

@@ -24,6 +24,11 @@ export interface BetSlipView {
   rules: BettingRules | null;
   rulesState: "loading" | "ready" | "error";
   retryRules: () => void;
+  /**
+   * The tenant offers booking codes (`features.booking_codes`). On until the
+   * config says otherwise: only an explicit `false` turns them off.
+   */
+  bookingCodes: boolean;
 }
 
 /**
@@ -85,5 +90,6 @@ export function useBetSlip(): BetSlipView {
     rules,
     rulesState: rules ? "ready" : config.isError ? "error" : "loading",
     retryRules: () => void config.refetch(),
+    bookingCodes: config.data?.features.bookingCodes ?? true,
   };
 }

@@ -65,7 +65,15 @@ And one line in the `info.description` conventions:
 ```
 
 How the API decides a caller is trusted (internal network, mTLS, a shared secret) is the backend's call.
-The web side only needs the header names and the rule.
+The web side only needs the header names and the rule. Points from the F3b security review, for C09:
+
+- **Trust is never the header's presence.** The API is reachable from the internet (the Flutter app
+  calls it directly), so a caller must be trusted by a private-only ingress or a service credential.
+  Otherwise anyone can set `X-Client-IP` and get a fresh rate-limit bucket on every request.
+- **Validate the value** as an IPv4/IPv6 address, not just its length; key IPv6 on its /64.
+- **Size per-IP limits for carrier-grade NAT**: much Ethiopian mobile traffic shares an address.
+- **Web side**: the IP comes from the edge's `X-Forwarded-For` with a configured number of trusted hops —
+  the right-most entry the edge added, never the first — and a client-sent `X-Client-IP` is dropped.
 
 ## Clients affected
 

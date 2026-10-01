@@ -1,6 +1,7 @@
 import "server-only";
 import type {
   Booking,
+  BookingLookup,
   BookingReceipt,
   BookingRequest,
 } from "@/features/bookings/types";
@@ -9,7 +10,7 @@ import {
   toBookingCreate,
   toBookingReceipt,
 } from "@/lib/api/mappers/bookings";
-import { both, unwrap, upstream } from "./upstream";
+import { UpstreamError, both, unwrap, upstream } from "./upstream";
 
 /**
  * Booking codes (C09), as the slip and the `/b/{code}` page want them.
@@ -58,4 +59,33 @@ export async function createBooking(
     ),
   );
   return toBookingReceipt(created);
+}
+
+/**
+ * A booking for the `/b/{code}` page, which shows a state for every outcome.
+ * Expired and missing codes are told apart by the Problem's `code`, never by
+ * its title; anything else is a failure, not a missing booking.
+ */
+export async function lookupBooking(
+  tenant: string,
+  code: string,
+  prefer?: string,
+): Promise<BookingLookup> {
+  try {
+    return { status: "ok", booking: await loadBooking(tenant, code, prefer) };
+  } catch (error) {
+    const problem =
+      error instanceof UpstreamError
+        ? (error.problem as { code?: unknown } | null)
+        : null;
+    switch (problem?.code) {
+      case "BOOKING_EXPIRED":
+        return { status: "expired", code };
+      case "BOOKING_NOT_FOUND":
+      case "NOT_FOUND":
+        return { status: "not_found", code };
+    }
+    console.error(error);
+    return { status: "failed", code };
+  }
 }

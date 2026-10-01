@@ -55,6 +55,13 @@ describe("slipFromBooking", () => {
     expect(slipFromBooking({ ...booking(), stakeHint: null }).stake).toBeNull();
   });
 
+  it.each(["0.00", "-50.00"])(
+    "keeps the slip's stake when the hint is %s",
+    (stakeHint) => {
+      expect(slipFromBooking({ ...booking(), stakeHint }).stake).toBeNull();
+    },
+  );
+
   it("starts at today's price when the code kept no earlier one", () => {
     const b = booking();
     b.legs[0] = { ...b.legs[0], oddsAtCode: null };

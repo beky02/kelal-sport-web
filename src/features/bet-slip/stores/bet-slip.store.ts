@@ -7,6 +7,17 @@ import type {
   BookingNotice,
   SlipFromBooking,
 } from "@/features/bookings/lib/to-slip";
+import type { BookingReceipt } from "@/features/bookings/types";
+
+/**
+ * Booking this slip: which slip (its request's signature), the
+ * `Idempotency-Key` made for it, and — once the server answers — its code.
+ */
+export interface BookingIntent {
+  signature: string;
+  key: string;
+  receipt: BookingReceipt | null;
+}
 import { oddsMoved, type BetSelection, type BetSlipMode } from "../types";
 
 interface BetSlipState {
@@ -32,6 +43,12 @@ interface BetSlipState {
 
   /** What loading a booking code did, until the player dismisses it. */
   bookingNotice: BookingNotice | null;
+  /**
+   * Kept here, not in the Book button, so a code and its key survive the
+   * sheet closing and the page changing: the same slip is never booked twice.
+   */
+  bookingIntent: BookingIntent | null;
+  setBookingIntent: (intent: BookingIntent | null) => void;
 
   toggleSelection: (selection: BetSelection) => void;
   removeSelection: (outcomeId: string) => void;
@@ -95,18 +112,21 @@ export const useBetSlipStore = create<BetSlipState>()((set, get) => ({
   acceptedIds: new Set<string>(),
   acceptAnyChange: false,
   bookingNotice: null,
+  bookingIntent: null,
 
   toggleSelection: (selection) => {
     const { selections } = get();
     const next = selections.some((s) => s.outcomeId === selection.outcomeId)
       ? selections.filter((s) => s.outcomeId !== selection.outcomeId)
       : [...selections, selection];
-    set({ selections: next, index: reindex(next) });
+    // Once the player changes a loaded slip it is theirs: the notice about
+    // what the booking brought no longer describes it.
+    set({ selections: next, index: reindex(next), bookingNotice: null });
   },
 
   removeSelection: (outcomeId) => {
     const next = get().selections.filter((s) => s.outcomeId !== outcomeId);
-    set({ selections: next, index: reindex(next) });
+    set({ selections: next, index: reindex(next), bookingNotice: null });
   },
 
   clear: () =>
@@ -116,6 +136,7 @@ export const useBetSlipStore = create<BetSlipState>()((set, get) => ({
       acceptedIds: new Set<string>(),
       acceptAnyChange: false,
       bookingNotice: null,
+      bookingIntent: null,
     }),
 
   replaceSlip: ({ selections, mode, systemK, stake, notice }) =>
@@ -131,6 +152,7 @@ export const useBetSlipStore = create<BetSlipState>()((set, get) => ({
     })),
 
   dismissBookingNotice: () => set({ bookingNotice: null }),
+  setBookingIntent: (bookingIntent) => set({ bookingIntent }),
 
   setMode: (mode) => set({ mode }),
   setStake: (raw) => set({ stake: sanitiseStake(raw) }),

@@ -62,3 +62,11 @@ export interface BookingRequest {
   /** The total stake as a decimal string, or null to save the picks only. */
   stake: string | null;
 }
+
+/**
+ * The answer to "what is booking {code}?" for the `/b/{code}` page, which
+ * renders every outcome rather than throwing on the expected ones.
+ */
+export type BookingLookup =
+  | { status: "ok"; booking: Booking }
+  | { status: "expired" | "not_found" | "failed"; code: string };

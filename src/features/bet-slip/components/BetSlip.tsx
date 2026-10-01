@@ -8,6 +8,7 @@ import type { MessageKey } from "@/lib/i18n";
 import { Switch } from "@/components/ui/Switch";
 import { routes } from "@/config/routes";
 import { ApiError } from "@/lib/api/errors";
+import { cn } from "@/lib/utils/cn";
 import { useAuthStore } from "@/features/auth/stores/auth.store";
 import { useBetSlip } from "../hooks/use-bet-slip";
 import { usePlaceBet } from "../hooks/use-place-bet";
@@ -17,7 +18,14 @@ import { BetModeTabs } from "./BetModeTabs";
 import { BetPlacedConfirmation } from "./BetPlacedConfirmation";
 import { BetSelectionRow } from "./BetSelectionRow";
 import { BetSlipHeader } from "./BetSlipHeader";
-import { BookingCode, LoadBookingCode } from "./BookingCode";
+import { BookingNotice } from "@/features/bookings/components/BookingNotice";
+import {
+  signatureOf,
+  useCreateBooking,
+} from "@/features/bookings/hooks/use-bookings";
+import { bookingErrorMessage } from "@/features/bookings/lib/errors";
+import { bookingRequestFrom } from "@/features/bookings/lib/request";
+import { BookingAlert, BookingCode, LoadBookingCode } from "./BookingCode";
 import { EmptySlip } from "./EmptySlip";
 import { PayoutSummary } from "./PayoutSummary";
 import { PlaceBetButton } from "./PlaceBetButton";
@@ -49,17 +57,40 @@ export function BetSlip({ onClose }: { onClose?: () => void }) {
   const router = useRouter();
 
   const openAuth = useAuthStore((s) => s.open);
-  const { totals, cta, isGuest, balance, rules, rulesState, retryRules } =
-    useBetSlip();
+  const {
+    totals,
+    cta,
+    isGuest,
+    balance,
+    rules,
+    rulesState,
+    retryRules,
+    bookingCodes,
+  } = useBetSlip();
   const selections = useBetSlipStore((s) => s.selections);
   const clear = useBetSlipStore((s) => s.clear);
   const acceptAnyChange = useBetSlipStore((s) => s.acceptAnyChange);
   const setAcceptAnyChange = useBetSlipStore((s) => s.setAcceptAnyChange);
   const setStake = useBetSlipStore((s) => s.setStake);
+  const stake = useBetSlipStore((s) => s.stake);
 
   const [receipt, setReceipt] = useState<BetReceipt | null>(null);
-  const [booked, setBooked] = useState(false);
   const place = usePlaceBet(setReceipt);
+
+  // Booking saves the slip slipcalc priced: its live picks, bet type and
+  // system size. Null when it can't be booked (nothing live, a same-match
+  // clash, too many legs or lines).
+  const booking = useCreateBooking();
+  const bookingRequest = useMemo(
+    () => bookingRequestFrom({ selections, totals, stake }),
+    [selections, totals, stake],
+  );
+  const signature = bookingRequest ? signatureOf(bookingRequest) : null;
+  // A code — or a refusal — belongs to the slip it was asked for; once the
+  // slip changes it no longer describes what is on screen.
+  const bookedCode = signature ? booking.receiptFor(signature) : null;
+  const bookError = signature ? booking.errorFor(signature) : null;
+  const bookFailure = bookError ? bookingErrorMessage(bookError, "") : null;
 
   // The engine refused the stake and said what it would take, so the alert
   // can offer to set it rather than just reporting the problem.
@@ -70,27 +101,6 @@ export function BetSlip({ onClose }: { onClose?: () => void }) {
       rejection.code === "BET_STAKE_TOO_LOW")
       ? (rejection.errors.find((e) => e.field === "stake")?.limit ?? null)
       : null;
-
-  /**
-   * Stand-in for the code the backend would issue.
-   *
-   * Derived from the selections so it is stable while the slip is — a code that
-   * changed on every render would be unreadable, and unusable at a shop counter.
-   */
-  const bookingCode = useMemo(() => {
-    let hash = 5381;
-    for (const selection of selections) {
-      for (const character of selection.outcomeId) {
-        hash = (Math.imul(hash, 33) + character.charCodeAt(0)) >>> 0;
-      }
-    }
-    const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-    let code = "";
-    for (let i = 0; i < 5; i++) {
-      code += alphabet[(hash >>> (i * 5)) % alphabet.length];
-    }
-    return `KS${code}`;
-  }, [selections]);
 
   const conflicts = useMemo(
     () => new Set(totals.conflictEventIds),
@@ -137,6 +147,8 @@ export function BetSlip({ onClose }: { onClose?: () => void }) {
         rulesState={rulesState}
         onRetryRules={retryRules}
       />
+
+      <BookingNotice />
 
       {place.isError && (
         <div
@@ -226,16 +238,39 @@ export function BetSlip({ onClose }: { onClose?: () => void }) {
 
           {isGuest ? (
             <>
+              {/* Next to the button that caused it: on a phone the top of the
+                  sheet is scrolled out of view by now. */}
+              {bookFailure && (
+                <div className="px-4 pb-2">
+                  <BookingAlert>
+                    {t.t(bookFailure.key, bookFailure.values)}
+                  </BookingAlert>
+                </div>
+              )}
               {/* Booking is the alternative to signing up on the spot — the slip
                   keeps its value either way. */}
-              <div className="grid grid-cols-2 gap-2 px-4 pt-1">
-                <button
-                  type="button"
-                  onClick={() => setBooked(true)}
-                  className="bg-raised text-text font-body h-12 cursor-pointer rounded-md text-sm font-bold"
-                >
-                  {t.t("betSlip.bookBet")}
-                </button>
+              <div
+                className={cn(
+                  "grid gap-2 px-4 pt-1",
+                  bookingCodes ? "grid-cols-2" : "grid-cols-1",
+                )}
+              >
+                {bookingCodes && (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      bookingRequest && booking.book(bookingRequest)
+                    }
+                    // Off while the slip can't be booked, while asking, and
+                    // once this slip has its code.
+                    disabled={
+                      !bookingRequest || booking.isPending || !!bookedCode
+                    }
+                    className="bg-raised text-text font-body h-12 cursor-pointer rounded-md text-sm font-bold disabled:cursor-not-allowed disabled:opacity-45"
+                  >
+                    {t.t("betSlip.bookBet")}
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={() => openAuth("login")}
@@ -244,7 +279,9 @@ export function BetSlip({ onClose }: { onClose?: () => void }) {
                   {t.t("betSlip.loginToBet")}
                 </button>
               </div>
-              {booked && <BookingCode code={bookingCode} />}
+              {bookingCodes && bookedCode && (
+                <BookingCode receipt={bookedCode} />
+              )}
               <div className="pb-2" />
             </>
           ) : (
@@ -265,7 +302,7 @@ export function BetSlip({ onClose }: { onClose?: () => void }) {
 
       {/* Somewhere to redeem a code: a guest with an empty slip is often someone
           who was handed one. */}
-      {(isGuest || totals.count === 0) && <LoadBookingCode />}
+      {bookingCodes && (isGuest || totals.count === 0) && <LoadBookingCode />}
     </div>
   );
 }

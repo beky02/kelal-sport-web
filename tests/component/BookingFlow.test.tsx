@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { screen, waitFor, within } from "@testing-library/react";
+import { act, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { BetSlip } from "@/features/bet-slip/components/BetSlip";
 import { BookingView } from "@/features/bookings/components/BookingView";
@@ -108,11 +108,12 @@ describe("loading a booking code in the slip", () => {
     expect(notice).toHaveTextContent(
       "Saint George v Fasil Kenema · 1: match has started",
     );
-    // The price moved since the code was made: 2.05 → 2.10, to accept.
+    // The price moved since the code was made: 2.05 → 2.10, to accept. (A
+    // guest has no Place button; the odds-changed alert offers the accept.)
     expect(screen.getByText("2.05")).toBeInTheDocument();
     expect(screen.getByText(/▲ 2\.10/)).toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: "Accept changes" }),
+      screen.getByRole("button", { name: "Accept all" }),
     ).toBeInTheDocument();
   });
 
@@ -158,6 +159,27 @@ describe("loading a booking code in the slip", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "No booking with code 7KQ2M9X.",
     );
+  });
+
+  it("labels the code input in each slip on the page — the aside and the sheet", () => {
+    render(
+      <>
+        <BetSlip />
+        <BetSlip />
+      </>,
+    );
+    expect(screen.getAllByLabelText("Load booking code")).toHaveLength(2);
+  });
+
+  it("drops the notice once the player changes the loaded slip", async () => {
+    api(() => [200, BOOKING()]);
+    render(<BetSlip />);
+    await loadCode("7KQ2M9X");
+    await screen.findByTestId("booking-notice");
+
+    act(() => useBetSlipStore.getState().removeSelection("oc_ac_1"));
+
+    expect(screen.queryByTestId("booking-notice")).not.toBeInTheDocument();
   });
 
   it("checks the code before calling the API", async () => {
@@ -255,6 +277,60 @@ describe("booking the slip", () => {
     expect(sent[2].body).toMatchObject({ stake: "50.00" });
   });
 
+  it("keeps the code when the slip is closed and reopened, and doesn't book it twice", async () => {
+    api(() => [201, RECEIPT()]);
+    const { unmount } = render(<BetSlip />);
+    await userEvent.click(screen.getByRole("button", { name: "Book bet" }));
+    await screen.findByTestId("booking-code");
+    unmount();
+
+    render(<BetSlip />);
+
+    expect(screen.getByTestId("booking-code")).toHaveTextContent("7KQ2M9X");
+    expect(screen.getByRole("button", { name: "Book bet" })).toBeDisabled();
+    expect(sent).toHaveLength(1);
+  });
+
+  it("retries with the same Idempotency-Key even after the slip was closed", async () => {
+    let fail = true;
+    api(() =>
+      fail
+        ? [
+            503,
+            { type: "x", title: "x", status: 503, code: "SERVICE_UNAVAILABLE" },
+          ]
+        : [201, RECEIPT()],
+    );
+    const { unmount } = render(<BetSlip />);
+    await userEvent.click(screen.getByRole("button", { name: "Book bet" }));
+    await screen.findByRole("alert");
+    unmount();
+
+    fail = false;
+    render(<BetSlip />);
+    await userEvent.click(screen.getByRole("button", { name: "Book bet" }));
+    await screen.findByTestId("booking-code");
+
+    expect(sent[1].key).toBe(sent[0].key);
+  });
+
+  it("drops the code once it has expired, so the slip can be booked afresh", async () => {
+    api(() => [201, RECEIPT()]);
+    const { unmount } = render(<BetSlip />);
+    await userEvent.click(screen.getByRole("button", { name: "Book bet" }));
+    await screen.findByTestId("booking-code");
+    unmount();
+
+    // The contract's code expires at 2026-10-04T13:00:00Z.
+    vi.spyOn(Date, "now").mockReturnValue(Date.parse("2026-10-04T13:00:01Z"));
+    render(<BetSlip />);
+
+    await waitFor(() =>
+      expect(screen.queryByTestId("booking-code")).not.toBeInTheDocument(),
+    );
+    expect(screen.getByRole("button", { name: "Book bet" })).toBeEnabled();
+  });
+
   it("says to try later when rate-limited", async () => {
     api(() => [429, responseExample("/v1/bookings", "post", 429)]);
     render(<BetSlip />);
@@ -267,17 +343,12 @@ describe("booking the slip", () => {
   });
 
   it("can't book two picks from one match", () => {
-    useBetSlipStore
-      .getState()
-      .toggleSelection(pick("m3", "4.10", "Draw again"));
-    // Same event as Man City, different outcome.
-    useBetSlipStore.setState((s) => ({
-      selections: s.selections.map((x) =>
-        x.outcomeId === "oc_m3" && x.currentOdds === "4.10"
-          ? { ...x, outcomeId: "oc_m3_x" }
-          : x,
-      ),
-    }));
+    // Same event as Man City, a different outcome.
+    useBetSlipStore.getState().toggleSelection({
+      ...pick("m3", "4.10", "Draw again"),
+      outcomeId: "oc_m3_x",
+    });
+    expect(useBetSlipStore.getState().selections).toHaveLength(3);
     render(<BetSlip />);
     expect(screen.getByRole("button", { name: "Book bet" })).toBeDisabled();
   });

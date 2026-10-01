@@ -49,3 +49,7 @@ Out: Telegram login (P1).
 - [ ] **AC-4** A cross-origin POST to a mutating route handler is rejected (route test).
 - [ ] **AC-5** An expired access token is refreshed once and the request retried (loader test).
 - [ ] **AC-6** Login answering 202 (new device) asks for the OTP.
+- [ ] **AC-7** The tenant comes from `X-Forwarded-Host` only behind an explicit trusted-proxy setting,
+      else from `Host` (`tenantFromHeaders`, route test): with a session cookie, a forged forwarded host
+      must not send tenant A's session with tenant B's `X-Tenant-Id` (F3b security review). The same
+      setting lets the route handlers read the player's IP for contract request 004.
