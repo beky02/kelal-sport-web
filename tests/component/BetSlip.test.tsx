@@ -193,6 +193,22 @@ describe("BetSlip", () => {
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 
+  it("offers a minimum on singles that clears the alert when tapped", async () => {
+    seedReferenceSlip();
+    useBetSlipStore.setState({ mode: "single", stake: "2" });
+    render(<BetSlip />);
+
+    const alert = screen.getByRole("alert");
+    expect(alert).toHaveTextContent("The minimum total stake is ETB 5.01.");
+    await userEvent.click(
+      within(alert).getByRole("button", { name: "Set 5.01" }),
+    );
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Place bet/ })).toHaveTextContent(
+      "ETB 5.01",
+    );
+  });
+
   it("offers the maximum when the stake is too high", async () => {
     seedReferenceSlip();
     useBetSlipStore.setState({ stake: "60000" });

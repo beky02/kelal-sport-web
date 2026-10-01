@@ -193,6 +193,22 @@ describe("calculateBetSlip — refusals carry their fix", () => {
     });
   });
 
+  it("offers a minimum that still clears it once split across lines", () => {
+    // 5.00 over 3 lines charges 1.66 × 3 = 4.98 — under the minimum again.
+    // 5.01 charges 1.67 × 3 = 5.01.
+    const singles = run(designDefault, { mode: "single", stake: "2" });
+    expect(singles.problem).toEqual({
+      code: "BET_STAKE_TOO_LOW",
+      stake: "5.01",
+    });
+    const fixed = run(designDefault, { mode: "single", stake: "5.01" });
+    expect(fixed.problem).toBeNull();
+    expect(fixed.quote?.totalStake).toBe("5.01");
+    expect(
+      run(designDefault, { mode: "system", systemK: 2, stake: "2" }).problem,
+    ).toEqual({ code: "BET_STAKE_TOO_LOW", stake: "5.01" });
+  });
+
   it("offers a santim per line when that is more than the minimum", () => {
     // 6/12 is 924 lines: 5.00 leaves each line under a santim.
     const t = run(many(12), { mode: "system", systemK: 6, stake: "5" });

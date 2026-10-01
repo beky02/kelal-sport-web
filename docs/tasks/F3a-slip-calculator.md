@@ -1,7 +1,7 @@
 ---
 id: F3a
 title: Slip on slipcalc (D1), rules from config, money as strings
-status: planned
+status: verifying
 depends_on: [F0]
 contract_tags: [Config]
 touches_money: true

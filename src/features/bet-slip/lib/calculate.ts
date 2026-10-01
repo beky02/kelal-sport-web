@@ -8,7 +8,13 @@ import {
   type Slip,
 } from "@golden/slipcalc";
 import { BETTING } from "@/config/constants";
-import { compareMoney, maxMoney, mulMoney, toSantim } from "@/lib/money";
+import {
+  compareMoney,
+  maxMoney,
+  mulMoney,
+  roundUpToMultiple,
+  toSantim,
+} from "@/lib/money";
 import { binomial } from "./combinations";
 import { oddsMoved, type BetSelection, type BetSlipMode } from "../types";
 
@@ -104,10 +110,16 @@ function problemFor(
 ): SlipProblem {
   switch (code) {
     case "BET_STAKE_TOO_LOW":
-      // The minimum applies to the total, and every line needs a santim.
+      // The minimum applies to the total actually charged — floor(stake /
+      // lines) × lines (D1.3) — and every line needs a santim. So the offer is
+      // the smallest whole number of santim per line that clears both: 5.00 on
+      // three lines would charge 4.98, so it is 5.01.
       return {
         code,
-        stake: maxMoney(rules.min_stake, mulMoney("0.01", lines)),
+        stake: roundUpToMultiple(
+          maxMoney(rules.min_stake, mulMoney("0.01", lines)),
+          lines,
+        ),
       };
     case "BET_STAKE_TOO_HIGH":
       return { code, stake: rules.max_stake };

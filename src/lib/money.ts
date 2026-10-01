@@ -45,6 +45,13 @@ export const addMoney = (...amounts: string[]): string =>
 export const mulMoney = (amount: string, times: number): string =>
   fromSantim(toSantim(amount) * BigInt(times));
 
+/** The smallest multiple of `n` santim at or above `amount`. */
+export const roundUpToMultiple = (amount: string, n: number): string => {
+  const santim = toSantim(amount);
+  const step = BigInt(n);
+  return fromSantim(((santim + step - 1n) / step) * step);
+};
+
 export const maxMoney = (a: string, b: string): string =>
   compareMoney(a, b) >= 0 ? a : b;
 

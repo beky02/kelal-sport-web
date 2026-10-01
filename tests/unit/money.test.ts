@@ -9,6 +9,7 @@ import {
   maxMoney,
   mulMoney,
   normaliseMoney,
+  roundUpToMultiple,
   share,
   toSantim,
 } from "@/lib/money";
@@ -49,6 +50,8 @@ describe("lib/money (FD4)", () => {
     expect(mulMoney("0.01", 1024)).toBe("10.24");
     expect(maxMoney("5.00", "10.24")).toBe("10.24");
     expect(normaliseMoney("100")).toBe("100.00");
+    expect(roundUpToMultiple("5.00", 3)).toBe("5.01");
+    expect(roundUpToMultiple("9.24", 924)).toBe("9.24");
   });
 
   it("takes a share floored to the santim", () => {
