@@ -19,7 +19,6 @@ import {
   toSearchResults,
   toSports,
   toTopCompetitions,
-  type Bilingual,
   type Dictionary,
   type Lookup,
 } from "@/lib/api/mappers/catalogue";
