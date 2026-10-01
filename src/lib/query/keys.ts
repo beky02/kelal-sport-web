@@ -1,0 +1,53 @@
+import type { EventFilters } from "@/lib/api/mock/repository";
+
+/**
+ * Query keys, centralised.
+ *
+ * Hierarchical on purpose: invalidating `eventKeys.lists()` drops every board
+ * variant without touching a cached event detail.
+ */
+export const sportKeys = {
+  all: ["sports"] as const,
+  list: () => [...sportKeys.all, "list"] as const,
+};
+
+export const competitionKeys = {
+  all: ["competitions"] as const,
+  top: () => [...competitionKeys.all, "top"] as const,
+  countries: () => [...competitionKeys.all, "countries"] as const,
+};
+
+export const eventKeys = {
+  all: ["events"] as const,
+  lists: () => [...eventKeys.all, "list"] as const,
+  board: (filters: EventFilters, dataSaver: boolean) =>
+    [...eventKeys.lists(), { ...filters, dataSaver }] as const,
+  detail: (id: string) => [...eventKeys.all, "detail", id] as const,
+};
+
+export const marketKeys = {
+  all: ["markets"] as const,
+  byEvent: (eventId: string) => [...marketKeys.all, "event", eventId] as const,
+};
+
+export const searchKeys = {
+  all: ["search"] as const,
+  query: (query: string, dataSaver: boolean) =>
+    [...searchKeys.all, query, { dataSaver }] as const,
+};
+
+export const betKeys = {
+  all: ["bets"] as const,
+  list: (tab: string) => [...betKeys.all, "list", tab] as const,
+  detail: (id: string) => [...betKeys.all, "detail", id] as const,
+};
+
+export const transactionKeys = {
+  all: ["transactions"] as const,
+  list: (kind: string) => [...transactionKeys.all, kind] as const,
+};
+
+export const walletKeys = {
+  all: ["wallet"] as const,
+  balance: () => [...walletKeys.all, "balance"] as const,
+};
