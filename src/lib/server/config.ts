@@ -80,3 +80,7 @@ export function tenantForHost(host: string | null): string {
   const name = (host ?? "").split(":")[0].toLowerCase();
   return serverConfig.tenantHostMap[name] ?? serverConfig.defaultTenant;
 }
+
+/** The tenant for a request's headers — route handlers and pages alike. */
+export const tenantFromHeaders = (headers: Headers): string =>
+  tenantForHost(headers.get("x-forwarded-host") ?? headers.get("host"));

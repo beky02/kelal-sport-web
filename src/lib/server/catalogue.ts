@@ -24,7 +24,7 @@ import {
   type Lookup,
 } from "@/lib/api/mappers/catalogue";
 import { todayEat } from "@/lib/i18n/dates";
-import { UpstreamError, unwrap, upstream } from "./upstream";
+import { both, UpstreamError, unwrap, upstream } from "./upstream";
 
 /**
  * The catalogue, as the screens want it.
@@ -33,15 +33,6 @@ import { UpstreamError, unwrap, upstream } from "./upstream";
  * without refetching, so each read is made in both and merged by the mappers.
  * The dictionary is versioned and changes rarely; it is held per tenant.
  */
-
-const LANGS: readonly Lang[] = ["en", "am"];
-
-async function both<T>(
-  read: (lang: Lang) => Promise<T>,
-): Promise<Bilingual<T>> {
-  const [en, am] = await Promise.all(LANGS.map(read));
-  return { en, am };
-}
 
 const DICTIONARY_TTL_MS = 5 * 60 * 1000;
 const dictionaries = new Map<string, { value: Dictionary; expires: number }>();

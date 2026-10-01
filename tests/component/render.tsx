@@ -21,7 +21,10 @@ export const CONTRACT_RULES: BettingRules = toBettingRules(
  */
 export function render(
   ui: ReactElement,
-  { rules = CONTRACT_RULES }: { rules?: BettingRules | null } = {},
+  {
+    rules = CONTRACT_RULES,
+    bookingCodes = true,
+  }: { rules?: BettingRules | null; bookingCodes?: boolean } = {},
 ) {
   const queryClient = new QueryClient({
     defaultOptions: {
@@ -30,7 +33,10 @@ export function render(
     },
   });
   if (rules) {
-    queryClient.setQueryData(configKeys.public(), { betting: rules });
+    queryClient.setQueryData(configKeys.public(), {
+      betting: rules,
+      features: { bookingCodes },
+    });
     // Fresh for the test's lifetime, so nothing refetches over the seed.
     queryClient.setQueryDefaults(configKeys.public(), {
       staleTime: Infinity,

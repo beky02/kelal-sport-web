@@ -10,6 +10,34 @@ export type Upstream = ReturnType<typeof upstream>;
 export interface RequestContext {
   tenant: string;
   lang: Lang;
+  /**
+   * Prism's `Prefer` (`code=410`, `example=odds_changed`), so error states can
+   * be exercised end to end in development. See `mockPreference`.
+   */
+  prefer?: string;
+}
+
+/**
+ * The browser's `Prefer` header, if it is one of Prism's forms and this is not
+ * a production server. Never forwarded in production, and nothing else is.
+ */
+export function mockPreference(header: string | null): string | undefined {
+  if (process.env.NODE_ENV === "production" || !header) return undefined;
+  return /^(code=\d{3}|example=[\w-]+)$/.test(header) ? header : undefined;
+}
+
+const LANGS: readonly Lang[] = ["en", "am"];
+
+/**
+ * The same read in both languages. Names come back in one language per
+ * request, but the UI switches language without refetching, so reads that
+ * carry names are made in both and merged by the mappers.
+ */
+export async function both<T>(
+  read: (lang: Lang) => Promise<T>,
+): Promise<Record<Lang, T>> {
+  const [en, am] = await Promise.all(LANGS.map(read));
+  return { en, am };
 }
 
 /**
@@ -19,10 +47,17 @@ export interface RequestContext {
  * Every request carries `X-Tenant-Id` (D3) and a fresh `X-Request-Id`, so a
  * failure in the backend's logs can be traced to the page that caused it.
  */
-export function upstream(tag: ApiTag, { tenant, lang }: RequestContext) {
+export function upstream(
+  tag: ApiTag,
+  { tenant, lang, prefer }: RequestContext,
+) {
   const client = createClient<paths>({
     baseUrl: baseUrlFor(tag),
-    headers: { "X-Tenant-Id": tenant, "Accept-Language": lang },
+    headers: {
+      "X-Tenant-Id": tenant,
+      "Accept-Language": lang,
+      ...(prefer ? { Prefer: prefer } : {}),
+    },
   });
   client.use({
     onRequest({ request }) {
