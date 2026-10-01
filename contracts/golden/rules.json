@@ -1,0 +1,46 @@
+{
+  "default_2026_10": {
+    "rules_version": 7,
+    "min_stake": "5.00", "max_stake": "50000.00", "max_payout": "1000000.00",
+    "max_legs": 30, "max_lines": 1024,
+    "acca_bonus_table": [ {"min_legs": 3, "pct": "3"}, {"min_legs": 5, "pct": "8"}, {"min_legs": 8, "pct": "15"},
+                          {"min_legs": 10, "pct": "25"}, {"min_legs": 15, "pct": "50"}, {"min_legs": 20, "pct": "100"} ],
+    "acca_bonus_min_leg_odds": "1.30", "acca_bonus_max": "200000.00",
+    "taxes": [ {"code": "STAKE_TAX", "base": "stake", "rate": "0.15", "threshold": "0.00", "deduct_from": "stake"},
+               {"code": "WIN_TAX", "base": "gross_win", "rate": "0.15", "threshold": "1000.00", "deduct_from": "payout"} ],
+    "refund_stake_tax_on_void": false,
+    "rounding": "down", "default_odds_policy": "higher"
+  },
+  "no_tax": {
+    "rules_version": 1,
+    "min_stake": "1.00", "max_stake": "100000.00", "max_payout": "5000000.00",
+    "max_legs": 30, "max_lines": 1024,
+    "acca_bonus_table": [],
+    "acca_bonus_min_leg_odds": "1.30", "acca_bonus_max": "0.00",
+    "taxes": [],
+    "refund_stake_tax_on_void": false,
+    "rounding": "down", "default_odds_policy": "higher"
+  },
+  "net_win_tax_refund_void": {
+    "rules_version": 2,
+    "min_stake": "5.00", "max_stake": "50000.00", "max_payout": "1000000.00",
+    "max_legs": 30, "max_lines": 1024,
+    "acca_bonus_table": [ {"min_legs": 3, "pct": "5"}, {"min_legs": 20, "pct": "100"} ],
+    "acca_bonus_min_leg_odds": "1.30", "acca_bonus_max": "200000.00",
+    "taxes": [ {"code": "STAKE_TAX", "base": "stake", "rate": "0.10", "threshold": "0.00", "deduct_from": "stake"},
+               {"code": "WIN_TAX", "base": "net_win", "rate": "0.15", "threshold": "0.00", "deduct_from": "payout"},
+               {"code": "LEVY", "base": "profit", "rate": "0.05", "threshold": "0.00", "deduct_from": "operator"} ],
+    "refund_stake_tax_on_void": true,
+    "rounding": "down", "default_odds_policy": "higher"
+  },
+  "small_caps": {
+    "rules_version": 3,
+    "min_stake": "5.00", "max_stake": "1000.00", "max_payout": "2000.00",
+    "max_legs": 10, "max_lines": 64,
+    "acca_bonus_table": [ {"min_legs": 3, "pct": "10"} ],
+    "acca_bonus_min_leg_odds": "1.30", "acca_bonus_max": "50.00",
+    "taxes": [ {"code": "STAKE_TAX", "base": "stake", "rate": "0.15", "threshold": "0.00", "deduct_from": "stake"} ],
+    "refund_stake_tax_on_void": false,
+    "rounding": "down", "default_odds_policy": "higher"
+  }
+}

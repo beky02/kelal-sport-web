@@ -1,0 +1,2042 @@
+  # ================================================================ Retail: terminal (C19)
+  /v1/retail/terminals/activate:
+    post:
+      tags: [Retail - terminal]
+      operationId: activateTerminal
+      summary: Activate a shop terminal once with its one-time code (5 attempts per IP per hour)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/TerminalActivateRequest' }
+            example: { activation_code: K7Q2M9XP, device_public_key: "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE...", app_version: "1.4.0" }
+      responses:
+        '200':
+          description: Activated
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TerminalActivation' }
+              example: { terminal_id: "01J9A900000000000000000001", label: PC 3, shop: { code: ADM-004, name: Adama Kebele 04 }, access_token: "eyJhbGciOi...", expires_in: 7776000, rule_set: retail }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '410': { $ref: '#/components/responses/Gone' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+
+  /v1/retail/terminal:
+    get:
+      tags: [Retail - terminal]
+      operationId: getTerminalSelf
+      summary: Terminal status and shop (called on boot and every 5 minutes)
+      security: [ { terminalAuth: [] } ]
+      parameters: [ { $ref: '#/components/parameters/DeviceTimestamp' }, { $ref: '#/components/parameters/DeviceSignature' } ]
+      responses:
+        '200':
+          description: Terminal
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [terminal_id, status, shop]
+                properties:
+                  terminal_id: { type: string }
+                  label: { type: string }
+                  status: { type: string, enum: [active, revoked] }
+                  shop:
+                    type: object
+                    required: [code, name, open_now]
+                    properties:
+                      code: { type: string }
+                      name: { type: string }
+                      open_now: { type: boolean }
+                  idle_reset_seconds: { type: integer }
+                  code_display_seconds: { type: integer }
+              example: { terminal_id: "01J9A900000000000000000001", label: PC 3, status: active, shop: { code: ADM-004, name: Adama Kebele 04, open_now: true }, idle_reset_seconds: 90, code_display_seconds: 60 }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /v1/retail/slip-codes:
+    post:
+      tags: [Retail - terminal]
+      operationId: createSlipCode
+      summary: Turn a terminal slip into an 8-digit slip code (30 per terminal per 10 min)
+      security: [ { terminalAuth: [] } ]
+      parameters: [ { $ref: '#/components/parameters/DeviceTimestamp' }, { $ref: '#/components/parameters/DeviceSignature' } ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SlipCodeCreate' }
+            example: { bet_type: multiple, legs: [ { outcome_id: oc_ac_1 }, { outcome_id: oc_sg_1 } ], stake_hint: "50.00" }
+      responses:
+        '201':
+          description: Slip code
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SlipCodeCreated' }
+              example: { code: "48291735", display: "4829 1735", expires_at: "2026-10-04T13:00:00Z", qr: "https://example.et/r/48291735" }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+
+  # ================================================================ Retail: cashier POS (C19)
+  /v1/retail/auth/login:
+    post:
+      tags: [Retail - cashier]
+      operationId: staffLogin
+      summary: Cashier or shop-manager login (only from an activated POS device of the same shop)
+      parameters: [ { $ref: '#/components/parameters/DeviceId' }, { $ref: '#/components/parameters/DeviceTimestamp' }, { $ref: '#/components/parameters/DeviceSignature' } ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [username, pin]
+              properties:
+                username: { type: string }
+                pin: { type: string, pattern: '^\d{6}$' }
+            example: { username: abebe.k, pin: "482913" }
+      responses:
+        '200':
+          description: Logged in
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/StaffSession' }
+              examples:
+                no_open_shift: { value: { access_token: "eyJhbGciOi...", expires_in: 43200, staff: { id: "01J9A910000000000000000001", full_name: Abebe Kebede, role: cashier, shop_code: ADM-004, shop_name: Adama Kebele 04 }, open_shift: null, unprinted_tickets: [] } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '423': { $ref: '#/components/responses/Locked' }
+
+  /v1/retail/auth/logout:
+    post:
+      tags: [Retail - cashier]
+      operationId: staffLogout
+      summary: End the staff session (the shift stays open)
+      security: [ { cashierAuth: [] } ]
+      responses:
+        '204': { description: Logged out }
+
+  /v1/retail/shifts:
+    post:
+      tags: [Retail - cashier]
+      operationId: openShift
+      summary: Open a shift with the counted opening cash
+      security: [ { cashierAuth: [] } ]
+      parameters: [ { $ref: '#/components/parameters/DeviceTimestamp' }, { $ref: '#/components/parameters/DeviceSignature' } ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [opening_cash]
+              properties: { opening_cash: { $ref: '#/components/schemas/Money' } }
+            example: { opening_cash: "1500.00" }
+      responses:
+        '201':
+          description: Shift opened
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Shift' }
+              example: { $ref: '#/components/examples/ShiftJustOpenedExample/value' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /v1/retail/shifts/current:
+    get:
+      tags: [Retail - cashier]
+      operationId: getCurrentShift
+      summary: The caller's open shift with running totals
+      security: [ { cashierAuth: [] } ]
+      responses:
+        '200':
+          description: Shift
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Shift' }
+              example: { $ref: '#/components/examples/ShiftOpenExample/value' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /v1/retail/shifts/current/tickets:
+    get:
+      tags: [Retail - cashier]
+      operationId: listShiftTickets
+      summary: Tickets sold and paid in the current shift (for reprint and review)
+      security: [ { cashierAuth: [] } ]
+      parameters: [ { $ref: '#/components/parameters/Limit' }, { $ref: '#/components/parameters/Cursor' } ]
+      responses:
+        '200':
+          description: Page of tickets
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, next_cursor]
+                properties:
+                  items: { type: array, items: { $ref: '#/components/schemas/RetailTicketSummary' } }
+                  next_cursor: { $ref: '#/components/schemas/NextCursor' }
+              example:
+                items:
+                  - { ticket_no: "R7K2-M9XP-K", status: open, stake: "50.00", potential_win: "89.25", sold_at: "2026-10-04T09:12:40Z", event: sold, printed: true }
+                next_cursor: null
+
+  /v1/retail/shifts/{id}/cash-movements:
+    post:
+      tags: [Retail - cashier]
+      operationId: addCashMovement
+      summary: Record cash in or out of the drawer (above threshold needs a manager PIN)
+      security: [ { cashierAuth: [] } ]
+      parameters: [ { $ref: '#/components/parameters/IdPath' }, { $ref: '#/components/parameters/IdempotencyKey' } ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CashMovementCreate' }
+            example: { kind: cash_out, amount: "5000.00", reason: Handed to agent }
+      responses:
+        '201':
+          description: Recorded
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Shift' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+
+  /v1/retail/shifts/{id}/close:
+    post:
+      tags: [Retail - cashier]
+      operationId: closeShift
+      summary: Close a shift with a count by denomination; returns the Z report
+      security: [ { cashierAuth: [] } ]
+      parameters: [ { $ref: '#/components/parameters/IdPath' }, { $ref: '#/components/parameters/IdempotencyKey' } ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [denominations]
+              properties:
+                denominations:
+                  type: object
+                  description: Count per note or coin value in birr
+                  additionalProperties: { type: integer, minimum: 0 }
+            example: { denominations: { "200": 12, "100": 30, "50": 4, "10": 0, "5": 0, "1": 0 } }
+      responses:
+        '200':
+          description: Z report
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ZReport' }
+              example:
+                shift_id: "01J9A920000000000000000001"
+                cashier: Abebe Kebede
+                shop_code: ADM-004
+                opened_at: "2026-10-04T07:02:11Z"
+                closed_at: "2026-10-04T19:05:00Z"
+                opening_cash: "1500.00"
+                sales: { count: 214, amount: "48250.00" }
+                payouts: { count: 61, amount: "31100.00" }
+                cancels: { count: 2, amount: "150.00" }
+                cash_in: "5000.00"
+                cash_out: "15000.00"
+                expected: "8500.00"
+                counted: "8500.00"
+                variance: "0.00"
+                z_report_pdf: "/v1/retail/shifts/01J9A920000000000000000001/z-report.pdf"
+
+  /v1/retail/slip-codes/{code}:
+    get:
+      tags: [Retail - cashier]
+      operationId: loadSlipCode
+      summary: Load a slip code at current odds
+      security: [ { cashierAuth: [] } ]
+      parameters:
+        - { $ref: '#/components/parameters/AcceptLanguage' }
+        - { name: code, in: path, required: true, schema: { type: string, pattern: '^\d{8}$' }, example: "48291735" }
+      responses:
+        '200':
+          description: Slip
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SlipCode' }
+              example:
+                code: "48291735"
+                bet_type: multiple
+                system_sizes: []
+                stake_hint: "50.00"
+                expires_at: "2026-10-04T13:00:00Z"
+                consumed: false
+                consumed_ticket_no: null
+                legs:
+                  - $ref: '#/components/examples/PricedLegArsenal/value'
+                  - $ref: '#/components/examples/PricedLegStartedGame/value'
+        '404': { $ref: '#/components/responses/NotFound' }
+        '410': { $ref: '#/components/responses/Gone' }
+
+  /v1/retail/tickets:
+    post:
+      tags: [Retail - cashier]
+      operationId: sellTicket
+      summary: Sell a ticket for cash
+      security: [ { cashierAuth: [] } ]
+      parameters: [ { $ref: '#/components/parameters/IdempotencyKey' }, { $ref: '#/components/parameters/DeviceTimestamp' }, { $ref: '#/components/parameters/DeviceSignature' } ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RetailTicketCreate' }
+            example: { slip_code: "48291735", bet_type: single, legs: [ { outcome_id: oc_ac_1, odds: "2.10" } ], stake: "50.00", age_confirmed: true }
+      responses:
+        '201':
+          description: Ticket sold; print `receipt`
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RetailTicket' }
+              example: { $ref: '#/components/examples/RetailTicketSoldExample/value' }
+        '409':
+          description: Odds changed, selection unavailable, or slip code already used
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+              examples:
+                slip_code_consumed: { value: { type: "https://api.example.et/errors/slip-code-consumed", title: Slip code already used, status: 409, code: RETAIL_SLIP_CODE_CONSUMED, detail: "Sold as ticket R7K2-M9XP-K", request_id: req_01J9A93 } }
+                odds_changed: { value: { type: "https://api.example.et/errors/odds-changed", title: Odds have changed, status: 409, code: BET_ODDS_CHANGED, detail: 1 selection changed price., request_id: req_01J9A94, errors: [ { field: "legs[0].odds", code: ODDS_CHANGED, current: "2.05" } ] } }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+        '503': { $ref: '#/components/responses/Unavailable' }
+
+  /v1/retail/tickets/{ticket_no}:
+    get:
+      tags: [Retail - cashier]
+      operationId: scanTicket
+      summary: Scan a ticket (barcode carries ticket number + MAC)
+      security: [ { cashierAuth: [] } ]
+      parameters:
+        - { $ref: '#/components/parameters/TicketNoPath' }
+        - { name: mac, in: query, required: false, description: "10-character MAC from the barcode; required for payout, optional when typed", schema: { type: string, pattern: '^[0-9A-F]{10}$' }, example: 3F9A0C21B7 }
+      responses:
+        '200':
+          description: Ticket status
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TicketScan' }
+              examples:
+                won_payable: { value: { ticket_no: "R7K2-M9XP-K", status: won, stake: "50.00", payable: "89.25", sold_at_shop: ADM-004, sold_at: "2026-10-04T09:12:40Z", can_pay_here: true, requires_id: false, requires_approval: false, approval_status: null, claim_expires_at: "2026-11-03T16:02:00Z", paid: null, legs: [ { fixture_name: Arsenal v Chelsea, market_name: "1X2", outcome_name: "1", odds: "2.10", result: win } ] } }
+                already_paid: { value: { ticket_no: "R7K2-M9XP-K", status: paid, stake: "50.00", payable: "89.25", sold_at_shop: ADM-004, sold_at: "2026-10-04T09:12:40Z", can_pay_here: false, requires_id: false, requires_approval: false, approval_status: null, claim_expires_at: "2026-11-03T16:02:00Z", paid: { at: "2026-10-04T17:05:00Z", shop_code: ADM-004, by: abebe.k }, legs: [] } }
+                open: { value: { ticket_no: "R7K2-M9XQ-H", status: open, stake: "20.00", payable: null, sold_at_shop: ADM-004, sold_at: "2026-10-04T11:00:00Z", can_pay_here: false, requires_id: false, requires_approval: false, approval_status: null, claim_expires_at: null, paid: null, legs: [ { fixture_name: Real Madrid v Barcelona, market_name: "Total 2.5", outcome_name: "Over 2.5", odds: "1.62", result: open } ] } }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /v1/retail/tickets/{ticket_no}/payout:
+    post:
+      tags: [Retail - cashier]
+      operationId: payTicket
+      summary: Pay a won or void ticket (exactly once)
+      security: [ { cashierAuth: [] } ]
+      parameters: [ { $ref: '#/components/parameters/TicketNoPath' }, { $ref: '#/components/parameters/IdempotencyKey' }, { $ref: '#/components/parameters/DeviceTimestamp' }, { $ref: '#/components/parameters/DeviceSignature' } ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PayoutRequest' }
+            example: { mac: 3F9A0C21B7, id_type: null, id_number: null, deferred: false }
+      responses:
+        '200':
+          description: Paid, or waiting for head-office approval
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PayoutResult' }
+              examples:
+                paid: { value: { status: paid, paid: "89.25", approval_id: null, shift_expected_cash: "1460.75" } }
+                approval_pending: { value: { status: approval_pending, paid: "0.00", approval_id: "01J9A950000000000000000001", shift_expected_cash: "1550.00" } }
+        '409':
+          description: Already paid, or not payable
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+              example: { type: "https://api.example.et/errors/ticket-already-paid", title: Ticket already paid, status: 409, code: RETAIL_TICKET_ALREADY_PAID, detail: "Paid at ADM-004 on 2026-10-04 17:05 by abebe.k", request_id: req_01J9A96 }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+
+  /v1/retail/tickets/{ticket_no}/cancel:
+    post:
+      tags: [Retail - cashier]
+      operationId: cancelTicket
+      summary: Cancel within the window and refund the stake in cash
+      security: [ { cashierAuth: [] } ]
+      parameters: [ { $ref: '#/components/parameters/TicketNoPath' }, { $ref: '#/components/parameters/IdempotencyKey' } ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [reason]
+              properties:
+                reason: { type: string, maxLength: 200 }
+                manager_pin: { type: string, pattern: '^\d{6}$', description: 'Needed after the cashier window, within 30 minutes' }
+            example: { reason: Customer changed mind }
+      responses:
+        '200':
+          description: Cancelled
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status, refunded, shift_expected_cash]
+                properties:
+                  status: { type: string, const: cancelled }
+                  refunded: { $ref: '#/components/schemas/Money' }
+                  shift_expected_cash: { $ref: '#/components/schemas/Money' }
+              example: { status: cancelled, refunded: "50.00", shift_expected_cash: "1500.00" }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+
+  /v1/retail/tickets/{ticket_no}/reprint:
+    post:
+      tags: [Retail - cashier]
+      operationId: reprintTicket
+      summary: Reprint a receipt (marked COPY and logged)
+      security: [ { cashierAuth: [] } ]
+      parameters: [ { $ref: '#/components/parameters/TicketNoPath' } ]
+      responses:
+        '200':
+          description: Receipt to print
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Receipt' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /v1/retail/tickets/{ticket_no}/receipt.pdf:
+    get:
+      tags: [Retail - cashier]
+      operationId: getReceiptPdf
+      summary: Receipt as PDF (back-office reprints)
+      security: [ { cashierAuth: [] }, { staffAuth: [] } ]
+      parameters: [ { $ref: '#/components/parameters/TicketNoPath' } ]
+      responses:
+        '200':
+          description: PDF
+          content:
+            application/pdf:
+              schema: { type: string, format: binary }
+
+  /v1/retail/settlements/pending:
+    get:
+      tags: [Retail - cashier]
+      operationId: listPendingShopSettlements
+      summary: Cash collections recorded by the agent, waiting for the shop manager to confirm
+      security: [ { cashierAuth: [] } ]
+      responses:
+        '200':
+          description: Pending settlements
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items: { type: array, items: { $ref: '#/components/schemas/CashSettlement' } }
+              example:
+                items:
+                  - { id: "01J9A970000000000000000001", from: { kind: shop, code: ADM-004 }, to: { kind: agent, name: Adama agent }, amount: "15000.00", method: cash, reference: null, status: recorded, recorded_at: "2026-10-04T18:30:00Z" }
+
+  /v1/retail/settlements/{id}/confirm:
+    post:
+      tags: [Retail - cashier]
+      operationId: confirmShopSettlement
+      summary: Shop manager confirms (or disputes) a cash collection
+      security: [ { cashierAuth: [] } ]
+      parameters: [ { $ref: '#/components/parameters/IdPath' }, { $ref: '#/components/parameters/IdempotencyKey' } ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [decision]
+              properties:
+                decision: { type: string, enum: [confirm, dispute] }
+                note: { type: string }
+            example: { decision: confirm }
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CashSettlement' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  # ================================================================ Agent portal (C19)
+  /v1/agent/auth/login:
+    post:
+      tags: [Agent portal]
+      operationId: agentLogin
+      summary: Agent login step 1 (phone + password); an OTP is sent
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [phone, password]
+              properties:
+                phone: { $ref: '#/components/schemas/Phone' }
+                password: { type: string }
+            example: { phone: "+251922000111", password: "agent passphrase" }
+      responses:
+        '202':
+          description: OTP sent
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/OtpRequired' }
+              example: { otp_required: true, challenge_id: "01J9A980000000000000000001", expires_in: 300 }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /v1/agent/auth/verify:
+    post:
+      tags: [Agent portal]
+      operationId: agentVerifyOtp
+      summary: Agent login step 2 (OTP)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [challenge_id, otp]
+              properties:
+                challenge_id: { type: string }
+                otp: { type: string, pattern: '^\d{6}$' }
+            example: { challenge_id: "01J9A980000000000000000001", otp: "731904" }
+      responses:
+        '200':
+          description: Tokens
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [agent, tokens]
+                properties:
+                  agent:
+                    type: object
+                    required: [id, name, level]
+                    properties:
+                      id: { type: string }
+                      name: { type: string }
+                      level: { type: string, enum: [master_agent, agent] }
+                  tokens: { $ref: '#/components/schemas/Tokens' }
+              example: { agent: { id: "01J9A990000000000000000001", name: Adama agent, level: agent }, tokens: { access_token: "eyJhbGciOi...", expires_in: 900, refresh_token: "rt_agent_1" } }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+
+  /v1/agent/shops:
+    get:
+      tags: [Agent portal]
+      operationId: agentListShops
+      summary: Shops in the caller's subtree with today's figures
+      security: [ { agentAuth: [] } ]
+      parameters: [ { $ref: '#/components/parameters/Limit' }, { $ref: '#/components/parameters/Cursor' } ]
+      responses:
+        '200':
+          description: Shops
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, next_cursor]
+                properties:
+                  items: { type: array, items: { $ref: '#/components/schemas/AgentShopSummary' } }
+                  next_cursor: { $ref: '#/components/schemas/NextCursor' }
+              example:
+                items:
+                  - { shop_code: ADM-004, name: Adama Kebele 04, city: Adama, status: active, today: { turnover: "48250.00", payouts: "31100.00", cancels: "150.00", ggr: "17000.00", cash_held: "17000.00", open_shifts: 1 }, max_cash_held: "50000.00" }
+                  - { shop_code: ADM-007, name: Adama Bus Station, city: Adama, status: active, today: { turnover: "22010.00", payouts: "25500.00", cancels: "0.00", ggr: "-3490.00", cash_held: "-3490.00", open_shifts: 1 }, max_cash_held: "30000.00" }
+                next_cursor: null
+
+  /v1/agent/shops/{code}:
+    get:
+      tags: [Agent portal]
+      operationId: agentGetShop
+      summary: One shop with staff, terminals and recent shifts
+      security: [ { agentAuth: [] } ]
+      parameters: [ { $ref: '#/components/parameters/ShopCodePath' } ]
+      responses:
+        '200':
+          description: Shop
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AgentShopDetail' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /v1/agent/shops/{code}/staff:
+    post:
+      tags: [Agent portal]
+      operationId: agentAddStaff
+      summary: Add a cashier or shop manager to one of the agent's shops
+      security: [ { agentAuth: [] } ]
+      parameters: [ { $ref: '#/components/parameters/ShopCodePath' } ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RetailStaffCreate' }
+            example: { full_name: Meron Tesfaye, phone: "+251933000222", role: cashier }
+      responses:
+        '201':
+          description: Created; the initial PIN is sent by SMS
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RetailStaff' }
+
+  /v1/agent/shops/{code}/terminals:
+    post:
+      tags: [Agent portal]
+      operationId: agentAddTerminal
+      summary: Register a terminal and get its one-time activation code
+      security: [ { agentAuth: [] } ]
+      parameters: [ { $ref: '#/components/parameters/ShopCodePath' } ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [label]
+              properties: { label: { type: string, maxLength: 40 } }
+            example: { label: PC 4 }
+      responses:
+        '201':
+          description: Terminal pending activation
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TerminalCreated' }
+              example: { id: "01J9A900000000000000000004", label: PC 4, status: pending, activation_code: K7Q2M9XP, activation_expires_at: "2026-10-05T09:00:00Z" }
+
+  /v1/agent/settlements:
+    get:
+      tags: [Agent portal]
+      operationId: agentListSettlements
+      summary: Cash collections and float top-ups
+      security: [ { agentAuth: [] } ]
+      parameters: [ { $ref: '#/components/parameters/From' }, { $ref: '#/components/parameters/To' }, { $ref: '#/components/parameters/Limit' }, { $ref: '#/components/parameters/Cursor' } ]
+      responses:
+        '200':
+          description: Page
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, next_cursor]
+                properties:
+                  items: { type: array, items: { $ref: '#/components/schemas/CashSettlement' } }
+                  next_cursor: { $ref: '#/components/schemas/NextCursor' }
+    post:
+      tags: [Agent portal]
+      operationId: agentRecordSettlement
+      summary: Record cash collected from a shop, or float given to it (shop manager confirms)
+      security: [ { agentAuth: [] } ]
+      parameters: [ { $ref: '#/components/parameters/IdempotencyKey' } ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CashSettlementCreate' }
+            example: { shop_code: ADM-004, direction: collect, amount: "15000.00", method: cash }
+      responses:
+        '201':
+          description: Recorded, waiting for confirmation
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CashSettlement' }
+              example: { id: "01J9A970000000000000000001", from: { kind: shop, code: ADM-004 }, to: { kind: agent, name: Adama agent }, amount: "15000.00", method: cash, reference: null, status: recorded, recorded_at: "2026-10-04T18:30:00Z" }
+
+  /v1/agent/statements:
+    get:
+      tags: [Agent portal]
+      operationId: agentListStatements
+      summary: Weekly commission statements
+      security: [ { agentAuth: [] } ]
+      parameters:
+        - { name: period, in: query, description: ISO week, schema: { type: string, pattern: '^\d{4}-W\d{2}$' }, example: 2026-W40 }
+      responses:
+        '200':
+          description: Statements
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items: { type: array, items: { $ref: '#/components/schemas/CommissionStatement' } }
+              example:
+                items:
+                  - { id: "01J9A9A0000000000000000001", period: 2026-W40, period_start: "2026-09-28", period_end: "2026-10-04", turnover: "412300.00", winnings: "301220.00", cancels: "1200.00", net_revenue: "109880.00", carried_in: "0.00", commission: "21976.00", status: final, pdf_url: "/v1/agent/statements/01J9A9A0000000000000000001.pdf", csv_url: "/v1/agent/statements/01J9A9A0000000000000000001.csv" }
+
+  # ================================================================ Admin (C15 + owning modules)
+  /v1/admin/auth/login:
+    post:
+      tags: [Admin]
+      operationId: adminLogin
+      summary: Staff login step 1 (email + password)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email: { type: string, format: email }
+                password: { type: string }
+      responses:
+        '202':
+          description: TOTP required
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [totp_required, challenge_id]
+                properties:
+                  totp_required: { type: boolean, const: true }
+                  challenge_id: { type: string }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /v1/admin/auth/totp:
+    post:
+      tags: [Admin]
+      operationId: adminTotp
+      summary: Staff login step 2 (TOTP)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [challenge_id, code]
+              properties:
+                challenge_id: { type: string }
+                code: { type: string, pattern: '^\d{6}$' }
+      responses:
+        '200':
+          description: Session
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [access_token, expires_in, staff]
+                properties:
+                  access_token: { type: string }
+                  expires_in: { type: integer }
+                  staff:
+                    type: object
+                    required: [id, full_name, permissions]
+                    properties:
+                      id: { type: string }
+                      full_name: { type: string }
+                      roles: { type: array, items: { type: string } }
+                      permissions: { type: array, items: { $ref: '#/components/schemas/Permission' } }
+
+  /v1/admin/dashboard:
+    get:
+      tags: [Admin]
+      operationId: adminDashboard
+      summary: Today's counters (bets, turnover, GGR, deposits, pending withdrawals, feed health, open alerts)
+      security: [ { staffAuth: [] } ]
+      responses:
+        '200':
+          description: Counters
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AdminDashboard' }
+
+  /v1/admin/players:
+    get:
+      tags: [Admin]
+      operationId: adminSearchPlayers
+      summary: Search players by phone, name, ID or player ID (players:read)
+      security: [ { staffAuth: [] } ]
+      parameters:
+        - { name: q, in: query, schema: { type: string } }
+        - { name: status, in: query, schema: { $ref: '#/components/schemas/PlayerStatus' } }
+        - { name: kyc_status, in: query, schema: { $ref: '#/components/schemas/KycStatus' } }
+        - { $ref: '#/components/parameters/Limit' }
+        - { $ref: '#/components/parameters/Cursor' }
+      responses:
+        '200':
+          description: Page of players (PII masked)
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, next_cursor]
+                properties:
+                  items: { type: array, items: { $ref: '#/components/schemas/AdminPlayerSummary' } }
+                  next_cursor: { $ref: '#/components/schemas/NextCursor' }
+
+  /v1/admin/players/{id}:
+    get:
+      tags: [Admin]
+      operationId: adminGetPlayer
+      summary: Player 360 (profile, KYC, balances, limits, flags); sub-lists below
+      security: [ { staffAuth: [] } ]
+      parameters: [ { $ref: '#/components/parameters/IdPath' }, { name: unmask, in: query, description: 'Needs players:pii; writes an audit row', schema: { type: boolean, default: false } } ]
+      responses:
+        '200':
+          description: Player
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AdminPlayer' }
+
+  /v1/admin/players/{id}/transactions:
+    get:
+      tags: [Admin]
+      operationId: adminPlayerTransactions
+      security: [ { staffAuth: [] } ]
+      parameters: [ { $ref: '#/components/parameters/IdPath' }, { $ref: '#/components/parameters/Limit' }, { $ref: '#/components/parameters/Cursor' } ]
+      responses:
+        '200':
+          description: Wallet transactions
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, next_cursor]
+                properties:
+                  items: { type: array, items: { $ref: '#/components/schemas/WalletTxn' } }
+                  next_cursor: { $ref: '#/components/schemas/NextCursor' }
+
+  /v1/admin/players/{id}/status:
+    post:
+      tags: [Admin]
+      operationId: adminSetPlayerStatus
+      summary: Suspend, close or reopen (players:write)
+      security: [ { staffAuth: [] } ]
+      parameters: [ { $ref: '#/components/parameters/IdPath' } ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status, reason]
+              properties:
+                status: { type: string, enum: [active, suspended, closed] }
+                reason: { type: string }
+      responses:
+        '200': { description: Updated, content: { application/json: { schema: { $ref: '#/components/schemas/AdminPlayer' } } } }
+
+  /v1/admin/players/{id}/notes:
+    get:
+      tags: [Admin]
+      operationId: adminListNotes
+      security: [ { staffAuth: [] } ]
+      parameters: [ { $ref: '#/components/parameters/IdPath' } ]
+      responses:
+        '200':
+          description: Notes
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items: { type: array, items: { $ref: '#/components/schemas/Note' } }
+    post:
+      tags: [Admin]
+      operationId: adminAddNote
+      security: [ { staffAuth: [] } ]
+      parameters: [ { $ref: '#/components/parameters/IdPath' } ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [body]
+              properties: { body: { type: string, maxLength: 4000 } }
+      responses:
+        '201': { description: Added, content: { application/json: { schema: { $ref: '#/components/schemas/Note' } } } }
+
+  /v1/admin/adjustments:
+    post:
+      tags: [Admin]
+      operationId: adminRequestAdjustment
+      summary: Request a manual wallet adjustment (wallet:adjust; approved by someone else)
+      security: [ { staffAuth: [] } ]
+      parameters: [ { $ref: '#/components/parameters/IdempotencyKey' } ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [player_id, account, amount, reason]
+              properties:
+                player_id: { type: string }
+                account: { type: string, enum: [cash, bonus] }
+                amount: { $ref: '#/components/schemas/Money' }
+                reason: { type: string }
+      responses:
+        '201': { description: Pending approval, content: { application/json: { schema: { $ref: '#/components/schemas/Approval' } } } }
+
+  /v1/admin/approvals:
+    get:
+      tags: [Admin]
+      operationId: adminListApprovals
+      summary: Four-eyes queue (adjustments, manual settlements, config changes, retail payouts)
+      security: [ { staffAuth: [] } ]
+      parameters:
+        - { name: kind, in: query, schema: { type: string, enum: [adjustment, manual_settlement, config_change, retail_payout, retail_limit] } }
+        - { name: status, in: query, schema: { type: string, enum: [pending, approved, rejected, expired], default: pending } }
+      responses:
+        '200':
+          description: Approvals
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items: { type: array, items: { $ref: '#/components/schemas/Approval' } }
+
+  /v1/admin/approvals/{id}/decision:
+    post:
+      tags: [Admin]
+      operationId: adminDecideApproval
+      summary: Approve or reject (never by the requester)
+      security: [ { staffAuth: [] } ]
+      parameters: [ { $ref: '#/components/parameters/IdPath' }, { $ref: '#/components/parameters/IdempotencyKey' } ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [decision]
+              properties:
+                decision: { type: string, enum: [approve, reject] }
+                note: { type: string }
+      responses:
+        '200': { description: Decided, content: { application/json: { schema: { $ref: '#/components/schemas/Approval' } } } }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /v1/admin/kyc/cases:
+    get:
+      tags: [Admin]
+      operationId: adminListKycCases
+      security: [ { staffAuth: [] } ]
+      parameters: [ { name: status, in: query, schema: { $ref: '#/components/schemas/KycStatus' } }, { $ref: '#/components/parameters/Limit' }, { $ref: '#/components/parameters/Cursor' } ]
+      responses:
+        '200':
+          description: Cases
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, next_cursor]
+                properties:
+                  items: { type: array, items: { $ref: '#/components/schemas/KycCase' } }
+                  next_cursor: { $ref: '#/components/schemas/NextCursor' }
+
+  /v1/admin/kyc/cases/{id}/decision:
+    post:
+      tags: [Admin]
+      operationId: adminDecideKyc
+      security: [ { staffAuth: [] } ]
+      parameters: [ { $ref: '#/components/parameters/IdPath' } ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [decision]
+              properties:
+                decision: { type: string, enum: [verified, rejected, needs_info] }
+                reason_code: { type: string }
+                note: { type: string }
+      responses:
+        '200': { description: Decided, content: { application/json: { schema: { $ref: '#/components/schemas/KycCase' } } } }
+
+  /v1/admin/withdrawals:
+    get:
+      tags: [Admin]
+      operationId: adminListWithdrawals
+      security: [ { staffAuth: [] } ]
+      parameters: [ { name: status, in: query, schema: { type: string, default: review } }, { $ref: '#/components/parameters/Limit' }, { $ref: '#/components/parameters/Cursor' } ]
+      responses:
+        '200':
+          description: Withdrawals
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, next_cursor]
+                properties:
+                  items: { type: array, items: { $ref: '#/components/schemas/AdminWithdrawal' } }
+                  next_cursor: { $ref: '#/components/schemas/NextCursor' }
+
+  /v1/admin/withdrawals/{id}/decision:
+    post:
+      tags: [Admin]
+      operationId: adminDecideWithdrawal
+      security: [ { staffAuth: [] } ]
+      parameters: [ { $ref: '#/components/parameters/IdPath' }, { $ref: '#/components/parameters/IdempotencyKey' } ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [decision]
+              properties:
+                decision: { type: string, enum: [approve, reject] }
+                reason: { type: string }
+      responses:
+        '200': { description: Decided, content: { application/json: { schema: { $ref: '#/components/schemas/AdminWithdrawal' } } } }
+
+  /v1/admin/bets:
+    get:
+      tags: [Admin]
+      operationId: adminSearchBets
+      security: [ { staffAuth: [] } ]
+      parameters:
+        - { name: ticket, in: query, schema: { type: string } }
+        - { name: player_id, in: query, schema: { type: string } }
+        - { name: fixture_id, in: query, schema: { type: string } }
+        - { name: status, in: query, schema: { $ref: '#/components/schemas/BetStatus' } }
+        - { name: channel, in: query, schema: { type: string, enum: [online, retail] } }
+        - { $ref: '#/components/parameters/From' }
+        - { $ref: '#/components/parameters/To' }
+        - { $ref: '#/components/parameters/Limit' }
+        - { $ref: '#/components/parameters/Cursor' }
+      responses:
+        '200':
+          description: Bets
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, next_cursor]
+                properties:
+                  items: { type: array, items: { $ref: '#/components/schemas/Bet' } }
+                  next_cursor: { $ref: '#/components/schemas/NextCursor' }
+
+  /v1/admin/risk/liability:
+    get:
+      tags: [Admin]
+      operationId: adminLiability
+      summary: Liability board by fixture (polled every 5 s)
+      security: [ { staffAuth: [] } ]
+      parameters: [ { name: fixture, in: query, schema: { type: string } }, { name: sort, in: query, schema: { type: string, enum: [exposure, start_time], default: exposure } } ]
+      responses:
+        '200':
+          description: Liability rows
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items: { type: array, items: { $ref: '#/components/schemas/LiabilityRow' } }
+
+  /v1/admin/risk/limits:
+    get:
+      tags: [Admin]
+      operationId: adminListRiskLimits
+      security: [ { staffAuth: [] } ]
+      responses:
+        '200':
+          description: Limits
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items: { type: array, items: { $ref: '#/components/schemas/RiskLimit' } }
+    put:
+      tags: [Admin]
+      operationId: adminUpsertRiskLimit
+      security: [ { staffAuth: [] } ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RiskLimit' }
+      responses:
+        '200': { description: Saved, content: { application/json: { schema: { $ref: '#/components/schemas/RiskLimit' } } } }
+
+  /v1/admin/markets/{id}/suspend:
+    post:
+      tags: [Admin]
+      operationId: adminSuspendMarket
+      security: [ { staffAuth: [] } ]
+      parameters: [ { $ref: '#/components/parameters/IdPath' } ]
+      responses:
+        '204': { description: Suspended }
+
+  /v1/admin/markets/{id}/reopen:
+    post:
+      tags: [Admin]
+      operationId: adminReopenMarket
+      security: [ { staffAuth: [] } ]
+      parameters: [ { $ref: '#/components/parameters/IdPath' } ]
+      responses:
+        '204': { description: Reopened }
+
+  /v1/admin/settlements/manual:
+    post:
+      tags: [Admin]
+      operationId: adminManualSettlement
+      summary: Request a manual settle, void or resettle (needs a second trader)
+      security: [ { staffAuth: [] } ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [scope, scope_id, action, reason]
+              properties:
+                scope: { type: string, enum: [outcome, market, bet] }
+                scope_id: { type: string }
+                action: { type: string, enum: [settle, void, resettle] }
+                result: { $ref: '#/components/schemas/LegResult' }
+                reason: { type: string }
+      responses:
+        '201': { description: Pending approval, content: { application/json: { schema: { $ref: '#/components/schemas/Approval' } } } }
+
+  /v1/admin/feed/health:
+    get:
+      tags: [Admin]
+      operationId: adminFeedHealth
+      security: [ { staffAuth: [] } ]
+      responses:
+        '200':
+          description: Producers
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [producers]
+                properties:
+                  producers:
+                    type: array
+                    items:
+                      type: object
+                      required: [id, name, status, lag_ms]
+                      properties:
+                        id: { type: integer }
+                        name: { type: string }
+                        status: { type: string, enum: [up, down, recovering] }
+                        lag_ms: { type: integer }
+                        last_alive_at: { $ref: '#/components/schemas/Timestamp' }
+
+  /v1/admin/aml/alerts:
+    get:
+      tags: [Admin]
+      operationId: adminListAmlAlerts
+      security: [ { staffAuth: [] } ]
+      parameters: [ { name: status, in: query, schema: { type: string, enum: [open, investigating, cleared, reported, closed] } }, { $ref: '#/components/parameters/Limit' }, { $ref: '#/components/parameters/Cursor' } ]
+      responses:
+        '200':
+          description: Alerts
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, next_cursor]
+                properties:
+                  items: { type: array, items: { $ref: '#/components/schemas/AmlAlert' } }
+                  next_cursor: { $ref: '#/components/schemas/NextCursor' }
+
+  /v1/admin/aml/alerts/{id}/decision:
+    post:
+      tags: [Admin]
+      operationId: adminDecideAmlAlert
+      security: [ { staffAuth: [] } ]
+      parameters: [ { $ref: '#/components/parameters/IdPath' } ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status: { type: string, enum: [investigating, cleared, reported, closed] }
+                decision_note: { type: string }
+                str_reference: { type: string }
+      responses:
+        '200': { description: Updated, content: { application/json: { schema: { $ref: '#/components/schemas/AmlAlert' } } } }
+
+  /v1/admin/reports/{type}:
+    get:
+      tags: [Admin]
+      operationId: adminReport
+      summary: Finance and regulator reports (JSON, or CSV/XLSX/PDF by Accept header)
+      security: [ { staffAuth: [] } ]
+      parameters:
+        - { name: type, in: path, required: true, schema: { type: string, enum: [daily_summary, monthly, tax, retail_by_shop, players_active] } }
+        - { $ref: '#/components/parameters/From' }
+        - { $ref: '#/components/parameters/To' }
+      responses:
+        '200':
+          description: Report
+          content:
+            application/json: { schema: { type: object, additionalProperties: true } }
+            text/csv: { schema: { type: string } }
+
+  /v1/admin/audit-log:
+    get:
+      tags: [Admin]
+      operationId: adminAuditLog
+      security: [ { staffAuth: [] } ]
+      parameters:
+        - { name: actor_id, in: query, schema: { type: string } }
+        - { name: action, in: query, schema: { type: string } }
+        - { name: target_id, in: query, schema: { type: string } }
+        - { $ref: '#/components/parameters/From' }
+        - { $ref: '#/components/parameters/To' }
+        - { $ref: '#/components/parameters/Limit' }
+        - { $ref: '#/components/parameters/Cursor' }
+      responses:
+        '200':
+          description: Audit rows
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, next_cursor]
+                properties:
+                  items: { type: array, items: { $ref: '#/components/schemas/AuditRow' } }
+                  next_cursor: { $ref: '#/components/schemas/NextCursor' }
+
+  /v1/admin/config:
+    get:
+      tags: [Admin]
+      operationId: adminGetConfig
+      summary: Active tenant configuration document and version
+      security: [ { staffAuth: [] } ]
+      responses:
+        '200':
+          description: Config
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [version, config]
+                properties:
+                  version: { type: integer }
+                  config: { type: object, additionalProperties: true }
+
+  /v1/admin/config/versions:
+    get:
+      tags: [Admin]
+      operationId: adminListConfigVersions
+      security: [ { staffAuth: [] } ]
+      responses:
+        '200':
+          description: Versions
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items: { type: array, items: { $ref: '#/components/schemas/ConfigVersion' } }
+    post:
+      tags: [Admin]
+      operationId: adminDraftConfig
+      summary: Create a draft version (validated; returns the diff and errors)
+      security: [ { staffAuth: [] } ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [config]
+              properties:
+                config: { type: object, additionalProperties: true }
+                comment: { type: string }
+      responses:
+        '201': { description: Draft, content: { application/json: { schema: { $ref: '#/components/schemas/ConfigVersion' } } } }
+
+  /v1/admin/config/versions/{version}/activate:
+    post:
+      tags: [Admin]
+      operationId: adminActivateConfig
+      summary: Activate a version (four-eyes for betting, payments and rg sections)
+      security: [ { staffAuth: [] } ]
+      parameters: [ { name: version, in: path, required: true, schema: { type: integer } } ]
+      responses:
+        '200': { description: Active or pending approval, content: { application/json: { schema: { $ref: '#/components/schemas/ConfigVersion' } } } }
+
+  /v1/admin/bonus-rules:
+    get:
+      tags: [Admin]
+      operationId: adminListBonusRules
+      security: [ { staffAuth: [] } ]
+      responses:
+        '200':
+          description: Rules
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items: { type: array, items: { $ref: '#/components/schemas/BonusRule' } }
+    post:
+      tags: [Admin]
+      operationId: adminCreateBonusRule
+      security: [ { staffAuth: [] } ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/BonusRule' }
+      responses:
+        '201': { description: Created, content: { application/json: { schema: { $ref: '#/components/schemas/BonusRule' } } } }
+
+  /v1/admin/bonus-rules/{id}/dry-run:
+    post:
+      tags: [Admin]
+      operationId: adminDryRunBonusRule
+      summary: Preview which players would qualify
+      security: [ { staffAuth: [] } ]
+      parameters: [ { $ref: '#/components/parameters/IdPath' } ]
+      responses:
+        '200':
+          description: Preview
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [qualifying_players]
+                properties:
+                  qualifying_players: { type: integer }
+                  sample: { type: array, items: { $ref: '#/components/schemas/AdminPlayerSummary' } }
+
+  /v1/admin/promo-codes:
+    get:
+      tags: [Admin]
+      operationId: adminListPromoCodes
+      security: [ { staffAuth: [] } ]
+      responses:
+        '200':
+          description: Codes
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items: { type: array, items: { $ref: '#/components/schemas/PromoCode' } }
+    post:
+      tags: [Admin]
+      operationId: adminCreatePromoCode
+      security: [ { staffAuth: [] } ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PromoCode' }
+      responses:
+        '201': { description: Created, content: { application/json: { schema: { $ref: '#/components/schemas/PromoCode' } } } }
+
+  /v1/admin/cms/banners:
+    get:
+      tags: [Admin]
+      operationId: adminListBanners
+      security: [ { staffAuth: [] } ]
+      responses:
+        '200':
+          description: Banners
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items: { type: array, items: { $ref: '#/components/schemas/Banner' } }
+    post:
+      tags: [Admin]
+      operationId: adminCreateBanner
+      security: [ { staffAuth: [] } ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/Banner' }
+      responses:
+        '201': { description: Created, content: { application/json: { schema: { $ref: '#/components/schemas/Banner' } } } }
+
+  /v1/banners:
+    get:
+      tags: [Config]
+      operationId: listBanners
+      security: [ {}, { playerAuth: [] }, { terminalAuth: [] } ]
+      summary: Active banners for a placement (public)
+      parameters: [ { $ref: '#/components/parameters/AcceptLanguage' }, { name: placement, in: query, schema: { type: string, enum: [home_top, home_middle, terminal_idle] } } ]
+      responses:
+        '200':
+          description: Banners
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items: { type: array, items: { $ref: '#/components/schemas/Banner' } }
+              example:
+                items:
+                  - { id: "01J9A9B0000000000000000001", placement: home_top, image_url: "https://cdn.example.et/banners/derby.webp", link: "/match/fx_arsenal_chelsea", lang: en, starts_at: null, ends_at: "2026-10-04T14:00:00Z", sort: 1 }
+
+  /v1/admin/staff:
+    get:
+      tags: [Admin]
+      operationId: adminListStaff
+      security: [ { staffAuth: [] } ]
+      responses:
+        '200':
+          description: Staff
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items: { type: array, items: { $ref: '#/components/schemas/StaffUser' } }
+    post:
+      tags: [Admin]
+      operationId: adminCreateStaff
+      security: [ { staffAuth: [] } ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/StaffUser' }
+      responses:
+        '201': { description: Created, content: { application/json: { schema: { $ref: '#/components/schemas/StaffUser' } } } }
+
+  /v1/admin/roles:
+    get:
+      tags: [Admin]
+      operationId: adminListRoles
+      security: [ { staffAuth: [] } ]
+      responses:
+        '200':
+          description: Roles
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      required: [id, name, permissions]
+                      properties:
+                        id: { type: string }
+                        name: { type: string }
+                        permissions: { type: array, items: { $ref: '#/components/schemas/Permission' } }
+
+    post:
+      tags: [Admin]
+      operationId: adminCreateRole
+      summary: Create or replace a role and its permissions (admin)
+      security: [ { staffAuth: [] } ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, permissions]
+              properties:
+                name: { type: string }
+                permissions: { type: array, items: { $ref: '#/components/schemas/Permission' } }
+      responses:
+        '201': { description: Created }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  # ---------------------------------------------------------------- Admin: retail (C19)
+  /v1/admin/retail/agents:
+    get:
+      tags: [Admin - retail]
+      operationId: adminListAgents
+      security: [ { staffAuth: [] } ]
+      parameters: [ { name: parent_id, in: query, schema: { type: string } } ]
+      responses:
+        '200':
+          description: Agents
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items: { type: array, items: { $ref: '#/components/schemas/Agent' } }
+    post:
+      tags: [Admin - retail]
+      operationId: adminCreateAgent
+      security: [ { staffAuth: [] } ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/Agent' }
+      responses:
+        '201': { description: Created, content: { application/json: { schema: { $ref: '#/components/schemas/Agent' } } } }
+
+  /v1/admin/retail/agents/{id}:
+    patch:
+      tags: [Admin - retail]
+      operationId: adminUpdateAgent
+      security: [ { staffAuth: [] } ]
+      parameters: [ { $ref: '#/components/parameters/IdPath' } ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/Agent' }
+      responses:
+        '200': { description: Updated, content: { application/json: { schema: { $ref: '#/components/schemas/Agent' } } } }
+
+  /v1/admin/retail/shops:
+    get:
+      tags: [Admin - retail]
+      operationId: adminListShops
+      security: [ { staffAuth: [] } ]
+      parameters: [ { name: agent_id, in: query, schema: { type: string } }, { name: status, in: query, schema: { type: string, enum: [active, suspended, closed] } }, { $ref: '#/components/parameters/Limit' }, { $ref: '#/components/parameters/Cursor' } ]
+      responses:
+        '200':
+          description: Shops
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, next_cursor]
+                properties:
+                  items: { type: array, items: { $ref: '#/components/schemas/Shop' } }
+                  next_cursor: { $ref: '#/components/schemas/NextCursor' }
+    post:
+      tags: [Admin - retail]
+      operationId: adminCreateShop
+      security: [ { staffAuth: [] } ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/Shop' }
+      responses:
+        '201': { description: Created, content: { application/json: { schema: { $ref: '#/components/schemas/Shop' } } } }
+
+  /v1/admin/retail/shops/{id}:
+    patch:
+      tags: [Admin - retail]
+      operationId: adminUpdateShop
+      summary: Update a shop (limit changes go to the four-eyes queue)
+      security: [ { staffAuth: [] } ]
+      parameters: [ { $ref: '#/components/parameters/IdPath' } ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/Shop' }
+      responses:
+        '200': { description: Updated, content: { application/json: { schema: { $ref: '#/components/schemas/Shop' } } } }
+
+  /v1/admin/retail/terminals:
+    get:
+      tags: [Admin - retail]
+      operationId: adminListTerminals
+      security: [ { staffAuth: [] } ]
+      parameters: [ { name: shop_id, in: query, schema: { type: string } } ]
+      responses:
+        '200':
+          description: Terminals
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items: { type: array, items: { $ref: '#/components/schemas/Terminal' } }
+    post:
+      tags: [Admin - retail]
+      operationId: adminCreateTerminal
+      security: [ { staffAuth: [] } ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [shop_id, label]
+              properties:
+                shop_id: { type: string }
+                label: { type: string }
+      responses:
+        '201': { description: Created, content: { application/json: { schema: { $ref: '#/components/schemas/TerminalCreated' } } } }
+
+  /v1/admin/retail/terminals/{id}/revoke:
+    post:
+      tags: [Admin - retail]
+      operationId: adminRevokeTerminal
+      security: [ { staffAuth: [] } ]
+      parameters: [ { $ref: '#/components/parameters/IdPath' } ]
+      responses:
+        '204': { description: Revoked }
+
+  /v1/admin/retail/pos-devices:
+    get:
+      tags: [Admin - retail]
+      operationId: adminListPosDevices
+      security: [ { staffAuth: [] } ]
+      parameters: [ { name: shop_id, in: query, schema: { type: string } } ]
+      responses:
+        '200':
+          description: POS devices
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items: { type: array, items: { $ref: '#/components/schemas/PosDevice' } }
+    post:
+      tags: [Admin - retail]
+      operationId: adminCreatePosDevice
+      summary: Register a cashier PC; returns a one-time activation code like terminals
+      security: [ { staffAuth: [] } ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [shop_id, label]
+              properties:
+                shop_id: { type: string }
+                label: { type: string }
+      responses:
+        '201': { description: Created, content: { application/json: { schema: { $ref: '#/components/schemas/TerminalCreated' } } } }
+
+  /v1/admin/retail/staff:
+    get:
+      tags: [Admin - retail]
+      operationId: adminListRetailStaff
+      security: [ { staffAuth: [] } ]
+      parameters: [ { name: shop_id, in: query, schema: { type: string } } ]
+      responses:
+        '200':
+          description: Retail staff
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items: { type: array, items: { $ref: '#/components/schemas/RetailStaff' } }
+    post:
+      tags: [Admin - retail]
+      operationId: adminCreateRetailStaff
+      security: [ { staffAuth: [] } ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+                - { $ref: '#/components/schemas/RetailStaffCreate' }
+                - type: object
+                  required: [shop_id]
+                  properties: { shop_id: { type: string } }
+      responses:
+        '201': { description: Created, content: { application/json: { schema: { $ref: '#/components/schemas/RetailStaff' } } } }
+
+  /v1/admin/retail/staff/{id}/reset-pin:
+    post:
+      tags: [Admin - retail]
+      operationId: adminResetRetailPin
+      summary: Send a new PIN by SMS and unlock
+      security: [ { staffAuth: [] } ]
+      parameters: [ { $ref: '#/components/parameters/IdPath' } ]
+      responses:
+        '204': { description: Reset }
+
+  /v1/admin/retail/commission-plans:
+    get:
+      tags: [Admin - retail]
+      operationId: adminListCommissionPlans
+      security: [ { staffAuth: [] } ]
+      responses:
+        '200':
+          description: Plans
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items: { type: array, items: { $ref: '#/components/schemas/CommissionPlan' } }
+    post:
+      tags: [Admin - retail]
+      operationId: adminCreateCommissionPlan
+      security: [ { staffAuth: [] } ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CommissionPlan' }
+      responses:
+        '201': { description: Created, content: { application/json: { schema: { $ref: '#/components/schemas/CommissionPlan' } } } }
+
+  /v1/admin/retail/payout-approvals:
+    get:
+      tags: [Admin - retail]
+      operationId: adminListPayoutApprovals
+      security: [ { staffAuth: [] } ]
+      parameters: [ { name: status, in: query, schema: { type: string, enum: [pending, approved, rejected], default: pending } } ]
+      responses:
+        '200':
+          description: Big-win payouts waiting for head office
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items: { type: array, items: { $ref: '#/components/schemas/PayoutApproval' } }
+
+  /v1/admin/retail/payout-approvals/{id}/decision:
+    post:
+      tags: [Admin - retail]
+      operationId: adminDecidePayoutApproval
+      security: [ { staffAuth: [] } ]
+      parameters: [ { $ref: '#/components/parameters/IdPath' }, { $ref: '#/components/parameters/IdempotencyKey' } ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [decision]
+              properties:
+                decision: { type: string, enum: [approve, reject] }
+                note: { type: string }
+      responses:
+        '200': { description: Decided, content: { application/json: { schema: { $ref: '#/components/schemas/PayoutApproval' } } } }
+
+  /v1/admin/retail/tickets:
+    get:
+      tags: [Admin - retail]
+      operationId: adminSearchRetailTickets
+      security: [ { staffAuth: [] } ]
+      parameters:
+        - { name: ticket_no, in: query, schema: { type: string } }
+        - { name: shop, in: query, schema: { type: string } }
+        - { name: cashier, in: query, schema: { type: string } }
+        - { name: status, in: query, schema: { $ref: '#/components/schemas/RetailTicketStatus' } }
+        - { $ref: '#/components/parameters/From' }
+        - { $ref: '#/components/parameters/To' }
+        - { $ref: '#/components/parameters/Limit' }
+        - { $ref: '#/components/parameters/Cursor' }
+      responses:
+        '200':
+          description: Tickets
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, next_cursor]
+                properties:
+                  items: { type: array, items: { $ref: '#/components/schemas/RetailTicketSummary' } }
+                  next_cursor: { $ref: '#/components/schemas/NextCursor' }
+
+  /v1/admin/retail/shifts:
+    get:
+      tags: [Admin - retail]
+      operationId: adminListShifts
+      security: [ { staffAuth: [] } ]
+      parameters: [ { name: shop_id, in: query, schema: { type: string } }, { name: status, in: query, schema: { type: string, enum: [open, closed, force_closed] } }, { $ref: '#/components/parameters/From' }, { $ref: '#/components/parameters/To' } ]
+      responses:
+        '200':
+          description: Shifts
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items: { type: array, items: { $ref: '#/components/schemas/Shift' } }
+
+  /v1/admin/retail/dashboard:
+    get:
+      tags: [Admin - retail]
+      operationId: adminRetailDashboard
+      summary: Turnover, payouts, GGR, cancels and cash held per shop and region
+      security: [ { staffAuth: [] } ]
+      parameters: [ { $ref: '#/components/parameters/From' }, { $ref: '#/components/parameters/To' } ]
+      responses:
+        '200':
+          description: Aggregates
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items: { type: array, items: { $ref: '#/components/schemas/AgentShopSummary' } }
+
+
+  # ---------------------------------------------------------------- added in the 30 Sep readiness pass
+  /v1/retail/pos-devices/activate:
+    post:
+      tags: [Retail - cashier]
+      operationId: activatePosDevice
+      summary: Activate a cashier PC once with its one-time code; later staff logins must come from this device
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/TerminalActivateRequest' }
+            example: { activation_code: P4ZQ8M2K, device_public_key: "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE...", app_version: "1.0.0" }
+      responses:
+        '200':
+          description: Activated; the POS stores the device id and keeps the private key in IndexedDB
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [device_id, shop]
+                properties:
+                  device_id: { type: string }
+                  label: { type: string }
+                  shop:
+                    type: object
+                    required: [code, name]
+                    properties:
+                      code: { type: string }
+                      name: { type: string }
+              example: { device_id: "01J9A9C0000000000000000001", label: Counter 1, shop: { code: ADM-004, name: Adama Kebele 04 } }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '410': { $ref: '#/components/responses/Gone' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+
+  /v1/retail/terminal/token:
+    post:
+      tags: [Retail - terminal]
+      operationId: rotateTerminalToken
+      summary: Rotate the terminal token (the terminal calls this when fewer than 7 days remain)
+      security: [ { terminalAuth: [] } ]
+      responses:
+        '200':
+          description: New token; the old one stays valid for 5 minutes
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [access_token, expires_in]
+                properties:
+                  access_token: { type: string }
+                  expires_in: { type: integer }
+              example: { access_token: "eyJhbGciOi...", expires_in: 7776000 }
+
+  /v1/retail/staff/{id}/reset-pin:
+    post:
+      tags: [Retail - cashier]
+      operationId: managerResetPin
+      summary: Shop manager resets a cashier PIN in the same shop (new PIN by SMS)
+      security: [ { cashierAuth: [] } ]
+      parameters: [ { $ref: '#/components/parameters/IdPath' } ]
+      responses:
+        '204': { description: Reset }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /v1/agent/auth/refresh:
+    post:
+      tags: [Agent portal]
+      operationId: agentRefresh
+      summary: Rotate agent tokens
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [refresh_token]
+              properties: { refresh_token: { type: string } }
+      responses:
+        '200':
+          description: New token pair
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Tokens' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /v1/agent/staff/{id}/reset-pin:
+    post:
+      tags: [Agent portal]
+      operationId: agentResetPin
+      summary: Agent resets a cashier or manager PIN in one of its shops
+      security: [ { agentAuth: [] } ]
+      parameters: [ { $ref: '#/components/parameters/IdPath' } ]
+      responses:
+        '204': { description: Reset }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /v1/admin/bets/{id}:
+    get:
+      tags: [Admin]
+      operationId: adminGetBet
+      summary: Bet detail with settlement history
+      security: [ { staffAuth: [] } ]
+      parameters: [ { $ref: '#/components/parameters/IdPath' } ]
+      responses:
+        '200': { description: Bet, content: { application/json: { schema: { $ref: '#/components/schemas/Bet' } } } }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /v1/admin/reconciliation/breaks:
+    get:
+      tags: [Admin]
+      operationId: adminListReconBreaks
+      summary: Reconciliation breaks (finance:read)
+      security: [ { staffAuth: [] } ]
+      parameters: [ { name: status, in: query, schema: { type: string, enum: [open, explained, resolved], default: open } }, { $ref: '#/components/parameters/From' }, { $ref: '#/components/parameters/To' } ]
+      responses:
+        '200':
+          description: Breaks
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      required: [id, kind, reference, status, created_at]
+                      properties:
+                        id: { type: string }
+                        kind: { type: string, enum: [internal, provider, regulator] }
+                        provider: { type: [string, "null"] }
+                        reference: { type: string }
+                        expected: { oneOf: [ { $ref: '#/components/schemas/Money' }, { type: "null" } ] }
+                        actual: { oneOf: [ { $ref: '#/components/schemas/Money' }, { type: "null" } ] }
+                        status: { type: string, enum: [open, explained, resolved] }
+                        note: { type: [string, "null"] }
+                        created_at: { $ref: '#/components/schemas/Timestamp' }
+
+  /v1/admin/cms/pages:
+    get:
+      tags: [Admin]
+      operationId: adminListPages
+      security: [ { staffAuth: [] } ]
+      responses:
+        '200':
+          description: Pages
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items: { type: array, items: { $ref: '#/components/schemas/CmsPage' } }
+    post:
+      tags: [Admin]
+      operationId: adminCreatePageVersion
+      summary: Create a new version of a page (publish with published_at)
+      security: [ { staffAuth: [] } ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CmsPage' }
+      responses:
+        '201': { description: Created, content: { application/json: { schema: { $ref: '#/components/schemas/CmsPage' } } } }
+
+  /v1/pages/{slug}:
+    get:
+      tags: [Config]
+      operationId: getPage
+      summary: Published content page (terms, rules, responsible gambling, help)
+      parameters: [ { $ref: '#/components/parameters/AcceptLanguage' }, { name: slug, in: path, required: true, schema: { type: string } } ]
+      responses:
+        '200': { description: Page, content: { application/json: { schema: { $ref: '#/components/schemas/CmsPage' } } } }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /v1/admin/campaigns:
+    post:
+      tags: [Admin]
+      operationId: adminCreateCampaign
+      summary: Push or inbox campaign (P1)
+      security: [ { staffAuth: [] } ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [segment, template_code]
+              properties:
+                segment: { type: object, additionalProperties: true }
+                template_code: { type: string }
+                send_at: { type: [string, "null"], format: date-time }
+      responses:
+        '201': { description: Scheduled }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /v1/admin/bonus-rules/{id}:
+    patch:
+      tags: [Admin]
+      operationId: adminUpdateBonusRule
+      summary: Creates a new version of the rule (old versions are kept)
+      security: [ { staffAuth: [] } ]
+      parameters: [ { $ref: '#/components/parameters/IdPath' } ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/BonusRule' }
+      responses:
+        '200': { description: Updated, content: { application/json: { schema: { $ref: '#/components/schemas/BonusRule' } } } }
+
+  /v1/admin/promo-codes/{code}:
+    patch:
+      tags: [Admin]
+      operationId: adminUpdatePromoCode
+      security: [ { staffAuth: [] } ]
+      parameters: [ { name: code, in: path, required: true, schema: { type: string } } ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PromoCode' }
+      responses:
+        '200': { description: Updated, content: { application/json: { schema: { $ref: '#/components/schemas/PromoCode' } } } }
+    delete:
+      tags: [Admin]
+      operationId: adminDisablePromoCode
+      summary: Disable a code (codes are never hard-deleted)
+      security: [ { staffAuth: [] } ]
+      parameters: [ { name: code, in: path, required: true, schema: { type: string } } ]
+      responses:
+        '204': { description: Disabled }
+
+  /v1/admin/staff/{id}:
+    patch:
+      tags: [Admin]
+      operationId: adminUpdateStaff
+      summary: Change roles or disable a staff user
+      security: [ { staffAuth: [] } ]
+      parameters: [ { $ref: '#/components/parameters/IdPath' } ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/StaffUser' }
+      responses:
+        '200': { description: Updated, content: { application/json: { schema: { $ref: '#/components/schemas/StaffUser' } } } }

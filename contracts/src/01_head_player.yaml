@@ -1,0 +1,1300 @@
+openapi: 3.1.0
+info:
+  title: Sportsbook Platform API
+  version: 0.1.0
+  summary: Contract for the player, retail, agent and back-office clients.
+  description: |
+    Contract-first API for the Ethiopian sportsbook platform (Release 1: pre-match, online and retail).
+    This file is the source of truth: the FastAPI backend must conform to it, and the Next.js and Flutter
+    clients generate their API types from it. CI diffs the backend's generated schema against this file
+    (oasdiff) and fails on any breaking difference.
+
+    Conventions (TD-01):
+    - Money is a decimal string with 2 decimals plus a `currency` where relevant ("100.00"). Never floats.
+    - Odds are decimal strings with 2-3 decimals ("1.85").
+    - Times are ISO 8601 UTC with `Z`.
+    - Catalogue IDs (`fx_`, `mk_`, `oc_`, `t_`, `s_`, `m_`, `o_`) and entity IDs are opaque strings.
+    - Lists are cursor-paginated: `?limit=&cursor=` and a `next_cursor` (null at the end).
+    - Errors are RFC 7807 `application/problem+json`; clients switch on `code`, never on `title`/`detail`.
+    - `Idempotency-Key` is required on every request that moves money or creates a bet or ticket.
+    - The tenant is resolved from the host; non-browser clients may send `X-Tenant-Id`.
+    - `Accept-Language: am | en` selects translated names.
+
+    Mocking: run `npx @stoplight/prism-cli mock contracts/openapi.yaml`. Every response has named
+    examples; ask for a specific one with `Prefer: example=<name>` or a status with `Prefer: code=409`.
+servers:
+  - url: http://localhost:4010
+    description: Prism mock server
+  - url: http://localhost:8000
+    description: Local FastAPI backend
+tags:
+  - name: Auth
+  - name: Me
+  - name: KYC
+  - name: Wallet
+  - name: Payments
+  - name: Catalogue
+  - name: Slips
+  - name: Bets
+  - name: Bookings
+  - name: Promotions
+  - name: Responsible gambling
+  - name: Inbox
+  - name: Config
+  - name: Games (R2)
+  - name: Retail - terminal
+  - name: Retail - cashier
+  - name: Agent portal
+  - name: Admin
+  - name: Admin - retail
+
+paths:
+  # ---------------------------------------------------------------- Auth (C01)
+  /v1/auth/otp:
+    post:
+      tags: [Auth]
+      operationId: sendOtp
+      summary: Send a one-time code to a phone
+      description: Same response whether or not the phone is registered, except purpose `register`, which returns REG_PHONE_TAKEN.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/OtpRequest' }
+            example: { phone: "+251911234567", purpose: register }
+      responses:
+        '202':
+          description: Code sent
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/OtpChallenge' }
+              example: { challenge_id: "01J9A7QK3M8X2B7Y4Z5N6P0R1S", expires_in: 300, resend_after: 60 }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+        '503': { $ref: '#/components/responses/Unavailable' }
+
+  /v1/auth/register:
+    post:
+      tags: [Auth]
+      operationId: register
+      summary: Create a player account
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RegisterRequest' }
+            example:
+              challenge_id: "01J9A7QK3M8X2B7Y4Z5N6P0R1S"
+              otp: "482913"
+              full_name: Abebe Kebede
+              date_of_birth: "1998-04-12"
+              national_id: "1234 5678 9012"
+              password: "correct horse battery"
+              language: am
+              accept_terms_version: "2026-10"
+              deposit_limit: { period: week, amount: "1000.00" }
+              promo_code: WELCOME
+              device: { fingerprint: fp_8c1d2e, platform: web, app_version: "1.0.0" }
+      responses:
+        '201':
+          description: Account created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AuthResult' }
+              example:
+                player: { id: "01J9A7R0000000000000000001", phone: "+251911234567", full_name: Abebe Kebede, kyc_status: unverified, language: am }
+                tokens: { access_token: "eyJhbGciOi...", expires_in: 900, refresh_token: "rt_2b7Y4Z5N6P0R1S" }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+
+  /v1/auth/login:
+    post:
+      tags: [Auth]
+      operationId: login
+      summary: Log in with phone and password
+      description: If the device is new and `auth.new_device_otp` is on, returns 202 with a challenge; repeat the call with `challenge_id` and `otp`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/LoginRequest' }
+            example: { phone: "+251911234567", password: "correct horse battery", device: { fingerprint: fp_8c1d2e, platform: web, app_version: "1.0.0" } }
+      responses:
+        '200':
+          description: Logged in
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AuthResult' }
+              example:
+                player: { id: "01J9A7R0000000000000000001", phone: "+251911234567", full_name: Abebe Kebede, kyc_status: verified, language: am }
+                tokens: { access_token: "eyJhbGciOi...", expires_in: 900, refresh_token: "rt_2b7Y4Z5N6P0R1S" }
+        '202':
+          description: New device, OTP required
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/OtpRequired' }
+              example: { otp_required: true, challenge_id: "01J9A7QK3M8X2B7Y4Z5N6P0R1T", expires_in: 300 }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '423': { $ref: '#/components/responses/Locked' }
+
+  /v1/auth/refresh:
+    post:
+      tags: [Auth]
+      operationId: refreshTokens
+      summary: Rotate tokens (the old refresh token becomes invalid)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [refresh_token]
+              properties: { refresh_token: { type: string } }
+            example: { refresh_token: "rt_2b7Y4Z5N6P0R1S" }
+      responses:
+        '200':
+          description: New token pair
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Tokens' }
+              example: { access_token: "eyJhbGciOi...", expires_in: 900, refresh_token: "rt_9Q2W3E4R5T6Y" }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /v1/auth/logout:
+    post:
+      tags: [Auth]
+      operationId: logout
+      summary: Revoke the current session
+      security: [ { playerAuth: [] } ]
+      responses:
+        '204': { description: Logged out }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /v1/auth/password/reset:
+    post:
+      tags: [Auth]
+      operationId: resetPassword
+      summary: Set a new password after an OTP with purpose `reset`
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PasswordResetRequest' }
+            example: { challenge_id: "01J9A7QK3M8X2B7Y4Z5N6P0R1U", otp: "551203", new_password: "another long passphrase" }
+      responses:
+        '204': { description: Password changed; all sessions revoked }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+
+  # ---------------------------------------------------------------- Me (C01)
+  /v1/me:
+    get:
+      tags: [Me]
+      operationId: getMe
+      summary: Current player profile
+      security: [ { playerAuth: [] } ]
+      responses:
+        '200':
+          description: Profile
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Me' }
+              example:
+                id: "01J9A7R0000000000000000001"
+                phone: "+251911234567"
+                full_name: Abebe Kebede
+                date_of_birth: "1998-04-12"
+                language: am
+                status: active
+                kyc_status: verified
+                marketing_consent: false
+                created_at: "2026-10-01T08:15:00Z"
+                can_withdraw: true
+                flags: { reality_check_minutes: 60 }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+    patch:
+      tags: [Me]
+      operationId: updateMe
+      summary: Change language or marketing consent
+      security: [ { playerAuth: [] } ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/MePatch' }
+            example: { language: en }
+      responses:
+        '200':
+          description: Updated profile
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Me' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /v1/me/sessions:
+    get:
+      tags: [Me]
+      operationId: listSessions
+      summary: Active sessions (devices)
+      security: [ { playerAuth: [] } ]
+      responses:
+        '200':
+          description: Sessions
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items: { type: array, items: { $ref: '#/components/schemas/Session' } }
+              example:
+                items:
+                  - { id: "01J9A7S0000000000000000001", platform: web, user_agent: "Chrome 129 on Windows", ip: "196.188.x.x", created_at: "2026-10-01T08:15:00Z", last_used_at: "2026-10-03T12:00:00Z", current: true }
+                  - { id: "01J9A7S0000000000000000002", platform: android, user_agent: "App 1.0.3", ip: "196.189.x.x", created_at: "2026-09-28T19:02:00Z", last_used_at: "2026-10-02T20:41:00Z", current: false }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /v1/me/sessions/{id}:
+    delete:
+      tags: [Me]
+      operationId: revokeSession
+      summary: Log out a device
+      security: [ { playerAuth: [] } ]
+      parameters: [ { $ref: '#/components/parameters/IdPath' } ]
+      responses:
+        '204': { description: Revoked }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  # ---------------------------------------------------------------- KYC (C02)
+  /v1/kyc/fayda/otp:
+    post:
+      tags: [KYC]
+      operationId: startFayda
+      summary: Start Fayda (national ID) verification
+      security: [ { playerAuth: [] } ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [fayda_number]
+              properties: { fayda_number: { type: string, minLength: 12, maxLength: 16 } }
+            example: { fayda_number: "FIN1234567890" }
+      responses:
+        '202':
+          description: OTP sent by Fayda to the phone registered with the ID
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/FaydaChallenge' }
+              example: { case_id: "01J9A7T0000000000000000001", otp_sent_to: "+2519••••567", expires_in: 300 }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+        '503': { $ref: '#/components/responses/Unavailable' }
+
+  /v1/kyc/fayda/verify:
+    post:
+      tags: [KYC]
+      operationId: verifyFayda
+      summary: Complete Fayda verification with the OTP
+      security: [ { playerAuth: [] } ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [case_id, otp]
+              properties:
+                case_id: { type: string }
+                otp: { type: string, pattern: '^\d{6}$' }
+            example: { case_id: "01J9A7T0000000000000000001", otp: "123456" }
+      responses:
+        '200':
+          description: Verification result
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/KycResult' }
+              examples:
+                verified: { value: { status: verified } }
+                needs_info: { value: { status: needs_info, reason_code: NAME_MISMATCH } }
+                pending: { value: { status: pending } }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+
+  /v1/kyc/documents:
+    post:
+      tags: [KYC]
+      operationId: uploadKycDocument
+      summary: Upload an ID image for manual review
+      security: [ { playerAuth: [] } ]
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [kind, file]
+              properties:
+                case_id: { type: string, description: Omit to open a new manual case }
+                kind: { type: string, enum: [id_front, id_back, selfie, other] }
+                file: { type: string, format: binary, description: "JPEG/PNG/PDF, under 1 MB (client compresses)" }
+      responses:
+        '201':
+          description: Stored
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [document_id, case_id, case_status]
+                properties:
+                  document_id: { type: string }
+                  case_id: { type: string }
+                  case_status: { $ref: '#/components/schemas/KycStatus' }
+              example: { document_id: "01J9A7T1000000000000000001", case_id: "01J9A7T0000000000000000002", case_status: pending }
+        '413': { $ref: '#/components/responses/PayloadTooLarge' }
+
+  # ---------------------------------------------------------------- Wallet (C03)
+  /v1/wallet:
+    get:
+      tags: [Wallet]
+      operationId: getWallet
+      summary: Balances (never cached)
+      security: [ { playerAuth: [] } ]
+      responses:
+        '200':
+          description: Balances
+          headers: { Cache-Control: { schema: { type: string, example: no-store } } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Wallet' }
+              example: { cash: "1208.95", bonus: "50.00", locked: "0.00", debt: "0.00", currency: ETB }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /v1/wallet/transactions:
+    get:
+      tags: [Wallet]
+      operationId: listWalletTransactions
+      summary: Wallet history
+      security: [ { playerAuth: [] } ]
+      parameters:
+        - { $ref: '#/components/parameters/Limit' }
+        - { $ref: '#/components/parameters/Cursor' }
+        - { $ref: '#/components/parameters/From' }
+        - { $ref: '#/components/parameters/To' }
+        - name: type
+          in: query
+          schema: { type: string, enum: [deposit, withdrawal, withdrawal_released, bet, win, refund, bonus, bonus_converted, adjustment] }
+      responses:
+        '200':
+          description: Page of transactions
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, next_cursor]
+                properties:
+                  items: { type: array, items: { $ref: '#/components/schemas/WalletTxn' } }
+                  next_cursor: { $ref: '#/components/schemas/NextCursor' }
+              example:
+                items:
+                  - { id: "01J9A7U0000000000000000003", type: win, amount: "289.17", balance_after: "1208.95", reference: { type: bet, id: "01J9A7V0000000000000000001", label: "K7Q2-M9XP-M" }, created_at: "2026-10-04T21:02:00Z" }
+                  - { id: "01J9A7U0000000000000000002", type: bet, amount: "-100.00", balance_after: "919.78", reference: { type: bet, id: "01J9A7V0000000000000000001", label: "K7Q2-M9XP-M" }, created_at: "2026-10-03T14:05:22Z" }
+                  - { id: "01J9A7U0000000000000000001", type: deposit, amount: "500.00", balance_after: "1019.78", reference: { type: payment, id: "01J9A7W0000000000000000001", label: telebirr }, created_at: "2026-10-03T13:58:10Z" }
+                next_cursor: null
+
+  # ---------------------------------------------------------------- Payments (C04)
+  /v1/payment-methods:
+    get:
+      tags: [Payments]
+      operationId: listPaymentMethods
+      summary: Methods and limits for this player
+      security: [ { playerAuth: [] } ]
+      responses:
+        '200':
+          description: Methods
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items: { type: array, items: { $ref: '#/components/schemas/PaymentMethod' } }
+              example:
+                items:
+                  - { code: telebirr, name: telebirr, flow: app_or_web, available: true, deposit: { min: "20.00", max: "100000.00" }, withdrawal: { min: "50.00", max: "50000.00" } }
+                  - { code: cbebirr, name: CBE Birr, flow: ussd_push, available: true, deposit: { min: "20.00", max: "100000.00" }, withdrawal: { min: "50.00", max: "50000.00" } }
+                  - { code: chapa, name: "Bank card / bank (Chapa)", flow: redirect, available: false, deposit: { min: "50.00", max: "100000.00" }, withdrawal: null }
+
+  /v1/me/payout-accounts:
+    get:
+      tags: [Payments]
+      operationId: listPayoutAccounts
+      summary: Saved withdrawal accounts
+      security: [ { playerAuth: [] } ]
+      responses:
+        '200':
+          description: Accounts
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items: { type: array, items: { $ref: '#/components/schemas/PayoutAccount' } }
+              example:
+                items:
+                  - { id: "01J9A7X0000000000000000001", provider: telebirr, account_masked: "+2519••••567", holder_name: Abebe Kebede, verified: true, created_at: "2026-10-01T09:00:00Z" }
+    post:
+      tags: [Payments]
+      operationId: addPayoutAccount
+      summary: Add a withdrawal account (triggers AML rule NEW_PAYOUT_ACCOUNT)
+      security: [ { playerAuth: [] } ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PayoutAccountCreate' }
+            example: { provider: telebirr, account_ref: "+251911234567" }
+      responses:
+        '201':
+          description: Added
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PayoutAccount' }
+              example: { id: "01J9A7X0000000000000000002", provider: telebirr, account_masked: "+2519••••567", holder_name: null, verified: false, created_at: "2026-10-03T10:00:00Z" }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /v1/me/payout-accounts/{id}:
+    delete:
+      tags: [Payments]
+      operationId: deletePayoutAccount
+      summary: Remove a withdrawal account
+      security: [ { playerAuth: [] } ]
+      parameters: [ { $ref: '#/components/parameters/IdPath' } ]
+      responses:
+        '204': { description: Removed }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /v1/deposits:
+    post:
+      tags: [Payments]
+      operationId: createDeposit
+      summary: Start a deposit
+      security: [ { playerAuth: [] } ]
+      parameters: [ { $ref: '#/components/parameters/IdempotencyKey' } ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/DepositRequest' }
+            example: { method: chapa, amount: "500.00", return_url: "https://example.et/wallet" }
+      responses:
+        '201':
+          description: Deposit started; follow next_action
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Deposit' }
+              examples:
+                redirect:
+                  value: { id: "01J9A7W0000000000000000002", method: chapa, amount: "500.00", currency: ETB, status: pending, next_action: { type: redirect, url: "https://checkout.chapa.co/checkout/payment/abc123" }, expires_at: "2026-10-03T14:13:10Z", created_at: "2026-10-03T13:58:10Z" }
+                ussd_push:
+                  value: { id: "01J9A7W0000000000000000003", method: cbebirr, amount: "500.00", currency: ETB, status: pending, next_action: { type: ussd_push, message: "Approve the payment on your phone" }, expires_at: "2026-10-03T14:13:10Z", created_at: "2026-10-03T13:58:10Z" }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+        '502': { $ref: '#/components/responses/BadGateway' }
+        '503': { $ref: '#/components/responses/Unavailable' }
+
+  /v1/deposits/{id}:
+    get:
+      tags: [Payments]
+      operationId: getDeposit
+      summary: Deposit status (poll every 3 s while pending)
+      security: [ { playerAuth: [] } ]
+      parameters: [ { $ref: '#/components/parameters/IdPath' } ]
+      responses:
+        '200':
+          description: Deposit
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Deposit' }
+              examples:
+                completed: { value: { id: "01J9A7W0000000000000000002", method: telebirr, amount: "500.00", currency: ETB, status: completed, next_action: null, expires_at: "2026-10-03T14:13:10Z", created_at: "2026-10-03T13:58:10Z", completed_at: "2026-10-03T13:58:41Z" } }
+                pending: { value: { id: "01J9A7W0000000000000000002", method: telebirr, amount: "500.00", currency: ETB, status: pending, next_action: { type: redirect, url: "https://app.ethiotelecom.et/pay/abc" }, expires_at: "2026-10-03T14:13:10Z", created_at: "2026-10-03T13:58:10Z" } }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /v1/withdrawals:
+    post:
+      tags: [Payments]
+      operationId: createWithdrawal
+      summary: Request a withdrawal
+      security: [ { playerAuth: [] } ]
+      parameters: [ { $ref: '#/components/parameters/IdempotencyKey' } ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/WithdrawalRequest' }
+            example: { method: telebirr, amount: "2000.00", payout_account_id: "01J9A7X0000000000000000001" }
+      responses:
+        '201':
+          description: Requested
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Withdrawal' }
+              examples:
+                processing: { value: { id: "01J9A7Y0000000000000000001", method: telebirr, amount: "2000.00", currency: ETB, status: processing, account_masked: "+2519••••567", review_reason: null, created_at: "2026-10-04T09:00:00Z" } }
+                review: { value: { id: "01J9A7Y0000000000000000002", method: telebirr, amount: "20000.00", currency: ETB, status: review, account_masked: "+2519••••567", review_reason: FIRST_WITHDRAWAL, created_at: "2026-10-04T09:00:00Z" } }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+        '503': { $ref: '#/components/responses/Unavailable' }
+
+  /v1/withdrawals/{id}:
+    get:
+      tags: [Payments]
+      operationId: getWithdrawal
+      summary: Withdrawal status
+      security: [ { playerAuth: [] } ]
+      parameters: [ { $ref: '#/components/parameters/IdPath' } ]
+      responses:
+        '200':
+          description: Withdrawal
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Withdrawal' }
+              example: { id: "01J9A7Y0000000000000000001", method: telebirr, amount: "2000.00", currency: ETB, status: paid, account_masked: "+2519••••567", review_reason: null, created_at: "2026-10-04T09:00:00Z", paid_at: "2026-10-04T09:04:12Z" }
+        '404': { $ref: '#/components/responses/NotFound' }
+    delete:
+      tags: [Payments]
+      operationId: cancelWithdrawal
+      summary: Cancel while requested or in review
+      security: [ { playerAuth: [] } ]
+      parameters: [ { $ref: '#/components/parameters/IdPath' } ]
+      responses:
+        '200':
+          description: Cancelled; money back in cash balance
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Withdrawal' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  # ---------------------------------------------------------------- Catalogue (C06)
+  /v1/dictionary:
+    get:
+      tags: [Catalogue]
+      operationId: getDictionary
+      security: [ {}, { playerAuth: [] }, { terminalAuth: [] } ]
+      summary: Versioned reference data (sports, tournaments, market and outcome name templates)
+      description: Clients store it and send `version`; 304 when unchanged. Names are in the `Accept-Language` language.
+      parameters:
+        - { $ref: '#/components/parameters/AcceptLanguage' }
+        - name: version
+          in: query
+          description: Version the client already holds
+          schema: { type: integer }
+      responses:
+        '200':
+          description: Dictionary
+          headers: { ETag: { schema: { type: string } }, Cache-Control: { schema: { type: string, example: "public, max-age=300" } } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Dictionary' }
+              example:
+                version: 42
+                lang: en
+                sports:
+                  - { id: s_football, name: Football, icon: football, sort: 1 }
+                  - { id: s_basketball, name: Basketball, icon: basketball, sort: 2 }
+                tournaments:
+                  - { id: t_eth_pl, sport_id: s_football, country: ET, category: Ethiopia, name: Ethiopian Premier League, sort: 1 }
+                  - { id: t_epl, sport_id: s_football, country: GB, category: England, name: Premier League, sort: 2 }
+                  - { id: t_laliga, sport_id: s_football, country: ES, category: Spain, name: LaLiga, sort: 3 }
+                  - { id: t_nba, sport_id: s_basketball, country: US, category: USA, name: NBA, sort: 1 }
+                market_templates:
+                  - { id: m_1x2, name: "1X2", group: main, sort: 1, outcomes: [ { id: o_1, name: "1" }, { id: o_x, name: "X" }, { id: o_2, name: "2" } ] }
+                  - { id: m_dc, name: Double chance, group: main, sort: 2, outcomes: [ { id: o_1x, name: "1X" }, { id: o_12, name: "12" }, { id: o_x2, name: "X2" } ] }
+                  - { id: m_total, name: "Total {total}", group: goals, sort: 10, outcomes: [ { id: o_over, name: "Over {total}" }, { id: o_under, name: "Under {total}" } ] }
+                  - { id: m_btts, name: Both teams to score, group: goals, sort: 11, outcomes: [ { id: o_yes, name: "Yes" }, { id: o_no, name: "No" } ] }
+                  - { id: m_hcp, name: "Handicap {hcp}", group: handicap, sort: 20, outcomes: [ { id: o_h1, name: "1 ({+hcp})" }, { id: o_h2, name: "2 ({-hcp})" } ] }
+                  - { id: m_ml, name: Winner (incl. overtime), group: main, sort: 1, outcomes: [ { id: o_home, name: "1" }, { id: o_away, name: "2" } ] }
+                market_groups:
+                  - { code: main, name: Main }
+                  - { code: goals, name: Goals }
+                  - { code: halves, name: Halves }
+                  - { code: handicap, name: Handicap }
+                  - { code: corners, name: Corners }
+                  - { code: player, name: Players }
+        '304': { description: Client version is current }
+
+  /v1/sports:
+    get:
+      tags: [Catalogue]
+      operationId: listSports
+      security: [ {}, { playerAuth: [] }, { terminalAuth: [] } ]
+      summary: Sports with upcoming fixture counts, and their tournaments
+      parameters: [ { $ref: '#/components/parameters/AcceptLanguage' } ]
+      responses:
+        '200':
+          description: Sports
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items: { type: array, items: { $ref: '#/components/schemas/SportCount' } }
+              example:
+                items:
+                  - { id: s_football, events_count: 412, tournaments: [ { id: t_eth_pl, events_count: 8 }, { id: t_epl, events_count: 10 }, { id: t_laliga, events_count: 10 } ] }
+                  - { id: s_basketball, events_count: 57, tournaments: [ { id: t_nba, events_count: 12 } ] }
+
+  /v1/events:
+    get:
+      tags: [Catalogue]
+      operationId: listEvents
+      security: [ {}, { playerAuth: [] }, { terminalAuth: [] } ]
+      summary: Paged pre-match fixtures with their main market
+      description: Names of sports, tournaments, markets and outcomes come from the dictionary. Each outcome carries its real outcome ID so it can go straight into the bet slip.
+      parameters:
+        - { $ref: '#/components/parameters/AcceptLanguage' }
+        - { name: sport, in: query, schema: { type: string }, example: s_football }
+        - { name: tournament, in: query, schema: { type: string }, example: t_epl }
+        - { name: date, in: query, description: "Local date (EAT); omit for all upcoming", schema: { type: string, format: date } }
+        - { name: sort, in: query, schema: { type: string, enum: [start_time, popularity], default: start_time } }
+        - { $ref: '#/components/parameters/Limit' }
+        - { $ref: '#/components/parameters/Cursor' }
+      responses:
+        '200':
+          description: Page of fixtures
+          headers: { ETag: { schema: { type: string } }, Cache-Control: { schema: { type: string, example: "public, max-age=10" } } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EventPage' }
+              example:
+                items:
+                  - $ref: '#/components/examples/EventSaintGeorgeFasil/value'
+                  - $ref: '#/components/examples/EventArsenalChelsea/value'
+                  - $ref: '#/components/examples/EventRealBarca/value'
+                next_cursor: "eyJzIjoiMjAyNi0xMC0wNFQxOTowMCJ9"
+
+  /v1/events/popular:
+    get:
+      tags: [Catalogue]
+      operationId: listPopularEvents
+      security: [ {}, { playerAuth: [] }, { terminalAuth: [] } ]
+      summary: Featured fixtures for the home page
+      parameters:
+        - { $ref: '#/components/parameters/AcceptLanguage' }
+        - { name: limit, in: query, schema: { type: integer, default: 10, maximum: 30 } }
+      responses:
+        '200':
+          description: Featured fixtures
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EventPage' }
+              example:
+                items:
+                  - $ref: '#/components/examples/EventArsenalChelsea/value'
+                  - $ref: '#/components/examples/EventRealBarca/value'
+                next_cursor: null
+
+  /v1/events/{id}:
+    get:
+      tags: [Catalogue]
+      operationId: getEvent
+      security: [ {}, { playerAuth: [] }, { terminalAuth: [] } ]
+      summary: Fixture with markets, by group
+      parameters:
+        - { $ref: '#/components/parameters/AcceptLanguage' }
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+          example: fx_arsenal_chelsea
+        - name: groups
+          in: query
+          description: Comma-separated market groups; default `main`
+          schema: { type: string, default: main }
+          example: "main,goals"
+      responses:
+        '200':
+          description: Fixture detail
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EventDetail' }
+              example:
+                id: fx_arsenal_chelsea
+                sport_id: s_football
+                tournament_id: t_epl
+                home: Arsenal
+                away: Chelsea
+                start_time: "2026-10-04T14:00:00Z"
+                status: not_started
+                markets_count: 184
+                groups_available: [main, goals, halves, handicap, corners]
+                markets:
+                  - { id: mk_ac_1x2, template_id: m_1x2, specifiers: {}, status: active, outcomes: [ { id: oc_ac_1, tpl: o_1, odds: "2.10", active: true }, { id: oc_ac_x, tpl: o_x, odds: "3.40", active: true }, { id: oc_ac_2, tpl: o_2, odds: "3.30", active: true } ] }
+                  - { id: mk_ac_dc, template_id: m_dc, specifiers: {}, status: active, outcomes: [ { id: oc_ac_1x, tpl: o_1x, odds: "1.33", active: true }, { id: oc_ac_12, tpl: o_12, odds: "1.30", active: true }, { id: oc_ac_x2, tpl: o_x2, odds: "1.66", active: true } ] }
+                  - { id: mk_ac_t25, template_id: m_total, specifiers: { total: "2.5" }, status: active, outcomes: [ { id: oc_ac_o25, tpl: o_over, odds: "1.85", active: true }, { id: oc_ac_u25, tpl: o_under, odds: "1.95", active: true } ] }
+                  - { id: mk_ac_t35, template_id: m_total, specifiers: { total: "3.5" }, status: suspended, outcomes: [ { id: oc_ac_o35, tpl: o_over, odds: "3.10", active: false }, { id: oc_ac_u35, tpl: o_under, odds: "1.36", active: false } ] }
+                  - { id: mk_ac_btts, template_id: m_btts, specifiers: {}, status: active, outcomes: [ { id: oc_ac_by, tpl: o_yes, odds: "1.72", active: true }, { id: oc_ac_bn, tpl: o_no, odds: "2.05", active: true } ] }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /v1/search:
+    get:
+      tags: [Catalogue]
+      operationId: search
+      security: [ {}, { playerAuth: [] }, { terminalAuth: [] } ]
+      summary: Search teams and tournaments (min 2 characters)
+      parameters:
+        - { $ref: '#/components/parameters/AcceptLanguage' }
+        - { name: q, in: query, required: true, schema: { type: string, minLength: 2, maxLength: 50 }, example: ars }
+      responses:
+        '200':
+          description: Results
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SearchResult' }
+              example:
+                tournaments: []
+                events:
+                  - $ref: '#/components/examples/EventArsenalChelsea/value'
+
+  # ---------------------------------------------------------------- Slips (C07)
+  /v1/slips/quote:
+    post:
+      tags: [Slips]
+      operationId: quoteSlip
+      security: [ {}, { playerAuth: [] }, { terminalAuth: [] } ]
+      summary: Server-side slip calculation (the client computes the same numbers locally)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SlipQuoteRequest' }
+            example:
+              bet_type: multiple
+              legs:
+                - { outcome_id: oc_a1, odds: "1.50" }
+                - { outcome_id: oc_a2, odds: "1.50" }
+                - { outcome_id: oc_a3, odds: "1.50" }
+                - { outcome_id: oc_a4, odds: "1.50" }
+                - { outcome_id: oc_a5, odds: "1.50" }
+              stake: "100.00"
+      responses:
+        '200':
+          description: Quote (worked example from C07)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Quote' }
+              example: { lines: 1, stake_per_line: "100.00", total_stake: "100.00", stake_tax: "15.00", net_stake: "85.00", total_odds: "7.59", gross_payout: "645.46", acca_bonus: "44.83", taxes: { STAKE_TAX: "15.00" }, win_tax: "0.00", stake_tax_refund: "0.00", net_payout: "690.29", capped: false, warnings: [], rules_version: 7 }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+
+  # ---------------------------------------------------------------- Bets (C08)
+  /v1/bets:
+    post:
+      tags: [Bets]
+      operationId: placeBet
+      summary: Place a bet
+      security: [ { playerAuth: [] } ]
+      parameters: [ { $ref: '#/components/parameters/IdempotencyKey' } ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PlaceBetRequest' }
+            example:
+              bet_type: multiple
+              legs:
+                - { outcome_id: oc_ac_1, odds: "2.10" }
+                - { outcome_id: oc_rb_o25, odds: "1.62" }
+              stake: "100.00"
+              odds_policy: higher
+              use_bonus: false
+              free_bet_id: null
+      responses:
+        '201':
+          description: Bet accepted
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PlacedBet' }
+              example:
+                $ref: '#/components/examples/PlacedBetExample/value'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409':
+          description: Odds changed or selection unavailable
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+              examples:
+                odds_changed:
+                  value:
+                    type: "https://api.example.et/errors/odds-changed"
+                    title: Odds have changed
+                    status: 409
+                    code: BET_ODDS_CHANGED
+                    detail: 1 selection changed price.
+                    request_id: req_01J9A7Z
+                    errors: [ { field: "legs[1].odds", code: ODDS_CHANGED, current: "1.55" } ]
+                event_started:
+                  value:
+                    type: "https://api.example.et/errors/event-started"
+                    title: Event has started
+                    status: 409
+                    code: BET_EVENT_STARTED
+                    detail: A selection is no longer available.
+                    request_id: req_01J9A80
+                    errors: [ { field: "legs[0].outcome_id", code: EVENT_STARTED } ]
+        '422': { $ref: '#/components/responses/Unprocessable' }
+        '503': { $ref: '#/components/responses/Unavailable' }
+    get:
+      tags: [Bets]
+      operationId: listMyBets
+      summary: My bets
+      security: [ { playerAuth: [] } ]
+      parameters:
+        - name: status
+          in: query
+          schema: { type: string, enum: [open, settled] }
+        - { $ref: '#/components/parameters/From' }
+        - { $ref: '#/components/parameters/To' }
+        - { $ref: '#/components/parameters/Limit' }
+        - { $ref: '#/components/parameters/Cursor' }
+      responses:
+        '200':
+          description: Page of bets
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, next_cursor]
+                properties:
+                  items: { type: array, items: { $ref: '#/components/schemas/Bet' } }
+                  next_cursor: { $ref: '#/components/schemas/NextCursor' }
+              example:
+                items:
+                  - $ref: '#/components/examples/BetOpenExample/value'
+                  - $ref: '#/components/examples/BetWonExample/value'
+                next_cursor: null
+
+  /v1/bets/{id}:
+    get:
+      tags: [Bets]
+      operationId: getBet
+      summary: Bet detail with leg results
+      security: [ { playerAuth: [] } ]
+      parameters: [ { $ref: '#/components/parameters/IdPath' } ]
+      responses:
+        '200':
+          description: Bet
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Bet' }
+              example:
+                $ref: '#/components/examples/BetWonExample/value'
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  # ---------------------------------------------------------------- Bookings (C09)
+  /v1/bookings:
+    post:
+      tags: [Bookings]
+      operationId: createBooking
+      security: [ {}, { playerAuth: [] }, { terminalAuth: [] } ]
+      summary: Save a slip as a booking code (no login; rate-limited)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/BookingCreate' }
+            example: { bet_type: multiple, legs: [ { outcome_id: oc_ac_1 }, { outcome_id: oc_sg_1 } ], stake: "50.00" }
+      responses:
+        '201':
+          description: Booking code
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/BookingCreated' }
+              example: { code: "7KQ2M9X", expires_at: "2026-10-04T13:00:00Z", share_url: "https://example.et/b/7KQ2M9X" }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+
+  /v1/bookings/{code}:
+    get:
+      tags: [Bookings]
+      operationId: getBooking
+      security: [ {}, { playerAuth: [] }, { terminalAuth: [] } ]
+      summary: Load a booking, re-priced at current odds
+      parameters:
+        - { $ref: '#/components/parameters/AcceptLanguage' }
+        - { name: code, in: path, required: true, schema: { type: string, pattern: '^[0-9A-HJKMNP-TV-Z]{7}$' }, example: "7KQ2M9X" }
+      responses:
+        '200':
+          description: Booking
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Booking' }
+              example:
+                code: "7KQ2M9X"
+                bet_type: multiple
+                system_sizes: []
+                stake_hint: "50.00"
+                expires_at: "2026-10-04T13:00:00Z"
+                legs:
+                  - $ref: '#/components/examples/PricedLegArsenal/value'
+                  - $ref: '#/components/examples/PricedLegStartedGame/value'
+        '404': { $ref: '#/components/responses/NotFound' }
+        '410': { $ref: '#/components/responses/Gone' }
+
+  /v1/tickets/{ticket_id}:
+    get:
+      tags: [Bookings]
+      operationId: checkTicket
+      summary: Public, anonymised ticket check (online and retail tickets)
+      parameters:
+        - { $ref: '#/components/parameters/AcceptLanguage' }
+        - { name: ticket_id, in: path, required: true, schema: { $ref: '#/components/schemas/TicketNo' }, example: "K7Q2-M9XP-M" }
+      responses:
+        '200':
+          description: Ticket
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TicketCheck' }
+              example:
+                ticket_id: "K7Q2-M9XP-M"
+                channel: online
+                status: won
+                bet_type: multiple
+                placed_at: "2026-10-03T14:05:22Z"
+                settled_at: "2026-10-04T21:02:00Z"
+                stake: "100.00"
+                payout: "289.17"
+                legs:
+                  - { fixture_name: Arsenal v Chelsea, market_name: "1X2", outcome_name: "1", odds: "2.10", result: win }
+                  - { fixture_name: Real Madrid v Barcelona, market_name: "Total 2.5", outcome_name: "Over 2.5", odds: "1.62", result: win }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  # ---------------------------------------------------------------- Promotions (C11)
+  /v1/promotions:
+    get:
+      tags: [Promotions]
+      operationId: listPromotions
+      summary: Active offers
+      parameters: [ { $ref: '#/components/parameters/AcceptLanguage' } ]
+      responses:
+        '200':
+          description: Offers
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items: { type: array, items: { $ref: '#/components/schemas/Promotion' } }
+              example:
+                items:
+                  - { id: "01J9A810000000000000000001", code: WELCOME_100, title: 100% first deposit bonus, summary: "Up to 1,000 ETB, 5x wagering on 3+ leg accumulators at 1.50+", terms_md: "Full terms…", image_url: "https://cdn.example.et/promo/welcome.webp", starts_at: "2026-11-01T00:00:00Z", ends_at: null, requires_code: false }
+                  - { id: "01J9A810000000000000000002", code: ACCA_BOOST, title: Accumulator bonus, summary: "Up to 100% extra profit on 20+ legs", terms_md: "…", image_url: null, starts_at: null, ends_at: null, requires_code: false }
+
+  /v1/me/bonuses:
+    get:
+      tags: [Promotions]
+      operationId: getMyBonuses
+      summary: Active bonus, wagering progress and free bets
+      security: [ { playerAuth: [] } ]
+      responses:
+        '200':
+          description: Bonuses
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MyBonuses' }
+              example:
+                active: { id: "01J9A820000000000000000001", title: 100% first deposit bonus, amount: "500.00", wagering_required: "2500.00", wagering_done: "850.00", expires_at: "2026-10-17T09:00:00Z" }
+                free_bets:
+                  - { id: "01J9A830000000000000000001", stake: "50.00", min_legs: 3, min_leg_odds: "1.50", min_total_odds: null, expires_at: "2026-10-10T21:00:00Z" }
+
+  /v1/promo-codes/redeem:
+    post:
+      tags: [Promotions]
+      operationId: redeemPromoCode
+      summary: Redeem a promo code
+      security: [ { playerAuth: [] } ]
+      parameters: [ { $ref: '#/components/parameters/IdempotencyKey' } ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [code]
+              properties: { code: { type: string, maxLength: 32 } }
+            example: { code: DERBY50 }
+      responses:
+        '200':
+          description: Result
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [result]
+                properties:
+                  result: { type: string, enum: [granted, pending_deposit] }
+                  message: { type: string }
+              example: { result: granted, message: "50 ETB free bet added" }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+
+  # ---------------------------------------------------------------- Responsible gambling (C12)
+  /v1/me/limits:
+    get:
+      tags: [Responsible gambling]
+      operationId: getLimits
+      summary: Current and pending limits
+      security: [ { playerAuth: [] } ]
+      responses:
+        '200':
+          description: Limits
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items: { type: array, items: { $ref: '#/components/schemas/RgLimit' } }
+              example:
+                items:
+                  - { type: deposit, period: week, amount: "1000.00", minutes: null, effective_from: "2026-10-01T08:15:00Z", used: "500.00", pending: { amount: "2000.00", minutes: null, effective_from: "2026-10-04T10:00:00Z" } }
+                  - { type: session_minutes, period: day, amount: null, minutes: 120, effective_from: "2026-10-01T08:15:00Z", used: null, pending: null }
+    put:
+      tags: [Responsible gambling]
+      operationId: setLimit
+      summary: Set or change a limit (decreases now, increases after 24 h)
+      security: [ { playerAuth: [] } ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RgLimitSet' }
+            example: { type: deposit, period: week, amount: "2000.00" }
+      responses:
+        '200':
+          description: Limit recorded
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RgLimit' }
+              example: { type: deposit, period: week, amount: "1000.00", minutes: null, effective_from: "2026-10-01T08:15:00Z", used: "500.00", pending: { amount: "2000.00", minutes: null, effective_from: "2026-10-04T10:00:00Z" } }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+
+  /v1/me/self-exclusion:
+    post:
+      tags: [Responsible gambling]
+      operationId: selfExclude
+      summary: Take a break or self-exclude (revokes all sessions immediately)
+      security: [ { playerAuth: [] } ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SelfExclusionRequest' }
+            example: { kind: time_out, duration: 7d }
+      responses:
+        '201':
+          description: Exclusion in force
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Exclusion' }
+              example: { kind: time_out, starts_at: "2026-10-03T12:00:00Z", ends_at: "2026-10-10T12:00:00Z" }
+
+  # ---------------------------------------------------------------- Inbox (C14)
+  /v1/inbox:
+    get:
+      tags: [Inbox]
+      operationId: listInbox
+      summary: Messages
+      security: [ { playerAuth: [] } ]
+      parameters: [ { $ref: '#/components/parameters/Limit' }, { $ref: '#/components/parameters/Cursor' } ]
+      responses:
+        '200':
+          description: Page of messages
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, next_cursor]
+                properties:
+                  items: { type: array, items: { $ref: '#/components/schemas/InboxItem' } }
+                  next_cursor: { $ref: '#/components/schemas/NextCursor' }
+              example:
+                items:
+                  - { id: "01J9A840000000000000000002", title: You won!, body: "Ticket K7Q2-M9XP-M paid 289.17 ETB", deep_link: "/bets/01J9A7V0000000000000000001", read_at: null, created_at: "2026-10-04T16:02:05Z" }
+                  - { id: "01J9A840000000000000000001", title: Welcome, body: "Your account is ready.", deep_link: null, read_at: "2026-10-01T08:20:00Z", created_at: "2026-10-01T08:15:02Z" }
+                next_cursor: null
+
+  /v1/inbox/unread-count:
+    get:
+      tags: [Inbox]
+      operationId: getUnreadCount
+      summary: Unread count for the badge
+      security: [ { playerAuth: [] } ]
+      responses:
+        '200':
+          description: Count
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [count]
+                properties: { count: { type: integer, minimum: 0 } }
+              example: { count: 1 }
+
+  /v1/inbox/read:
+    post:
+      tags: [Inbox]
+      operationId: markInboxRead
+      summary: Mark messages read
+      security: [ { playerAuth: [] } ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required: [ids]
+                  properties: { ids: { type: array, items: { type: string }, maxItems: 100 } }
+                - type: object
+                  required: [all]
+                  properties: { all: { type: boolean, const: true } }
+            example: { ids: ["01J9A840000000000000000002"] }
+      responses:
+        '204': { description: Marked }
+
+  /v1/devices:
+    post:
+      tags: [Inbox]
+      operationId: registerDevice
+      summary: Register a push token
+      security: [ { playerAuth: [] } ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [fcm_token, platform]
+              properties:
+                fcm_token: { type: string }
+                platform: { type: string, enum: [android, ios, web] }
+                app_version: { type: string }
+            example: { fcm_token: "dGVzdC10b2tlbg...", platform: android, app_version: "1.0.3" }
+      responses:
+        '204': { description: Registered }
+
+  # ---------------------------------------------------------------- Config (C16, C18)
+  /v1/config/public:
+    get:
+      tags: [Config]
+      operationId: getPublicConfig
+      security: [ {}, { playerAuth: [] }, { terminalAuth: [] } ]
+      summary: Branding, feature flags and the betting rule set for this tenant (host-resolved)
+      parameters: [ { $ref: '#/components/parameters/AcceptLanguage' } ]
+      responses:
+        '200':
+          description: Public configuration
+          headers: { Cache-Control: { schema: { type: string, example: "public, max-age=60" } } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PublicConfig' }
+              example:
+                tenant: { code: demo, name: Demo Bet }
+                brand: { name: Demo Bet, logo_url: "https://cdn.example.et/demo/logo.svg", colors: { primary: "#0B6E4F", primary_contrast: "#FFFFFF", accent: "#F2A900", background: "#0F1419", surface: "#1A2027" }, support: { telegram: "https://t.me/demobet_support", phone: "+251900000000" } }
+                languages: [am, en]
+                default_language: am
+                currency: ETB
+                timezone: Africa/Addis_Ababa
+                real_money_enabled: false
+                features: { sports: true, virtuals: false, booking_codes: true, bonuses: true, retail: true, live: false }
+                betting:
+                  rules_version: 7
+                  min_stake: "5.00"
+                  max_stake: "50000.00"
+                  max_payout: "1000000.00"
+                  max_legs: 30
+                  max_lines: 1024
+                  acca_bonus_table: [ { min_legs: 3, pct: "3" }, { min_legs: 5, pct: "8" }, { min_legs: 8, pct: "15" }, { min_legs: 10, pct: "25" }, { min_legs: 15, pct: "50" }, { min_legs: 20, pct: "100" } ]
+                  acca_bonus_min_leg_odds: "1.30"
+                  acca_bonus_max: "200000.00"
+                  taxes:
+                    - { code: STAKE_TAX, base: stake, rate: "0.15", threshold: "0.00", deduct_from: stake }
+                    - { code: WIN_TAX, base: gross_win, rate: "0.15", threshold: "1000.00", deduct_from: payout }
+                  refund_stake_tax_on_void: false
+                  rounding: down
+                  default_odds_policy: higher
+                  quick_stakes: ["20.00", "50.00", "100.00", "500.00"]
+                retail_betting: { rules_version: 7, min_stake: "10.00", max_stake: "50000.00", max_payout: "1000000.00", max_legs: 30, max_lines: 1024, acca_bonus_table: [], acca_bonus_min_leg_odds: "1.30", acca_bonus_max: "0.00", taxes: [ { code: STAKE_TAX, base: stake, rate: "0.15", threshold: "0.00", deduct_from: stake }, { code: WIN_TAX, base: gross_win, rate: "0.15", threshold: "1000.00", deduct_from: payout } ], refund_stake_tax_on_void: false, rounding: down, default_odds_policy: higher }
+                dictionary_version: 42
+                min_app_version: "1.0.0"
+                legal: { terms_version: "2026-10", rules_url: "https://example.et/rules", min_age: 21 }
+
+  /v1/app/version:
+    get:
+      tags: [Config]
+      operationId: getAppVersion
+      summary: Android app versions
+      responses:
+        '200':
+          description: Versions
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AppVersion' }
+              example: { min_supported: "1.0.0", latest: "1.0.3", download_url: "https://example.et/app/demobet-1.0.3.apk", sha256: "9f2c...e1", release_notes: "Faster match lists" }
+
+  # ---------------------------------------------------------------- Games (C17, Release 2)
+  /v1/games:
+    get:
+      tags: [Games (R2)]
+      operationId: listGames
+      summary: Virtual games lobby (Release 2)
+      responses:
+        '200':
+          description: Lobby
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items: { type: array, items: { $ref: '#/components/schemas/Game' } }
+              example:
+                items:
+                  - { id: "01J9A850000000000000000001", name: Virtual League, category: virtual_football, thumbnail_url: "https://cdn.example.et/games/vleague.webp", available: true }
+
+  /v1/games/{id}/launch:
+    post:
+      tags: [Games (R2)]
+      operationId: launchGame
+      summary: Launch a game session (Release 2)
+      security: [ { playerAuth: [] } ]
+      parameters: [ { $ref: '#/components/parameters/IdPath' } ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [lang, device]
+              properties:
+                lang: { $ref: '#/components/schemas/Language' }
+                device: { type: string, enum: [mobile, desktop] }
+            example: { lang: am, device: mobile }
+      responses:
+        '201':
+          description: Session
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [url, session_id, expires_at]
+                properties:
+                  url: { type: string, format: uri }
+                  session_id: { type: string }
+                  expires_at: { $ref: '#/components/schemas/Timestamp' }
+              example: { url: "https://games.provider.example/launch?token=abc", session_id: "01J9A860000000000000000001", expires_at: "2026-10-04T20:00:00Z" }
+        '403': { $ref: '#/components/responses/Forbidden' }
+

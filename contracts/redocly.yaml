@@ -1,0 +1,6 @@
+extends:
+  - recommended
+rules:
+  tag-description: off
+  info-license: off
+  no-server-example.com: off
