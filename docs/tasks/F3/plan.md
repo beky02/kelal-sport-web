@@ -177,3 +177,18 @@ multi-size system bets (Trixie, Yankee…) in the picker; per-line stake entry.
 
 - [F3a — slip calculator](../F3a-slip-calculator.md): this plan.
 - [F3b — booking codes and `/b/[code]`](../F3b-bookings.md): AC-6, AC-8 (route); depends on F3a.
+
+## Changes during implementation
+
+- **Decision 10 revised**: the stake field accepts up to two decimals (`sanitiseStake`), because the fix
+  buttons can set amounts like `9.24` (a santim per line). Quick stakes still show as whole numbers.
+- **Files added beyond the list**: `src/features/bet-slip/lib/tax-lines.ts` (which taxes to show, shared
+  by the slip and the ticket), `tests/golden.ts` (reads `contracts/golden/`), `tests/unit/bets-figures.test.ts`,
+  `src/features/bets/components/TransactionRow.tsx` (transaction amounts became strings so the row needs
+  no `Math.abs` — decision 15 reversed: cheaper than leaving a float in `features/bets`).
+- **Mock fixture fix**: the void leg in `mock/bets.ts` was encoded as odds `1.00`, which slipcalc rejects
+  (odds ≥ 1.01). A void leg keeps its price; the `void` result counts it as 1 (D1.5).
+- **Mock wallet winnings** are a literal (`589.05`) pinned by a test that recomputes it with slipcalc,
+  instead of being computed in the mock (the mock has no rule set).
+- **Phone `home-slip` screen** has two picks: the contract's Real Madrid market is suspended and the
+  phone board shows only 1X2.

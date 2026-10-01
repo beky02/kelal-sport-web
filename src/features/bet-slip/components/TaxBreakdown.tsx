@@ -12,7 +12,7 @@ function Line({ label, value }: { label: React.ReactNode; value: string }) {
   return (
     <div className="flex justify-between gap-3">
       <span>{label}</span>
-      <span className="font-bold">{value}</span>
+      <span className="font-bold whitespace-nowrap">{value}</span>
     </div>
   );
 }

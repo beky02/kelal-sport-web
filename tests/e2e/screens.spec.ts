@@ -1,13 +1,60 @@
 import { mkdirSync } from "node:fs";
 import { expect, test, type Page } from "@playwright/test";
 import en from "../../src/lib/i18n/messages/en.json";
+import am from "../../src/lib/i18n/messages/am.json";
+
+const MESSAGES = { en, am } as const;
+type Device = "phone" | "desktop";
+type Lang = keyof typeof MESSAGES;
+
+const escape = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+/**
+ * A slip with one open price from each match on the board (the contract's
+ * Real Madrid market is suspended, so two on a phone), open, with the
+ * calculation expanded: every D1 figure on one screen.
+ */
+async function openSlipWithPicks(page: Page, device: Device, lang: Lang) {
+  // Odds buttons are named "<match>: <pick> <odds>" in both languages.
+  const prices = page.getByRole("button", { name: /: .+ \d+\.\d{2}(,|$)/ });
+  await prices.first().waitFor();
+  const labels = await prices.evaluateAll((buttons) =>
+    buttons.map((b) => b.getAttribute("aria-label") ?? ""),
+  );
+  const matches = new Set<string>();
+  for (const [index, label] of labels.entries()) {
+    const match = label.split(":")[0];
+    if (matches.has(match)) continue;
+    matches.add(match);
+    await prices.nth(index).click();
+    if (matches.size === 3) break;
+  }
+
+  const t = MESSAGES[lang];
+  if (device === "phone") {
+    await page
+      .getByRole("button", {
+        name: new RegExp(escape(t.nav.slipAria).replace("\\{n\\}", "\\d+")),
+      })
+      .click();
+  }
+  await page
+    .getByRole("button", { name: t.betSlip.howCalculated })
+    .last()
+    .click();
+}
 
 /**
  * Screens worth looking at. Fixture IDs are the contract's examples, which is
  * what Prism serves.
  */
-const SCREENS: Array<{ name: string; path: string }> = [
+const SCREENS: Array<{
+  name: string;
+  path: string;
+  prepare?: (page: Page, device: Device, lang: Lang) => Promise<void>;
+}> = [
   { name: "home", path: "/" },
+  { name: "home-slip", path: "/", prepare: openSlipWithPicks },
   { name: "home-upcoming", path: "/?filter=upcoming" },
   { name: "event", path: "/event/fx_arsenal_chelsea" },
   { name: "competition", path: "/competition/t_epl" },
@@ -68,6 +115,10 @@ for (const [device, viewport] of Object.entries(DEVICES)) {
 
           await page.goto(screen.path);
           await settle(page);
+          if (screen.prepare) {
+            await screen.prepare(page, device as Device, lang);
+            await settle(page);
+          }
           await page.screenshot({
             path: `${SHOTS}/${screen.name}-${lang}-${device}.png`,
             fullPage: true,
