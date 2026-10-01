@@ -1,7 +1,7 @@
 ---
 id: F3a
 title: Slip on slipcalc (D1), rules from config, money as strings
-status: verifying
+status: done
 depends_on: [F0]
 contract_tags: [Config]
 touches_money: true
@@ -41,14 +41,14 @@ Out: bookings and `/b/[code]` (F3b); placing the bet for real (F5); wallet amoun
 
 ## Acceptance criteria
 
-- [ ] **AC-1** Vitest runs all 366 golden rows: 366 passed, 0 mismatches, 0 skipped.
-- [ ] **AC-2** The C07 worked example shows net payout `690.29` on the slip (component test).
-- [ ] **AC-3** No float arithmetic in `features/bet-slip` or `features/bets` money paths (grep + money-reviewer).
-- [ ] **AC-4** Quick stake 100 on a 3-line system bet charges 99.99 and shows the remainder warning.
-- [ ] **AC-5** Changing the rule set (test fixture with `no_tax`) changes the slip without code changes.
-- [ ] **AC-7** The anchor test `1.62 × 3.05 × 1.38 at 100` is updated to D1's figure, with the arithmetic
+- [x] **AC-1** Vitest runs all 366 golden rows: 366 passed, 0 mismatches, 0 skipped.
+- [x] **AC-2** The C07 worked example shows net payout `690.29` on the slip (component test).
+- [x] **AC-3** No float arithmetic in `features/bet-slip` or `features/bets` money paths (grep + money-reviewer).
+- [x] **AC-4** Quick stake 100 on a 3-line system bet charges 99.99 and shows the remainder warning.
+- [x] **AC-5** Changing the rule set (test fixture with `no_tax`) changes the slip without code changes.
+- [x] **AC-7** The anchor test `1.62 × 3.05 × 1.38 at 100` is updated to D1's figure, with the arithmetic
       in the test comment (it was 507.64 under the old float maths).
-- [ ] **AC-8m** `lib/money.ts` round-trips every money value in `slips.csv` exactly; the lint rule fails on a
+- [x] **AC-8m** `lib/money.ts` round-trips every money value in `slips.csv` exactly; the lint rule fails on a
       deliberate `parseFloat(stake)` in a fixture file.
 
 ## Verification

@@ -1,7 +1,7 @@
 ---
 id: F3
 title: Slip on slipcalc (D1), rules from config, bookings and /b/[code]
-status: planned
+status: in_progress
 depends_on: [F0]
 contract_tags: [Config, Slips, Bookings]
 touches_money: true

@@ -9,23 +9,23 @@ real operations, map the contract's data onto the domain types, and fix what the
 Engineering Decisions say differently. The order follows the Build Plan's frontend track
 (`../kelal backend/docs/build-plan.md` §2).
 
-| ID                              | Title                                                                                | Depends on   | Backend piece | Status    |
-| ------------------------------- | ------------------------------------------------------------------------------------ | ------------ | ------------- | --------- |
-| [F0](F0-contract-wiring.md)     | Wire the catalogue to the contract through route handlers                            | —            | —             | done      |
-| [F1](F1-design-system-shell.md) | Tenant theme from `/v1/config/public`, Ethiopic font, component gallery              | F0           | B1            | todo      |
-| [F2a](F2a-language-routes.md)   | Language in the URL, tenant default language, D7 routes with redirects               | F0           | B1            | todo      |
-| [F2b](F2b-catalogue-screens.md) | Server-rendered catalogue, popular, lazy market groups, paging, phone search         | F2a          | B4            | todo      |
-| [F3](F3-slip-calculator.md)     | Slip on slipcalc (D1), rules from config, bookings and `/b/[code]`                   | F0           | B3            | planned   |
-| [F3a](F3a-slip-calculator.md)   | Split from F3: slip on slipcalc (D1), rules from config, money as strings            | F0           | B3            | verifying |
-| [F3b](F3b-bookings.md)          | Split from F3: booking codes and `/b/[code]`                                         | F3a          | B3            | todo      |
-| [F4](F4-auth-session.md)        | Auth through route handlers and an httpOnly session cookie; KYC                      | F0           | B5, B12       | todo      |
-| [F5](F5-place-bet-my-bets.md)   | Place bet with `Idempotency-Key` and the 409 flow; My bets; `/t/[ticket]`            | F3a, F3b, F4 | B6            | todo      |
-| [F6](F6-wallet.md)              | Wallet: balances, deposits with `next_action`, withdrawals, payout accounts, history | F4           | B8            | todo      |
-| [F7](F7-account-rg-inbox.md)    | Account, limits, self-exclusion, reality check, promotions, inbox; delete the mocks  | F4           | B8, B13       | todo      |
-| [F8a](F8a-workspace.md)         | Convert to a pnpm + Turborepo workspace: `apps/player`, shared packages              | F7           | —             | todo      |
-| [F8](F8-terminal.md)            | Shop terminal app                                                                    | F8a          | B9            | todo      |
-| [F9](F9-pos.md)                 | Cashier POS app                                                                      | F8a          | B9            | todo      |
-| [F10](F10-agent-backoffice.md)  | Agent portal, then back office (Refine)                                              | F8a          | B9, B10       | todo      |
+| ID                              | Title                                                                                | Depends on   | Backend piece | Status  |
+| ------------------------------- | ------------------------------------------------------------------------------------ | ------------ | ------------- | ------- |
+| [F0](F0-contract-wiring.md)     | Wire the catalogue to the contract through route handlers                            | —            | —             | done    |
+| [F1](F1-design-system-shell.md) | Tenant theme from `/v1/config/public`, Ethiopic font, component gallery              | F0           | B1            | todo    |
+| [F2a](F2a-language-routes.md)   | Language in the URL, tenant default language, D7 routes with redirects               | F0           | B1            | todo    |
+| [F2b](F2b-catalogue-screens.md) | Server-rendered catalogue, popular, lazy market groups, paging, phone search         | F2a          | B4            | todo    |
+| [F3](F3-slip-calculator.md)     | Slip on slipcalc (D1), rules from config, bookings and `/b/[code]`                   | F0           | B3            | planned |
+| [F3a](F3a-slip-calculator.md)   | Split from F3: slip on slipcalc (D1), rules from config, money as strings            | F0           | B3            | done    |
+| [F3b](F3b-bookings.md)          | Split from F3: booking codes and `/b/[code]`                                         | F3a          | B3            | todo    |
+| [F4](F4-auth-session.md)        | Auth through route handlers and an httpOnly session cookie; KYC                      | F0           | B5, B12       | todo    |
+| [F5](F5-place-bet-my-bets.md)   | Place bet with `Idempotency-Key` and the 409 flow; My bets; `/t/[ticket]`            | F3a, F3b, F4 | B6            | todo    |
+| [F6](F6-wallet.md)              | Wallet: balances, deposits with `next_action`, withdrawals, payout accounts, history | F4           | B8            | todo    |
+| [F7](F7-account-rg-inbox.md)    | Account, limits, self-exclusion, reality check, promotions, inbox; delete the mocks  | F4           | B8, B13       | todo    |
+| [F8a](F8a-workspace.md)         | Convert to a pnpm + Turborepo workspace: `apps/player`, shared packages              | F7           | —             | todo    |
+| [F8](F8-terminal.md)            | Shop terminal app                                                                    | F8a          | B9            | todo    |
+| [F9](F9-pos.md)                 | Cashier POS app                                                                      | F8a          | B9            | todo    |
+| [F10](F10-agent-backoffice.md)  | Agent portal, then back office (Refine)                                              | F8a          | B9, B10       | todo    |
 
 F1, F2a, F3 and F4 only need F0 and can go in any order. Recommended order: **F3** (every slip number is
 currently a float estimate that differs from the backend), F1, F2a, F2b, F4, F5, F6, F7, F8a, F8–F10.
