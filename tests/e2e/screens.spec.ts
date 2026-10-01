@@ -45,19 +45,64 @@ async function openSlipWithPicks(page: Page, device: Device, lang: Lang) {
 }
 
 /**
+ * A guest's slip after Book bet: the server's code, its expiry and the share
+ * buttons. Logging out from Profile is how a session becomes a guest.
+ */
+async function bookAsGuest(page: Page, device: Device, lang: Lang) {
+  const t = MESSAGES[lang];
+  await page.getByRole("button", { name: t.profile.logOut }).click();
+  await page.waitForURL("/");
+  await openSlipWithPicks(page, device, lang);
+  await page.getByRole("button", { name: t.betSlip.bookBet }).click();
+  await page.getByTestId("booking-code").filter({ visible: true }).waitFor();
+  // On a phone the sheet scrolls inside itself: bring the code card and its
+  // share buttons into view. On desktop, a full-page shot of a scrolled page
+  // paints the sticky header mid-page, so go back to the top.
+  if (device === "phone") {
+    await page
+      .getByRole("button", { name: t.betSlip.copyCode })
+      .filter({ visible: true })
+      .scrollIntoViewIfNeeded();
+  } else {
+    await page.evaluate(() => window.scrollTo(0, 0));
+  }
+}
+
+/** `/b/7KQ2M9X`, loaded into the slip — the sheet opens on a phone. */
+async function loadBooking(page: Page, _device: Device, lang: Lang) {
+  await page
+    .getByRole("button", { name: MESSAGES[lang].booking.loadIntoSlip })
+    .click();
+  await page.getByTestId("booking-notice").filter({ visible: true }).waitFor();
+}
+
+/**
  * Screens worth looking at. Fixture IDs are the contract's examples, which is
  * what Prism serves.
  */
 const SCREENS: Array<{
   name: string;
   path: string;
+  /**
+   * Headers for the page's own request only — e.g. Prism's `Prefer`, which the
+   * app passes on in development to show an error state.
+   */
+  headers?: Record<string, string>;
   prepare?: (page: Page, device: Device, lang: Lang) => Promise<void>;
 }> = [
   { name: "home", path: "/" },
   { name: "home-slip", path: "/", prepare: openSlipWithPicks },
+  { name: "home-slip-booked", path: "/profile", prepare: bookAsGuest },
   { name: "home-upcoming", path: "/?filter=upcoming" },
   { name: "event", path: "/event/fx_arsenal_chelsea" },
   { name: "competition", path: "/competition/t_epl" },
+  { name: "booking", path: "/b/7KQ2M9X" },
+  { name: "booking-loaded", path: "/b/7KQ2M9X", prepare: loadBooking },
+  {
+    name: "booking-expired",
+    path: "/b/7KQ2M9X",
+    headers: { Prefer: "code=410" },
+  },
   { name: "my-bets", path: "/my-bets" },
   { name: "transactions", path: "/transactions" },
   { name: "wallet", path: "/wallet" },
@@ -113,6 +158,14 @@ for (const [device, viewport] of Object.entries(DEVICES)) {
             );
           }, lang);
 
+          if (screen.headers) {
+            const extra = screen.headers;
+            await page.route(`**${screen.path}`, (route) =>
+              route.continue({
+                headers: { ...route.request().headers(), ...extra },
+              }),
+            );
+          }
           await page.goto(screen.path);
           await settle(page);
           if (screen.prepare) {

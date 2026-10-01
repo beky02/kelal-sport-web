@@ -6,6 +6,8 @@ export const routes = {
   competition: (id: string) => `/competition/${id}`,
   event: (id: string) => `/event/${id}`,
   search: "/search",
+  /** A booking code's deep link (D7, FD3) — unprefixed until F2a adds `/{lang}`. */
+  booking: (code: string) => `/b/${encodeURIComponent(code)}`,
 
   myBets: "/my-bets",
   bet: (id: string) => `/my-bets/${id}`,

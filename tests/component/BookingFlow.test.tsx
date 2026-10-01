@@ -108,11 +108,12 @@ describe("loading a booking code in the slip", () => {
     expect(notice).toHaveTextContent(
       "Saint George v Fasil Kenema · 1: match has started",
     );
-    // The price moved since the code was made: 2.05 → 2.10, to accept.
+    // The price moved since the code was made: 2.05 → 2.10, to accept. (A
+    // guest has no Place button; the odds-changed alert offers the accept.)
     expect(screen.getByText("2.05")).toBeInTheDocument();
     expect(screen.getByText(/▲ 2\.10/)).toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: "Accept changes" }),
+      screen.getByRole("button", { name: "Accept all" }),
     ).toBeInTheDocument();
   });
 
@@ -267,17 +268,12 @@ describe("booking the slip", () => {
   });
 
   it("can't book two picks from one match", () => {
-    useBetSlipStore
-      .getState()
-      .toggleSelection(pick("m3", "4.10", "Draw again"));
-    // Same event as Man City, different outcome.
-    useBetSlipStore.setState((s) => ({
-      selections: s.selections.map((x) =>
-        x.outcomeId === "oc_m3" && x.currentOdds === "4.10"
-          ? { ...x, outcomeId: "oc_m3_x" }
-          : x,
-      ),
-    }));
+    // Same event as Man City, a different outcome.
+    useBetSlipStore.getState().toggleSelection({
+      ...pick("m3", "4.10", "Draw again"),
+      outcomeId: "oc_m3_x",
+    });
+    expect(useBetSlipStore.getState().selections).toHaveLength(3);
     render(<BetSlip />);
     expect(screen.getByRole("button", { name: "Book bet" })).toBeDisabled();
   });
