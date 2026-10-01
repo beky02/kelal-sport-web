@@ -189,7 +189,9 @@ describe("BetSlip", () => {
 
     const alert = screen.getByRole("alert");
     expect(alert).toHaveTextContent("Stake too low");
-    expect(alert).toHaveTextContent("The minimum total stake is ETB 5.00.");
+    expect(alert).toHaveTextContent(
+      "The smallest stake this slip accepts is ETB 5.00.",
+    );
     expect(screen.getByRole("button", { name: /Place bet/ })).toBeDisabled();
 
     await userEvent.click(
@@ -205,7 +207,9 @@ describe("BetSlip", () => {
     render(<BetSlip />);
 
     const alert = screen.getByRole("alert");
-    expect(alert).toHaveTextContent("The minimum total stake is ETB 5.01.");
+    expect(alert).toHaveTextContent(
+      "The smallest stake this slip accepts is ETB 5.01.",
+    );
     await userEvent.click(
       within(alert).getByRole("button", { name: "Set 5.01" }),
     );

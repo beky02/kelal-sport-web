@@ -2,7 +2,7 @@ import type { LegResult, RuleSetJson } from "@golden/slipcalc";
 import { settleBet, type SlipQuote } from "@/features/bet-slip/lib/calculate";
 import type { Bet, LegStatus } from "../types";
 
-const LEG_RESULT: Record<LegStatus, LegResult> = {
+export const LEG_RESULT: Record<LegStatus, LegResult> = {
   open: "open",
   live: "open",
   won: "win",

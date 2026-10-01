@@ -90,29 +90,33 @@ Composed, not from the design: D1's warnings and errors, the total-stake label a
 the rule-set loading states. They speak about money, so they need review for meaning
 as well as wording. `ቦነስ` and `አኩሙሌተር` are transliterations.
 
-| Key                                | Amharic                                                  |
-| ---------------------------------- | -------------------------------------------------------- |
-| `betSlip.totalStake`               | ጠቅላላ የውርርድ መጠን                                           |
-| `betSlip.linesTimesStake`          | {lines} ውርርዶች × {amount}                                 |
-| `betSlip.accaBonus`                | የአኩሙሌተር ቦነስ                                              |
-| `betSlip.rulesLoading`             | የውርርድ ደንቦች እየተጫኑ ነው…                                     |
-| `betSlip.rulesFailed`              | የውርርድ ደንቦችን መጫን አልተሳካም                                   |
-| `betSlip.warnings.remainder`       | {amount} በ{lines} ውርርዶች እኩል አይከፈልም፤ የሚከፍሉት {charged} ነው። |
-| `betSlip.warnings.bonusCapped`     | የአኩሙሌተር ቦነስ በ{amount} ተገድቧል።                             |
-| `betSlip.warnings.maxPayout`       | ከፍተኛው ክፍያ {amount} ደርሷል።                                 |
-| `betSlip.errors.stakeTooLowTitle`  | የውርርድ መጠኑ ዝቅተኛ ነው                                        |
-| `betSlip.errors.stakeTooLowBody`   | ዝቅተኛው ጠቅላላ የውርርድ መጠን {amount} ነው።                        |
-| `betSlip.errors.stakeTooHighTitle` | የውርርድ መጠኑ ከፍተኛ ነው                                        |
-| `betSlip.errors.stakeTooHighBody`  | ከፍተኛው ጠቅላላ የውርርድ መጠን {amount} ነው።                        |
-| `betSlip.errors.tooManyLegsTitle`  | ምርጫዎች በዝተዋል                                              |
-| `betSlip.errors.tooManyLegsBody`   | አንድ ትኬት እስከ {n} ምርጫዎች ይይዛል። ለመቀጠል የተወሰኑትን ያስወግዱ።         |
-| `betSlip.errors.tooManyLinesTitle` | ጥምረቶች በዝተዋል                                              |
-| `betSlip.errors.tooManyLinesBody`  | ሲስተም እስከ {n} ውርርዶች ይይዛል። ትንሽ መጠን ይምረጡ ወይም ጥምር ይጠቀሙ።      |
-| `betSlip.errors.useMultiple`       | ጥምር                                                      |
-| `betSlip.errors.cannotPriceTitle`  | ይህን ትኬት ማስላት አይቻልም                                       |
-| `betSlip.errors.cannotPriceBody`   | ከኦዶቹ አንዱ ትክክል አይደለም። ያስወግዱት ወይም ቆይተው ይሞክሩ።               |
-| `betSlip.withholdingTax`           | የተቀናሽ ግብር                                                |
-| `betSlip.levy`                     | ቀረጥ                                                      |
-| `betSlip.tax`                      | ግብር                                                      |
-| `betSlip.placeFailedBody`          | ውርርዱን ማስያዝ አልተሳካም። እንደገና ይሞክሩ።                           |
-| `bets.stakeTaxRefund`              | የውርርድ ግብር ተመላሽ                                           |
+| Key                                | Amharic                                                                                                       |
+| ---------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| `betSlip.totalStake`               | ጠቅላላ የውርርድ መጠን                                                                                                |
+| `betSlip.linesTimesStake`          | {lines} ውርርዶች × {amount}                                                                                      |
+| `betSlip.accaBonus`                | የአኩሙሌተር ቦነስ                                                                                                   |
+| `betSlip.rulesLoading`             | የውርርድ ደንቦች እየተጫኑ ነው…                                                                                          |
+| `betSlip.rulesFailed`              | የውርርድ ደንቦችን መጫን አልተሳካም                                                                                        |
+| `betSlip.warnings.remainder`       | {amount} በ{lines} ውርርዶች እኩል አይከፈልም፤ የሚከፍሉት {charged} ነው።                                                      |
+| `betSlip.warnings.bonusCapped`     | የአኩሙሌተር ቦነስ በ{amount} ተገድቧል።                                                                                  |
+| `betSlip.warnings.maxPayout`       | ከፍተኛው ክፍያ {amount} ደርሷል።                                                                                      |
+| `betSlip.errors.stakeTooLowTitle`  | የውርርድ መጠኑ ዝቅተኛ ነው                                                                                             |
+| `betSlip.errors.stakeTooLowBody`   | ዝቅተኛው ጠቅላላ የውርርድ መጠን {amount} ነው።                                                                             |
+| `betSlip.errors.stakeTooHighTitle` | የውርርድ መጠኑ ከፍተኛ ነው                                                                                             |
+| `betSlip.errors.stakeTooHighBody`  | ከፍተኛው ጠቅላላ የውርርድ መጠን {amount} ነው።                                                                             |
+| `betSlip.errors.tooManyLegsTitle`  | ምርጫዎች በዝተዋል                                                                                                   |
+| `betSlip.errors.tooManyLegsBody`   | አንድ ትኬት እስከ {n} ምርጫዎች ይይዛል። ለመቀጠል የተወሰኑትን ያስወግዱ።                                                              |
+| `betSlip.errors.tooManyLinesTitle` | ጥምረቶች በዝተዋል                                                                                                   |
+| `betSlip.errors.tooManyLinesBody`  | ሲስተም እስከ {n} ውርርዶች ይይዛል። ትንሽ መጠን ይምረጡ ወይም ጥምር ይጠቀሙ።                                                           |
+| `betSlip.errors.useMultiple`       | ጥምር                                                                                                           |
+| `betSlip.errors.cannotPriceTitle`  | ይህን ትኬት ማስላት አይቻልም                                                                                            |
+| `betSlip.errors.cannotPriceBody`   | ከኦዶቹ አንዱ ትክክል አይደለም። ያስወግዱት ወይም ቆይተው ይሞክሩ።                                                                    |
+| `betSlip.withholdingTax`           | የተቀናሽ ግብር                                                                                                     |
+| `betSlip.levy`                     | ቀረጥ                                                                                                           |
+| `betSlip.tax`                      | ግብር                                                                                                           |
+| `betSlip.placeFailedBody`          | ውርርዱን ማስያዝ አልተሳካም። እንደገና ይሞክሩ።                                                                                |
+| `bets.stakeTaxRefund`              | የውርርድ ግብር ተመላሽ                                                                                                |
+| `betSlip.taxRate`                  | {tax} · {rate}                                                                                                |
+| `betSlip.taxRateOver`              | {tax} · ድሉ ከ{amount} ሲበልጥ ከጠቅላላው {rate} — must say the **whole** win is taxed once over the threshold (D1.8)  |
+| `betSlip.taxRateStakeOver`         | {tax} · ጠቅላላ የውርርድ መጠኑ ከ{amount} ሲበልጥ {rate}                                                                  |
+| `betSlip.errors.stakeTooLowBody`   | ይህ ትኬት የሚቀበለው ዝቅተኛው የውርርድ መጠን {amount} ነው። — the amount can be above the tenant minimum (rounded up per line) |

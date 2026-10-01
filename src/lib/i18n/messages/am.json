@@ -149,7 +149,7 @@
     },
     "errors": {
       "stakeTooLowTitle": "የውርርድ መጠኑ ዝቅተኛ ነው",
-      "stakeTooLowBody": "ዝቅተኛው ጠቅላላ የውርርድ መጠን {amount} ነው።",
+      "stakeTooLowBody": "ይህ ትኬት የሚቀበለው ዝቅተኛው የውርርድ መጠን {amount} ነው።",
       "stakeTooHighTitle": "የውርርድ መጠኑ ከፍተኛ ነው",
       "stakeTooHighBody": "ከፍተኛው ጠቅላላ የውርርድ መጠን {amount} ነው።",
       "tooManyLegsTitle": "ምርጫዎች በዝተዋል",
@@ -165,7 +165,8 @@
     "taxRate": "{tax} · {rate}",
     "taxRateOver": "{tax} · ድሉ ከ{amount} ሲበልጥ ከጠቅላላው {rate}",
     "tax": "ግብር",
-    "placeFailedBody": "ውርርዱን ማስያዝ አልተሳካም። እንደገና ይሞክሩ።"
+    "placeFailedBody": "ውርርዱን ማስያዝ አልተሳካም። እንደገና ይሞክሩ።",
+    "taxRateStakeOver": "{tax} · ጠቅላላ የውርርድ መጠኑ ከ{amount} ሲበልጥ {rate}"
   },
   "clock": {
     "eat": "EAT (UTC+3)",

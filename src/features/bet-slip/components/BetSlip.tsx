@@ -33,8 +33,6 @@ const PLACE_ERROR_BODY: Record<string, MessageKey> = {
   BET_RELATED_SELECTIONS: "betSlip.alerts.conflictBody",
   BET_MARKET_SUSPENDED: "betSlip.alerts.suspendedBody",
   BET_EVENT_STARTED: "betSlip.alerts.suspendedBody",
-  BET_TOO_MANY_LEGS: "betSlip.errors.cannotPriceBody",
-  BET_TOO_MANY_LINES: "betSlip.errors.cannotPriceBody",
   VALIDATION_FAILED: "betSlip.errors.cannotPriceBody",
   RULES_UNAVAILABLE: "betSlip.rulesFailed",
 };

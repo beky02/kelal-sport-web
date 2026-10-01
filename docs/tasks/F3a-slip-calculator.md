@@ -54,3 +54,14 @@ Out: bookings and `/b/[code]` (F3b); placing the bet for real (F5); wallet amoun
 ## Verification
 
 - `pnpm verify` passes; money-reviewer and ui-checker run.
+
+## Notes
+
+Follow-ups from verification (2026-10-01, see `F3/verification.md`):
+
+- Touch targets: the row's **Accept** and **How is this calculated?** are 28 px; raise to 44 px on
+  phones (design change to the row) — next slip UI task (F5).
+- `pnpm ui`: add a scrolled phone state that shows the payout and Place button; disable the Next dev
+  indicator during the run.
+- Tenant from `X-Forwarded-Host` without a trusted-proxy setting (`respond()`) — fix before F4.
+- Ticket figures, cash-out quote, idempotent placement — carried into F5. Wallet amounts as strings — F6.

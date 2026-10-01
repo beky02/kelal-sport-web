@@ -9,6 +9,7 @@ import { usePublicConfig } from "@/features/config/hooks/use-public-config";
 import { share } from "@/lib/money";
 import { CASH_OUT_SHARES } from "@/config/constants";
 import { settleBet } from "@/features/bet-slip/lib/calculate";
+import { LEG_RESULT } from "../lib/figures";
 import type { Bet } from "../types";
 
 /**
@@ -52,7 +53,10 @@ export function CashOutPanel({
   const remaining = rules
     ? settleBet(
         bet.legs.length === 1 ? "single" : "multiple",
-        bet.legs.map((leg) => ({ odds: leg.odds, result: "open" as const })),
+        bet.legs.map((leg) => ({
+          odds: leg.odds,
+          result: LEG_RESULT[leg.status],
+        })),
         share(bet.stake, part.denominator - part.numerator, part.denominator),
         rules,
       )

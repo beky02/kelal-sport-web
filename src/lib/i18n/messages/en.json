@@ -149,7 +149,7 @@
     },
     "errors": {
       "stakeTooLowTitle": "Stake too low",
-      "stakeTooLowBody": "The minimum total stake is {amount}.",
+      "stakeTooLowBody": "The smallest stake this slip accepts is {amount}.",
       "stakeTooHighTitle": "Stake too high",
       "stakeTooHighBody": "The maximum total stake is {amount}.",
       "tooManyLegsTitle": "Too many selections",
@@ -165,7 +165,8 @@
     "taxRate": "{tax} · {rate}",
     "taxRateOver": "{tax} · {rate} of the whole win once it’s over {amount}",
     "tax": "Tax",
-    "placeFailedBody": "Something went wrong placing this bet. Try again."
+    "placeFailedBody": "Something went wrong placing this bet. Try again.",
+    "taxRateStakeOver": "{tax} · {rate} of the whole stake once it’s over {amount}"
   },
   "clock": {
     "eat": "EAT · UTC+3",

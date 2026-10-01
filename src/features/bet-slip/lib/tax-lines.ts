@@ -58,7 +58,9 @@ export const taxLabel = (code: string) =>
  */
 export function taxLineLabel(t: Translator, tax: TaxLine): string {
   const values = { tax: t.t(taxLabel(tax.code)), rate: t.percent(tax.rate) };
-  return tax.threshold
-    ? t.t("betSlip.taxRateOver", { ...values, amount: t.money(tax.threshold) })
-    : t.t("betSlip.taxRate", values);
+  if (!tax.threshold) return t.t("betSlip.taxRate", values);
+  const amount = t.money(tax.threshold);
+  return tax.stage === "stake"
+    ? t.t("betSlip.taxRateStakeOver", { ...values, amount })
+    : t.t("betSlip.taxRateOver", { ...values, amount });
 }
