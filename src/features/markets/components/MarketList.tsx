@@ -101,7 +101,7 @@ export function MarketList({
       {groups.map((group) => (
         <MarketGroupCard
           key={group[0].templateId}
-          title={t.pick(group[0].name)}
+          title={t.pick(group[0].title)}
           markets={group}
           eventName={eventName}
         />

@@ -213,6 +213,7 @@ function buildMarket(
     type,
     category,
     name,
+    title: name,
     line,
     status: suspended ? "suspended" : "open",
     outcomes: prices.map(([code, odds], i): Outcome => ({

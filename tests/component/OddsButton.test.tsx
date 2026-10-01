@@ -17,6 +17,7 @@ const market: Market = {
   type: "1x2",
   category: "main",
   name: { en: "Match result", am: "የጨዋታ ውጤት" },
+  title: { en: "Match result", am: "የጨዋታ ውጤት" },
   line: null,
   status: "open",
   outcomes: [

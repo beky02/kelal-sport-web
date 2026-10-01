@@ -49,7 +49,10 @@ export interface Market {
   templateId: string;
   type: MarketType;
   category: MarketCategory;
+  /** This line's name: `Total 2.5`. */
   name: Localized;
+  /** The market without its line, `Total` — the title of the card holding every line. */
+  title: Localized;
   /** Handicap or goal line, e.g. `2.5`, `−1`. Null for unlined markets. */
   line: string | null;
   status: MarketStatus;

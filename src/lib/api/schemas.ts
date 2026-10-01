@@ -133,6 +133,7 @@ export const marketSchema = z.object({
   type: z.enum(["1x2", "ml", "dc", "ou", "btts", "hc", "cs", "other"]),
   category: z.string(),
   name: localizedSchema,
+  title: localizedSchema,
   line: z.string().nullable(),
   status: z.enum(["open", "suspended"]),
   outcomes: z.array(outcomeSchema),

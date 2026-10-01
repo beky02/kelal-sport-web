@@ -122,6 +122,8 @@ describe("toEventDetail", () => {
   it("fills specifiers into market and outcome names", () => {
     const total = view.markets.find((m) => m.id === "mk_ac_t25")!;
     expect(total.name.en).toBe("Total 2.5");
+    // Every line shares one card, titled without the line.
+    expect(total.title.en).toBe("Total");
     expect(total.line).toBe("2.5");
     expect(total.category).toBe("goals");
     expect(total.outcomes.map((o) => o.label.en)).toEqual([
@@ -150,12 +152,10 @@ describe("toEventDetail", () => {
 describe("navigation", () => {
   it("maps sports with their counts and icons", () => {
     const sports = toSports(dict, counts);
-    expect(sports.map((s) => [s.id, s.slug, s.name.en, s.eventCount])).toEqual(
-      [
-        ["s_football", "football", "Football", 412],
-        ["s_basketball", "basketball", "Basketball", 57],
-      ],
-    );
+    expect(sports.map((s) => [s.id, s.slug, s.name.en, s.eventCount])).toEqual([
+      ["s_football", "football", "Football", 412],
+      ["s_basketball", "basketball", "Basketball", 57],
+    ]);
     expect(sports[0].iconPaths.length).toBeGreaterThan(1);
   });
 
@@ -184,7 +184,10 @@ describe("navigation", () => {
     expect(countries[1].leagues).toEqual([
       {
         id: "t_eth_pl",
-        name: { en: "Ethiopian Premier League", am: "Ethiopian Premier League" },
+        name: {
+          en: "Ethiopian Premier League",
+          am: "Ethiopian Premier League",
+        },
         eventCount: 8,
       },
     ]);

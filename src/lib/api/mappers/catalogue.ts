@@ -357,6 +357,13 @@ export function fillTemplate(
   );
 }
 
+/** `Total {total}` → `Total`: a template's name with its placeholders taken out. */
+const unlined = (template: string | undefined) =>
+  template
+    ?.replace(/\s*\{[+-]?\w+\}/g, "")
+    .replace(/\s*\(\s*\)/g, "")
+    .trim();
+
 /** `"2.10"` → `2.1`. Display only — the slip does its maths on the strings. */
 function parseOdds(odds: string): number | null {
   if (!/^\d+(\.\d+)?$/.test(odds)) return null;
@@ -398,6 +405,7 @@ export function toMarket(
     type,
     category: en?.group ?? "main",
     name: localize(fill(en?.name) ?? market.template_id, fill(am?.name)),
+    title: localize(unlined(en?.name) ?? market.template_id, unlined(am?.name)),
     line: market.specifiers.total ?? market.specifiers.hcp ?? null,
     status: open ? "open" : "suspended",
     outcomes: market.outcomes.map((outcome): Outcome => ({
