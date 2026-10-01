@@ -3,6 +3,10 @@
 import { create } from "zustand";
 import { BETTING } from "@/config/constants";
 import type { OutcomeRef } from "@/features/markets/types";
+import type {
+  BookingNotice,
+  SlipFromBooking,
+} from "@/features/bookings/lib/to-slip";
 import { oddsMoved, type BetSelection, type BetSlipMode } from "../types";
 
 interface BetSlipState {
@@ -26,9 +30,18 @@ interface BetSlipState {
   /** Standing consent to any move, from the toggle at the foot of the slip. */
   acceptAnyChange: boolean;
 
+  /** What loading a booking code did, until the player dismisses it. */
+  bookingNotice: BookingNotice | null;
+
   toggleSelection: (selection: BetSelection) => void;
   removeSelection: (outcomeId: string) => void;
   clear: () => void;
+  /**
+   * Replaces the slip with a loaded booking: a booking is a whole slip — its
+   * picks, bet type and stake — so it is not merged into what was there.
+   */
+  replaceSlip: (slip: SlipFromBooking) => void;
+  dismissBookingNotice: () => void;
 
   setMode: (mode: BetSlipMode) => void;
   /** From the keyboard: keeps digits and up to two decimals. */
@@ -81,6 +94,7 @@ export const useBetSlipStore = create<BetSlipState>()((set, get) => ({
   systemK: 2,
   acceptedIds: new Set<string>(),
   acceptAnyChange: false,
+  bookingNotice: null,
 
   toggleSelection: (selection) => {
     const { selections } = get();
@@ -101,7 +115,22 @@ export const useBetSlipStore = create<BetSlipState>()((set, get) => ({
       index: {},
       acceptedIds: new Set<string>(),
       acceptAnyChange: false,
+      bookingNotice: null,
     }),
+
+  replaceSlip: ({ selections, mode, systemK, stake, notice }) =>
+    set((state) => ({
+      selections,
+      index: reindex(selections),
+      mode,
+      systemK: systemK ?? state.systemK,
+      stake: stake ?? state.stake,
+      acceptedIds: new Set<string>(),
+      acceptAnyChange: false,
+      bookingNotice: notice,
+    })),
+
+  dismissBookingNotice: () => set({ bookingNotice: null }),
 
   setMode: (mode) => set({ mode }),
   setStake: (raw) => set({ stake: sanitiseStake(raw) }),

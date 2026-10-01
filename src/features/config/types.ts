@@ -15,7 +15,14 @@ export interface BettingRules {
   calc: RuleSetJson;
 }
 
+/** The tenant's switches the web app acts on (`PublicConfig.features`). */
+export interface TenantFeatures {
+  /** Book bet, load a code and `/b/{code}` (C09). */
+  bookingCodes: boolean;
+}
+
 /** What `/api/config` returns. F1 and F2a add branding and languages. */
 export interface PublicConfigView {
   betting: BettingRules;
+  features: TenantFeatures;
 }

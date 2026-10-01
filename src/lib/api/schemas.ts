@@ -25,6 +25,12 @@ import type { Sport } from "@/features/sports/types";
 import type { Bet, Transaction } from "@/features/bets/types";
 import type { BettingRules, PublicConfigView } from "@/features/config/types";
 import type {
+  Booking,
+  BookingReceipt,
+  BookingRequest,
+} from "@/features/bookings/types";
+import { BOOKING_CODE } from "@/features/bookings/lib/code";
+import type {
   PaymentMethod,
   PaymentResult,
   WalletOverview,
@@ -304,4 +310,63 @@ export const bettingRulesSchema = z.object({
 
 export const publicConfigSchema = z.object({
   betting: bettingRulesSchema,
+  features: z.object({ bookingCodes: z.boolean() }),
 }) satisfies z.ZodType<PublicConfigView>;
+
+const betTypeSchema = z.enum(["single", "multiple", "system"]);
+
+/** The contract's booking-code alphabet (Crockford base32). */
+export const bookingCodeSchema = z.string().regex(BOOKING_CODE);
+
+const bookingLegSchema = z.object({
+  outcomeId: z.string(),
+  eventId: z.string().nullable(),
+  eventName: localizedSchema.nullable(),
+  marketId: z.string().nullable(),
+  marketName: localizedSchema.nullable(),
+  outcomeName: localizedSchema.nullable(),
+  startTime: z.string().nullable(),
+  odds: oddsSchema.nullable(),
+  oddsAtCode: oddsSchema.nullable(),
+  unavailable: z
+    .enum([
+      "EVENT_STARTED",
+      "MARKET_SUSPENDED",
+      "MARKET_CLOSED",
+      "NOT_FOUND",
+      "UNPRICED",
+    ])
+    .nullable(),
+});
+
+export const bookingSchema = z.object({
+  code: bookingCodeSchema,
+  betType: betTypeSchema,
+  systemSizes: z.array(z.number().int().positive()),
+  stakeHint: moneySchema.nullable(),
+  expiresAt: z.string(),
+  legs: z.array(bookingLegSchema),
+}) satisfies z.ZodType<Booking>;
+
+/** Only http(s): the link is put in front of players and into share links. */
+const shareUrlSchema = z
+  .string()
+  .url()
+  .refine((url) => /^https?:\/\//i.test(url), "Not an http(s) link");
+
+export const bookingReceiptSchema = z.object({
+  code: bookingCodeSchema,
+  expiresAt: z.string(),
+  shareUrl: shareUrlSchema,
+}) satisfies z.ZodType<BookingReceipt>;
+
+/**
+ * What `/api/bookings` accepts from the browser; checked before anything is
+ * sent on, and strict so nothing extra rides along.
+ */
+export const bookingRequestSchema = z.strictObject({
+  betType: betTypeSchema,
+  systemSizes: z.array(z.number().int().min(1).max(30)).max(30),
+  outcomeIds: z.array(z.string().min(1).max(64)).min(1).max(30),
+  stake: moneySchema.nullable(),
+}) satisfies z.ZodType<BookingRequest>;

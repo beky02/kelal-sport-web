@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { toBettingRules } from "@/lib/api/mappers/config";
+import { toBettingRules, toPublicConfigView } from "@/lib/api/mappers/config";
 import { publicConfigSchema } from "@/lib/api/schemas";
 import { example } from "../contract";
 import { GOLDEN_RULES } from "../golden";
@@ -37,8 +37,32 @@ describe("toBettingRules", () => {
   });
 
   it("produces what the browser's schema accepts", () => {
+    expect(publicConfigSchema.parse(toPublicConfigView(config))).toBeTruthy();
+  });
+});
+
+describe("toPublicConfigView", () => {
+  const config = () => example("/v1/config/public");
+
+  it("carries the tenant's booking-codes switch", () => {
+    expect(toPublicConfigView(config()).features).toEqual({
+      bookingCodes: true,
+    });
     expect(
-      publicConfigSchema.parse({ betting: toBettingRules(config.betting) }),
-    ).toBeTruthy();
+      toPublicConfigView({
+        ...config(),
+        features: { ...config().features, booking_codes: false },
+      }).features.bookingCodes,
+    ).toBe(false);
+  });
+
+  it("keeps booking codes on when the tenant's config doesn't mention them", () => {
+    expect(
+      toPublicConfigView({ ...config(), features: {} }).features.bookingCodes,
+    ).toBe(true);
+  });
+
+  it("produces what the browser's schema accepts", () => {
+    expect(publicConfigSchema.parse(toPublicConfigView(config()))).toBeTruthy();
   });
 });

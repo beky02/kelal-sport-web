@@ -116,12 +116,11 @@
     "placeFailed": "Bet not accepted",
     "bookBet": "Book bet",
     "bookingCode": "Booking code",
-    "validUntilKickoff": "Valid until first kickoff",
     "copyCode": "Copy code",
     "copied": "Copied",
     "bookHint": "Place it later or share it. Agent shops can load this code too.",
     "loadCode": "Load booking code",
-    "loadCodePlaceholder": "e.g. KS7Q4M2",
+    "loadCodePlaceholder": "e.g. 7KQ2M9X",
     "load": "Load",
     "setMax": "Set {amount}",
     "alerts": {
@@ -527,5 +526,46 @@
     "goBack": "Go back",
     "activeBreak": "Break active · {period}. Betting and deposits are paused.",
     "activeExclusion": "Self-exclusion active · {period}."
+  },
+  "booking": {
+    "validUntil": "Valid until {day} {date}, {time}",
+    "shareText": "Bet slip {code}",
+    "loaded": "Booking {code} is in your slip.",
+    "notAddedTitle": "Not added, no longer available:",
+    "notAddedLeg": "{event} · {pick}: {reason}",
+    "sizesNote": "This code combines system sizes {sizes}. The slip shows {k}.",
+    "dismiss": "Dismiss",
+    "loadIntoSlip": "Load into bet slip",
+    "replacesSlip": "Replaces the {n} selections in your slip.",
+    "stakeHint": "Suggested stake",
+    "pageTitle": "Bet slip {code}",
+    "selections": "Selections",
+    "wasOdds": "was {odds}",
+    "expiredTitle": "This code has expired",
+    "expiredBody": "Code {code} can no longer be loaded. Ask for a new code, or build the slip again.",
+    "notFoundTitle": "No booking with this code",
+    "notFoundBody": "Check code {code} and try again.",
+    "failedTitle": "Couldn’t load this booking",
+    "failedBody": "Check your connection and try again.",
+    "invalidCode": "A booking code is 7 letters and numbers, like 7KQ2M9X.",
+    "reason": {
+      "EVENT_STARTED": "match has started",
+      "MARKET_SUSPENDED": "betting is paused",
+      "MARKET_CLOSED": "market closed",
+      "NOT_FOUND": "no longer offered",
+      "UNPRICED": "no price right now"
+    },
+    "errors": {
+      "expired": "Code {code} has expired.",
+      "notFound": "No booking with code {code}. Check it and try again.",
+      "rateLimited": "Too many booking codes for now. Try again later.",
+      "cannotBook": "This slip can’t be booked as it is.",
+      "failed": "Couldn’t reach the bookings service. Try again."
+    },
+    "og": {
+      "description": "Selections: {picks}",
+      "expired": "This booking code has expired.",
+      "notFound": "No booking with this code."
+    }
   }
 }

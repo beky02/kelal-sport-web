@@ -1,12 +1,15 @@
 import "server-only";
-import { tenantForHost } from "./config";
+import { tenantFromHeaders } from "./config";
 import { UpstreamError } from "./upstream";
 
-const problem = (status: number, code: string, title: string) =>
+/** A Problem this app answers itself, in the API's own shape. */
+export const problemResponse = (status: number, code: string, title: string) =>
   Response.json(
     { type: "about:blank", title, status, code },
     { status, headers: { "Content-Type": "application/problem+json" } },
   );
+
+const problem = problemResponse;
 
 /**
  * Runs a route handler's read and answers in the API's own terms.
@@ -19,16 +22,18 @@ const problem = (status: number, code: string, title: string) =>
 export async function respond<T>(
   request: Request,
   load: (ctx: { tenant: string; params: URLSearchParams }) => Promise<T>,
+  { status = 200 }: { status?: number } = {},
 ): Promise<Response> {
-  const tenant = tenantForHost(
-    request.headers.get("x-forwarded-host") ?? request.headers.get("host"),
-  );
+  const tenant = tenantFromHeaders(request.headers);
   try {
     const body = await load({
       tenant,
       params: new URL(request.url).searchParams,
     });
-    return Response.json(body, { headers: { "Cache-Control": "no-store" } });
+    return Response.json(body, {
+      status,
+      headers: { "Cache-Control": "no-store" },
+    });
   } catch (error) {
     if (error instanceof UpstreamError) {
       return error.problem && typeof error.problem === "object"

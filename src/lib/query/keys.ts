@@ -11,6 +11,11 @@ export const configKeys = {
   public: () => [...configKeys.all, "public"] as const,
 };
 
+export const bookingKeys = {
+  all: ["bookings"] as const,
+  detail: (code: string) => [...bookingKeys.all, code] as const,
+};
+
 export const sportKeys = {
   all: ["sports"] as const,
   list: () => [...sportKeys.all, "list"] as const,

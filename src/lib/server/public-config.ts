@@ -1,7 +1,7 @@
 import "server-only";
 import type { components } from "@/lib/api/schema";
 import type { PublicConfigView } from "@/features/config/types";
-import { toBettingRules } from "@/lib/api/mappers/config";
+import { toPublicConfigView } from "@/lib/api/mappers/config";
 import { unwrap, upstream } from "./upstream";
 
 type PublicConfig = components["schemas"]["PublicConfig"];
@@ -28,6 +28,5 @@ export async function loadPublicConfig(tenant: string): Promise<PublicConfig> {
 export async function loadPublicConfigView(
   tenant: string,
 ): Promise<PublicConfigView> {
-  const config = await loadPublicConfig(tenant);
-  return { betting: toBettingRules(config.betting) };
+  return toPublicConfigView(await loadPublicConfig(tenant));
 }

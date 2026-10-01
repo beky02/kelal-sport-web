@@ -1,7 +1,8 @@
 import type { components } from "@/lib/api/schema";
-import type { BettingRules } from "@/features/config/types";
+import type { BettingRules, PublicConfigView } from "@/features/config/types";
 
 type ApiRuleSet = components["schemas"]["RuleSet"];
+type ApiPublicConfig = components["schemas"]["PublicConfig"];
 
 /** `RuleSet` → the slip's rules. Amounts stay decimal strings (FD4). */
 export function toBettingRules(r: ApiRuleSet): BettingRules {
@@ -20,5 +21,16 @@ export function toBettingRules(r: ApiRuleSet): BettingRules {
       taxes: r.taxes,
       refund_stake_tax_on_void: r.refund_stake_tax_on_void ?? false,
     },
+  };
+}
+
+/**
+ * `/v1/config/public` → what the browser needs. A switch the tenant's config
+ * doesn't mention stays on: only an explicit `false` turns a feature off.
+ */
+export function toPublicConfigView(config: ApiPublicConfig): PublicConfigView {
+  return {
+    betting: toBettingRules(config.betting),
+    features: { bookingCodes: config.features.booking_codes !== false },
   };
 }
