@@ -2,7 +2,7 @@ import "server-only";
 import createClient from "openapi-fetch";
 import type { paths } from "@/lib/api/schema";
 import type { Lang } from "@/types/common";
-import { serverConfig } from "./config";
+import { baseUrlFor, type ApiTag } from "./config";
 
 export type Upstream = ReturnType<typeof upstream>;
 
@@ -13,14 +13,15 @@ export interface RequestContext {
 }
 
 /**
- * A typed client for the sportsbook API, scoped to one tenant and language.
+ * A typed client for the sportsbook API, scoped to one tenant and language,
+ * pointed at the mock or the real API by the contract tag of what it calls (D7).
  *
  * Every request carries `X-Tenant-Id` (D3) and a fresh `X-Request-Id`, so a
  * failure in the backend's logs can be traced to the page that caused it.
  */
-export function upstream({ tenant, lang }: RequestContext) {
+export function upstream(tag: ApiTag, { tenant, lang }: RequestContext) {
   const client = createClient<paths>({
-    baseUrl: serverConfig.apiBaseUrl,
+    baseUrl: baseUrlFor(tag),
     headers: { "X-Tenant-Id": tenant, "Accept-Language": lang },
   });
   client.use({

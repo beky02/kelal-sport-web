@@ -15,7 +15,9 @@ contracts/
 └─ redocly.yaml        # lint rules
 ```
 
-Put this folder at the root of the platform monorepo (`platform/contracts/`).
+This folder lives in the **backend repo**, which owns the contract. The web and mobile repos keep a copy at
+`contracts/` and sync it when it changes (copy the folder, or `git subtree pull` from the backend repo), then
+regenerate their types. Never edit the copy in a client repo; change it here with `/contract-change`.
 
 ## Everyday commands
 
@@ -31,7 +33,7 @@ npx @redocly/cli preview-docs openapi.yaml               # browsable docs
 Point the Next.js apps at the mock:
 
 ```bash
-# client/web/apps/player/.env.local
+# in the web repo: apps/player/.env.local
 API_BASE_URL=http://localhost:4010
 ```
 
@@ -51,19 +53,19 @@ Prism also validates requests: a wrong body, a missing `Idempotency-Key` or a mi
 ## Generating clients
 
 ```bash
-# TypeScript types for client/web/packages/api
-npx openapi-typescript contracts/openapi.yaml -o client/web/packages/api/src/schema.d.ts
+# TypeScript types (web repo)
+npx openapi-typescript contracts/openapi.yaml -o packages/api/src/schema.d.ts      # web repo
 # then use openapi-fetch:  const api = createClient<paths>({ baseUrl })
 
-# Dart client for the Flutter app
-npx @openapitools/openapi-generator-cli generate -i contracts/openapi.yaml -g dart-dio -o client/mobile/packages/api
+# Dart client (Flutter repo)
+npx @openapitools/openapi-generator-cli generate -i contracts/openapi.yaml -g dart-dio -o packages/api   # mobile repo
 ```
 
 ## Backend conformance (CI)
 
-1. FastAPI exports its schema: `python -m app.export_openapi > build/backend-openapi.json`.
-2. `npx oasdiff breaking contracts/openapi.yaml build/backend-openapi.json` must report nothing.
-3. Schemathesis runs property-based tests of the running backend against this spec: `schemathesis run contracts/openapi.yaml --base-url http://localhost:8000`.
+1. `make contract` (`scripts/contract_check.py`): every route the backend serves must exist in this contract; prints coverage.
+2. `make conformance`: Schemathesis tests the running backend against this spec, for the routes implemented so far.
+3. `python -m apps.api.export_openapi` prints the backend's own schema if you want to diff it (e.g. with oasdiff) once most routes exist.
 
 ## Rules for changing the contract
 

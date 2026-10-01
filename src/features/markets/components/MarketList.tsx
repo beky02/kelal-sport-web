@@ -87,7 +87,9 @@ export function MarketList({
         onChange={setTab}
         size="sm"
         fill="surface"
-        className="self-start"
+        // A fixture can have six groups or more; on a phone they scroll
+        // sideways rather than pushing the page wider than the screen.
+        className="no-scrollbar max-w-full self-start overflow-x-auto"
         // The book's own groups for this fixture, named by the dictionary.
         options={[
           { value: "all", label: t.t("event.allMarkets") },

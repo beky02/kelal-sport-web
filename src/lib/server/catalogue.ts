@@ -51,7 +51,9 @@ async function dictionary(tenant: string, lang: Lang): Promise<Dictionary> {
   const cached = dictionaries.get(key);
   if (cached && cached.expires > Date.now()) return cached.value;
 
-  const value = unwrap(await upstream({ tenant, lang }).GET("/v1/dictionary"));
+  const value = unwrap(
+    await upstream("Catalogue", { tenant, lang }).GET("/v1/dictionary"),
+  );
   dictionaries.set(key, { value, expires: Date.now() + DICTIONARY_TTL_MS });
   return value;
 }
@@ -61,7 +63,7 @@ const dict = async (tenant: string): Promise<Lookup> =>
 
 async function sportCounts(tenant: string) {
   const { items } = unwrap(
-    await upstream({ tenant, lang: "en" }).GET("/v1/sports"),
+    await upstream("Catalogue", { tenant, lang: "en" }).GET("/v1/sports"),
   );
   return items;
 }
@@ -107,7 +109,7 @@ export async function loadBoard(
     both(
       async (lang) =>
         unwrap(
-          await upstream({ tenant, lang }).GET("/v1/events", {
+          await upstream("Catalogue", { tenant, lang }).GET("/v1/events", {
             params: { query },
           }),
         ).items,
@@ -126,7 +128,7 @@ export async function loadEvent(
       dict(tenant),
       both(async (lang) =>
         unwrap(
-          await upstream({ tenant, lang }).GET("/v1/events/{id}", {
+          await upstream("Catalogue", { tenant, lang }).GET("/v1/events/{id}", {
             params: {
               path: { id },
               // Every group, so the page can filter without another round trip.
@@ -153,7 +155,7 @@ export async function loadSearch(
     sportCounts(tenant),
     both(async (lang) =>
       unwrap(
-        await upstream({ tenant, lang }).GET("/v1/search", {
+        await upstream("Catalogue", { tenant, lang }).GET("/v1/search", {
           params: { query: { q } },
         }),
       ),

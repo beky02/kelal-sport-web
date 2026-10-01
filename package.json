@@ -13,7 +13,12 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "api:types": "openapi-typescript contracts/openapi.yaml -o src/lib/api/schema.d.ts",
-    "mock": "prism mock contracts/openapi.yaml -p 4010"
+    "mock": "prism mock contracts/openapi.yaml -p 4010",
+    "api:check": "node scripts/api-check.mjs",
+    "contract:sync": "node scripts/contract-sync.mjs",
+    "check": "pnpm typecheck && pnpm lint && pnpm format:check && pnpm test",
+    "ui": "playwright test",
+    "verify": "pnpm check && pnpm api:check && node scripts/contract-sync.mjs --check && pnpm build && pnpm ui"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.9.1",
@@ -32,6 +37,7 @@
     "zustand": "^5.0.15"
   },
   "devDependencies": {
+    "@playwright/test": "^1.63.0",
     "@stoplight/prism-cli": "^5.16.0",
     "@tailwindcss/postcss": "^4",
     "@testing-library/dom": "^10.4.2",
