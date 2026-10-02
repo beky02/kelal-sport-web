@@ -1,7 +1,7 @@
 ---
 id: F4
 title: Auth through route handlers and an httpOnly session cookie; KYC
-status: todo
+status: in_progress
 depends_on: [F0]
 contract_tags: [Auth, Me, KYC]
 touches_money: false
@@ -9,6 +9,10 @@ touches_ui: true
 ---
 
 # F4 — Auth and session
+
+Split (2026-10-02) into [F4a — session and login](F4a-session-login.md) (AC-3 to AC-8) and
+[F4b — register, reset, Fayda KYC](F4b-register-kyc.md) (AC-1, AC-2, AC-9, AC-10), as F3 was: one
+reviewable PR each. F4 is done when both are. Plan for F4a: `F4/plan.md`.
 
 ## Goal
 
