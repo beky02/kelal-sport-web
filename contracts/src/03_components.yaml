@@ -104,6 +104,12 @@ components:
       schema: { type: string }
 
   responses:
+    BadRequest:
+      description: Malformed request (VALIDATION_FAILED) — `X-Tenant-Id` is not a tenant code or disagrees with the host, `X-Request-Id` is over 64 characters, or `Accept-Language` is not a supported language
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+          example: { type: "https://api.example.et/errors/validation-failed", title: X-Tenant-Id does not match host, status: 400, code: VALIDATION_FAILED, request_id: req_01J9B00 }
     Unauthorized:
       description: Missing or invalid credentials (AUTH_INVALID_CREDENTIALS, AUTH_TOKEN_EXPIRED)
       content:

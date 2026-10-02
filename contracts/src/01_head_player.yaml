@@ -1231,6 +1231,10 @@ paths:
                 dictionary_version: 42
                 min_app_version: "1.0.0"
                 legal: { terms_version: "2026-10", rules_url: "https://example.et/rules", min_age: 21 }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '503': { $ref: '#/components/responses/Unavailable' }
 
   /v1/app/version:
     get:
@@ -1244,6 +1248,10 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/AppVersion' }
               example: { min_supported: "1.0.0", latest: "1.0.3", download_url: "https://example.et/app/demobet-1.0.3.apk", sha256: "9f2c...e1", release_notes: "Faster match lists" }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+        '503': { $ref: '#/components/responses/Unavailable' }
 
   # ---------------------------------------------------------------- Games (C17, Release 2)
   /v1/games:

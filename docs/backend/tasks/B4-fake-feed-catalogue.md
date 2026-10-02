@@ -23,7 +23,9 @@ from Prism to the real API (M1).
 ## Scope
 In: `feed` and global `catalogue` schemas (no RLS) plus tenant margin rules; `apps/feed` with the `FakeFeed`
 adapter going through the normal pipeline (raw message → id mapping → catalogue → Redis → events); dictionary
-builder; all Catalogue endpoints; margins applied at read time in C06; suspension rules.
+builder; all Catalogue endpoints; margins applied at read time in C06; suspension rules. `dictionary_version`
+in `GET /v1/config/public` (B1 serves the placeholder `0` from `modules/tenancy/service/public.py`; replace it
+with the catalogue's dictionary version through the catalogue interface).
 Out: real provider adapters (B11), live betting.
 
 ## Acceptance criteria

@@ -33,11 +33,15 @@ licence until 2099, and feature flags.
 | 14 | `quick_stakes` | Contract example has them; AC-3: `rules("betting")` equals golden `default_2026_10` (which has none) except `rules_version` | **AC-3.** Not seeded. The field is optional and validated when present. |
 | 15 | Other config sections | C16 §4 lists `auth`, `kyc`, `catalogue`, `payments`, `rg`, `notify`, `retail` | Typed and strict where B1 serves them (`brand`, `locale`, `betting`, `retail_betting`, `legal`, `app`, `auth.min_age`). The other sections are free-form objects that their owning tasks tighten. Unknown top-level sections are rejected. The seed uses C16 §4's sample values (placeholders, as C16 says). `retail` (C19 §11 keys) is left to B9. |
 | 16 | Seed safety | D6: a local-only licence valid until 2099 | `apps/seed.py` refuses to run unless `ENV` is `local` or `test`. A fake valid licence in staging or production would switch on real money. |
-| 17 | Config not activated | contract documents only 200/401 for `/config/public` | A tenant with no active config gets 503 `SERVICE_UNAVAILABLE` ("Tenant configuration unavailable"). This is an operator error state, not a client error. |
+| 17 | Config not activated | contract (at planning time) documented only 200/401 for `/config/public` | A tenant with no active config gets 503 `SERVICE_UNAVAILABLE` ("Tenant configuration unavailable"). This is an operator error state, not a client error. **(verification)** The 503 is now documented on both operations (contract change approved by the user). |
 | 18 | Size | Skill: split above ~1,500 changed lines | About 1,700 lines (half of them tests), all in one area (C16 plus its seed). **Not split.** |
+| 19 **(review S5, M3, SEC3)** | Validation bounds no source fixes | — | Operator-input bounds only, nothing player-facing: `auth.min_age` 18–99, ≤ 8 `quick_stakes` within [`min_stake`, `max_stake`], https-only URLs, phone `^\+\d{8,15}$`, texts ≤ 200 chars, document ≤ 256 KB and ≤ 16 levels, `max_lines ≤ 1024` (D1.2), `acca_bonus_min_leg_odds ≥ 1.01` (D5), `max_payout ≥ max_stake`, distinct tax codes, `download_url` needs `sha256`. B10's admin validation inherits them; loosen there if the operator needs it. |
+| 20 **(verification)** | `Accept-Language` | contract: the parameter's schema is the `Language` enum (`am`, `en`); TD-01: "`Accept-Language: am` or `en`" | Followed literally: any other value (including a browser's `en-US,en;q=0.9`) is a 400 `VALIDATION_FAILED` (`shared/http/language.py`). Browsers reach the API through the Next.js server (D3), which sets the header. If direct browser or webview calls are ever wanted, negotiating per RFC 9110 needs a contract change first; decide before B4 reuses the dependency for `Vary: Accept-Language` responses (D5). |
 
 No product rules are invented (tax and limit values come from the golden file and C16 §4's documented samples).
-No contract change is needed: no new error codes; 400/404 come from the existing middleware.
+No new error codes. **(verification)** Two additive contract changes were approved by the user during
+verification (see the Files table): the `BadRequest` component with 400/404/503 documented on the two B1
+operations, because `make conformance` checks every status the API returns.
 
 ## Design
 
@@ -155,7 +159,9 @@ staff table until B10, so it has no FK.
 | `modules/tenancy/tests/test_tenant_rules.py` | real-money and rollout unit tests |
 | `modules/tenancy/tests/test_resolution.py` | AC-2 through the real app and DB |
 | `modules/tenancy/tests/test_config_service.py` | AC-3, AC-4, AC-5 against the DB |
-| `tests/contract/test_config_public.py` | AC-1 contract-shape tests |
+| `tests/contract/test_config_public.py` | AC-1 contract-shape tests for the seeded `demo` tenant (header and host resolution) |
+| `modules/tenancy/tests/test_public_api.py` | **(added)** AC-1 contract-shape tests on fresh tenants, 503 paths, `Accept-Language` |
+| `modules/tenancy/tests/test_events.py`, `contracts/events/config.changed.json` | **(added, review Q13/S6)** the first event schema (TD-02 §5) and a test that the payload matches it |
 | `tests/test_seed.py` | AC-6 and the ENV guard |
 | `tests/fixtures/stack.py` | `seeded` fixture (runs the seed, returns the demo `TenantContext`); docstring |
 | `shared/cache/local.py`, `shared/tests/test_local_cache.py` | TTL cache and its tests |
@@ -163,10 +169,14 @@ staff table until B10, so it has no FK.
 | `.importlinter` | **(added)** the contract above |
 | `modules/tenancy/tests/factories.py` | **(added)** a valid config document built from the golden rule set, shared by the tests |
 | `shared/config.py` | the two cache TTL settings |
-| `shared/http/middleware.py` | remove the placeholder resolver; docstring |
+| `shared/http/middleware.py` | remove the placeholder resolver; docstring. **(added during verification)** `RequestIdMiddleware` refuses an `X-Request-Id` over 64 characters with 400 `VALIDATION_FAILED`: the contract's `RequestId` parameter has `maxLength: 64` and `make conformance` (Schemathesis) checks it on the B1 routes |
 | `apps/api/main.py` | wire `DbTenantResolver` |
 | `apps/seed.py` | `make seed` |
-| `tests/test_app.py` | unchanged behaviour; only adjusted if the removed placeholder import breaks it |
+| `tests/test_app.py` | **(changed during verification)** tests for the `X-Request-Id` length rule above and for the `Allow` header on 405 |
+| `shared/errors.py` | **(added during verification)** the Problem handler for Starlette's `HTTPException` keeps `exc.headers`, so a 405 carries `Allow` (RFC 9110; Schemathesis checks it) |
+| `shared/http/language.py` | **(added during verification)** `accept_language` dependency: the contract types `Accept-Language` as the `Language` enum (TD-01), so any other value is a 400 `VALIDATION_FAILED` Problem; `GET /v1/config/public` uses it, later routes with that parameter reuse it |
+| `contracts/src/01_head_player.yaml`, `contracts/src/03_components.yaml`, `contracts/openapi.yaml` | **(contract change, approved by the user during verification)** `BadRequest` response component; `400` and `404` documented on `getPublicConfig` and `getAppVersion` (plus their previously generated `401` / `422`, now explicit). Follow-up: every other tenant-scoped operation returns the same 400/404 from the middleware; each task documents them on the operations it implements |
+| `Makefile` | **(added during verification)** `contract-build` runs `build.py` through `uv run` (the bare `python3` has no PyYAML) |
 | `docs/tasks/B4-fake-feed-catalogue.md` | one scope line: replace the `dictionary_version` 0 placeholder |
 | `docs/tasks/B1-tenancy-config.md`, `docs/tasks/README.md`, `docs/tasks/B1/*` | status, plan, verification |
 
@@ -175,29 +185,29 @@ staff table until B10, so it has no FK.
 | AC | Test | How it proves it |
 |---|---|---|
 | AC-1 | `tests/contract/test_config_public.py::test_public_config_for_demo_matches_contract` | seeded DB, real app, `X-Tenant-Id: demo` → 200; body validated with `assert_matches_schema("PublicConfig")` (from `contracts/openapi.yaml`); `Cache-Control` header |
-| AC-1 | `…::test_app_version_matches_contract` | `/v1/app/version` → `AppVersion` schema |
-| AC-1 | `…::test_public_config_values_come_from_the_database` | rules_version = 1, features match the seeded flags, real_money_enabled true, retail_betting present |
+| AC-1 | `…::test_app_version_for_demo_matches_contract` | `/v1/app/version` → `AppVersion` schema |
+| AC-1 | `modules/tenancy/tests/test_public_api.py::test_public_config_matches_the_contract_schema`, `…::test_public_config_values_come_from_the_database`, `…::test_public_config_omits_unset_optional_fields`, `…::test_accept_language_must_be_a_contract_language` | fresh tenants: schema check, rules_version = 1, features from the flags, real_money_enabled, retail_betting present or omitted, `Accept-Language` enum |
 | AC-2 | `modules/tenancy/tests/test_resolution.py::test_header_resolves_tenant` | `X-Tenant-Id: demo` → 200 for demo |
 | AC-2 | `…::test_host_resolves_tenant_ignoring_port` | `Host: demo.localhost:3000`, no header → demo |
 | AC-2 | `…::test_header_and_host_of_different_tenants_is_400` | header `demo` + host of a second tenant → 400 `VALIDATION_FAILED` |
 | AC-2 | `…::test_unknown_header_is_404` / `…::test_unknown_host_without_header_is_404` | 404 Problem |
 | AC-2 | `…::test_dev_default_tenant_used_when_env_local` / `…::test_dev_default_tenant_ignored_outside_local` | ENV=local → demo; ENV=test → 404 |
-| AC-2 | `…::test_resolver_caches_lookups` | second lookup within TTL doesn't query (cache hit), unknown cached too; refreshed after TTL (fake clock) |
-| AC-3 | `modules/tenancy/tests/test_config_service.py::test_seeded_betting_rules_equal_golden_default` | `rules("betting")` dump == golden `default_2026_10` with `rules_version` 1 |
-| AC-3 | `…::test_seeded_retail_rules_equal_golden_default` | same for `retail_betting` |
+| AC-2 | `…::test_resolver_caches_hits_and_misses_until_the_ttl`, `…::test_resolver_ttl_may_not_exceed_60_seconds` | second lookup within TTL doesn't query (cache hit), unknown cached too; refreshed after TTL (fake clock); TTL capped at 60 s |
+| AC-3 | `tests/test_seed.py::test_seeded_rule_sets_equal_golden_default_2026_10` | after `seed()`: `rules("betting")` and `rules("retail_betting")` dump == golden `default_2026_10` with `rules_version` 1 |
+| AC-3 | `modules/tenancy/tests/test_config_service.py::test_rules_carry_the_active_version_and_equal_the_stored_rule_set` | the mechanism on a fresh tenant |
 | AC-4 | `…::test_config_version_cannot_be_updated_or_deleted` | as migrator: UPDATE of `config` and DELETE raise (trigger); as app: permission denied |
-| AC-4 | `…::test_first_activation_may_set_activated_at_once` | trigger allows null→value, rejects a later change |
-| AC-4 | `…::test_activating_v2_changes_public_config_and_keeps_v1` | fresh tenant, v1 then v2 (different `min_stake` and brand name) → `/config/public` shows v2 (`rules_version` 2); `rules_version(1)` still returns v1's values; `config.changed` outbox rows written |
+| AC-4 | `…::test_first_activation_may_set_activated_at_and_approved_by_once` | trigger allows null→value once, rejects a later change |
+| AC-4 | `…::test_activating_v2_changes_config_and_keeps_v1`, `modules/tenancy/tests/test_public_api.py::test_public_config_shows_the_newly_activated_version` | fresh tenant, v1 then v2 (different `min_stake` and brand name) → `rules()` and `/config/public` show v2 (`rules_version` 2); `rules_version(1)` still returns v1's values; `config.changed` outbox rows written; re-activation is a no-op |
 | AC-4 | `…::test_invalid_config_is_rejected_on_create` | `create_version` with bad money → `ConfigInvalid`, no row |
 | AC-4 | `modules/tenancy/tests/test_config_document.py::*` | seed document valid; rejects `rules_version` in the stored rule set, unknown keys/sections, bad money/odds/rate, min > max, unsorted bonus table, stake-deducted non-stake tax, unknown colour token, bad semver, min_supported > latest, non-https URL |
 | AC-5 | `modules/tenancy/tests/test_tenant_rules.py::test_real_money_*` | unit: active + valid → true; expired (yesterday) → false; valid until today → true; no licence number → false; suspended → false; setup → false; "today" taken in the tenant timezone (23:30 UTC = next day in Addis) |
 | AC-5 | `test_config_service.py::test_real_money_disabled_for_suspended_or_expired_tenant` | DB tenants (suspended; expired licence) → `real_money_enabled()` false and `/config/public` says false |
 | AC-6 | `tests/test_seed.py::test_seed_twice_leaves_the_same_data` | snapshot of every demo row in all `tenancy.*` tables + its `config.changed` outbox rows, before/after a second run: equal |
 | AC-6 | `…::test_seed_refuses_outside_local_and_test` | ENV=production → refuses, writes nothing |
-| AC-6 | `…::test_seed_creates_next_version_when_document_changes` | changed seed document → v2 active, v1 untouched |
+| AC-6 | `modules/tenancy/tests/test_config_service.py::test_ensure_active_config_is_a_no_op_until_the_document_changes` | the seed's `ensure_active_config`: unchanged document → nothing written; changed → v2 active, v1 untouched |
 | edge | `test_config_service.py::test_flags_rollout_and_unknown_flag` | unknown → false; 0 % / partial without subject → false; partial with subject is stable |
 | edge | `test_config_service.py::test_config_returns_a_copy` | mutating the returned dict doesn't change the next call |
-| edge | `tests/contract/test_config_public.py::test_tenant_without_active_config_is_503` | Problem 503 |
+| edge | `modules/tenancy/tests/test_public_api.py::test_tenant_without_active_config_is_503`, `…::test_unreadable_stored_config_is_503` | Problem 503 for no active version and for a stored document this build can't read |
 | edge | `shared/tests/test_local_cache.py::*` | TTL expiry, negative caching, maxsize eviction, invalidate |
 
 ## Risks

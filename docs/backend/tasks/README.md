@@ -6,7 +6,7 @@ Each file here is one unit of work for the `/task` workflow (`.claude/skills/tas
 | ID | Title | Depends on | Milestone | Status |
 |---|---|---|---|---|
 | [B0](B0-skeleton.md) | Skeleton: DB session + RLS helpers, outbox, idempotency, readiness, CI | — | — | done |
-| [B1](B1-tenancy-config.md) | C16 tenancy and configuration, seeded `demo` tenant | B0 | — | planned |
+| [B1](B1-tenancy-config.md) | C16 tenancy and configuration, seeded `demo` tenant | B0 | — | done |
 | [B2](B2-ledger.md) | C03 ledger: post, reverse, balances, invariants | B0 | — | todo |
 | [B3](B3-slip-calculator.md) | C07 slip calculator passes the golden CSV | — | — | todo |
 | [B4](B4-fake-feed-catalogue.md) | C05 fake feed and C06 catalogue | B1 | M1 | todo |

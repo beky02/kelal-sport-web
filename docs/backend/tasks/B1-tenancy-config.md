@@ -1,7 +1,7 @@
 ---
 id: B1
 title: C16 tenancy and configuration with a seeded demo tenant
-status: planned
+status: done
 depends_on: [B0]
 components: [C16]
 contract_tags: [Config]
@@ -33,12 +33,12 @@ In:
 Out: admin config endpoints and four-eyes activation (B10); `GET /v1/banners` and `GET /v1/pages/{slug}` (CMS content, B13) — they share the `Config` tag, so `--missing Config` will still list them.
 
 ## Acceptance criteria
-- [ ] **AC-1** `GET /v1/config/public` with `X-Tenant-Id: demo` validates against the contract schema (test uses the OpenAPI schema, not a hand-written copy).
-- [ ] **AC-2** Tenant resolution: header, host (port ignored), header/host mismatch → 400, unknown → 404, `DEV_DEFAULT_TENANT` only when `ENV=local` (tests for each).
-- [ ] **AC-3** `rules("betting")` returns a RuleSet equal to `contracts/golden/rules.json` `default_2026_10` after seeding, except `rules_version`, which is the active config version (1 after seeding, per D1.12).
-- [ ] **AC-4** A config version cannot be modified after creation (DB-level or repo-level guard + test); activating v2 changes `config/public` and keeps `rules_version(1)` available.
-- [ ] **AC-5** `real_money_enabled()` is false for an expired licence or a suspended tenant (tests).
-- [ ] **AC-6** `make seed` run twice leaves the same data (idempotent).
+- [x] **AC-1** `GET /v1/config/public` with `X-Tenant-Id: demo` validates against the contract schema (test uses the OpenAPI schema, not a hand-written copy).
+- [x] **AC-2** Tenant resolution: header, host (port ignored), header/host mismatch → 400, unknown → 404, `DEV_DEFAULT_TENANT` only when `ENV=local` (tests for each).
+- [x] **AC-3** `rules("betting")` returns a RuleSet equal to `contracts/golden/rules.json` `default_2026_10` after seeding, except `rules_version`, which is the active config version (1 after seeding, per D1.12).
+- [x] **AC-4** A config version cannot be modified after creation (DB-level or repo-level guard + test); activating v2 changes `config/public` and keeps `rules_version(1)` available.
+- [x] **AC-5** `real_money_enabled()` is false for an expired licence or a suspended tenant (tests).
+- [x] **AC-6** `make seed` run twice leaves the same data (idempotent).
 
 ## Verification
 - `make verify`; `make seed && make run`, then `curl -H 'X-Tenant-Id: demo' localhost:8000/v1/config/public`
