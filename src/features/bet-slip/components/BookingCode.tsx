@@ -63,12 +63,7 @@ export function BookingCode({
         {code}
       </div>
 
-      <Barcode
-        code={code}
-        barCount={58}
-        seed={7}
-        label={t.t("betSlip.bookingCode")}
-      />
+      <Barcode code={code} label={t.t("betSlip.bookingCode")} />
 
       <div className="grid grid-cols-2 gap-2">
         <button

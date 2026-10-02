@@ -1,65 +1,72 @@
-/**
- * The bar pattern printed on a ticket.
- *
- * Deterministic from the code, so the same ticket always draws the same bars and
- * the artwork is stable across renders and reloads.
- *
- * NOT a machine-readable symbology. It stands in for one at the right size and
- * weight, and the code itself is printed above it for reading or typing in. Before
- * agent shops scan tickets this needs to become real Code 128 — the layout will
- * not have to change, only `pattern`.
- */
-function pattern(code: string, barCount: number, seed: number): number[][] {
-  // 32-bit arithmetic via imul, so the sequence is exact rather than relying on
-  // float truncation.
-  let hash = seed;
-  for (const character of code) {
-    hash = (Math.imul(hash, 31) + character.charCodeAt(0)) >>> 0;
-  }
+import { code128 } from "@/lib/barcode/code128";
+import { cn } from "@/lib/utils/cn";
 
-  // Quiet zone, then a start guard.
-  const bars: number[][] = [
-    [2, 1],
-    [1, 0],
-    [1, 1],
-    [1, 0],
-  ];
-  for (let i = 0; i < barCount; i++) {
-    hash = (Math.imul(hash, 1103515245) + 12345) >>> 0;
-    bars.push([1 + ((hash >>> 16) % 3), i % 2 === 0 ? 1 : 0]);
-  }
-  bars.push([1, 0], [2, 1]);
-  return bars;
+/** Code 128 wants at least ten modules of white either side of the bars. */
+const QUIET_ZONE = 10;
+const HEIGHT = 40;
+
+/** One path for every bar: `M x 0 h width v height h -width z`. */
+function barsPath(widths: readonly number[]): { d: string; modules: number } {
+  let x = QUIET_ZONE;
+  let d = "";
+  widths.forEach((width, i) => {
+    if (i % 2 === 0) d += `M${x} 0h${width}v${HEIGHT}h-${width}z`;
+    x += width;
+  });
+  return { d, modules: x + QUIET_ZONE };
 }
 
+function bars(code: string): { d: string; modules: number } | null {
+  try {
+    return barsPath(code128(code.replace(/[\s-]/g, "")));
+  } catch {
+    // Not a printable-ASCII code: there is nothing a scanner could read, and
+    // the code is printed beside the barcode anyway.
+    return null;
+  }
+}
+
+/**
+ * A ticket number or booking code as a Code 128 barcode, for a shop's scanner.
+ *
+ * It encodes the code without its hyphens (`K7Q2-M9XP-M` → `K7Q2M9XPM`), the
+ * form a retail ticket's barcode carries before its MAC (C19), so a scanner
+ * meets one format; the code itself is printed beside it for reading or
+ * typing. Black on white in every theme, because a scanner needs the
+ * contrast. Drawn as one SVG path, so it is the same bars on the server and
+ * in the browser.
+ */
 export function Barcode({
   code,
-  barCount = 60,
-  seed = 11,
   label,
   className,
 }: {
   code: string;
-  barCount?: number;
-  seed?: number;
   label: string;
   className?: string;
 }) {
+  const drawing = bars(code);
   return (
     <div
       role="img"
       aria-label={`${label}: ${code}`}
-      className={`flex h-[62px] rounded-md bg-white px-3.5 py-2.5 ${className ?? ""}`}
+      className={cn(
+        "bg-barcode-paper flex h-[62px] rounded-md px-3.5 py-2.5",
+        className,
+      )}
     >
-      {pattern(code, barCount, seed).map(([width, dark], index) => (
-        <span
-          key={index}
-          style={{
-            flex: `${width} 0 0`,
-            background: dark ? "#1d1f20" : "transparent",
-          }}
-        />
-      ))}
+      {drawing && (
+        <svg
+          viewBox={`0 0 ${drawing.modules} ${HEIGHT}`}
+          preserveAspectRatio="none"
+          shapeRendering="crispEdges"
+          aria-hidden
+          focusable="false"
+          className="fill-barcode-ink h-full w-full"
+        >
+          <path d={drawing.d} />
+        </svg>
+      )}
     </div>
   );
 }
