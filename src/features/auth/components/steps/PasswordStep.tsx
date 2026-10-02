@@ -22,10 +22,6 @@ export function PasswordStep({ onNext }: { onNext: () => void }) {
   const checks = [
     { label: t.t("auth.rule8"), met: passwordRules.length(password) },
     {
-      label: t.t("auth.ruleLetterNumber"),
-      met: passwordRules.letterAndNumber(password),
-    },
-    {
       label: t.t("auth.ruleMatch"),
       met: passwordRules.match(password, confirm),
     },

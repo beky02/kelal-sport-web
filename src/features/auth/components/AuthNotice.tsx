@@ -2,10 +2,14 @@
 
 import { useTranslation } from "@/lib/i18n/use-translation";
 import type { MessageKey } from "@/lib/i18n";
-import type { AuthErrorView } from "../lib/errors";
+import type { AuthErrorView, AuthFix } from "../lib/errors";
 
-const FIX_LABEL: Record<NonNullable<AuthErrorView["fix"]>, MessageKey> = {
+const FIX_LABEL: Record<AuthFix, MessageKey> = {
   logInAgain: "auth.logInAgain",
+  logInInstead: "auth.logInInstead",
+  sendNewCode: "auth.sendNewCode",
+  doThisLater: "auth.doThisLater",
+  responsibleGaming: "header.responsibleGaming",
 };
 
 /**

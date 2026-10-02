@@ -13,21 +13,18 @@ export const phoneSchema = z.object({
 
 export type PhoneForm = z.input<typeof phoneSchema>;
 
+/**
+ * C01 §2 and REG-06: at least 8 characters, no composition rules — length is
+ * what makes a password strong, and the API blocks breached ones (its
+ * `VALIDATION_FAILED` on the field). 128 is the contract's limit.
+ */
+export const PASSWORD_MAX = 128;
+
 export const passwordRules = {
   length: (value: string) => value.length >= 8,
-  letterAndNumber: (value: string) =>
-    /[A-Za-z]/.test(value) && /\d/.test(value),
   match: (value: string, confirm: string) =>
     value.length > 0 && value === confirm,
 };
-
-export const passwordSchema = z
-  .object({ password: z.string(), confirm: z.string() })
-  .refine((v) => passwordRules.length(v.password))
-  .refine((v) => passwordRules.letterAndNumber(v.password))
-  .refine((v) => passwordRules.match(v.password, v.confirm));
-
-export type PasswordForm = z.infer<typeof passwordSchema>;
 
 /** Fayda's FIN is twelve digits; grouping while typing is allowed. */
 export const kycSchema = z.object({

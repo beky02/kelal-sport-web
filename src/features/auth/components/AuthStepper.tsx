@@ -10,7 +10,7 @@ export function AuthStepper({ current }: { current: number }) {
   const labels = [
     t.t("auth.stepPhone"),
     t.t("auth.stepCode"),
-    t.t("auth.stepPassword"),
+    t.t("auth.stepDetails"),
     t.t("auth.stepId"),
   ];
 
