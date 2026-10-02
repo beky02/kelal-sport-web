@@ -1,24 +1,18 @@
 /**
- * Registration runs phone → code → password → ID; `login` and `forgot` sit
- * outside that sequence and show no progress bar.
+ * Which flow the auth dialog is showing. Each flow keeps its own position and
+ * data (`lib/flow.ts`, `register-flow.ts`, `reset-flow.ts`); the entry is only
+ * where it starts. `verify` is the ID step alone, for a signed-in player.
  */
-export type AuthStep =
-  "phone" | "otp" | "password" | "kyc" | "kycDone" | "login" | "forgot";
+export type AuthEntry = "login" | "register" | "verify" | "forgot";
 
-/** The registration steps, in order. Index drives the stepper. */
-export const REGISTRATION_STEPS: readonly AuthStep[] = [
-  "phone",
-  "otp",
-  "password",
-  "kyc",
-  "kycDone",
-];
-
-/** How many steps the progress bar counts — `kycDone` is a result, not a step. */
-export const STEP_COUNT = 4;
-
-export const stepIndex = (step: AuthStep): number =>
-  REGISTRATION_STEPS.indexOf(step);
+/**
+ * What a flow hands the next one when it switches: the phone already typed,
+ * and a notice to show (a changed password, on the way back to log in).
+ */
+export interface AuthPrefill {
+  phone: string;
+  notice: "passwordChanged" | null;
+}
 
 // ── who is signed in ────────────────────────────────────────────────────────
 
@@ -89,4 +83,76 @@ export interface Device {
   fingerprint: string;
   platform: "web";
   appVersion: string;
+}
+
+// ── registration, reset, KYC (F4b) ──────────────────────────────────────────
+
+/** Why an SMS code is sent; the login code comes from login's own 202. */
+export type OtpPurpose = "register" | "reset";
+
+export interface OtpRequestForm {
+  /** Nine digits as typed, or already `+251…`. */
+  phone: string;
+  purpose: OtpPurpose;
+}
+
+/** A code on its way (C01 §6). Seconds, from the API's answer. */
+export interface OtpChallengeView {
+  challengeId: string;
+  expiresIn: number;
+  resendAfter: number;
+}
+
+/**
+ * What the details step sends. The code rides along: the API checks it here,
+ * not on the code step. `termsVersion` is the version the phone step showed
+ * when the box was ticked; the route handler refuses it once the tenant's
+ * current version differs, and sends the API its own.
+ */
+export interface RegisterForm {
+  challengeId: string;
+  otp: string;
+  fullName: string;
+  /** `YYYY-MM-DD`, Gregorian. */
+  dateOfBirth: string;
+  password: string;
+  acceptTerms: true;
+  termsVersion: string;
+}
+
+/** Registration's answer: who was created. The tokens are in the cookie. */
+export interface RegisterResult {
+  player: PlayerSummary;
+}
+
+export interface PasswordResetForm {
+  challengeId: string;
+  otp: string;
+  newPassword: string;
+}
+
+export interface FaydaStartForm {
+  faydaNumber: string;
+}
+
+/** Fayda texted a code to the phone registered with the ID (C02 §6). */
+export interface FaydaChallengeView {
+  caseId: string;
+  /** Masked by the API, shown as it comes. */
+  otpSentTo: string;
+  expiresIn: number;
+}
+
+export interface FaydaVerifyForm {
+  caseId: string;
+  otp: string;
+}
+
+export type KycReason =
+  "NAME_MISMATCH" | "DOB_MISMATCH" | "DOC_UNREADABLE" | "UNDERAGE" | "OTHER";
+
+/** Fayda's verdict (C02 §8); `reasonCode` says why when it is not `verified`. */
+export interface KycResultView {
+  status: "verified" | "pending" | "needs_info" | "rejected";
+  reasonCode: KycReason | null;
 }

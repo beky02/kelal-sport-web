@@ -1,9 +1,9 @@
 import { loginFormSchema } from "@/lib/api/schemas";
-import { login, webDevice } from "@/lib/server/auth";
+import { login, logout, webDevice } from "@/lib/server/auth";
 import { readJson } from "@/lib/server/body";
 import { assertSameOrigin } from "@/lib/server/csrf";
 import { problemResponse, respond } from "@/lib/server/respond";
-import { ensureDevice, sessionCookie } from "@/lib/server/session";
+import { ensureDevice, readSession, sessionCookie } from "@/lib/server/session";
 import { mockPreference } from "@/lib/server/upstream";
 
 /** A phone, a password and at most a six-digit code: nothing bigger is read. */
@@ -28,12 +28,20 @@ export async function POST(request: Request) {
 
   return respond(request, async (ctx) => {
     const device = webDevice(ensureDevice(request, ctx.setCookie));
+    const previous = readSession(request, ctx.tenant);
     const { result, session } = await login(
       { ...ctx, prefer: mockPreference(request.headers.get("prefer")) },
       form.data,
       device,
     );
-    if (session) ctx.setCookie(sessionCookie(session, request));
+    if (session) {
+      // A session this browser already had is revoked at the API (best
+      // effort) before the new cookie replaces it: on a shared phone it must
+      // not live on, unseen, for thirty days. Not on a 202 — nobody is
+      // signed in yet — nor on a refusal.
+      if (previous) await logout(ctx, previous);
+      ctx.setCookie(sessionCookie(session, request));
+    }
     return result;
   });
 }

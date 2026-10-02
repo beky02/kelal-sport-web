@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { useTranslation } from "@/lib/i18n/use-translation";
 import {
   Field,
@@ -11,10 +11,11 @@ import {
   TelegramButton,
 } from "@/components/ui/Field";
 import type { AuthErrorView } from "../../lib/errors";
-import { AuthNotice } from "../AuthNotice";
+import { AuthNotice, StatusNotice } from "../AuthNotice";
 
 export function LoginStep({
   initialPhone = "",
+  notice = null,
   pending,
   error,
   onFix,
@@ -23,11 +24,14 @@ export function LoginStep({
   onRegister,
 }: {
   initialPhone?: string;
+  /** Good news from the flow before — a password just changed. */
+  notice?: string | null;
   pending: boolean;
   error: AuthErrorView | null;
   onFix: () => void;
   onSubmit: (form: { phone: string; password: string }) => void;
-  onForgot: () => void;
+  /** With what is in the phone field, so the reset need not ask again. */
+  onForgot: (phone: string) => void;
   onRegister: () => void;
 }) {
   const t = useTranslation();
@@ -35,6 +39,9 @@ export function LoginStep({
   const [phone, setPhone] = useState(initialPhone);
   const [password, setPassword] = useState("");
   const phoneInput = useRef<HTMLInputElement>(null);
+  // A notice already on screen when the step appears is not read out as a
+  // live region; it is read with the phone field, where the caret lands.
+  const noticeId = useId();
 
   // The caret starts in the first field: this step is the form.
   useEffect(() => {
@@ -63,10 +70,17 @@ export function LoginStep({
     >
       <h2 className="text-2xl">{t.t("auth.loginTitle")}</h2>
 
+      {notice && <StatusNotice id={noticeId}>{notice}</StatusNotice>}
+
       <Field label={t.t("auth.phone")}>
         {(props) => (
           <PhoneInput
             {...props}
+            aria-describedby={
+              [props["aria-describedby"], notice ? noticeId : null]
+                .filter(Boolean)
+                .join(" ") || undefined
+            }
             ref={phoneInput}
             value={phone}
             onChange={(event) => edit(setPhone)(event.target.value)}
@@ -82,8 +96,8 @@ export function LoginStep({
         trailing={
           <button
             type="button"
-            onClick={onForgot}
-            className="text-accent cursor-pointer bg-transparent font-semibold"
+            onClick={() => onForgot(phone.trim())}
+            className="text-accent -my-3 inline-flex min-h-11 items-center cursor-pointer bg-transparent font-semibold"
           >
             {t.t("auth.forgotPassword")}
           </button>
@@ -119,7 +133,7 @@ export function LoginStep({
         <button
           type="button"
           onClick={onRegister}
-          className="text-accent cursor-pointer bg-transparent font-semibold"
+          className="text-accent -my-3 inline-flex min-h-11 items-center cursor-pointer bg-transparent font-semibold"
         >
           {t.t("auth.register")}
         </button>

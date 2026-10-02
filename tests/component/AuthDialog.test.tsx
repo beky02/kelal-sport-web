@@ -95,7 +95,7 @@ beforeEach(() => {
   pathname = "/";
   replace.mockReset();
   useUiStore.setState({ lang: "en" });
-  useAuthStore.setState({ step: "login", next: null });
+  useAuthStore.setState({ entry: "login", next: null, prefill: null });
 });
 
 afterEach(() => vi.restoreAllMocks());
@@ -113,7 +113,7 @@ describe("logging in through the dialog", () => {
 
     await fillLogin();
 
-    await waitFor(() => expect(useAuthStore.getState().step).toBeNull());
+    await waitFor(() => expect(useAuthStore.getState().entry).toBeNull());
     expect(queryClient.getQueryData(walletKeys.balance())).toBeUndefined();
     const login = posts()[0];
     expect(login.path).toBe("/api/auth/login");
@@ -156,7 +156,7 @@ describe("logging in through the dialog", () => {
     await userEvent.type(screen.getByLabelText("SMS code"), "482913");
     await userEvent.click(screen.getByRole("button", { name: "Verify" }));
 
-    await waitFor(() => expect(useAuthStore.getState().step).toBeNull());
+    await waitFor(() => expect(useAuthStore.getState().entry).toBeNull());
     expect(posts()).toHaveLength(2);
     expect(posts()[1].body).toEqual({
       phone: "911234567",
@@ -190,7 +190,7 @@ describe("logging in through the dialog", () => {
       screen.getByRole("heading", { name: "Enter the SMS code" }),
     ).toBeInTheDocument();
     expect(screen.getByLabelText("SMS code")).toHaveValue("");
-    expect(useAuthStore.getState().step).toBe("login");
+    expect(useAuthStore.getState().entry).toBe("login");
   });
 
   it("offers to log in again when the code has expired", async () => {
@@ -258,7 +258,7 @@ describe("logging in through the dialog", () => {
     );
     // The API's own detail, as its own line — never glued into our sentence.
     expect(screen.getByText("Try again in 15 minutes.")).toBeInTheDocument();
-    expect(useAuthStore.getState().step).toBe("login");
+    expect(useAuthStore.getState().entry).toBe("login");
 
     // Locked: nothing to resubmit until a field changes.
     expect(screen.getByRole("button", { name: "Log in" })).toBeDisabled();
@@ -297,7 +297,7 @@ describe("logging in through the dialog", () => {
     });
     render(<AuthDialog />, { session: "guest" });
     await fillLogin();
-    await waitFor(() => expect(useAuthStore.getState().step).toBeNull());
+    await waitFor(() => expect(useAuthStore.getState().entry).toBeNull());
     expect(screen.queryByRole("alert")).toBeNull();
   });
 
@@ -329,7 +329,7 @@ describe("logging in through the dialog", () => {
       return [404, problem(404, "NOT_FOUND", "Not found")];
     });
 
-    useAuthStore.setState({ step: "login", next: "/wallet" });
+    useAuthStore.setState({ entry: "login", next: "/wallet", prefill: null });
     const first = render(<AuthDialog />, { session: "guest" });
     await fillLogin();
     await waitFor(() => expect(replace).toHaveBeenCalledWith("/wallet"));
@@ -337,8 +337,9 @@ describe("logging in through the dialog", () => {
 
     replace.mockReset();
     useAuthStore.setState({
-      step: "login",
+      entry: "login",
       next: "https://evil.example/wallet",
+      prefill: null,
     });
     render(<AuthDialog />, { session: "guest" });
     await fillLogin();

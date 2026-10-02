@@ -21,8 +21,21 @@ export interface TenantFeatures {
   bookingCodes: boolean;
 }
 
+/** What the tenant's registration consent and age copy need (`PublicConfig.legal`). */
+export interface TenantLegal {
+  /**
+   * The terms the phone step's consent accepts; registration sends it back
+   * and the server refuses it once it is no longer current. Null when the
+   * tenant has none configured.
+   */
+  termsVersion: string | null;
+  /** The minimum age the age consent states; null when the config says none. */
+  minAge: number | null;
+}
+
 /** What `/api/config` returns. F1 and F2a add branding and languages. */
 export interface PublicConfigView {
   betting: BettingRules;
   features: TenantFeatures;
+  legal: TenantLegal;
 }

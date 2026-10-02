@@ -109,6 +109,7 @@ export async function respond<T>(
       if (parsed.success) {
         const h = headers();
         h.set("Content-Type", "application/problem+json");
+        if (error.retryAfter) h.set("Retry-After", error.retryAfter);
         return Response.json(parsed.data, { status: error.status, headers: h });
       }
       return problem(

@@ -195,3 +195,86 @@ has ended.
 | `system.sessionBody`                   | ቆይታዎ አብቅቷል። ለመቀጠል እንደገና ይግቡ። ትኬትዎ ተቀምጧል።        | `system.sessionTitle`, former body's last clause |
 | `header.accountLoading`                | መለያዎ እየተጫነ ነው…                                  | `መለያ` + new (screen readers only)                |
 | `wallet.withdrawUnavailable`           | በመለያዎ ላይ ገንዘብ ማውጣት አሁን አይቻልም።                   | `wallet.kycLock` vocabulary                      |
+
+## F4b — registration, reset and Fayda (2026-10-02)
+
+Composed, not from the design: the design had no copy for the API's refusals,
+the reset code, the new details step or any Fayda result but "pending".
+`auth.pendingBody` was rewritten in both languages because no source promises
+"under 10 minutes" or an SMS; it now says only that the ID is being reviewed.
+`auth.ruleLetterNumber`, `auth.stepPassword`, `auth.passwordTitle` and `auth.required` were removed (C01 §2: no
+composition rules; the third step is now "Details"). "Session" follows
+`system.sessionBody` (ቆይታ); "Done" follows `wallet.done`.
+
+| Key                                    | Amharic                                             | Composed from                                   |
+| -------------------------------------- | --------------------------------------------------- | ----------------------------------------------- |
+| `auth.stepDetails`                     | መረጃ                                                 | new                                             |
+| `auth.detailsTitle`                    | የእርስዎ መረጃ                                           | new                                             |
+| `auth.detailsBody`                     | በፋይዳ መታወቂያዎ ላይ እንዳሉት ያስገቡ — ሲያረጋግጡ እናዛምዳቸዋለን።       | `auth.fullName` ("…እንዳለው"), `auth.faydaTitle`   |
+| `auth.fullNameInvalid`                 | ሙሉ ስምዎን በመታወቂያዎ ላይ እንዳለው ያስገቡ።                      | `auth.fullName` + `ያስገቡ` (auth.finInvalid)      |
+| `auth.dateOfBirthInvalid`              | ትክክለኛ ቀን በቀን/ወር/ዓመት (DD/MM/YYYY) ያስገቡ።              | new; the format kept in Latin as typed          |
+| `auth.fieldInvalid`                    | ይህንን ያረጋግጡና እንደገና ይሞክሩ።                             | `auth.errors.AUTH_OTP_INVALID`                  |
+| `auth.faydaCodeBody`                   | ፋይዳ ከመታወቂያዎ ጋር ወደተመዘገበው {phone} ኮድ ልኳል።             | `auth.newDeviceBody` ("ወደ {phone} ኮድ ልከናል")     |
+| `auth.verified`                        | ተረጋግጧል                                              | `auth.faydaTitle` (በፋይዳ የተረጋገጠ)                 |
+| `auth.kycVerifiedTitle`                | ማንነትዎ ተረጋግጧል                                        | `auth.kycTitle` (ማንነትዎን ያረጋግጡ)                  |
+| `auth.kycVerifiedBody`                 | የፋይዳ መታወቂያዎ ከመለያዎ ጋር ይዛመዳል።                         | new                                             |
+| `auth.pendingBody`                     | መታወቂያዎን እየገመገምን ነው። ሲጠናቀቅ እናሳውቅዎታለን።                | former body's last clause                       |
+| `auth.needsInfo`                       | ትኩረት ይፈልጋል                                          | new                                             |
+| `auth.needsInfoTitle`                  | መረጃዎን ማዛመድ አልቻልንም                                   | new                                             |
+| `auth.kycReason.NAME_MISMATCH`         | በፋይዳ መታወቂያዎ ላይ ያለው ስም በመለያዎ ላይ ካለው ስም ጋር አይዛመድም።    | new                                             |
+| `auth.kycReason.DOB_MISMATCH`          | በፋይዳ መታወቂያዎ ላይ ያለው የትውልድ ቀን በመለያዎ ላይ ካለው ጋር አይዛመድም። | `auth.dateOfBirth` (የትውልድ ቀን)                   |
+| `auth.kycReason.DOC_UNREADABLE`        | መታወቂያዎን ማንበብ አልቻልንም።                                | new                                             |
+| `auth.kycReason.UNDERAGE`              | የፋይዳ መታወቂያዎ ዕድሜዎ ከሕጋዊው ዕድሜ በታች መሆኑን ያሳያል።           | `auth.age` (ዕድሜ)                                |
+| `auth.kycReason.OTHER`                 | እርስዎን ለማረጋገጥ ተጨማሪ መረጃ እንፈልጋለን።                      | new                                             |
+| `auth.rejected`                        | አልተረጋገጠም                                            | negation of `auth.verified`                     |
+| `auth.rejectedTitle`                   | መታወቂያዎን ማረጋገጥ አልቻልንም                                | new                                             |
+| `auth.rejectedBody`                    | ከመገለጫዎ ድጋፍን ያግኙ፤ እንረዳዎታለን።                          | `profile.support` (ድጋፍ)                         |
+| `auth.tryAgain`                        | እንደገና ይሞክሩ                                          | rejection copy                                  |
+| `auth.done`                            | ተጠናቀቀ                                               | `wallet.done`                                   |
+| `auth.resetCodeBody`                   | {phone} መለያ ካለው ኮድ ልከንለታል።                          | `auth.newDeviceBody` + `መለያ`                    |
+| `auth.newPasswordTitle`                | አዲስ የይለፍ ቃል ያስገቡ                                    | the former `auth.passwordTitle`                 |
+| `auth.newPassword`                     | አዲስ የይለፍ ቃል                                         | `auth.password`                                 |
+| `auth.savePassword`                    | የይለፍ ቃሉን አስቀምጥ                                      | `auth.password` + new                           |
+| `auth.passwordChanged`                 | የይለፍ ቃልዎ ተቀይሯል። በአዲሱ የይለፍ ቃል ይግቡ።                   | `auth.password`, `ይግቡ` (header.login)           |
+| `auth.logInInstead`                    | በምትኩ ይግቡ                                            | `ይግቡ` + new                                     |
+| `auth.sendNewCode`                     | አዲስ ኮድ ላክ                                           | `auth.sendCode` (ኮድ ላክ)                         |
+| `auth.errors.otpExpiredResend`         | ኮዱ ጊዜው አልፎበታል። አዲስ ልንልክልዎ እንችላለን።                   | `auth.errors.AUTH_OTP_EXPIRED`'s first sentence |
+| `auth.errors.AUTH_OTP_UNAVAILABLE`     | አሁን ኤስኤምኤስ መላክ አልቻልንም። ከጥቂት ደቂቃዎች በኋላ እንደገና ይሞክሩ።   | `ኤስኤምኤስ` (auth.phoneHelp) + `እንደገና ይሞክሩ`        |
+| `auth.errors.REG_PHONE_TAKEN`          | ይህ ስልክ ቁጥር ቀድሞውኑ መለያ አለው።                           | `auth.phone`, `መለያ`                             |
+| `auth.errors.REG_UNDERAGE`             | መለያ ለመክፈት ሕጋዊ ዕድሜ ላይ መድረስ አለብዎት።                    | `auth.createTitle` (መለያ ይክፈቱ), `auth.age`       |
+| `auth.errors.REG_ID_TAKEN`             | ይህ መታወቂያ ከሌላ መለያ ጋር ተያይዟል። ድጋፍን ያግኙ።                | `መታወቂያ`, `profile.support`                      |
+| `auth.errors.KYC_PROVIDER_UNAVAILABLE` | ፋይዳ አሁን አይገኝም። በኋላ ከመገለጫዎ ማረጋገጥ ይችላሉ።               | `auth.doThisLater` (በኋላ), `profile` (መገለጫ)      |
+| `auth.errors.AUTH_TOKEN_EXPIRED`       | ቆይታዎ አብቅቷል። ለመቀጠል እንደገና ይግቡ።                        | `system.sessionBody`'s first two sentences      |
+| `auth.errors.VALIDATION_FAILED`        | አንዳንድ መረጃዎች መስተካከል አለባቸው።                           | new                                             |
+
+### F4b, before merge (2026-10-02)
+
+The ID step's copy was cut to what a source backs (the user's decision): SRS KYC-04 blocks withdrawals
+until the ID is verified; nothing backs "Ethiopian law requires…" (C02 §2 TBD-1), "about 2 minutes",
+or "You can deposit and bet now" (C02 §9 allows a deposit threshold). The age consent now states the
+tenant's `legal.min_age`.
+
+| Key                              | Amharic                                               | Composed from                                   |
+| -------------------------------- | ----------------------------------------------------- | ----------------------------------------------- |
+| `auth.kycBody`                   | አሸናፊነትዎን ከማውጣትዎ በፊት የማንነት ማረጋገጫ ያስፈልጋል።               | former body without "በሕግ" (by law) and the time |
+| `auth.laterNote`                 | መታወቂያዎ እስኪረጋገጥ ገንዘብ ማውጣት አይቻልም።                       | former note's second sentence                   |
+| `auth.age`                       | ዕድሜዬ {age} ዓመት ወይም ከዚያ በላይ ነው                         | former copy, 21 → `{age}`                       |
+| `auth.ageNote`                   | ውርርድ ለ{age}+ ዓመት ብቻ ነው። ይህንን ከፋይዳ መታወቂያዎ ጋር እናረጋግጣለን። | former copy, 21 → `{age}`                       |
+| `auth.errors.termsUpdated`       | ደንቦቻችን ተሻሽለዋል። እባክዎ አንብበው እንደገና ይቀበሉ።                 | `auth.termsLink` (ደንቦቹን), `auth.termsConsent`   |
+| `auth.errors.rateLimitedSeconds` | በጣም ብዙ ሙከራዎች። ከ{seconds} ሰከንድ በኋላ እንደገና ይሞክሩ።         | `auth.errors.RATE_LIMITED` + wait               |
+| `auth.errors.rateLimitedMinutes` | በጣም ብዙ ሙከራዎች። ከ{minutes} ደቂቃ በኋላ እንደገና ይሞክሩ።          | `auth.errors.RATE_LIMITED` + wait               |
+
+### F4b, review fixes before merge (2026-10-02)
+
+The UI review found two Amharic strings that read wrongly: `auth.resetTitle` said only "Password", and
+`auth.kycBody`'s "አሸናፊነት" reads as "victory", not money won.
+
+| Key                        | Amharic                                  | Composed from                              |
+| -------------------------- | ---------------------------------------- | ------------------------------------------ |
+| `auth.resetTitle`          | የይለፍ ቃል ዳግም ማስጀመር                        | `auth.forgotTitle` (…ዳግም ያስጀምሩ), as a noun |
+| `auth.kycBody`             | ያሸነፉትን ገንዘብ ለማውጣት የተረጋገጠ መታወቂያ ያስፈልግዎታል። | new: "the money you won"                   |
+| `auth.opensInNewTab`       | (በአዲስ ትር ይከፈታል)                          | new (screen readers only)                  |
+| `auth.dateOfBirthHelp`     | ቀን / ወር / ዓመት (DD/MM/YYYY)               | `auth.dateOfBirthInvalid`                  |
+| `auth.fullNamePlaceholder` | አበበ ከበደ ተስፋዬ                             | the English example, in Ethiopic           |
+| `auth.ruleMet`             | (ተሟልቷል)                                  | new (screen readers only)                  |
+| `auth.ruleNotMet`          | (ገና አልተሟላም)                              | new (screen readers only)                  |

@@ -46,3 +46,6 @@ next-env.d.ts
 # playwright (pnpm ui)
 /test-results/
 /playwright-report/
+
+# Claude desktop's dev-server preview config: per machine, like settings.local.json
+.claude/launch.json

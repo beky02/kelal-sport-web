@@ -11,7 +11,7 @@ import type { components } from "@/lib/api/schema";
 import { DEVICE_COOKIE, SESSION_COOKIE } from "@/lib/session-cookie";
 import type { Lang } from "@/types/common";
 import { forwardedHeader, sessionSecret, sessionSecrets } from "./config";
-import { UpstreamError, unwrap, upstream } from "./upstream";
+import { UpstreamError, retryAfterOf, unwrap, upstream } from "./upstream";
 
 export { DEVICE_COOKIE, SESSION_COOKIE };
 
@@ -374,7 +374,11 @@ export async function withSession<T>(
     }
     // A 204 has no data; everything else that is not ok is the API's Problem.
     if (!result.response.ok) {
-      throw new UpstreamError(result.response.status, result.error ?? null);
+      throw new UpstreamError(
+        result.response.status,
+        result.error ?? null,
+        retryAfterOf(result.response),
+      );
     }
     return result.data as T;
   } catch (error) {

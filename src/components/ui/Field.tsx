@@ -142,8 +142,11 @@ export function PasswordInput({
 /**
  * A consent checkbox with its own explanation.
  *
- * A real checkbox role rather than a styled input, because the label is a block
- * of text with links in it and the whole block should be the hit target.
+ * A real `<input type="checkbox">`, drawn as the box, with the sentence as its
+ * `<label>`: the whole row ticks it, and links inside the sentence (Terms,
+ * Privacy) stay links — a click on one follows it and leaves the box alone,
+ * and a screen reader finds them as links rather than flattened into the
+ * checkbox's name, as they were inside a `role="checkbox"`.
  */
 export function CheckboxRow({
   checked,
@@ -156,29 +159,24 @@ export function CheckboxRow({
   children: React.ReactNode;
   note?: string;
 }) {
+  const id = useId();
+
   return (
-    <div
-      role="checkbox"
-      aria-checked={checked}
-      tabIndex={0}
-      onClick={() => onChange(!checked)}
-      onKeyDown={(event) => {
-        if (event.key === " " || event.key === "Enter") {
-          event.preventDefault();
-          onChange(!checked);
-        }
-      }}
-      className="font-body text-text flex min-h-11 cursor-pointer items-start gap-3 bg-transparent py-2.5 text-left text-[13px]"
+    <label
+      htmlFor={id}
+      className="font-body text-text flex min-h-11 cursor-pointer items-start gap-3 py-2.5 text-left text-[13px]"
     >
-      <span
-        aria-hidden
-        className={cn(
-          "text-ground mt-px grid size-[22px] shrink-0 place-items-center rounded-md border-[1.5px]",
-          checked ? "border-accent bg-accent" : "border-muted bg-raised",
-        )}
-      >
+      <span className="relative mt-px grid size-[22px] shrink-0 place-items-center">
+        <input
+          id={id}
+          type="checkbox"
+          checked={checked}
+          onChange={(event) => onChange(event.target.checked)}
+          className="border-muted bg-raised checked:border-accent checked:bg-accent focus-visible:outline-accent size-[22px] cursor-pointer appearance-none rounded-md border-[1.5px] focus-visible:outline-2 focus-visible:outline-offset-2"
+        />
         {checked && (
           <svg
+            aria-hidden
             width="14"
             height="14"
             viewBox="0 0 24 24"
@@ -187,6 +185,7 @@ export function CheckboxRow({
             strokeWidth="2"
             strokeLinecap="round"
             strokeLinejoin="round"
+            className="text-ground pointer-events-none absolute"
           >
             <path d="M20 6 9 17l-5-5" />
           </svg>
@@ -195,12 +194,13 @@ export function CheckboxRow({
       <span>
         <span className="font-semibold">{children}</span>
         {note && (
+          // Inside the label, so already part of the box's name: read once.
           <span className="text-muted block text-[11px] font-normal">
             {note}
           </span>
         )}
       </span>
-    </div>
+    </label>
   );
 }
 

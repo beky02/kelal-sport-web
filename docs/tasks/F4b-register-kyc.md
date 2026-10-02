@@ -1,7 +1,7 @@
 ---
 id: F4b
 title: Register with the SMS code, reset the password, verify with Fayda
-status: todo
+status: done
 depends_on: [F4a]
 contract_tags: [Auth, KYC]
 touches_money: false
@@ -56,14 +56,14 @@ Out (do not build here):
 
 ## Acceptance criteria
 
-- [ ] **AC-1** Full register → OTP → password → KYC flow against Prism.
-- [ ] **AC-2** `REG_PHONE_TAKEN` and `AUTH_OTP_INVALID` show their messages and the fix.
+- [x] **AC-1** Full register → OTP → password → KYC flow against Prism.
+- [x] **AC-2** `REG_PHONE_TAKEN` and `AUTH_OTP_INVALID` show their messages and the fix.
       `REG_PHONE_TAKEN` via `Prefer: code=409`. The contract has no named example for
       `AUTH_OTP_INVALID` (its 422 examples are `stake_too_low`, `insufficient_funds`, `validation`), so
       it is proven with the contract's `Problem` shape in a component test and a `pnpm ui` screen; a
       contract request for named auth examples is proposed.
-- [ ] **AC-9** Password reset by SMS code ends at the log-in step with a notice (component test).
-- [ ] **AC-10** Each `KycResult.status` (`verified`, `pending`, `needs_info`) has a screen state
+- [x] **AC-9** Password reset by SMS code ends at the log-in step with a notice (component test).
+- [x] **AC-10** Each `KycResult.status` (`verified`, `pending`, `needs_info`) has a screen state
       (`pnpm ui` screenshots via Prism's named examples).
 
 ## Verification
@@ -75,3 +75,8 @@ Out (do not build here):
 ## Notes
 
 - 2026-10-02: split from F4. Starts when F4a is `done` on main.
+- 2026-10-02: verified — `pnpm verify` green (786 unit/component tests, 132 Playwright runs incl. 11 new
+  screens × en/am × 375/1440 and the AC-1 e2e test against Prism). Spec and security reviews PASS; their
+  MINOR findings fixed or logged as follow-ups (`docs/tasks/F4b/verification.md`). The quality and UI
+  reviewers stalled before reporting and were not re-run, at the user's request to finalise. Contract
+  request 006 proposed.

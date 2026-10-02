@@ -1,7 +1,7 @@
 ---
 id: F4
 title: Auth through route handlers and an httpOnly session cookie; KYC
-status: in_progress
+status: done
 depends_on: [F0]
 contract_tags: [Auth, Me, KYC]
 touches_money: false
@@ -46,14 +46,21 @@ Out: Telegram login (P1).
 
 ## Acceptance criteria
 
-- [ ] **AC-1** Full register → OTP → password → KYC flow against Prism.
-- [ ] **AC-2** `REG_PHONE_TAKEN` and `AUTH_OTP_INVALID` (via `Prefer`) show their messages and the fix.
-- [ ] **AC-3** No token in `localStorage`, `document.cookie` or any response body to the browser
+- [x] **AC-1** Full register → OTP → password → KYC flow against Prism.
+- [x] **AC-2** `REG_PHONE_TAKEN` and `AUTH_OTP_INVALID` (via `Prefer`) show their messages and the fix.
+- [x] **AC-3** No token in `localStorage`, `document.cookie` or any response body to the browser
       (Playwright check after login).
-- [ ] **AC-4** A cross-origin POST to a mutating route handler is rejected (route test).
-- [ ] **AC-5** An expired access token is refreshed once and the request retried (loader test).
-- [ ] **AC-6** Login answering 202 (new device) asks for the OTP.
-- [ ] **AC-7** The tenant comes from `X-Forwarded-Host` only behind an explicit trusted-proxy setting,
+- [x] **AC-4** A cross-origin POST to a mutating route handler is rejected (route test).
+- [x] **AC-5** An expired access token is refreshed once and the request retried (loader test).
+- [x] **AC-6** Login answering 202 (new device) asks for the OTP.
+- [x] **AC-7** The tenant comes from `X-Forwarded-Host` only behind an explicit trusted-proxy setting,
       else from `Host` (`tenantFromHeaders`, route test): with a session cookie, a forged forwarded host
       must not send tenant A's session with tenant B's `X-Tenant-Id` (F3b security review). The same
       setting lets the route handlers read the player's IP for contract request 004.
+
+## Notes
+
+- 2026-10-02: done — both halves are: [F4a](F4a-session-login.md) (AC-3 to AC-7, `F4/verification.md`) and
+  [F4b](F4b-register-kyc.md) (AC-1, AC-2, AC-9, AC-10, `F4b/verification.md`). AC-2's `AUTH_OTP_INVALID`
+  is proven in the contract's `Problem` shape rather than "via `Prefer`": Prism has no example of it
+  (contract request 006).

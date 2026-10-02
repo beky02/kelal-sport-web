@@ -27,8 +27,9 @@ export function OtpStep({
   onFix,
   onSubmit,
   onChangeNumber,
-  resendAfter = 45,
+  resendAt = null,
   onResend,
+  submitLabel,
 }: {
   phoneMasked: string;
   /** Replaces "Sent to {phone}" when the code needs explaining. */
@@ -38,14 +39,16 @@ export function OtpStep({
   onFix?: () => void;
   onSubmit: (code: string) => void;
   onChangeNumber?: () => void;
-  /** Seconds before a new code may be asked for (the challenge's `resend_after`). */
-  resendAfter?: number;
+  /** When a new code may be asked for (epoch ms, from `resend_after`). */
+  resendAt?: number | null;
   onResend?: () => void;
+  /** "Verify" unless the code is checked later ("Continue"). */
+  submitLabel?: string;
 }) {
   const t = useTranslation();
   const [code, setCode] = useState("");
   const input = useRef<HTMLInputElement>(null);
-  const resend = useCountdown(resendAfter, onResend !== undefined);
+  const resend = useCountdown(onResend ? resendAt : null);
 
   // The caret starts in the boxes. A refused code remounts this step (the
   // dialog keys it by attempt), so the boxes come back empty with the caret
@@ -105,7 +108,8 @@ export function OtpStep({
               <button
                 type="button"
                 onClick={onResend}
-                className="text-accent cursor-pointer bg-transparent font-semibold"
+                disabled={pending}
+                className="text-accent -my-3 inline-flex min-h-11 items-center cursor-pointer bg-transparent font-semibold disabled:cursor-not-allowed disabled:opacity-45"
               >
                 {t.t("auth.sendCode")}
               </button>
@@ -121,7 +125,7 @@ export function OtpStep({
             <button
               type="button"
               onClick={onChangeNumber}
-              className="text-accent cursor-pointer bg-transparent font-semibold"
+              className="text-accent -my-3 inline-flex min-h-11 items-center cursor-pointer bg-transparent font-semibold"
             >
               {t.t("auth.changeNumber")}
             </button>
@@ -133,7 +137,7 @@ export function OtpStep({
         disabled={code.length < LENGTH || pending}
         aria-busy={pending || undefined}
       >
-        {t.t("auth.verify")}
+        {submitLabel ?? t.t("auth.verify")}
       </SubmitButton>
     </form>
   );

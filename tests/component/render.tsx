@@ -4,7 +4,7 @@ import type { ReactElement } from "react";
 import type { Player } from "@/features/auth/types";
 import type { BettingRules } from "@/features/config/types";
 import { toPlayer } from "@/lib/api/mappers/auth";
-import { toBettingRules } from "@/lib/api/mappers/config";
+import { toBettingRules, toPublicConfigView } from "@/lib/api/mappers/config";
 import { configKeys, sessionKeys } from "@/lib/query/keys";
 import { example } from "../contract";
 
@@ -12,6 +12,11 @@ import { example } from "../contract";
 export const CONTRACT_RULES: BettingRules = toBettingRules(
   example("/v1/config/public").betting,
 );
+
+/** The tenant's terms version and minimum age Prism serves (`2026-10`, 21). */
+export const CONTRACT_LEGAL = toPublicConfigView(
+  example("/v1/config/public"),
+).legal;
 
 /** The signed-in player Prism serves: the contract's `/v1/me` example. */
 export const CONTRACT_PLAYER: Player = toPlayer(example("/v1/me"));
@@ -60,6 +65,7 @@ export function render(
     queryClient.setQueryData(configKeys.public(), {
       betting: rules,
       features: { bookingCodes },
+      legal: CONTRACT_LEGAL,
     });
     // Fresh for the test's lifetime, so nothing refetches over the seed.
     queryClient.setQueryDefaults(configKeys.public(), {

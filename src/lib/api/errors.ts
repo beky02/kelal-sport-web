@@ -26,6 +26,8 @@ export class ApiError extends Error {
     readonly code: string = "unknown",
     readonly details?: unknown,
     readonly errors: ProblemFieldError[] = [],
+    /** Seconds to wait before trying again (`Retry-After`), when the answer said. */
+    readonly retryAfter: number | null = null,
   ) {
     super(message);
     this.name = "ApiError";

@@ -31,12 +31,22 @@ import type {
 } from "@/features/bookings/types";
 import { BOOKING_CODE } from "@/features/bookings/lib/code";
 import type {
+  FaydaChallengeView,
+  FaydaStartForm,
+  FaydaVerifyForm,
+  KycResultView,
   LoginForm,
   LoginResult,
+  OtpChallengeView,
+  OtpRequestForm,
+  PasswordResetForm,
   Player,
   PlayerSummary,
+  RegisterForm,
+  RegisterResult,
   SessionView,
 } from "@/features/auth/types";
+import { isIsoDate } from "@/features/auth/lib/birth-date";
 import { toE164 } from "@/features/auth/lib/phone";
 import { compareMoney } from "@/lib/money";
 import type {
@@ -320,6 +330,10 @@ export const bettingRulesSchema = z.object({
 export const publicConfigSchema = z.object({
   betting: bettingRulesSchema,
   features: z.object({ bookingCodes: z.boolean() }),
+  legal: z.object({
+    termsVersion: z.string().nullable(),
+    minAge: z.number().int().positive().nullable(),
+  }),
 }) satisfies z.ZodType<PublicConfigView>;
 
 const betTypeSchema = z.enum(["single", "multiple", "system"]);
@@ -438,22 +452,96 @@ export const loginResultSchema = z.discriminatedUnion("status", [
   }),
 ]) satisfies z.ZodType<LoginResult>;
 
+const phoneFieldSchema = z
+  .string()
+  .max(20)
+  .refine((phone) => toE164(phone) !== null, "Not an Ethiopian mobile number");
+
+/** The contract's six-digit SMS code. */
+const codeSchema = z.string().regex(/^\d{6}$/);
+const idSchema = z.string().min(1).max(64);
+
 /**
  * What `/api/auth/login` accepts from the browser; checked before anything is
  * sent on, and strict so nothing extra rides along.
  */
 export const loginFormSchema = z.strictObject({
-  phone: z
-    .string()
-    .max(20)
-    .refine(
-      (phone) => toE164(phone) !== null,
-      "Not an Ethiopian mobile number",
-    ),
+  phone: phoneFieldSchema,
   password: z.string().min(1).max(128),
-  challengeId: z.string().min(1).max(64).optional(),
-  otp: z
-    .string()
-    .regex(/^\d{6}$/)
-    .optional(),
+  challengeId: idSchema.optional(),
+  otp: codeSchema.optional(),
 }) satisfies z.ZodType<LoginForm>;
+
+// ── registration, reset, KYC (F4b) ──────────────────────────────────────────
+
+/** `/api/auth/otp`'s answer: a code on its way. */
+export const otpChallengeSchema = z.object({
+  challengeId: z.string(),
+  expiresIn: z.number().int(),
+  resendAfter: z.number().int(),
+}) satisfies z.ZodType<OtpChallengeView>;
+
+/** `/api/auth/register`'s answer. No token can pass this schema. */
+export const registerResultSchema = z.object({
+  player: playerSummarySchema,
+}) satisfies z.ZodType<RegisterResult>;
+
+/** `/api/kyc/fayda/otp`'s answer. */
+export const faydaChallengeSchema = z.object({
+  caseId: z.string(),
+  otpSentTo: z.string(),
+  expiresIn: z.number().int(),
+}) satisfies z.ZodType<FaydaChallengeView>;
+
+/** `/api/kyc/fayda/verify`'s answer: Fayda's verdict. */
+export const kycResultSchema = z.object({
+  status: z.enum(["verified", "pending", "needs_info", "rejected"]),
+  reasonCode: z
+    .enum([
+      "NAME_MISMATCH",
+      "DOB_MISMATCH",
+      "DOC_UNREADABLE",
+      "UNDERAGE",
+      "OTHER",
+    ])
+    .nullable(),
+}) satisfies z.ZodType<KycResultView>;
+
+/**
+ * What the F4b route handlers accept from the browser — strict, within the
+ * contract's bounds, checked before anything is sent on. Prism answers a body
+ * it cannot validate with an unrelated example, and the real API should never
+ * see one this app could have refused.
+ */
+export const otpRequestFormSchema = z.strictObject({
+  phone: phoneFieldSchema,
+  // The login code comes from login's own 202, never from here.
+  purpose: z.enum(["register", "reset"]),
+}) satisfies z.ZodType<OtpRequestForm>;
+
+export const registerFormSchema = z.strictObject({
+  challengeId: idSchema,
+  otp: codeSchema,
+  fullName: z.string().trim().min(3).max(100),
+  dateOfBirth: z.string().refine((value) => isIsoDate(value), "Not a date"),
+  password: z.string().min(8).max(128),
+  // The consent the phone step required, and the terms version it showed.
+  acceptTerms: z.literal(true),
+  termsVersion: z.string().max(64),
+}) satisfies z.ZodType<RegisterForm>;
+
+export const passwordResetFormSchema = z.strictObject({
+  challengeId: idSchema,
+  otp: codeSchema,
+  newPassword: z.string().min(8).max(128),
+}) satisfies z.ZodType<PasswordResetForm>;
+
+export const faydaStartFormSchema = z.strictObject({
+  // The contract's bounds; the ID step itself asks for the 12-digit FIN.
+  faydaNumber: z.string().regex(/^[A-Za-z0-9]{12,16}$/),
+}) satisfies z.ZodType<FaydaStartForm>;
+
+export const faydaVerifyFormSchema = z.strictObject({
+  caseId: idSchema,
+  otp: codeSchema,
+}) satisfies z.ZodType<FaydaVerifyForm>;

@@ -1,3 +1,4 @@
+import type { AuthPrefill } from "../types";
 import { authErrorMessage, type AuthErrorView } from "./errors";
 
 /**
@@ -17,6 +18,8 @@ export interface LoginState {
   error: AuthErrorView | null;
   /** Refusals so far; the code step is remounted per attempt. */
   attempts: number;
+  /** Good news to show above the form — a password just changed. */
+  notice: AuthPrefill["notice"];
 }
 
 export const initialLogin: LoginState = {
@@ -28,7 +31,14 @@ export const initialLogin: LoginState = {
   pending: false,
   error: null,
   attempts: 0,
+  notice: null,
 };
+
+/** Log in, as another flow hands it over: the phone already typed, and why. */
+export const initLogin = (prefill: AuthPrefill | null): LoginState =>
+  prefill
+    ? { ...initialLogin, phone: prefill.phone, notice: prefill.notice }
+    : initialLogin;
 
 export type LoginEvent =
   | { type: "submit"; phone: string; password: string }
@@ -57,6 +67,7 @@ export function loginReducer(state: LoginState, event: LoginEvent): LoginState {
         password: event.password,
         pending: true,
         error: null,
+        notice: null,
       };
     case "otpRequired":
       return {

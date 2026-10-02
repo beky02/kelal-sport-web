@@ -3,6 +3,9 @@
 import { useTranslation } from "@/lib/i18n/use-translation";
 import { cn } from "@/lib/utils/cn";
 
+/** How many steps registration's progress bar counts; the result is not one. */
+export const STEP_COUNT = 4;
+
 /** Four bars and four labels: where the user is, and how much is left. */
 export function AuthStepper({ current }: { current: number }) {
   const t = useTranslation();
@@ -10,7 +13,7 @@ export function AuthStepper({ current }: { current: number }) {
   const labels = [
     t.t("auth.stepPhone"),
     t.t("auth.stepCode"),
-    t.t("auth.stepPassword"),
+    t.t("auth.stepDetails"),
     t.t("auth.stepId"),
   ];
 

@@ -18,20 +18,20 @@ the tenant, the tenant's public configuration supplies the rest.
 Read once per request on the server and cached per tenant for a minute (`loadPublicConfig`); the browser
 gets the view it needs through `/api/config`. What the frontend takes from it:
 
-| Field                                         | Used for                                                              | Status                            |
-| --------------------------------------------- | --------------------------------------------------------------------- | --------------------------------- |
-| `tenant.name`, `brand.name`, `brand.logo_url` | Header, titles, Open Graph site name                                  | F1 (site name built for `/b`)     |
-| `brand.colors`                                | The theme tokens (below)                                              | F1                                |
-| `brand.support.telegram`, `.phone`            | Profile support rows, footer, maintenance screen                      | F1                                |
-| `languages`, `default_language`               | The `[lang]` segment, the switch, the first-visit redirect (FD2)      | F2a (default used for `/b` today) |
-| `features.booking_codes`                      | Book bet and Load a code shown or not (on unless explicitly `false`)  | Built                             |
-| `features.live`, `features.virtuals`          | Release 2 gates alongside `config/features.ts` (D8)                   | —                                 |
-| `real_money_enabled`                          | A clear notice; placing, depositing and withdrawing disabled (CFG-04) | F1                                |
-| `betting` (the `RuleSet`)                     | slipcalc's rules, quick stakes, `default_odds_policy`                 | Built (F3a)                       |
-| `legal.terms_version`, `rules_url`, `min_age` | Registration consent, the rules link, the age copy                    | F4b, F1                           |
-| `rg.reality_check_minutes`                    | The reality check                                                     | F7                                |
-| `dictionary_version`                          | Dictionary refresh (304 when unchanged)                               | F2b                               |
-| `min_app_version`                             | The Android app only                                                  | —                                 |
+| Field                                         | Used for                                                                                                                                          | Status                            |
+| --------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------- |
+| `tenant.name`, `brand.name`, `brand.logo_url` | Header, titles, Open Graph site name                                                                                                              | F1 (site name built for `/b`)     |
+| `brand.colors`                                | The theme tokens (below)                                                                                                                          | F1                                |
+| `brand.support.telegram`, `.phone`            | Profile support rows, footer, maintenance screen                                                                                                  | F1                                |
+| `languages`, `default_language`               | The `[lang]` segment, the switch, the first-visit redirect (FD2)                                                                                  | F2a (default used for `/b` today) |
+| `features.booking_codes`                      | Book bet and Load a code shown or not (on unless explicitly `false`)                                                                              | Built                             |
+| `features.live`, `features.virtuals`          | Release 2 gates alongside `config/features.ts` (D8)                                                                                               | —                                 |
+| `real_money_enabled`                          | A clear notice; placing, depositing and withdrawing disabled (CFG-04)                                                                             | F1                                |
+| `betting` (the `RuleSet`)                     | slipcalc's rules, quick stakes, `default_odds_policy`                                                                                             | Built (F3a)                       |
+| `legal.terms_version`, `rules_url`, `min_age` | Registration consent and the age copy (F4b: `terms_version` checked by the register route handler, `min_age` in the age box); the rules link (F1) | F4b, F1                           |
+| `rg.reality_check_minutes`                    | The reality check                                                                                                                                 | F7                                |
+| `dictionary_version`                          | Dictionary refresh (304 when unchanged)                                                                                                           | F2b                               |
+| `min_app_version`                             | The Android app only                                                                                                                              | —                                 |
 
 Payment methods and their limits come from `/v1/payment-methods`, not config (F6).
 
