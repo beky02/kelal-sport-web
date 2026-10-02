@@ -117,7 +117,7 @@ export function ProfileView() {
             </button>
             <button
               type="button"
-              onClick={() => openAuth("phone")}
+              onClick={() => openAuth("register")}
               className="bg-accent text-on-accent font-body h-12 cursor-pointer rounded-md text-sm font-bold"
             >
               {t.t("header.register")}
@@ -155,7 +155,7 @@ export function ProfileView() {
               <span className="flex-1 text-xs">{t.t("profile.kycNeed")}</span>
               <button
                 type="button"
-                onClick={() => openAuth("kyc")}
+                onClick={() => openAuth("verify")}
                 className="bg-accent text-on-accent font-body h-10 cursor-pointer rounded-md px-3.5 text-[13px] font-bold"
               >
                 {t.t("profile.verify")}

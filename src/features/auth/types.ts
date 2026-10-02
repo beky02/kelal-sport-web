@@ -14,20 +14,6 @@ export interface AuthPrefill {
   notice: "passwordChanged" | null;
 }
 
-/** F4a's dialog steps; replaced by the flows in the dialog step of F4b. */
-export type AuthStep =
-  "phone" | "otp" | "password" | "kyc" | "kycDone" | "login" | "forgot";
-export const REGISTRATION_STEPS: readonly AuthStep[] = [
-  "phone",
-  "otp",
-  "password",
-  "kyc",
-  "kycDone",
-];
-export const STEP_COUNT = 4;
-export const stepIndex = (step: AuthStep): number =>
-  REGISTRATION_STEPS.indexOf(step);
-
 // ── who is signed in ────────────────────────────────────────────────────────
 
 import type { Lang } from "@/types/common";

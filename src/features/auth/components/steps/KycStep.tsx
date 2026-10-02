@@ -10,21 +10,34 @@ import {
   SubmitButton,
   TextInput,
 } from "@/components/ui/Field";
-import { kycSchema, type KycForm } from "../../lib/schemas";
+import type { AuthErrorView } from "../../lib/errors";
+import { finSchema, type FinForm } from "../../lib/schemas";
+import { AuthNotice } from "../AuthNotice";
 
 /**
- * Step 4: identity, via Fayda.
+ * Identity, via Fayda: the ID number and the consent to share it.
  *
- * Required before a withdrawal, not before a bet — so it can be deferred, and
- * the note says exactly what deferring costs. Burying that would leave someone
- * discovering it when they try to take money out.
+ * Required before a withdrawal, not before a bet (C02 §2) — so it can be
+ * deferred, and the note says exactly what deferring costs. Burying that would
+ * leave someone discovering it when they try to take money out. The name and
+ * date of birth Fayda is matched against were given when the account was
+ * created.
  */
 export function KycStep({
-  onNext,
-  onSkip,
+  initialFin = "",
+  pending,
+  error,
+  onFix,
+  onSubmit,
+  onLater,
 }: {
-  onNext: () => void;
-  onSkip: () => void;
+  initialFin?: string;
+  pending: boolean;
+  error: AuthErrorView | null;
+  onFix: () => void;
+  /** The number, digits only. */
+  onSubmit: (fin: string) => void;
+  onLater: () => void;
 }) {
   const t = useTranslation();
   const [consent, setConsent] = useState(false);
@@ -33,15 +46,24 @@ export function KycStep({
     register,
     handleSubmit,
     formState: { errors, isValid },
-  } = useForm<KycForm>({
-    resolver: zodResolver(kycSchema),
+  } = useForm<FinForm, unknown, { fin: string }>({
+    resolver: zodResolver(finSchema),
     mode: "onChange",
-    defaultValues: { fin: "", fullName: "", dateOfBirth: "" },
+    defaultValues: { fin: initialFin },
   });
+
+  const apiField = error?.fields?.fayda_number;
+  const fieldError = errors.fin
+    ? t.t("auth.finInvalid")
+    : apiField !== undefined
+      ? (apiField ?? t.t("auth.finInvalid"))
+      : undefined;
 
   return (
     <form
-      onSubmit={handleSubmit(() => onNext())}
+      onSubmit={handleSubmit(({ fin }) => {
+        if (!pending) onSubmit(fin);
+      })}
       className="flex flex-col gap-4"
       noValidate
     >
@@ -60,44 +82,16 @@ export function KycStep({
         </div>
       </div>
 
-      <Field
-        label={t.t("auth.fin")}
-        error={errors.fin ? t.t("auth.finInvalid") : undefined}
-      >
+      <Field label={t.t("auth.fin")} error={fieldError}>
         {(props) => (
           <TextInput
             {...props}
             {...register("fin")}
             inputMode="numeric"
+            autoComplete="off"
+            maxLength={16}
             placeholder="4821 0937 5516"
             className="text-[15px] tracking-[0.08em]"
-          />
-        )}
-      </Field>
-
-      <Field
-        label={t.t("auth.fullName")}
-        error={errors.fullName ? t.t("auth.required") : undefined}
-      >
-        {(props) => (
-          <TextInput
-            {...props}
-            {...register("fullName")}
-            autoComplete="name"
-            placeholder="Abebe Kebede Tesfaye"
-          />
-        )}
-      </Field>
-
-      <Field
-        label={t.t("auth.dateOfBirth")}
-        error={errors.dateOfBirth ? t.t("auth.required") : undefined}
-      >
-        {(props) => (
-          <TextInput
-            {...props}
-            {...register("dateOfBirth")}
-            placeholder="14 / 03 / 1996"
           />
         )}
       </Field>
@@ -106,13 +100,18 @@ export function KycStep({
         {t.t("auth.kycConsent")}
       </CheckboxRow>
 
-      <SubmitButton disabled={!consent || !isValid}>
+      <AuthNotice error={error} onFix={onFix} />
+
+      <SubmitButton
+        disabled={!consent || !isValid || pending}
+        aria-busy={pending || undefined}
+      >
         {t.t("auth.verifyWithFayda")}
       </SubmitButton>
 
       <button
         type="button"
-        onClick={onSkip}
+        onClick={onLater}
         className="bg-raised text-text font-body h-12 cursor-pointer rounded-md text-sm font-bold"
       >
         {t.t("auth.doThisLater")}

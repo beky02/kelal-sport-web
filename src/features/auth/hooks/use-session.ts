@@ -15,7 +15,7 @@ import {
   walletKeys,
 } from "@/lib/query/keys";
 import { useSystemStore } from "@/stores/system.store";
-import { getMe, login, logout } from "../api/auth";
+import { getMe, login, logout, register } from "../api/auth";
 import type { Player, SessionView } from "../types";
 
 export interface SessionState {
@@ -72,27 +72,44 @@ export function forgetPlayer(queryClient: QueryClient): void {
   }
 }
 
+/**
+ * Someone has just signed in — by logging in or by registering. Whatever the
+ * previous player left in the cache goes, then `/api/me` is read so every
+ * screen flips together.
+ */
+async function signedIn(queryClient: QueryClient): Promise<void> {
+  forgetPlayer(queryClient);
+  try {
+    // Read who is signed in now, whether or not a screen is watching: the
+    // cache entry may not have a query function yet.
+    await queryClient.fetchQuery({
+      queryKey: sessionKeys.me(),
+      queryFn: ({ signal }) => getMe(signal),
+      staleTime: 0,
+    });
+  } catch {
+    // The cookie is set; the sign-in stood. `useSession` reads again on the
+    // next mount or focus rather than asking for the password twice.
+  }
+}
+
 /** Logs in. On success `/api/me` is read again, so every screen flips together. */
 export function useLogin() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: login,
     onSuccess: async (result) => {
-      if (result.status !== "ok") return;
-      forgetPlayer(queryClient);
-      try {
-        // Read who is signed in now, whether or not a screen is watching: the
-        // cache entry may not have a query function yet.
-        await queryClient.fetchQuery({
-          queryKey: sessionKeys.me(),
-          queryFn: ({ signal }) => getMe(signal),
-          staleTime: 0,
-        });
-      } catch {
-        // The cookie is set; the login stood. `useSession` reads again on the
-        // next mount or focus rather than asking for the password twice.
-      }
+      if (result.status === "ok") await signedIn(queryClient);
     },
+  });
+}
+
+/** Creates the account, which signs the new player in (the cookie is set). */
+export function useRegister() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: register,
+    onSuccess: () => signedIn(queryClient),
   });
 }
 

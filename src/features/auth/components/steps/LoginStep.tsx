@@ -11,10 +11,11 @@ import {
   TelegramButton,
 } from "@/components/ui/Field";
 import type { AuthErrorView } from "../../lib/errors";
-import { AuthNotice } from "../AuthNotice";
+import { AuthNotice, StatusNotice } from "../AuthNotice";
 
 export function LoginStep({
   initialPhone = "",
+  notice = null,
   pending,
   error,
   onFix,
@@ -23,11 +24,14 @@ export function LoginStep({
   onRegister,
 }: {
   initialPhone?: string;
+  /** Good news from the flow before — a password just changed. */
+  notice?: string | null;
   pending: boolean;
   error: AuthErrorView | null;
   onFix: () => void;
   onSubmit: (form: { phone: string; password: string }) => void;
-  onForgot: () => void;
+  /** With what is in the phone field, so the reset need not ask again. */
+  onForgot: (phone: string) => void;
   onRegister: () => void;
 }) {
   const t = useTranslation();
@@ -63,6 +67,8 @@ export function LoginStep({
     >
       <h2 className="text-2xl">{t.t("auth.loginTitle")}</h2>
 
+      {notice && <StatusNotice>{notice}</StatusNotice>}
+
       <Field label={t.t("auth.phone")}>
         {(props) => (
           <PhoneInput
@@ -82,7 +88,7 @@ export function LoginStep({
         trailing={
           <button
             type="button"
-            onClick={onForgot}
+            onClick={() => onForgot(phone.trim())}
             className="text-accent cursor-pointer bg-transparent font-semibold"
           >
             {t.t("auth.forgotPassword")}

@@ -23,6 +23,11 @@ export interface RegisterState {
   step: RegisterStep;
   /** As typed: nine digits, or `+251…`. */
   phone: string;
+  /**
+   * Both consents were ticked when the code was asked for — kept so going
+   * back to change the number does not ask for them again.
+   */
+  consented: boolean;
   challengeId: string | null;
   /** When another code may be asked for, in epoch ms (`resend_after`). */
   resendAt: number | null;
@@ -70,6 +75,7 @@ export function initialRegister(mode: RegisterState["mode"]): RegisterState {
     mode,
     step: mode === "verify" ? "kyc" : "phone",
     phone: "",
+    consented: false,
     challengeId: null,
     resendAt: null,
     otp: "",
@@ -125,7 +131,13 @@ export function registerReducer(
 ): RegisterState {
   switch (event.type) {
     case "sendCode":
-      return { ...state, phone: event.phone, pending: true, error: null };
+      return {
+        ...state,
+        phone: event.phone,
+        consented: true,
+        pending: true,
+        error: null,
+      };
     case "codeSent":
       return {
         ...state,

@@ -38,7 +38,9 @@ export function AuthNotice({
       className="bg-loss-bg text-text flex flex-col gap-1 rounded-md px-3 py-2.5 text-[13px]"
     >
       <span className="block">{message}</span>
-      {error.detail && <span className="block">{error.detail}</span>}
+      {error.detail && (
+        <span className="block whitespace-pre-line">{error.detail}</span>
+      )}
       {error.fix && onFix && (
         <button
           type="button"
@@ -49,6 +51,21 @@ export function AuthNotice({
           {t.t(FIX_LABEL[error.fix])}
         </button>
       )}
+    </div>
+  );
+}
+
+/**
+ * Good news, where the player is looking — a password just changed. A status,
+ * not an alert: it is read out without interrupting.
+ */
+export function StatusNotice({ children }: { children: React.ReactNode }) {
+  return (
+    <div
+      role="status"
+      className="bg-win-bg text-text rounded-md px-3 py-2.5 text-[13px]"
+    >
+      {children}
     </div>
   );
 }

@@ -26,14 +26,16 @@ export const passwordRules = {
     value.length > 0 && value === confirm,
 };
 
-/** Fayda's FIN is twelve digits; grouping while typing is allowed. */
-export const kycSchema = z.object({
+/**
+ * Fayda's FIN is twelve digits (inside the contract's 12–16); grouping while
+ * typing is allowed and stripped before sending.
+ */
+export const finSchema = z.object({
   fin: z
     .string()
+    .refine((value) => /^[\d\s-]*$/.test(value))
     .transform((value) => value.replace(/\D/g, ""))
     .refine((digits) => digits.length === 12),
-  fullName: z.string().trim().min(2),
-  dateOfBirth: z.string().trim().min(1),
 });
 
-export type KycForm = z.input<typeof kycSchema>;
+export type FinForm = z.input<typeof finSchema>;

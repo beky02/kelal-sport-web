@@ -7,7 +7,7 @@ export const metadata: Metadata = { title: "Log in · KelalSport" };
 export default function Page() {
   return (
     <Suspense>
-      <AuthRoute step="login" />
+      <AuthRoute entry="login" />
     </Suspense>
   );
 }

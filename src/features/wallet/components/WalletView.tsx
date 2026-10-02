@@ -140,7 +140,7 @@ export function WalletView() {
           selected={method}
           onSelect={setMethod}
           onContinue={() => setStep("amount")}
-          onVerify={() => openAuth("kyc")}
+          onVerify={() => openAuth("verify")}
         />
       )}
 

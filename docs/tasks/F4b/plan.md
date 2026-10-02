@@ -141,7 +141,7 @@ Create:
 - `src/lib/api/mappers/kyc.ts` — `FaydaChallenge`, `KycResult` → domain.
 - `src/features/auth/api/kyc.ts`, `src/features/auth/hooks/use-account.ts` — browser calls and mutations.
 - `src/features/auth/lib/register-flow.ts`, `src/features/auth/lib/reset-flow.ts`, `src/features/auth/lib/birth-date.ts` — pure flow state and date parsing.
-- `src/features/auth/components/AuthHeader.tsx`, `flows/LoginFlow.tsx`, `flows/RegisterFlow.tsx`, `flows/ResetFlow.tsx`, `steps/DetailsStep.tsx`, `steps/PasswordFields.tsx`, `steps/KycResultStep.tsx`.
+- `src/features/auth/components/AuthFrame.tsx` (the header row, stepper and scrolling body — named for all three, not only the header), `src/features/auth/hooks/use-finish-auth.ts` (closing the dialog and following `?next=`, shared by the flows; added while implementing), `flows/LoginFlow.tsx`, `flows/RegisterFlow.tsx`, `flows/ResetFlow.tsx`, `steps/DetailsStep.tsx`, `steps/PasswordFields.tsx`, `steps/KycResultStep.tsx`.
 - `tests/unit/register-route.test.ts` (otp, register, reset, Fayda handlers), `tests/unit/register-flow.test.ts` (both new reducers + birth date), `tests/component/RegisterFlow.test.tsx`, `tests/component/ResetFlow.test.tsx`.
 - `docs/contract-requests/006-auth-kyc-error-examples.md` — named examples for the auth/KYC refusals; which operation answers `REG_ID_TAKEN`; 503 on `fayda/verify`.
 - `docs/tasks/F4b/plan.md`, `docs/tasks/F4b/verification.md`.
@@ -154,7 +154,7 @@ Change:
 - `src/lib/api/schemas.ts` — browser-facing and request schemas for the five handlers.
 - `src/features/auth/types.ts`, `stores/auth.store.ts` (entry + prefill), `lib/flow.ts` (prefill), `lib/errors.ts`, `lib/schemas.ts`, `api/auth.ts`, `hooks/use-session.ts` (`useRegister`, shared `signedIn`), `hooks/use-countdown.ts` (deadline).
 - `src/features/auth/components/AuthDialog.tsx`, `AuthRoute.tsx`, `AuthStepper.tsx`, `AuthNotice.tsx`, `steps/PhoneStep.tsx`, `steps/OtpStep.tsx`, `steps/PasswordStep.tsx`, `steps/KycStep.tsx`, `steps/ForgotStep.tsx`, `steps/LoginStep.tsx`.
-- `src/components/layout/AppHeader.tsx`, `src/features/profile/components/ProfileView.tsx`, `src/features/wallet/components/WalletView.tsx`, `src/app/register/page.tsx` — new entry names.
+- `src/components/layout/AppHeader.tsx`, `src/features/profile/components/ProfileView.tsx`, `src/features/wallet/components/WalletView.tsx`, `src/app/register/page.tsx`, `src/app/login/page.tsx` — new entry names.
 - `src/lib/i18n/messages/en.json`, `am.json`, `TRANSLATION-NOTES.md`.
 - `tests/unit/auth-mappers.test.ts` (new mappers on the contract's examples), `tests/unit/auth-flow.test.ts` (error views with context), `tests/component/AuthDialog.test.tsx` (entry names), `tests/e2e/auth.spec.ts` (AC-1), `tests/e2e/screens.spec.ts` (new screens).
 - `docs/design/03-session-and-account.md`, `02-journeys.md`, `05-errors-and-states.md`, `01-screens.md` — registration, reset and KYC as built.

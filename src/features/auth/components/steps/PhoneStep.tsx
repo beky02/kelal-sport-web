@@ -15,37 +15,60 @@ import {
   TelegramButton,
 } from "@/components/ui/Field";
 import { routes } from "@/config/routes";
+import type { AuthErrorView } from "../../lib/errors";
 import { phoneSchema, type PhoneForm } from "../../lib/schemas";
+import { AuthNotice } from "../AuthNotice";
 
 /** Step 1: the number, and the two things the law requires us to ask. */
 export function PhoneStep({
-  onNext,
+  initialPhone = "",
+  consented = false,
+  pending = false,
+  error = null,
+  onFix,
+  onSubmit,
   onLogin,
 }: {
-  onNext: () => void;
+  initialPhone?: string;
+  /** Both boxes were ticked before (the player came back to change the number). */
+  consented?: boolean;
+  pending?: boolean;
+  error?: AuthErrorView | null;
+  onFix?: () => void;
+  onSubmit: (phone: string) => void;
   onLogin: () => void;
 }) {
   const t = useTranslation();
   const rich = useRichTranslation();
 
-  const [age, setAge] = useState(false);
-  const [terms, setTerms] = useState(false);
+  const [age, setAge] = useState(consented);
+  const [terms, setTerms] = useState(consented);
 
   const {
     register,
     handleSubmit,
+    getValues,
     formState: { errors, isValid },
   } = useForm<PhoneForm>({
     resolver: zodResolver(phoneSchema),
     mode: "onChange",
-    defaultValues: { phone: "" },
+    defaultValues: { phone: initialPhone },
   });
+
+  const apiField = error?.fields?.phone;
+  const fieldError = errors.phone
+    ? t.t("auth.phoneInvalid")
+    : apiField !== undefined
+      ? (apiField ?? t.t("auth.phoneInvalid"))
+      : undefined;
 
   const linkClass = "text-accent font-semibold";
 
   return (
     <form
-      onSubmit={handleSubmit(() => onNext())}
+      onSubmit={handleSubmit(() => {
+        if (!pending) onSubmit(getValues("phone").trim());
+      })}
       className="flex flex-col gap-4"
       noValidate
     >
@@ -54,7 +77,7 @@ export function PhoneStep({
       <Field
         label={t.t("auth.phone")}
         help={t.t("auth.phoneHelp")}
-        error={errors.phone ? t.t("auth.phoneInvalid") : undefined}
+        error={fieldError}
       >
         {(props) => (
           <PhoneInput
@@ -86,9 +109,14 @@ export function PhoneStep({
         </CheckboxRow>
       </div>
 
+      <AuthNotice error={error} onFix={onFix} />
+
       {/* Both boxes and a usable number: this is the consent record, so it
           cannot be a formality the user clicks past. */}
-      <SubmitButton disabled={!age || !terms || !isValid}>
+      <SubmitButton
+        disabled={!age || !terms || !isValid || pending}
+        aria-busy={pending || undefined}
+      >
         {t.t("auth.continue")}
       </SubmitButton>
 

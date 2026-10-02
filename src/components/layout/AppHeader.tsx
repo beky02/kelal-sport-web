@@ -110,7 +110,7 @@ export function AppHeader() {
           <Button
             variant="primary"
             className="h-[34px] px-2.5 md:h-9 md:px-4"
-            onClick={() => openAuth("phone")}
+            onClick={() => openAuth("register")}
           >
             {t.t("header.register")}
           </Button>
