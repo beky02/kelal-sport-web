@@ -1,9 +1,10 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { rgKeys } from "@/lib/query/keys";
 import { getResponsibleGamingStatus, startBreak } from "../api/status";
 
-const KEY = ["responsible-gaming"] as const;
+const KEY = rgKeys.all;
 
 /**
  * Whether a break or self-exclusion is running.

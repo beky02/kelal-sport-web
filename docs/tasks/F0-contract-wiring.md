@@ -18,8 +18,8 @@ serves.
 
 ## Read first
 
-- `../kelal backend/docs/build-plan.md` §2 F0
-- `../kelal backend/docs/engineering-decisions.md` D3 (tenant header, browser never calls the API), D5
+- `docs/backend/build-plan.md` §2 F0
+- `docs/backend/engineering-decisions.md` D3 (tenant header, browser never calls the API), D5
   (dictionary, name templates, 30 s refresh), D7 (mock-to-real by tag, Gregorian dates), D8 (no live)
 - `contracts/openapi.yaml`: `GET /v1/dictionary`, `/v1/sports`, `/v1/events`, `/v1/events/{id}`, `/v1/search`
 

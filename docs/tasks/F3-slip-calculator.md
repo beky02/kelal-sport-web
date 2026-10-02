@@ -20,10 +20,10 @@ are created and loaded through the contract.
 
 - `docs/decisions.md` **FD4** (no `decimal.js`; `lib/money.ts` on BigInt santim; lint rule) and **FD3**
   (`/b/{code}` deep link)
-- `../kelal backend/docs/engineering-decisions.md` D1 (all 12 rules), D7 (quick stakes set the total)
+- `docs/backend/engineering-decisions.md` D1 (all 12 rules), D7 (quick stakes set the total)
 - `contracts/golden/README.md`, `contracts/golden/ts/slipcalc.ts`, `contracts/golden/ts/golden.test.ts`
-- `../kelal backend/docs/design/components/c07-slip-calculator.md` (worked example, net payout 690.29)
-- `../kelal backend/docs/design/components/c09-booking-codes.md`
+- `docs/backend/design/components/c07-slip-calculator.md` (worked example, net payout 690.29)
+- `docs/backend/design/components/c09-booking-codes.md`
 - `contracts/openapi.yaml`: `GET /v1/config/public` (`RuleSet`), `POST /v1/slips/quote`,
   `POST /v1/bookings`, `GET /v1/bookings/{code}`
 - Existing: `src/features/bet-slip/lib/calculate.ts` (float estimate, five known differences from D1),

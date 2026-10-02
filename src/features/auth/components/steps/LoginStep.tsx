@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "@/lib/i18n/use-translation";
 import {
   Field,
@@ -10,26 +10,54 @@ import {
   SubmitButton,
   TelegramButton,
 } from "@/components/ui/Field";
+import type { AuthErrorView } from "../../lib/errors";
+import { AuthNotice } from "../AuthNotice";
 
 export function LoginStep({
-  onDone,
+  initialPhone = "",
+  pending,
+  error,
+  onFix,
+  onSubmit,
   onForgot,
   onRegister,
 }: {
-  onDone: () => void;
+  initialPhone?: string;
+  pending: boolean;
+  error: AuthErrorView | null;
+  onFix: () => void;
+  onSubmit: (form: { phone: string; password: string }) => void;
   onForgot: () => void;
   onRegister: () => void;
 }) {
   const t = useTranslation();
   const [show, setShow] = useState(false);
-  const [phone, setPhone] = useState("");
+  const [phone, setPhone] = useState(initialPhone);
   const [password, setPassword] = useState("");
+  const phoneInput = useRef<HTMLInputElement>(null);
+
+  // The caret starts in the first field: this step is the form.
+  useEffect(() => {
+    phoneInput.current?.focus();
+  }, []);
+
+  // A lock-out refuses everything until the API lifts it; resubmitting the
+  // same fields is pointless, so the button waits for a change.
+  const [editedFor, setEditedFor] = useState<AuthErrorView | null>(null);
+  const locked =
+    error?.key === "auth.errors.AUTH_LOCKED" && editedFor !== error;
+  const edit =
+    <T,>(set: (value: T) => void) =>
+    (value: T) => {
+      set(value);
+      setEditedFor(error);
+    };
 
   return (
     <form
       onSubmit={(event) => {
         event.preventDefault();
-        onDone();
+        if (!pending) onSubmit({ phone: phone.trim(), password });
       }}
       className="flex flex-col gap-4"
     >
@@ -39,27 +67,26 @@ export function LoginStep({
         {(props) => (
           <PhoneInput
             {...props}
+            ref={phoneInput}
             value={phone}
-            onChange={(event) => setPhone(event.target.value)}
+            onChange={(event) => edit(setPhone)(event.target.value)}
             placeholder="912 345 482"
           />
         )}
       </Field>
 
       <Field
-        label={
-          <>
-            <span>{t.t("auth.password")}</span>
-            {/* In the label row because that is where someone looks the moment
-                the password will not come to mind. */}
-            <button
-              type="button"
-              onClick={onForgot}
-              className="text-accent cursor-pointer bg-transparent font-semibold"
-            >
-              {t.t("auth.forgotPassword")}
-            </button>
-          </>
+        label={t.t("auth.password")}
+        // In the label row because that is where someone looks the moment
+        // the password will not come to mind.
+        trailing={
+          <button
+            type="button"
+            onClick={onForgot}
+            className="text-accent cursor-pointer bg-transparent font-semibold"
+          >
+            {t.t("auth.forgotPassword")}
+          </button>
         }
       >
         {(props) => (
@@ -67,7 +94,7 @@ export function LoginStep({
             {...props}
             autoComplete="current-password"
             value={password}
-            onChange={(event) => setPassword(event.target.value)}
+            onChange={(event) => edit(setPassword)(event.target.value)}
             show={show}
             onToggleShow={() => setShow(!show)}
             showLabel={show ? t.t("auth.hide") : t.t("auth.show")}
@@ -75,7 +102,12 @@ export function LoginStep({
         )}
       </Field>
 
-      <SubmitButton disabled={phone.trim() === "" || password === ""}>
+      <AuthNotice error={error} onFix={onFix} />
+
+      <SubmitButton
+        disabled={phone.trim() === "" || password === "" || pending || locked}
+        aria-busy={pending || undefined}
+      >
         {t.t("auth.logIn")}
       </SubmitButton>
 

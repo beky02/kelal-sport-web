@@ -2653,8 +2653,14 @@ paths:
                   terms_version: 2026-10
                   rules_url: https://example.et/rules
                   min_age: 21
+        '400':
+          $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '503':
+          $ref: '#/components/responses/Unavailable'
   /v1/app/version:
     get:
       tags:
@@ -2674,8 +2680,14 @@ paths:
                 download_url: https://example.et/app/demobet-1.0.3.apk
                 sha256: 9f2c...e1
                 release_notes: Faster match lists
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
         '422':
           $ref: '#/components/responses/Unprocessable'
+        '503':
+          $ref: '#/components/responses/Unavailable'
       security: []
       parameters:
       - $ref: '#/components/parameters/TenantId'
@@ -6945,6 +6957,19 @@ components:
       schema:
         type: string
   responses:
+    BadRequest:
+      description: Malformed request (VALIDATION_FAILED) — `X-Tenant-Id` is not a tenant code or disagrees with the host,
+        `X-Request-Id` is over 64 characters, or `Accept-Language` is not a supported language
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          example:
+            type: https://api.example.et/errors/validation-failed
+            title: X-Tenant-Id does not match host
+            status: 400
+            code: VALIDATION_FAILED
+            request_id: req_01J9B00
     Unauthorized:
       description: Missing or invalid credentials (AUTH_INVALID_CREDENTIALS, AUTH_TOKEN_EXPIRED)
       content:

@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://api.example.et/events/config.changed.json",
+  "title": "config.changed",
+  "description": "A config version became a tenant's active configuration (C16 §6). Published by the tenancy module on NATS subject evt.config.changed (version 1). Consumers reload cached configuration; the catalogue rebuilds its dictionary (Engineering Decisions D5). This is the `data` payload; the envelope (event_id, type, version, tenant_id, occurred_at, trace_id) is TD-02 §5. New fields are additive only.",
+  "type": "object",
+  "required": ["tenant", "version"],
+  "additionalProperties": false,
+  "properties": {
+    "tenant": {
+      "type": "string",
+      "pattern": "^[a-z0-9-]{2,32}$",
+      "description": "Tenant code (the same value as X-Tenant-Id)"
+    },
+    "version": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "The activated config version; equal to the rules_version of rule sets read from it"
+    }
+  }
+}

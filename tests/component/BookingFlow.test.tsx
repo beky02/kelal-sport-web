@@ -9,10 +9,15 @@ import {
 } from "@/features/bet-slip/stores/bet-slip.store";
 import { toBooking, toBookingReceipt } from "@/lib/api/mappers/bookings";
 import type { components } from "@/lib/api/schema";
-import { useSessionStore } from "@/stores/session.store";
 import { useUiStore } from "@/stores/ui.store";
 import { example, responseExample } from "../contract";
-import { render } from "./render";
+import { render as renderAs } from "./render";
+
+/** Booking codes are a guest's path into the slip: every screen here is a guest's. */
+const render = (
+  ui: Parameters<typeof renderAs>[0],
+  options: Parameters<typeof renderAs>[1] = {},
+) => renderAs(ui, { session: "guest", ...options });
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: vi.fn(), replace: vi.fn(), refresh: vi.fn() }),
@@ -87,7 +92,6 @@ beforeEach(() => {
   useBetSlipStore.getState().clear();
   useBetSlipStore.setState({ mode: "multiple", stake: "100", systemK: 2 });
   useUiStore.setState({ lang: "en", clock: "eat", calendar: "gregorian" });
-  useSessionStore.setState({ isGuest: true });
 });
 
 afterEach(() => vi.restoreAllMocks());

@@ -16,8 +16,8 @@ One paragraph: what a player can do when this is done, and why it matters.
 
 ## Read first
 
-- `../kelal backend/docs/engineering-decisions.md` §Dx (wins over component pages)
-- `../kelal backend/docs/design/components/cxx-....md` §n
+- `docs/backend/engineering-decisions.md` §Dx (wins over component pages)
+- `docs/backend/design/components/cxx-....md` §n
 - `contracts/openapi.yaml` operations: `GET /v1/...`
 - Existing code: `src/features/...`
 

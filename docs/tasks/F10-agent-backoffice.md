@@ -19,7 +19,7 @@ the admin APIs exist (B10).
 
 - `docs/decisions.md` **FD1** — this app is `apps/<name>` in the workspace F8a creates, built on its
   shared packages.
-- `../kelal backend/docs/design/components/c15-back-office-trading.md`, `c19-retail-network.md` §agents
+- `docs/backend/design/components/c15-back-office-trading.md`, `c19-retail-network.md` §agents
 - `contracts/openapi.yaml`: `Agent portal`, `Admin`, `Admin - retail` operations
 
 ## Acceptance criteria

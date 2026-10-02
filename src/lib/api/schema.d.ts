@@ -3719,6 +3719,24 @@ export interface components {
         };
     };
     responses: {
+        /** @description Malformed request (VALIDATION_FAILED) — `X-Tenant-Id` is not a tenant code or disagrees with the host, `X-Request-Id` is over 64 characters, or `Accept-Language` is not a supported language */
+        BadRequest: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                /**
+                 * @example {
+                 *       "type": "https://api.example.et/errors/validation-failed",
+                 *       "title": "X-Tenant-Id does not match host",
+                 *       "status": 400,
+                 *       "code": "VALIDATION_FAILED",
+                 *       "request_id": "req_01J9B00"
+                 *     }
+                 */
+                "application/problem+json": components["schemas"]["Problem"];
+            };
+        };
         /** @description Missing or invalid credentials (AUTH_INVALID_CREDENTIALS, AUTH_TOKEN_EXPIRED) */
         Unauthorized: {
             headers: {
@@ -7027,7 +7045,10 @@ export interface operations {
                     "application/json": components["schemas"]["PublicConfig"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            503: components["responses"]["Unavailable"];
         };
     };
     getAppVersion: {
@@ -7062,7 +7083,10 @@ export interface operations {
                     "application/json": components["schemas"]["AppVersion"];
                 };
             };
+            400: components["responses"]["BadRequest"];
+            404: components["responses"]["NotFound"];
             422: components["responses"]["Unprocessable"];
+            503: components["responses"]["Unavailable"];
         };
     };
     listGames: {

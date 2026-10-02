@@ -40,13 +40,14 @@ const get = (code: string, headers: Record<string, string> = {}) =>
 
 const KEY = "3f0c8b8e-6a3d-4c1e-9d0f-1b2a3c4d5e6f";
 
-const post = (
-  body: unknown,
-  headers: Record<string, string> = {
-    "content-type": "application/json",
-    "idempotency-key": KEY,
-  },
-) =>
+/** What this site's own pages send on every POST (`apiClient`). */
+const SAME_SITE = {
+  "content-type": "application/json",
+  "idempotency-key": KEY,
+  "x-requested-with": "KelalSport",
+};
+
+const post = (body: unknown, headers: Record<string, string> = SAME_SITE) =>
   POST(
     new Request("http://localhost:3000/api/bookings", {
       method: "POST",
@@ -175,6 +176,7 @@ describe("POST /api/bookings", () => {
     upstreamAnswers(201, {});
     const response = await post(request, {
       "content-type": "application/json",
+      "x-requested-with": "KelalSport",
     });
     expect(response.status).toBe(400);
     expect(sent).toHaveLength(0);
@@ -183,11 +185,38 @@ describe("POST /api/bookings", () => {
   it("refuses anything but JSON, so a cross-site form cannot post", async () => {
     upstreamAnswers(201, {});
     const response = await post(request, {
+      ...SAME_SITE,
       "content-type": "application/x-www-form-urlencoded",
-      "idempotency-key": KEY,
     });
     expect(response.status).toBe(415);
     expect(sent).toHaveLength(0);
+  });
+
+  it("refuses a POST without the X-Requested-With header (AC-4)", async () => {
+    upstreamAnswers(201, {});
+    const response = await post(request, {
+      "content-type": "application/json",
+      "idempotency-key": KEY,
+    });
+    expect(response.status).toBe(403);
+    expect((await response.json()).code).toBe("PERMISSION_DENIED");
+    expect(sent).toHaveLength(0);
+  });
+
+  it("refuses a POST whose Origin is another site, and takes its own (AC-4)", async () => {
+    upstreamAnswers(201, responseExample("/v1/bookings", "post", 201));
+    const foreign = await post(request, {
+      ...SAME_SITE,
+      origin: "https://evil.example",
+    });
+    expect(foreign.status).toBe(403);
+    expect(sent).toHaveLength(0);
+
+    const own = await post(request, {
+      ...SAME_SITE,
+      origin: "http://localhost:3000",
+    });
+    expect(own.status).toBe(201);
   });
 
   it("validates the body before sending anything on", async () => {
@@ -201,8 +230,7 @@ describe("POST /api/bookings", () => {
   it("refuses a POST another site's page sent", async () => {
     upstreamAnswers(201, {});
     const response = await post(request, {
-      "content-type": "application/json",
-      "idempotency-key": KEY,
+      ...SAME_SITE,
       "sec-fetch-site": "cross-site",
     });
     expect(response.status).toBe(403);
@@ -212,8 +240,7 @@ describe("POST /api/bookings", () => {
   it("takes a POST from its own pages", async () => {
     upstreamAnswers(201, responseExample("/v1/bookings", "post", 201));
     const response = await post(request, {
-      "content-type": "application/json",
-      "idempotency-key": KEY,
+      ...SAME_SITE,
       "sec-fetch-site": "same-origin",
     });
     expect(response.status).toBe(201);

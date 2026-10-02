@@ -19,10 +19,10 @@ cursor, and phones get search.
 ## Read first
 
 - `docs/decisions.md` **FD5** (Search takes Live's tab slot)
-- `../kelal backend/docs/engineering-decisions.md` D5 (lists, cursor, search ≥ 2 chars, dictionary
+- `docs/backend/engineering-decisions.md` D5 (lists, cursor, search ≥ 2 chars, dictionary
   versions, caching layers)
-- `../kelal backend/docs/design/components/c18-client-apps.md` §4.1 (rendering per route), §8 (budgets)
-- `../kelal backend/docs/design/components/c06-sports-catalogue.md`
+- `docs/backend/design/components/c18-client-apps.md` §4.1 (rendering per route), §8 (budgets)
+- `docs/backend/design/components/c06-sports-catalogue.md`
 - `contracts/openapi.yaml`: `/v1/events` (cursor), `/v1/events/popular`, `/v1/events/{id}?groups=`,
   `/v1/search`, `/v1/dictionary` (`version`, 304)
 - Existing: `src/lib/server/catalogue.ts`, `src/lib/api/mappers/catalogue.ts`, `src/features/sportsbook`,

@@ -18,7 +18,7 @@ promotions and the inbox are real.
 
 ## Read first
 
-- `../kelal backend/docs/design/components/c12-rg-aml.md`, `c11-bonuses.md`, `c14-notifications.md`
+- `docs/backend/design/components/c12-rg-aml.md`, `c11-bonuses.md`, `c14-notifications.md`
 - `contracts/openapi.yaml`: `GET`/`PATCH /v1/me`, `/v1/me/sessions`, `GET`/`PUT /v1/me/limits`,
   `POST /v1/me/self-exclusion`, `/v1/promotions`, `/v1/me/bonuses`, `POST /v1/promo-codes/redeem`,
   `/v1/inbox`, `/v1/inbox/unread-count`, `POST /v1/inbox/read`, `/v1/config/public` (`rg`:

@@ -9,9 +9,13 @@ import { Segmented } from "@/components/ui/Segmented";
 import { Switch } from "@/components/ui/Switch";
 import { LICENCE } from "@/config/constants";
 import { routes } from "@/config/routes";
+import { AuthNotice } from "@/features/auth/components/AuthNotice";
+import { useLogout, useSession } from "@/features/auth/hooks/use-session";
+import { authErrorMessage } from "@/features/auth/lib/errors";
+import { maskPhone } from "@/features/auth/lib/phone";
 import { useAuthStore } from "@/features/auth/stores/auth.store";
-import { PAYOUT_ACCOUNT } from "@/lib/api/mock/wallet";
-import { useSessionStore } from "@/stores/session.store";
+import { Skeleton } from "@/components/ui/Skeleton";
+import { formatLongDate } from "@/lib/i18n/dates";
 import { useUiStore } from "@/stores/ui.store";
 import type {
   CalendarSystem,
@@ -22,6 +26,15 @@ import type {
 import { cn } from "@/lib/utils/cn";
 import { InfoRow, SettingsRow, SettingsSection } from "./SettingsRow";
 
+/** The first letters of the first two names: `Abebe Kebede` → `AK`. */
+const initials = (name: string) =>
+  name
+    .trim()
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase() ?? "")
+    .join("");
+
 /**
  * Account and settings.
  *
@@ -29,8 +42,8 @@ import { InfoRow, SettingsRow, SettingsSection } from "./SettingsRow";
  * clock and calendar, and data saver — alongside language and theme, which are also in the
  * header because they are needed mid-task.
  *
- * Nothing here is a profile "edit" form: name, date of birth and Fayda number
- * come from the ID check and are shown, not typed over.
+ * Nothing here is a profile "edit" form: name, phone and date of birth come
+ * from the account (`/api/me`) and are shown, not typed over.
  */
 export function ProfileView() {
   const t = useTranslation();
@@ -47,9 +60,8 @@ export function ProfileView() {
   const dataSaver = useUiStore((s) => s.dataSaver);
   const setDataSaver = useUiStore((s) => s.setDataSaver);
 
-  const isGuest = useSessionStore((s) => s.isGuest);
-  const kycVerified = useSessionStore((s) => s.kycVerified);
-  const setGuest = useSessionStore((s) => s.setGuest);
+  const { isLoading, isGuest, player, kycVerified } = useSession();
+  const logout = useLogout();
   const openAuth = useAuthStore((s) => s.open);
 
   // Local until there is a notifications endpoint; offers stay off by default.
@@ -76,9 +88,23 @@ export function ProfileView() {
     { label: t.t("profile.notifOffers"), note: t.t("profile.notifOffersBody") },
   ];
 
+  const kycLabel = kycVerified
+    ? "profile.kycVerified"
+    : player?.kycStatus === "pending"
+      ? "profile.kycPending"
+      : "profile.kycNone";
+
   return (
     <div className="flex w-full flex-col">
-      {isGuest ? (
+      {isLoading ? (
+        <div className="flex items-center gap-3.5 px-4 pt-4.5 pb-1">
+          <Skeleton className="size-14 rounded-lg" />
+          <div className="flex flex-1 flex-col gap-1.5">
+            <Skeleton className="h-4 w-40" />
+            <Skeleton className="h-3 w-28" />
+          </div>
+        </div>
+      ) : isGuest || !player ? (
         <div className="flex flex-col gap-3 px-4 pt-4.5 pb-1">
           <h2 className="text-[22px]">{t.t("profile.menu")}</h2>
           <div className="grid grid-cols-2 gap-2">
@@ -102,13 +128,15 @@ export function ProfileView() {
         <>
           <div className="flex items-center gap-3.5 px-4 pt-4.5 pb-1">
             <div className="bg-surface font-display grid size-14 shrink-0 place-items-center rounded-lg text-lg">
-              AK
+              {initials(player.fullName)}
             </div>
             <div className="min-w-0 flex-1">
               <div className="font-display text-lg leading-[1.15]">
-                {t.t("profile.name")}
+                {player.fullName}
               </div>
-              <div className="text-muted text-xs">{PAYOUT_ACCOUNT}</div>
+              <div className="text-muted numeric text-xs">
+                {maskPhone(player.phone)}
+              </div>
             </div>
             <span
               className={cn(
@@ -118,7 +146,7 @@ export function ProfileView() {
                   : "border-muted text-muted",
               )}
             >
-              {t.t(kycVerified ? "profile.kycVerified" : "profile.kycPending")}
+              {t.t(kycLabel)}
             </span>
           </div>
 
@@ -158,17 +186,18 @@ export function ProfileView() {
         <ChevronRight size={18} strokeWidth={1.5} aria-hidden />
       </Link>
 
-      {!isGuest && (
+      {player && (
         <>
           <SettingsSection>{t.t("profile.personal")}</SettingsSection>
           <div className="border-divider border-t">
-            <InfoRow
-              label={t.t("profile.fullName")}
-              value="Abebe Kebede Tesfaye"
-            />
-            <InfoRow label={t.t("profile.phone")} value={PAYOUT_ACCOUNT} />
-            <InfoRow label={t.t("profile.dateOfBirth")} value="14 Mar 1996" />
-            <InfoRow label={t.t("profile.faydaId")} value="•••• •••• 5516" />
+            <InfoRow label={t.t("profile.fullName")} value={player.fullName} />
+            <InfoRow label={t.t("profile.phone")} value={player.phone} />
+            {player.dateOfBirth && (
+              <InfoRow
+                label={t.t("profile.dateOfBirth")}
+                value={formatLongDate(player.dateOfBirth, t.lang, calendar)}
+              />
+            )}
           </div>
         </>
       )}
@@ -248,7 +277,7 @@ export function ProfileView() {
         />
       </div>
 
-      {!isGuest && (
+      {player && (
         <>
           <SettingsSection>{t.t("profile.notifications")}</SettingsSection>
           <div className="border-divider border-t">
@@ -319,15 +348,20 @@ export function ProfileView() {
         <span className="text-muted">{t.t("profile.licence")}</span>
       </div>
 
-      {!isGuest && (
-        <div className="px-4 pt-4.5">
+      {player && (
+        <div className="flex flex-col gap-3 px-4 pt-4.5">
+          {logout.isError && (
+            <AuthNotice error={authErrorMessage(logout.error)} />
+          )}
           <button
             type="button"
-            onClick={() => {
-              setGuest(true);
-              router.push(routes.home);
-            }}
-            className="bg-raised text-text font-body h-12 w-full cursor-pointer rounded-md text-sm font-bold"
+            disabled={logout.isPending}
+            onClick={() =>
+              logout.mutate(undefined, {
+                onSuccess: () => router.push(routes.home),
+              })
+            }
+            className="bg-raised text-text font-body h-12 w-full cursor-pointer rounded-md text-sm font-bold disabled:cursor-not-allowed disabled:opacity-60"
           >
             {t.t("profile.logOut")}
           </button>

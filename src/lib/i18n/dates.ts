@@ -1,5 +1,9 @@
 import type { CalendarSystem, Lang } from "@/types/common";
-import { formatEthiopianShort, formatGregorianShort } from "./ethiopian-date";
+import {
+  formatEthiopianLong,
+  formatEthiopianShort,
+  formatGregorianShort,
+} from "./ethiopian-date";
 
 /**
  * Dates in East Africa Time.
@@ -56,6 +60,21 @@ export function formatDayMonth(
   return new Intl.DateTimeFormat(LOCALE[lang], {
     day: "numeric",
     month: "short",
+    timeZone: "UTC",
+  }).format(new Date(`${date}T00:00:00Z`));
+}
+
+/** `12 Apr 1998` / `ኤፕሪ 12 1998`, or the Ethiopian calendar's own long form when chosen. */
+export function formatLongDate(
+  date: string,
+  lang: Lang,
+  calendar: CalendarSystem,
+): string {
+  if (calendar === "ethiopian") return formatEthiopianLong(date);
+  return new Intl.DateTimeFormat(LOCALE[lang], {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
     timeZone: "UTC",
   }).format(new Date(`${date}T00:00:00Z`));
 }

@@ -79,6 +79,47 @@ async function bookAsGuest(page: Page, device: Device, lang: Lang) {
   }
 }
 
+/**
+ * A player, signed in through the route handler before the page loads. Prism
+ * answers login with the contract's example, so the cookie this sets is a
+ * real sealed session; the pages behind the proxy need it.
+ */
+async function loginViaApi(page: Page) {
+  const response = await page.request.post("/api/auth/login", {
+    data: { phone: "911234567", password: "correct horse battery" },
+    headers: { "X-Requested-With": "KelalSport" },
+  });
+  if (!response.ok()) {
+    throw new Error(`login failed: ${response.status()}`);
+  }
+}
+
+/**
+ * The login dialog after an answer Prism is asked for with `Prefer` (next dev
+ * forwards it): `code=202` is the new-device code step, `code=401` a wrong
+ * password, `code=423` a locked account.
+ */
+const loginAnswering =
+  (prefer: string) => async (page: Page, _device: Device, lang: Lang) => {
+    const t = MESSAGES[lang];
+    await page.route("**/api/auth/login", (route) =>
+      route.continue({
+        headers: { ...route.request().headers(), prefer },
+      }),
+    );
+    // The dialog's own form: a guest's header has a Log in button too.
+    const dialog = page.getByRole("dialog");
+    await dialog.getByLabel(t.auth.phone, { exact: true }).fill("911234567");
+    await dialog
+      .getByLabel(t.auth.password, { exact: true })
+      .fill("correct horse battery");
+    const answered = page.waitForResponse("**/api/auth/login");
+    await dialog
+      .getByRole("button", { name: t.auth.logIn, exact: true })
+      .click();
+    await answered;
+  };
+
 /** `/b/7KQ2M9X`, loaded into the slip — the sheet opens on a phone. */
 async function loadBooking(page: Page, _device: Device, lang: Lang) {
   await page
@@ -99,11 +140,24 @@ const SCREENS: Array<{
    * app passes on in development to show an error state.
    */
   headers?: Record<string, string>;
+  /** Runs before the page is opened — logging in, for the account pages. */
+  before?: (page: Page) => Promise<void>;
+  /**
+   * Console errors this screen is expected to produce: Chrome logs a refused
+   * fetch ("Failed to load resource … 401") as an error, and a refusal is the
+   * point of an error screen.
+   */
+  allowConsole?: RegExp;
   prepare?: (page: Page, device: Device, lang: Lang) => Promise<void>;
 }> = [
   { name: "home", path: "/" },
   { name: "home-slip", path: "/", prepare: openSlipWithPicks },
-  { name: "home-slip-booked", path: "/profile", prepare: bookAsGuest },
+  {
+    name: "home-slip-booked",
+    path: "/profile",
+    before: loginViaApi,
+    prepare: bookAsGuest,
+  },
   { name: "home-upcoming", path: "/?filter=upcoming" },
   { name: "event", path: "/event/fx_arsenal_chelsea" },
   { name: "competition", path: "/competition/t_epl" },
@@ -114,12 +168,26 @@ const SCREENS: Array<{
     path: "/b/7KQ2M9X",
     headers: { Prefer: "code=410" },
   },
-  { name: "my-bets", path: "/my-bets" },
-  { name: "transactions", path: "/transactions" },
-  { name: "wallet", path: "/wallet" },
-  { name: "profile", path: "/profile" },
+  { name: "my-bets", path: "/my-bets", before: loginViaApi },
+  { name: "transactions", path: "/transactions", before: loginViaApi },
+  { name: "wallet", path: "/wallet", before: loginViaApi },
+  { name: "profile", path: "/profile", before: loginViaApi },
+  { name: "profile-guest", path: "/profile" },
   { name: "responsible-gaming", path: "/responsible-gaming" },
   { name: "login", path: "/login" },
+  { name: "login-otp", path: "/login", prepare: loginAnswering("code=202") },
+  {
+    name: "login-wrong-password",
+    path: "/login",
+    prepare: loginAnswering("code=401"),
+    allowConsole: /status of 401/,
+  },
+  {
+    name: "login-locked",
+    path: "/login",
+    prepare: loginAnswering("code=423"),
+    allowConsole: /status of 423/,
+  },
   { name: "register", path: "/register" },
 ];
 
@@ -177,6 +245,7 @@ for (const [device, viewport] of Object.entries(DEVICES)) {
               }),
             );
           }
+          if (screen.before) await screen.before(page);
           await page.goto(screen.path);
           await settle(page);
           if (screen.prepare) {
@@ -195,7 +264,10 @@ for (const [device, viewport] of Object.entries(DEVICES)) {
               document.documentElement.clientWidth,
           );
 
-          expect(errors, "console errors").toEqual([]);
+          expect(
+            errors.filter((error) => !screen.allowConsole?.test(error)),
+            "console errors",
+          ).toEqual([]);
           expect(overflow, "horizontal scroll").toBeLessThanOrEqual(0);
           expect(
             MESSAGE_KEYS.filter((key) => text.includes(key)),

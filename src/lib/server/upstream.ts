@@ -15,6 +15,11 @@ export interface RequestContext {
    * be exercised end to end in development. See `mockPreference`.
    */
   prefer?: string;
+  /**
+   * `Bearer <access token>` for a call made for a player — only ever from the
+   * session cookie, through `withSession()` (`lib/server/session.ts`).
+   */
+  authorization?: string;
 }
 
 /**
@@ -51,7 +56,7 @@ export async function both<T>(
  */
 export function upstream(
   tag: ApiTag,
-  { tenant, lang, prefer }: RequestContext,
+  { tenant, lang, prefer, authorization }: RequestContext,
 ) {
   const client = createClient<paths>({
     baseUrl: baseUrlFor(tag),
@@ -59,7 +64,9 @@ export function upstream(
       "X-Tenant-Id": tenant,
       "Accept-Language": lang,
       ...(prefer && !usesRealApi(tag) ? { Prefer: prefer } : {}),
+      ...(authorization ? { Authorization: authorization } : {}),
     },
+    fetch: sendPlain,
   });
   client.use({
     onRequest({ request }) {
@@ -68,6 +75,29 @@ export function upstream(
     },
   });
   return client;
+}
+
+/**
+ * Sends a request as `fetch(url, init)` with a string body, never as a
+ * `Request` object.
+ *
+ * Inside Next.js the global `fetch` is patched, and a `Request` whose body is
+ * a stream loses its re-sendable source on the way through. The fetch
+ * standard then turns any **401** answer to such a request into a network
+ * error ("expected non-null body source") — so a wrong password, a refused
+ * refresh or an expired token on a POST would reach the player as "the API
+ * could not be reached" instead of the API's own Problem. A plain body keeps
+ * its source and the 401 comes back as a response. API calls are never cached.
+ */
+async function sendPlain(request: Request): Promise<Response> {
+  const bodiless = request.method === "GET" || request.method === "HEAD";
+  return fetch(request.url, {
+    method: request.method,
+    headers: request.headers,
+    body: bodiless ? undefined : await request.text(),
+    signal: request.signal,
+    cache: "no-store",
+  });
 }
 
 /**

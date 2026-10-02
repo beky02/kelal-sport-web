@@ -30,6 +30,14 @@ import type {
   BookingRequest,
 } from "@/features/bookings/types";
 import { BOOKING_CODE } from "@/features/bookings/lib/code";
+import type {
+  LoginForm,
+  LoginResult,
+  Player,
+  PlayerSummary,
+  SessionView,
+} from "@/features/auth/types";
+import { toE164 } from "@/features/auth/lib/phone";
 import { compareMoney } from "@/lib/money";
 import type {
   PaymentMethod,
@@ -376,3 +384,76 @@ export const bookingRequestSchema = z.strictObject({
     .refine((stake) => compareMoney(stake, "0.00") > 0, "Not a stake")
     .nullable(),
 }) satisfies z.ZodType<BookingRequest>;
+
+// ── session (F4a) ───────────────────────────────────────────────────────────
+
+const langSchema = z.enum(["en", "am"]);
+
+const kycStatusSchema = z.enum([
+  "unverified",
+  "pending",
+  "verified",
+  "rejected",
+  "needs_info",
+  "expired",
+]);
+
+export const playerSchema = z.object({
+  id: z.string(),
+  phone: z.string(),
+  fullName: z.string(),
+  dateOfBirth: z.string().nullable(),
+  language: langSchema,
+  status: z.enum(["active", "suspended", "self_excluded", "closed"]),
+  kycStatus: kycStatusSchema,
+  marketingConsent: z.boolean().nullable(),
+  createdAt: z.string().nullable(),
+  canWithdraw: z.boolean().nullable(),
+  flags: z.object({
+    realityCheckMinutes: z.number().int().nullable(),
+    excludedUntil: z.string().nullable(),
+  }),
+}) satisfies z.ZodType<Player>;
+
+/** `/api/me`: who is signed in, or nobody. */
+export const sessionViewSchema = z.object({
+  player: playerSchema.nullable(),
+}) satisfies z.ZodType<SessionView>;
+
+export const playerSummarySchema = z.object({
+  id: z.string(),
+  phone: z.string(),
+  fullName: z.string().nullable(),
+  kycStatus: kycStatusSchema,
+  language: langSchema.nullable(),
+}) satisfies z.ZodType<PlayerSummary>;
+
+/** `/api/auth/login`'s answer. No token can pass this schema. */
+export const loginResultSchema = z.discriminatedUnion("status", [
+  z.object({ status: z.literal("ok"), player: playerSummarySchema }),
+  z.object({
+    status: z.literal("otp_required"),
+    challengeId: z.string(),
+    expiresIn: z.number().int().nullable(),
+  }),
+]) satisfies z.ZodType<LoginResult>;
+
+/**
+ * What `/api/auth/login` accepts from the browser; checked before anything is
+ * sent on, and strict so nothing extra rides along.
+ */
+export const loginFormSchema = z.strictObject({
+  phone: z
+    .string()
+    .max(20)
+    .refine(
+      (phone) => toE164(phone) !== null,
+      "Not an Ethiopian mobile number",
+    ),
+  password: z.string().min(1).max(128),
+  challengeId: z.string().min(1).max(64).optional(),
+  otp: z
+    .string()
+    .regex(/^\d{6}$/)
+    .optional(),
+}) satisfies z.ZodType<LoginForm>;

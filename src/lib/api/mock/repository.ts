@@ -53,12 +53,19 @@ import {
   MARKET_TEMPLATE,
   NATIONAL_FLAG,
   REFERENCE_DATE,
+  advanceLiveMatchState,
   flagUrl,
   type RawGroup,
   type RawMatch,
 } from "./fixtures";
 
 const t = (en: string, am?: string): Localized => ({ en, am: am ?? en });
+
+const normalizeSportId = (sportId?: string): string => {
+  if (!sportId) return "soccer";
+  const slug = sportId.replace(/^s_/, "");
+  return slug === "football" || slug === "soccer" ? "soccer" : sportId;
+};
 
 /** Keeps loading and skeleton states honest in development. */
 const delay = (ms = 220) => new Promise<void>((r) => setTimeout(r, ms));
@@ -68,6 +75,13 @@ const slug = (s: string) =>
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-|-$/g, "");
+
+const liveSnapshot = (raw: RawMatch): RawMatch => {
+  if (raw.status !== "live" || !raw.id.startsWith("sim-")) return raw;
+
+  const tick = Math.max(1, Math.floor(Date.now() / 7000) % 5);
+  return advanceLiveMatchState(raw, tick);
+};
 
 // ── teams ───────────────────────────────────────────────────────────────────
 
@@ -340,7 +354,7 @@ export const mockRepository = {
     dataSaver = false,
   ): Promise<BoardSection[]> {
     await delay();
-    const sportId = filters.sportId ?? "soccer";
+    const sportId = normalizeSportId(filters.sportId);
 
     return GROUPS.filter(
       (g) =>
@@ -357,8 +371,9 @@ export const mockRepository = {
         return {
           competition: toCompetition(group),
           events: matches.map((raw) => {
-            const event = toEvent(raw, group, dataSaver);
-            return { event, markets: boardMarkets(event, raw) };
+            const snapshot = liveSnapshot(raw);
+            const event = toEvent(snapshot, group, dataSaver);
+            return { event, markets: boardMarkets(event, snapshot) };
           }),
         };
       })
@@ -375,8 +390,9 @@ export const mockRepository = {
     if (!found) return [];
 
     const { raw, group } = found;
-    const event = toEvent(raw, group, false);
-    const dc = deriveDoubleChance(raw.odds);
+    const snapshot = liveSnapshot(raw);
+    const event = toEvent(snapshot, group, false);
+    const dc = deriveDoubleChance(snapshot.odds);
 
     return MARKET_TEMPLATE.flatMap((template) => {
       const type = template.type as MarketType;
@@ -386,9 +402,9 @@ export const mockRepository = {
       const pricesFor = (row: (typeof template.rows)[number]) => {
         if (type === "1x2") {
           return [
-            ["1", raw.odds[0]],
-            ["X", raw.odds[1]],
-            ["2", raw.odds[2]],
+            ["1", snapshot.odds[0]],
+            ["X", snapshot.odds[1]],
+            ["2", snapshot.odds[2]],
           ] as Array<[string, number | null]>;
         }
         if (type === "dc") {
@@ -400,8 +416,8 @@ export const mockRepository = {
         }
         if (type === "ou" && row.line === "2.5") {
           return [
-            ["Over", raw.overUnder[0]],
-            ["Under", raw.overUnder[1]],
+            ["Over", snapshot.overUnder[0]],
+            ["Under", snapshot.overUnder[1]],
           ] as Array<[string, number | null]>;
         }
         return row.outcomes.map(
@@ -454,8 +470,8 @@ export const mockRepository = {
           template.name,
           null,
           prices,
-          type === "1x2" ? (raw.movement ?? movement) : movement,
-          type === "1x2" ? (raw.previous ?? []) : [],
+          type === "1x2" ? (snapshot.movement ?? movement) : movement,
+          type === "1x2" ? (snapshot.previous ?? []) : [],
         ),
       ];
     });

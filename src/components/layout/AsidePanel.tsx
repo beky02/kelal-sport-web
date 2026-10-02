@@ -1,12 +1,12 @@
 "use client";
 
 import { useTranslation } from "@/lib/i18n/use-translation";
+import { useSession } from "@/features/auth/hooks/use-session";
 import { useAuthStore } from "@/features/auth/stores/auth.store";
 import { BetSlip } from "@/features/bet-slip/components/BetSlip";
 import { useBetSlipStore } from "@/features/bet-slip/stores/bet-slip.store";
 import { MyBetsView } from "@/features/bets/components/MyBetsView";
 import { useBets } from "@/features/bets/hooks/use-bets";
-import { useSessionStore } from "@/stores/session.store";
 import { useUiStore, type AsidePanel as Panel } from "@/stores/ui.store";
 import { cn } from "@/lib/utils/cn";
 
@@ -23,7 +23,9 @@ export function AsidePanel() {
   const setPanel = useUiStore((s) => s.setAsidePanel);
 
   const selectionCount = useBetSlipStore((s) => s.selections.length);
-  const isGuest = useSessionStore((s) => s.isGuest);
+  const { isGuest: guestOrPending, isLoading } = useSession();
+  // Until /api/me answers, a player is not sent to log in.
+  const isGuest = !isLoading && guestOrPending;
   const openAuth = useAuthStore((s) => s.open);
   // A guest has no bets to count, so this stays idle until they sign in.
   const { data: bets } = useBets("open");
