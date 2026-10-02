@@ -1,5 +1,6 @@
 import type { Localized } from "@/types/common";
 import type { MarketType } from "@/features/markets/types";
+import type { ProblemFieldError } from "@/lib/api/errors";
 import { compareOdds } from "@/lib/money";
 
 export type BetSlipMode = "single" | "multiple" | "system";
@@ -79,6 +80,31 @@ export interface BetReceipt {
   totalOdds: string | null;
   accaBonus: string;
   potentialPayout: string;
+}
+
+/**
+ * One request to place, and its `Idempotency-Key`. `sending` while in flight;
+ * `unanswered` when it got no answer that settles it (no response, a 5xx, a
+ * reply this app could not read) — then the bet may exist, and only the same
+ * request with the same key may go again.
+ */
+export interface PlaceAttempt {
+  request: PlaceBetRequest;
+  key: string;
+  status: "sending" | "unanswered";
+}
+
+/** The engine's refusal of the slip as it stands: its Problem, as kept and shown. */
+export interface PlaceRefusal {
+  status: number;
+  /** The contract's `ErrorCode` — what the UI switches on. */
+  code: string;
+  /** The API's translated `title`, for a code this app has no copy of. */
+  title: string;
+  detail: string | null;
+  errors: ProblemFieldError[];
+  /** Seconds to wait (`Retry-After`), when the API said. */
+  retryAfter: number | null;
 }
 
 /** The price moved since it was agreed — `"2.1"` to `"2.10"` is no move. */

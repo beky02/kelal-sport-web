@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { screen, waitFor, within } from "@testing-library/react";
+import { screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { BetSlip } from "@/features/bet-slip/components/BetSlip";
 import {
@@ -417,39 +417,8 @@ describe("BetSlip", () => {
     ).toBeEnabled();
   });
 
-  it("places the bet and shows the engine's ticket", async () => {
-    seedReferenceSlip();
-    render(<BetSlip />);
-
-    await userEvent.click(
-      await screen.findByRole("button", { name: /Place bet/ }),
-    );
-
-    expect(await screen.findByText("Bet placed")).toBeInTheDocument();
-    await waitFor(() =>
-      expect(screen.getByText(/^KS-\d{6}-\d{4}$/)).toBeInTheDocument(),
-    );
-    expect(screen.getByText("Multiple · 3 picks")).toBeInTheDocument();
-    expect(screen.getByText("ETB 594.40")).toBeInTheDocument();
-  });
-
-  it("shows the ticket number large with its barcode, ready to copy", async () => {
-    seedReferenceSlip();
-    render(<BetSlip />);
-
-    await userEvent.click(
-      await screen.findByRole("button", { name: /Place bet/ }),
-    );
-
-    const card = await screen.findByTestId("ticket-code");
-    const ticket = within(card).getByText(/^KS-\d{6}-\d{4}$/).textContent!;
-    expect(
-      within(card).getByRole("img", { name: `Ticket: ${ticket}` }),
-    ).toBeInTheDocument();
-    expect(
-      within(card).getByRole("button", { name: "Copy code" }),
-    ).toBeInTheDocument();
-  });
+  // Placing — the request, the engine's ticket, its barcode and every refusal —
+  // is tested against `/api/bets` in PlaceBet.test.tsx.
 
   it("keeps the place button idle until /api/me has answered, instead of calling a player a guest", () => {
     seedReferenceSlip();

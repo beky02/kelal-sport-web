@@ -9,11 +9,16 @@ import type {
 } from "@/features/bookings/lib/to-slip";
 import type { BookingReceipt } from "@/features/bookings/types";
 
+import type { OddsUpdate } from "../lib/placement";
 import {
   oddsMoved,
+  type BetReceipt,
   type BetSelection,
   type BetSlipMode,
   type OddsPolicy,
+  type PlaceAttempt,
+  type PlaceBetRequest,
+  type PlaceRefusal,
 } from "../types";
 
 /**
@@ -32,6 +37,23 @@ export interface BookingIntent {
   receipt: BookingReceipt | null;
   /** This device's clock when the receipt arrived, to time its expiry. */
   receivedAt: number | null;
+}
+
+/**
+ * Placing this slip: the attempt on its way or owed an answer, the engine's
+ * last refusal of the slip as it stands, and the ticket once issued.
+ *
+ * Kept here, not in the Place button, for the booking intent's reason: the
+ * slip is mounted twice (the desktop aside and the phone sheet), and a sheet
+ * closed mid-request unmounts its own. So every mounted slip sees a bet on its
+ * way and cannot send a second one; a ticket that lands after the sheet closed
+ * is still there when it opens; and a key stays with its request for Try
+ * again. Not a cache of server data: it goes when the slip changes.
+ */
+export interface Placement {
+  attempt: PlaceAttempt | null;
+  refusal: PlaceRefusal | null;
+  receipt: BetReceipt | null;
 }
 
 interface BetSlipState {
@@ -89,6 +111,25 @@ interface BetSlipState {
   acceptAllPending: () => void;
   setOddsPolicy: (policy: OddsPolicy | null) => void;
 
+  placement: Placement;
+  /** Place was tapped: this request is on its way with this key. */
+  placementSent: (attempt: { request: PlaceBetRequest; key: string }) => void;
+  /** It had no answer that settles it: its key is kept for Try again. */
+  placementUnanswered: () => void;
+  /**
+   * The engine said no — or, with `refusal` null, the session ended. The
+   * picks it re-priced show old → new (the price sent becomes the agreed
+   * one), and the ones whose match started or market closed are suspended.
+   */
+  placementRefused: (
+    refusal: PlaceRefusal | null,
+    updates?: { odds: OddsUpdate[]; closed: string[] },
+  ) => void;
+  /** The engine issued a ticket. */
+  placementPlaced: (receipt: BetReceipt) => void;
+  /** Back from the ticket to the same picks (Keep selections). */
+  dismissReceipt: () => void;
+
   /** Realtime: a price moved. Updates in place, keeping `initialOdds`. */
   applyOddsUpdate: (ref: OutcomeRef, odds: string | null) => void;
   /** Realtime: an event's markets were suspended or reopened. */
@@ -106,6 +147,19 @@ export function sanitiseStake(raw: string): string {
     ? `${integer || "0"}.${rest.join("").slice(0, 2)}`
     : integer;
 }
+
+/**
+ * The slip changed: a refusal and an unanswered attempt describe a slip that
+ * no longer exists, so they go. A bet on its way stays: its answer is coming.
+ */
+const changed = (p: Placement): Placement =>
+  p.refusal === null && p.attempt?.status !== "unanswered"
+    ? p
+    : {
+        ...p,
+        refusal: null,
+        attempt: p.attempt?.status === "sending" ? p.attempt : null,
+      };
 
 const sameRef = (s: BetSelection, ref: OutcomeRef) =>
   s.eventId === ref.eventId &&
@@ -132,30 +186,49 @@ export const useBetSlipStore = create<BetSlipState>()((set, get) => ({
   oddsPolicy: null,
   bookingNotice: null,
   bookingIntent: null,
+  placement: { attempt: null, refusal: null, receipt: null },
 
   toggleSelection: (selection) => {
-    const { selections } = get();
+    const { selections, placement } = get();
     const next = selections.some((s) => s.outcomeId === selection.outcomeId)
       ? selections.filter((s) => s.outcomeId !== selection.outcomeId)
       : [...selections, selection];
     // Once the player changes a loaded slip it is theirs: the notice about
     // what the booking brought no longer describes it.
-    set({ selections: next, index: reindex(next), bookingNotice: null });
+    set({
+      selections: next,
+      index: reindex(next),
+      bookingNotice: null,
+      placement: changed(placement),
+    });
   },
 
   removeSelection: (outcomeId) => {
     const next = get().selections.filter((s) => s.outcomeId !== outcomeId);
-    set({ selections: next, index: reindex(next), bookingNotice: null });
+    set({
+      selections: next,
+      index: reindex(next),
+      bookingNotice: null,
+      placement: changed(get().placement),
+    });
   },
 
   clear: () =>
-    set({
+    set((state) => ({
       selections: [],
       index: {},
       oddsPolicy: null,
       bookingNotice: null,
       bookingIntent: null,
-    }),
+      placement: {
+        attempt:
+          state.placement.attempt?.status === "sending"
+            ? state.placement.attempt
+            : null,
+        refusal: null,
+        receipt: null,
+      },
+    })),
 
   replaceSlip: ({ selections, mode, systemK, stake, notice }) =>
     set((state) => ({
@@ -168,15 +241,18 @@ export const useBetSlipStore = create<BetSlipState>()((set, get) => ({
       // "accept any" from the slip it replaced.
       oddsPolicy: null,
       bookingNotice: notice,
+      placement: changed(state.placement),
     })),
 
   dismissBookingNotice: () => set({ bookingNotice: null }),
   showBookingNotice: (bookingNotice) => set({ bookingNotice }),
   setBookingIntent: (bookingIntent) => set({ bookingIntent }),
 
-  setMode: (mode) => set({ mode }),
-  setStake: (raw) => set({ stake: sanitiseStake(raw) }),
-  setSystemK: (systemK) => set({ systemK }),
+  setMode: (mode) => set({ mode, placement: changed(get().placement) }),
+  setStake: (raw) =>
+    set({ stake: sanitiseStake(raw), placement: changed(get().placement) }),
+  setSystemK: (systemK) =>
+    set({ systemK, placement: changed(get().placement) }),
 
   // Agreeing makes the shown price the agreed one, so a later move from it is
   // a new move to ask about — accepted once is not accepted for good.
@@ -185,6 +261,7 @@ export const useBetSlipStore = create<BetSlipState>()((set, get) => ({
       selections: get().selections.map((s) =>
         s.outcomeId === outcomeId ? { ...s, initialOdds: s.currentOdds } : s,
       ),
+      placement: changed(get().placement),
     }),
 
   acceptAllPending: () =>
@@ -192,9 +269,60 @@ export const useBetSlipStore = create<BetSlipState>()((set, get) => ({
       selections: get().selections.map((s) =>
         oddsMoved(s) ? { ...s, initialOdds: s.currentOdds } : s,
       ),
+      placement: changed(get().placement),
     }),
 
-  setOddsPolicy: (oddsPolicy) => set({ oddsPolicy }),
+  setOddsPolicy: (oddsPolicy) =>
+    set({ oddsPolicy, placement: changed(get().placement) }),
+
+  placementSent: ({ request, key }) =>
+    set({
+      placement: {
+        attempt: { request, key, status: "sending" },
+        refusal: null,
+        receipt: null,
+      },
+    }),
+
+  placementUnanswered: () => {
+    const { attempt } = get().placement;
+    if (!attempt) return;
+    set({
+      placement: {
+        ...get().placement,
+        attempt: { ...attempt, status: "unanswered" },
+      },
+    });
+  },
+
+  placementRefused: (refusal, updates) => {
+    const odds = new Map(updates?.odds.map((u) => [u.outcomeId, u]));
+    const closed = new Set(updates?.closed);
+    const { selections } = get();
+    set({
+      selections:
+        odds.size + closed.size === 0
+          ? selections
+          : selections.map((s) => {
+              const update = odds.get(s.outcomeId);
+              if (update) {
+                return {
+                  ...s,
+                  initialOdds: update.sent,
+                  currentOdds: update.current,
+                };
+              }
+              return closed.has(s.outcomeId) ? { ...s, suspended: true } : s;
+            }),
+      placement: { attempt: null, refusal, receipt: null },
+    });
+  },
+
+  placementPlaced: (receipt) =>
+    set({ placement: { attempt: null, refusal: null, receipt } }),
+
+  dismissReceipt: () =>
+    set({ placement: { ...get().placement, receipt: null } }),
 
   applyOddsUpdate: (ref, odds) => {
     if (!get().selections.some((s) => sameRef(s, ref))) return;

@@ -75,6 +75,7 @@
     "system": "System",
     "systemNeedsThree": "System bets need 3 or more selections.",
     "bets": "bets",
+    "betCount": "{n} bets",
     "emptyTitle": "Your bet slip is empty",
     "emptyBody": "Tap any odds to add a selection.",
     "stake": "Stake",
@@ -171,6 +172,32 @@
     "taxRateOver": "{tax} · {rate} of the whole win once it’s over {amount}",
     "tax": "Tax",
     "placeFailedBody": "Something went wrong placing this bet. Try again.",
+    "refused": {
+      "oddsChanged": "Your bet wasn’t placed: {n} selection changed price. Accept the new odds to place it.",
+      "oddsUnknown": "Your bet wasn’t placed: the odds changed. The new prices will show in a moment.",
+      "startedTitle": "Match started",
+      "started": "Your bet wasn’t placed: a match in your slip has started. Remove it to place the rest.",
+      "suspended": "Your bet wasn’t placed: betting on a selection is paused. Remove it to place the rest.",
+      "closedUnknown": "Your bet wasn’t placed: a selection is no longer available.",
+      "limitTitle": "Over the limit",
+      "limit": "This stake is over the limit for this bet. Try a smaller stake.",
+      "limitWith": "The most this bet can take is {amount}.",
+      "insufficient": "Your balance is too low for this stake.",
+      "kycTitle": "Verify your ID",
+      "kyc": "Verify your ID with Fayda to place bets.",
+      "rgLimitTitle": "Limit reached",
+      "rgLimit": "You’ve reached a limit you set, so this bet can’t be placed.",
+      "breakTitle": "You’re taking a break",
+      "break": "Betting is paused during your break.",
+      "breakUntil": "Betting is paused until {date}.",
+      "realMoney": "Real-money betting isn’t available yet.",
+      "rateLimited": "Too many bets in a short time. Wait a moment and try again.",
+      "rateLimitedSeconds": "Too many bets in a short time. Try again in {seconds} seconds."
+    },
+    "unconfirmed": {
+      "title": "We couldn’t confirm your bet",
+      "body": "It may have gone through. Try again — if it did, you’ll see the same ticket."
+    },
     "taxRateStakeOver": "{tax} · {rate} of the whole stake once it’s over {amount}"
   },
   "clock": {
