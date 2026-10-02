@@ -6,9 +6,9 @@ import { useTranslation } from "@/lib/i18n/use-translation";
 import { CountBadge } from "@/components/ui/CountBadge";
 import { features } from "@/config/features";
 import { routes } from "@/config/routes";
+import { useSession } from "@/features/auth/hooks/use-session";
 import { useAuthStore } from "@/features/auth/stores/auth.store";
 import { useLiveEventCount } from "@/features/sports/hooks/use-sports";
-import { useSessionStore } from "@/stores/session.store";
 import { cn } from "@/lib/utils/cn";
 import type { MessageKey } from "@/lib/i18n";
 
@@ -30,7 +30,7 @@ const LINKS: Array<{
 export function MainNav() {
   const t = useTranslation();
   const pathname = usePathname();
-  const isGuest = useSessionStore((s) => s.isGuest);
+  const { isGuest } = useSession();
   const openAuth = useAuthStore((s) => s.open);
 
   const liveCount = useLiveEventCount();

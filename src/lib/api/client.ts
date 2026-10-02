@@ -1,4 +1,6 @@
 import { z } from "zod";
+import { CSRF_HEADER, CSRF_VALUE } from "@/lib/session-cookie";
+import { useUiStore } from "@/stores/ui.store";
 import { ApiError, ContractError, type ProblemFieldError } from "./errors";
 
 type Params = Record<string, string | number | boolean | undefined>;
@@ -44,13 +46,20 @@ async function request<T>(
       method,
       signal: options.signal,
       // Same origin, so the session's HttpOnly cookie goes along by default.
-      // It never reaches JavaScript — this is a financial product.
+      // It never reaches JavaScript — this is a financial product. Every POST
+      // carries the CSRF header the route handlers insist on (C18 §4.4), and
+      // the UI's language so the API's titles come back in the right script.
       headers: {
         Accept: "application/json",
-        ...(options.body ? { "Content-Type": "application/json" } : {}),
+        "Accept-Language": useUiStore.getState().lang,
+        ...(options.body !== undefined
+          ? { "Content-Type": "application/json" }
+          : {}),
+        ...(method === "POST" ? { [CSRF_HEADER]: CSRF_VALUE } : {}),
         ...options.headers,
       },
-      body: options.body ? JSON.stringify(options.body) : undefined,
+      body:
+        options.body !== undefined ? JSON.stringify(options.body) : undefined,
     });
   } catch (cause) {
     throw new ApiError(
@@ -77,7 +86,10 @@ async function request<T>(
     );
   }
 
-  const parsed = schema.safeParse(await response.json());
+  // A 204 has nothing to parse; its schema says so (`z.undefined()`).
+  const parsed = schema.safeParse(
+    response.status === 204 ? undefined : await response.json(),
+  );
   if (!parsed.success) {
     throw new ContractError(path, z.prettifyError(parsed.error));
   }

@@ -1,9 +1,15 @@
 "use client";
 
+import { useReducer } from "react";
+import { usePathname, useRouter } from "next/navigation";
 import { Dialog } from "radix-ui";
 import { ChevronLeft, X } from "lucide-react";
 import { useTranslation } from "@/lib/i18n/use-translation";
-import { useSessionStore } from "@/stores/session.store";
+import { routes } from "@/config/routes";
+import { useLogin } from "../hooks/use-session";
+import { initialLogin, loginReducer } from "../lib/flow";
+import { safeNextPath } from "../lib/paths";
+import { maskPhone, toE164 } from "../lib/phone";
 import { useAuthStore } from "../stores/auth.store";
 import { REGISTRATION_STEPS, STEP_COUNT, stepIndex } from "../types";
 import { AuthStepper } from "./AuthStepper";
@@ -23,24 +29,74 @@ import { PhoneStep } from "./steps/PhoneStep";
  * a bet, and losing the slip on the way to logging in would be the wrong trade.
  *
  * Nothing here authenticates anyone. The steps collect input and hand off; the
- * backend issues the session as an HttpOnly cookie, and `/me` is what says who
- * is signed in.
+ * route handlers hold the session as an httpOnly cookie, and `/api/me` is what
+ * says who is signed in (AC-8). Registration's steps are wired in F4b; until
+ * then they close the dialog.
  */
 export function AuthDialog() {
   const t = useTranslation();
+  const router = useRouter();
+  const pathname = usePathname();
+
   const step = useAuthStore((s) => s.step);
+  const next = useAuthStore((s) => s.next);
   const goTo = useAuthStore((s) => s.goTo);
   const close = useAuthStore((s) => s.close);
-  const setGuest = useSessionStore((s) => s.setGuest);
+
+  const [login, dispatch] = useReducer(loginReducer, initialLogin);
+  const loginMutation = useLogin();
 
   if (step === null) return null;
 
   const index = stepIndex(step);
   const inRegistration = index >= 0 && index < STEP_COUNT;
 
-  const finish = () => {
-    setGuest(false);
+  const dismiss = () => {
+    dispatch({ type: "done" });
     close();
+  };
+
+  /** Signed in: back to where the player was going, when they were going somewhere. */
+  const finish = () => {
+    const destination =
+      next !== null || pathname === routes.login || pathname === routes.register
+        ? safeNextPath(next)
+        : null;
+    dismiss();
+    if (destination !== null) router.replace(destination);
+  };
+
+  const submitLogin = async (form: { phone: string; password: string }) => {
+    dispatch({ type: "submit", ...form });
+    try {
+      const result = await loginMutation.mutateAsync(form);
+      if (result.status === "otp_required") {
+        dispatch({ type: "otpRequired", ...result });
+      } else {
+        finish();
+      }
+    } catch (error) {
+      dispatch({ type: "failed", error });
+    }
+  };
+
+  const submitOtp = async (otp: string) => {
+    dispatch({ type: "submitOtp", otp });
+    try {
+      const result = await loginMutation.mutateAsync({
+        phone: login.phone,
+        password: login.password,
+        challengeId: login.challengeId ?? undefined,
+        otp,
+      });
+      if (result.status === "otp_required") {
+        dispatch({ type: "otpRequired", ...result });
+      } else {
+        finish();
+      }
+    } catch (error) {
+      dispatch({ type: "failed", error });
+    }
   };
 
   const advance = () =>
@@ -49,9 +105,11 @@ export function AuthDialog() {
     );
 
   const goBack = () => {
-    if (inRegistration && index > 0) goTo(REGISTRATION_STEPS[index - 1]);
+    if (step === "login" && login.step === "loginOtp")
+      dispatch({ type: "back" });
+    else if (inRegistration && index > 0) goTo(REGISTRATION_STEPS[index - 1]);
     else if (step === "forgot") goTo("login");
-    else close();
+    else dismiss();
   };
 
   const heading = inRegistration
@@ -62,11 +120,13 @@ export function AuthDialog() {
         ? t.t("auth.resetTitle")
         : "";
 
+  const loginPhone = toE164(login.phone);
+
   return (
     <Dialog.Root
       open
-      onOpenChange={(next) => {
-        if (!next) close();
+      onOpenChange={(open) => {
+        if (!open) dismiss();
       }}
     >
       <Dialog.Portal>
@@ -105,18 +165,36 @@ export function AuthDialog() {
             {step === "otp" && (
               <OtpStep
                 phoneMasked="+251 9•• ••• 482"
-                onNext={advance}
+                onSubmit={advance}
+                onResend={() => {}}
                 onChangeNumber={() => goTo("phone")}
               />
             )}
             {step === "password" && <PasswordStep onNext={advance} />}
-            {step === "kyc" && <KycStep onNext={advance} onSkip={finish} />}
-            {step === "kycDone" && <KycPendingStep onDone={finish} />}
-            {step === "login" && (
+            {step === "kyc" && <KycStep onNext={advance} onSkip={dismiss} />}
+            {step === "kycDone" && <KycPendingStep onDone={dismiss} />}
+            {step === "login" && login.step === "login" && (
               <LoginStep
-                onDone={finish}
+                initialPhone={login.phone}
+                pending={login.pending}
+                error={login.error}
+                onFix={() => dispatch({ type: "fix" })}
+                onSubmit={submitLogin}
                 onForgot={() => goTo("forgot")}
                 onRegister={() => goTo("phone")}
+              />
+            )}
+            {step === "login" && login.step === "loginOtp" && (
+              <OtpStep
+                key={login.attempts}
+                phoneMasked={loginPhone ? maskPhone(loginPhone) : login.phone}
+                body={t.t("auth.newDeviceBody", {
+                  phone: loginPhone ? maskPhone(loginPhone) : login.phone,
+                })}
+                pending={login.pending}
+                error={login.error}
+                onFix={() => dispatch({ type: "fix" })}
+                onSubmit={submitOtp}
               />
             )}
             {step === "forgot" && (

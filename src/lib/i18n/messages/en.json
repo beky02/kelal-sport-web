@@ -277,7 +277,17 @@
     "sendCode": "Send code",
     "backToLogin": "Back to log in",
     "resetTitle": "Reset password",
-    "required": "This field is required."
+    "required": "This field is required.",
+    "newDeviceBody": "New device. We sent a code to {phone} to confirm it’s you.",
+    "logInAgain": "Log in again",
+    "errors": {
+      "AUTH_INVALID_CREDENTIALS": "Wrong phone number or password.",
+      "AUTH_LOCKED": "Too many failed attempts. Your account is locked for a short while.",
+      "AUTH_OTP_INVALID": "That code isn’t right. Check the SMS and try again.",
+      "AUTH_OTP_EXPIRED": "That code has expired. Log in again to get a new one.",
+      "RATE_LIMITED": "Too many attempts. Please wait a moment and try again.",
+      "failed": "Something went wrong. Check your connection and try again."
+    }
   },
   "system": {
     "offlineTitle": "You’re offline.",
@@ -295,7 +305,7 @@
     "realityTakeBreak": "Take a break",
     "realityMyLimits": "View my limits",
     "sessionTitle": "Session expired",
-    "sessionBody": "For your security we logged you out after 30 minutes without activity. Your bet slip is saved.",
+    "sessionBody": "Your session has ended. Log in again to continue. Your bet slip is saved.",
     "sessionLogIn": "Log in again",
     "sessionKeepBrowsing": "Keep browsing",
     "limitTitle": "Daily deposit limit reached",

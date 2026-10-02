@@ -7,7 +7,6 @@ import {
   useBetSlipStore,
 } from "@/features/bet-slip/stores/bet-slip.store";
 import type { BettingRules } from "@/features/config/types";
-import { useSessionStore } from "@/stores/session.store";
 import { useUiStore } from "@/stores/ui.store";
 import type { OutcomeRef } from "@/features/markets/types";
 import { GOLDEN_RULES } from "../golden";
@@ -53,7 +52,6 @@ describe("BetSlip", () => {
     useBetSlipStore.getState().clear();
     useBetSlipStore.setState({ mode: "multiple", stake: "100", systemK: 2 });
     useUiStore.setState({ lang: "en" });
-    useSessionStore.setState({ isGuest: false });
   });
 
   afterEach(() => vi.restoreAllMocks());
@@ -409,9 +407,8 @@ describe("BetSlip", () => {
   });
 
   it("asks a guest to log in instead of betting", async () => {
-    useSessionStore.setState({ isGuest: true });
     seedReferenceSlip();
-    render(<BetSlip />);
+    render(<BetSlip />, { session: "guest" });
 
     expect(
       await screen.findByRole("button", { name: "Log in to bet" }),

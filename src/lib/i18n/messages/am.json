@@ -277,7 +277,17 @@
     "sendCode": "ኮድ ላክ",
     "backToLogin": "ወደ መግቢያ ተመለስ",
     "resetTitle": "የይለፍ ቃል",
-    "required": "ይህ መስክ ያስፈልጋል።"
+    "required": "ይህ መስክ ያስፈልጋል።",
+    "newDeviceBody": "አዲስ መሣሪያ። እርስዎ መሆንዎን ለማረጋገጥ ወደ {phone} ኮድ ልከናል።",
+    "logInAgain": "እንደገና ግባ",
+    "errors": {
+      "AUTH_INVALID_CREDENTIALS": "የስልክ ቁጥሩ ወይም የይለፍ ቃሉ ትክክል አይደለም።",
+      "AUTH_LOCKED": "በጣም ብዙ ያልተሳኩ ሙከራዎች። መለያዎ ለአጭር ጊዜ ተቆልፏል።",
+      "AUTH_OTP_INVALID": "ኮዱ ትክክል አይደለም። ኤስኤምኤሱን ያረጋግጡና እንደገና ይሞክሩ።",
+      "AUTH_OTP_EXPIRED": "ኮዱ ጊዜው አልፎበታል። አዲስ ለማግኘት እንደገና ይግቡ።",
+      "RATE_LIMITED": "በጣም ብዙ ሙከራዎች። ትንሽ ቆይተው እንደገና ይሞክሩ።",
+      "failed": "ችግር ተፈጥሯል። ግንኙነትዎን ያረጋግጡና እንደገና ይሞክሩ።"
+    }
   },
   "system": {
     "offlineTitle": "ከመስመር ውጭ ነዎት።",
@@ -295,7 +305,7 @@
     "realityTakeBreak": "ዕረፍት ውሰድ",
     "realityMyLimits": "ገደቦቼን እይ",
     "sessionTitle": "ቆይታው አብቅቷል",
-    "sessionBody": "ለደህንነትዎ ከ30 ደቂቃ እንቅስቃሴ-አልባነት በኋላ ወጥተዋል። ትኬትዎ ተቀምጧል።",
+    "sessionBody": "ቆይታዎ አብቅቷል። ለመቀጠል እንደገና ይግቡ። ትኬትዎ ተቀምጧል።",
     "sessionLogIn": "እንደገና ግባ",
     "sessionKeepBrowsing": "ማሰስ ቀጥል",
     "limitTitle": "የዕለት ገቢ ገደብ ደርሷል",

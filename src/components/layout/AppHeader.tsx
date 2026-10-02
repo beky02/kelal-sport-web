@@ -6,11 +6,12 @@ import { useTranslation } from "@/lib/i18n/use-translation";
 import { Button, IconButton } from "@/components/ui/Button";
 import { Segmented } from "@/components/ui/Segmented";
 import { routes } from "@/config/routes";
+import { Skeleton } from "@/components/ui/Skeleton";
+import { useSession } from "@/features/auth/hooks/use-session";
 import { useAuthStore } from "@/features/auth/stores/auth.store";
 import { HeaderSearch } from "@/features/search/components/HeaderSearch";
 import { useWallet } from "@/features/wallet/hooks/use-wallet";
 import { LANG_LABEL } from "@/lib/i18n";
-import { useSessionStore } from "@/stores/session.store";
 import { useUiStore } from "@/stores/ui.store";
 import type { Lang } from "@/types/common";
 import { BrandMark } from "./BrandMark";
@@ -39,9 +40,9 @@ export function AppHeader() {
   const setLang = useUiStore((s) => s.setLang);
   const setSidebarOpen = useUiStore((s) => s.setSidebarOpen);
 
-  const isGuest = useSessionStore((s) => s.isGuest);
+  const { isLoading, isGuest } = useSession();
   const openAuth = useAuthStore((s) => s.open);
-  const wallet = useWallet(!isGuest);
+  const wallet = useWallet(!isLoading && !isGuest);
 
   return (
     <header className="bg-surface border-divider sticky top-0 z-30 flex h-[52px] items-center gap-2 px-3 md:h-14 md:gap-3.5 md:border-b md:px-5">
@@ -88,7 +89,12 @@ export function AppHeader() {
         options={LANG_OPTIONS}
       />
 
-      {isGuest ? (
+      {isLoading ? (
+        // Until /api/me answers, neither a guest's buttons nor a player's
+        // balance: the one thing worse than a moment's blank is a flash of the
+        // wrong state.
+        <Skeleton className="h-[34px] w-[88px] rounded-md md:h-9 md:w-[120px]" />
+      ) : isGuest ? (
         <>
           <Button
             className="h-[34px] px-2.5 md:h-9 md:px-4"

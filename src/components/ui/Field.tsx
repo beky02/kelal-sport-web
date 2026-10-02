@@ -13,12 +13,18 @@ import { cn } from "@/lib/utils/cn";
  */
 export function Field({
   label,
+  trailing,
   help,
   error,
   children,
   className,
 }: {
   label: React.ReactNode;
+  /**
+   * Sits at the label's right — a "Forgot password?" — outside the label
+   * itself, so it is its own control and not part of the field's name.
+   */
+  trailing?: React.ReactNode;
   help?: string;
   error?: string;
   children: (props: {
@@ -34,12 +40,10 @@ export function Field({
 
   return (
     <div className={cn("flex flex-col", className)}>
-      <label
-        htmlFor={id}
-        className="text-text/70 mb-[5px] flex justify-between gap-2 text-xs"
-      >
-        {label}
-      </label>
+      <div className="text-text/70 mb-[5px] flex justify-between gap-2 text-xs">
+        <label htmlFor={id}>{label}</label>
+        {trailing}
+      </div>
 
       {children({
         id,

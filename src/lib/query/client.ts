@@ -1,5 +1,6 @@
-import { QueryClient } from "@tanstack/react-query";
+import { QueryCache, QueryClient } from "@tanstack/react-query";
 import { ApiError } from "@/lib/api/errors";
+import { sessionKeys } from "@/lib/query/keys";
 
 /**
  * TanStack Query treats cached data as stale immediately unless told otherwise,
@@ -8,7 +9,20 @@ import { ApiError } from "@/lib/api/errors";
  * realtime channel.
  */
 export function createQueryClient(): QueryClient {
-  return new QueryClient({
+  const client: QueryClient = new QueryClient({
+    queryCache: new QueryCache({
+      onError: (error, query) => {
+        // A player's call the API no longer honours: ask /api/me again, so
+        // every screen returns to the guest state together (AC-8).
+        if (
+          error instanceof ApiError &&
+          error.status === 401 &&
+          query.queryKey[0] !== sessionKeys.all[0]
+        ) {
+          void client.invalidateQueries({ queryKey: sessionKeys.me() });
+        }
+      },
+    }),
     defaultOptions: {
       queries: {
         staleTime: 30_000,
@@ -25,4 +39,5 @@ export function createQueryClient(): QueryClient {
       },
     },
   });
+  return client;
 }

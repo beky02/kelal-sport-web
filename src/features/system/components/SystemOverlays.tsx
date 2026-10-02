@@ -5,7 +5,7 @@ import { CircleAlert, Clock, Lock } from "lucide-react";
 import { useTranslation } from "@/lib/i18n/use-translation";
 import { SYSTEM } from "@/config/constants";
 import { routes } from "@/config/routes";
-import { useSessionStore } from "@/stores/session.store";
+import { useLogout } from "@/features/auth/hooks/use-session";
 import { useStartBreak } from "@/features/responsible-gaming/hooks/use-responsible-gaming";
 import { useSystemStore } from "@/stores/system.store";
 import { FullScreenNotice } from "./FullScreenNotice";
@@ -26,7 +26,7 @@ export function SystemOverlays() {
   const overlay = useSystemStore((s) => s.overlay);
   const dismiss = useSystemStore((s) => s.dismiss);
   const startBreak = useStartBreak();
-  const setGuest = useSessionStore((s) => s.setGuest);
+  const logout = useLogout();
 
   const activity = useSessionActivity(overlay === "reality");
 
@@ -107,7 +107,9 @@ export function SystemOverlays() {
             label: t.t("system.sessionKeepBrowsing"),
             kind: "quiet",
             onClick: () => {
-              setGuest(true);
+              // The session is already gone at the API; this clears what is
+              // left of it here, so the screens agree.
+              logout.mutate();
               dismiss();
             },
           },

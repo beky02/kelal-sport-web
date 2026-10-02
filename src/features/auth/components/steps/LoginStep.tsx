@@ -10,26 +10,36 @@ import {
   SubmitButton,
   TelegramButton,
 } from "@/components/ui/Field";
+import type { AuthErrorView } from "../../lib/errors";
+import { AuthNotice } from "../AuthNotice";
 
 export function LoginStep({
-  onDone,
+  initialPhone = "",
+  pending,
+  error,
+  onFix,
+  onSubmit,
   onForgot,
   onRegister,
 }: {
-  onDone: () => void;
+  initialPhone?: string;
+  pending: boolean;
+  error: AuthErrorView | null;
+  onFix: () => void;
+  onSubmit: (form: { phone: string; password: string }) => void;
   onForgot: () => void;
   onRegister: () => void;
 }) {
   const t = useTranslation();
   const [show, setShow] = useState(false);
-  const [phone, setPhone] = useState("");
+  const [phone, setPhone] = useState(initialPhone);
   const [password, setPassword] = useState("");
 
   return (
     <form
       onSubmit={(event) => {
         event.preventDefault();
-        onDone();
+        if (!pending) onSubmit({ phone: phone.trim(), password });
       }}
       className="flex flex-col gap-4"
     >
@@ -47,19 +57,17 @@ export function LoginStep({
       </Field>
 
       <Field
-        label={
-          <>
-            <span>{t.t("auth.password")}</span>
-            {/* In the label row because that is where someone looks the moment
-                the password will not come to mind. */}
-            <button
-              type="button"
-              onClick={onForgot}
-              className="text-accent cursor-pointer bg-transparent font-semibold"
-            >
-              {t.t("auth.forgotPassword")}
-            </button>
-          </>
+        label={t.t("auth.password")}
+        // In the label row because that is where someone looks the moment
+        // the password will not come to mind.
+        trailing={
+          <button
+            type="button"
+            onClick={onForgot}
+            className="text-accent cursor-pointer bg-transparent font-semibold"
+          >
+            {t.t("auth.forgotPassword")}
+          </button>
         }
       >
         {(props) => (
@@ -75,7 +83,12 @@ export function LoginStep({
         )}
       </Field>
 
-      <SubmitButton disabled={phone.trim() === "" || password === ""}>
+      <AuthNotice error={error} onFix={onFix} />
+
+      <SubmitButton
+        disabled={phone.trim() === "" || password === "" || pending}
+        aria-busy={pending || undefined}
+      >
         {t.t("auth.logIn")}
       </SubmitButton>
 

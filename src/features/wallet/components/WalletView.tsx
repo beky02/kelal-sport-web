@@ -5,8 +5,8 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useTranslation } from "@/lib/i18n/use-translation";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { routes } from "@/config/routes";
+import { useSession } from "@/features/auth/hooks/use-session";
 import { useAuthStore } from "@/features/auth/stores/auth.store";
-import { useSessionStore } from "@/stores/session.store";
 import {
   useCreatePayment,
   usePaymentStatus,
@@ -51,8 +51,9 @@ export function WalletView() {
   const [amount, setAmount] = useState(500);
   const [result, setResult] = useState<PaymentResult | null>(null);
 
-  const isGuest = useSessionStore((s) => s.isGuest);
-  const kycVerified = useSessionStore((s) => s.kycVerified);
+  // Whether a withdrawal may start is the API's call (`can_withdraw`), read
+  // with the session — never a flag kept in the browser.
+  const { isGuest, canWithdraw } = useSession();
   const openAuth = useAuthStore((s) => s.open);
 
   const { data: overview } = useWallet(!isGuest);
@@ -134,7 +135,7 @@ export function WalletView() {
       {currentStep === "method" && (
         <MethodStep
           mode={mode}
-          kycVerified={kycVerified}
+          kycVerified={canWithdraw}
           selected={method}
           onSelect={setMethod}
           onContinue={() => setStep("amount")}

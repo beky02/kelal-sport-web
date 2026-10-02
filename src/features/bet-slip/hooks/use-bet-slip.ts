@@ -3,9 +3,9 @@
 import { useMemo } from "react";
 import { usePublicConfig } from "@/features/config/hooks/use-public-config";
 import type { BettingRules } from "@/features/config/types";
+import { useSession } from "@/features/auth/hooks/use-session";
 import { useWallet } from "@/features/wallet/hooks/use-wallet";
 import { fromLegacyAmount } from "@/lib/money";
-import { useSessionStore } from "@/stores/session.store";
 import {
   calculateBetSlip,
   resolveCta,
@@ -49,7 +49,7 @@ export function useBetSlip(): BetSlipView {
   const config = usePublicConfig();
   const rules = config.data?.betting ?? null;
 
-  const isGuest = useSessionStore((s) => s.isGuest);
+  const { isGuest } = useSession();
   const wallet = useWallet(!isGuest);
   // Wallet amounts become strings in F6; until then, bridged here.
   const walletBalance = wallet.data?.balance;

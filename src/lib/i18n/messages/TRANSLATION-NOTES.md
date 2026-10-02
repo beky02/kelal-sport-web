@@ -174,3 +174,22 @@ Added or reworded after review; composed, need native review like the rest of th
 | `booking.openSlip`           | ትኬቱን ክፈት                                            |
 | `booking.reason.INCOMPLETE`  | ማረጋገጥ አይቻልም                                         |
 | `booking.errors.expired`     | ኮድ {code} ጊዜው አልፏል። አዲስ ኮድ ይጠይቁ ወይም ትኬቱን እንደገና ይሥሩ። |
+
+## F4a — session and login (2026-10-02)
+
+Composed, not from the design: the design had no copy for the API's refusals or
+for a new device's code. `auth.logInAgain` reuses `system.sessionLogIn`'s words.
+`system.sessionBody` was rewritten in both languages because the API makes no
+promise about "30 minutes without activity"; it now says only that the session
+has ended.
+
+| Key                                    | Amharic                                         | Composed from                                    |
+| -------------------------------------- | ----------------------------------------------- | ------------------------------------------------ |
+| `auth.errors.AUTH_INVALID_CREDENTIALS` | የስልክ ቁጥሩ ወይም የይለፍ ቃሉ ትክክል አይደለም።                | `auth.phone`, `auth.password` + negation         |
+| `auth.errors.AUTH_LOCKED`              | በጣም ብዙ ያልተሳኩ ሙከራዎች። መለያዎ ለአጭር ጊዜ ተቆልፏል።         | `መለያ` (auth.createTitle) + new                   |
+| `auth.errors.AUTH_OTP_INVALID`         | ኮዱ ትክክል አይደለም። ኤስኤምኤሱን ያረጋግጡና እንደገና ይሞክሩ።       | `ኮድ`, `ኤስኤምኤስ` (auth.otp*) + `እንደገና ይሞክሩ`        |
+| `auth.errors.AUTH_OTP_EXPIRED`         | ኮዱ ጊዜው አልፎበታል። አዲስ ለማግኘት እንደገና ይግቡ።             | `ኮድ` + `ይግቡ` (header.login)                      |
+| `auth.errors.RATE_LIMITED`             | በጣም ብዙ ሙከራዎች። ትንሽ ቆይተው እንደገና ይሞክሩ።              | `እንደገና ይሞክሩ` (rejection copy)                    |
+| `auth.errors.failed`                   | ችግር ተፈጥሯል። ግንኙነትዎን ያረጋግጡና እንደገና ይሞክሩ።           | `board.error.body`                               |
+| `auth.newDeviceBody`                   | አዲስ መሣሪያ። እርስዎ መሆንዎን ለማረጋገጥ ወደ {phone} ኮድ ልከናል። | `auth.otpSentTo` + new                           |
+| `system.sessionBody`                   | ቆይታዎ አብቅቷል። ለመቀጠል እንደገና ይግቡ። ትኬትዎ ተቀምጧል።        | `system.sessionTitle`, former body's last clause |

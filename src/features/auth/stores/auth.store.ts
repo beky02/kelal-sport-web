@@ -6,7 +6,9 @@ import type { AuthStep } from "../types";
 interface AuthState {
   /** Null when the dialog is closed. */
   step: AuthStep | null;
-  open: (step: AuthStep) => void;
+  /** Where to go once signed in (`/login?next=…`), checked before it is used. */
+  next: string | null;
+  open: (step: AuthStep, next?: string | null) => void;
   close: () => void;
   goTo: (step: AuthStep) => void;
 }
@@ -20,7 +22,8 @@ interface AuthState {
  */
 export const useAuthStore = create<AuthState>()((set) => ({
   step: null,
-  open: (step) => set({ step }),
-  close: () => set({ step: null }),
+  next: null,
+  open: (step, next = null) => set({ step, next }),
+  close: () => set({ step: null, next: null }),
   goTo: (step) => set({ step }),
 }));

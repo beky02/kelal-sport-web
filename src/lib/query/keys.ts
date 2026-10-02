@@ -6,6 +6,12 @@ import type { EventFilters } from "@/features/events/types";
  * Hierarchical on purpose: invalidating `eventKeys.lists()` drops every board
  * variant without touching a cached event detail.
  */
+/** Who is signed in (`/api/me`). Invalidated after login; set to a guest on logout. */
+export const sessionKeys = {
+  all: ["session"] as const,
+  me: () => [...sessionKeys.all, "me"] as const,
+};
+
 export const configKeys = {
   all: ["config"] as const,
   public: () => [...configKeys.all, "public"] as const,
