@@ -1,7 +1,7 @@
 ---
 id: F3b
 title: Booking codes and the /b/[code] deep link
-status: verifying
+status: done
 depends_on: [F3a]
 contract_tags: [Bookings, Config]
 touches_money: false
@@ -40,8 +40,8 @@ Out: retail slip codes (F8/F9); sharing a placed bet (`source_bet_id`, F5).
 
 ## Acceptance criteria
 
-- [ ] **AC-6** Booking `7KQ2M9X` (Prism) loads its selections into the slip; a 410 shows "expired".
-- [ ] **AC-8r** `/b/7KQ2M9X` (unprefixed, FD3) works and carries Open Graph metadata.
+- [x] **AC-6** Booking `7KQ2M9X` (Prism) loads its selections into the slip; a 410 shows "expired".
+- [x] **AC-8r** `/b/7KQ2M9X` (unprefixed, FD3) works and carries Open Graph metadata.
 
 ## Verification
 
