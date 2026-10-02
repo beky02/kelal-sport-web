@@ -4,7 +4,7 @@ import { useCallback } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { getMe } from "@/features/auth/api/auth";
 import { betKeys, rgKeys, sessionKeys, walletKeys } from "@/lib/query/keys";
-import { placeBet } from "../api/place-bet";
+import { placeBet, placementDeadline } from "../api/place-bet";
 import {
   legUpdates,
   newIdempotencyKey,
@@ -46,18 +46,19 @@ export function usePlaceBet(owner: string | null) {
 
   const { mutate } = useMutation({
     mutationFn: async ({ attempt, owner, again }: Sending) => {
+      // One deadline for the whole attempt, whatever it asks: past it the
+      // bet is unanswered, never stuck on "Placing…".
+      const deadline = placementDeadline();
       if (again) {
         // Try again sends a bet that may no longer be on screen, so only for
         // the player it was placed for: another tab may have signed someone
-        // else in since this one last read /api/me.
-        const { player } = await queryClient.fetchQuery({
-          queryKey: sessionKeys.me(),
-          queryFn: ({ signal }) => getMe(signal),
-          staleTime: 0,
-        });
+        // else in since this one last read /api/me. Read directly, not
+        // through the cache, so a read already in flight can't outlast the
+        // deadline.
+        const { player } = await getMe(deadline);
         if (player?.id !== owner) throw new NotTheirSession();
       }
-      return placeBet(attempt.request, attempt.key);
+      return placeBet(attempt.request, attempt.key, deadline);
     },
     onSuccess: (receipt, { attempt }) => {
       useBetSlipStore.getState().placementPlaced(attempt.key, receipt);
@@ -67,9 +68,10 @@ export function usePlaceBet(owner: string | null) {
     onError: (error, { attempt: { request, key } }) => {
       const slip = useBetSlipStore.getState();
       if (error instanceof NotTheirSession) {
-        // Nothing went. The slip follows the /api/me just read: a guest is
+        // Nothing went. The slip follows /api/me, read again: a guest is
         // asked to log in, and another player is never shown this bet.
         slip.placementSessionEnded(key);
+        void queryClient.invalidateQueries({ queryKey: sessionKeys.me() });
         return;
       }
       const outcome = placementOutcome(error);

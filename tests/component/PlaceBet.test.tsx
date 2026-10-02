@@ -57,6 +57,8 @@ let sent: Sent[] = [];
 let signedIn: Player | null = CONTRACT_PLAYER;
 /** How many times `/api/me` was read. */
 let meReads = 0;
+/** `/api/me` never answers — until its request is aborted, as fetch would. */
+let meHangs = false;
 
 type Answer =
   | [number, unknown, Record<string, string>?]
@@ -74,6 +76,12 @@ function bets(...answers: Answer[]) {
     const url = new URL(String(input));
     if (url.pathname === "/api/me") {
       meReads += 1;
+      const signal = init?.signal;
+      if (meHangs) {
+        return new Promise<Response>((_, reject) =>
+          signal?.addEventListener("abort", () => reject(signal.reason)),
+        );
+      }
       return Response.json({ player: signedIn });
     }
     if (url.pathname !== "/api/bets") throw new Error(`unexpected ${url}`);
@@ -163,6 +171,7 @@ beforeEach(() => {
   sent = [];
   signedIn = CONTRACT_PLAYER;
   meReads = 0;
+  meHangs = false;
   push.mockClear();
   slip().clear();
   slip().forgetPlacement();
@@ -448,6 +457,10 @@ describe("a bet that had no answer (AC-1; SEC1, M1)", () => {
     expect(unconfirmedAlert()).toHaveTextContent(
       "Try again sends that bet as it was: Multiple · 3 picks. If it went through, placing this slip as well makes two bets.",
     );
+    // The bet's name never breaks across lines (U12).
+    expect(unconfirmedAlert().textContent).toContain(
+      "Multiple\u00a0·\u00a03\u00a0picks",
+    );
     expect(alertTryAgain()).toHaveTextContent(/^Try again · ETB\s100\.00$/);
     expect(mainButton()).toHaveTextContent(/^Place as a new betETB 50\.00$/);
     await userEvent.click(mainButton());
@@ -478,6 +491,27 @@ describe("a bet that had no answer (AC-1; SEC1, M1)", () => {
     await screen.findByTestId("ticket-code");
     expect(sent[1].key).toBe(sent[0].key);
     expect(sent[1].body.stake).toBe("100.00");
+  });
+
+  it("says Try again sends the bet as it was when only the odds setting changed (M9)", async () => {
+    bets("drop", [201, TICKET()]);
+    render(<BetSlip />);
+
+    await placeAndLoseTheAnswer();
+    act(() => slip().setOddsPolicy("any"));
+
+    // Still that bet, so Try again — but the setting on screen isn't the one
+    // it goes with, and the alert says so.
+    expect(mainButton()).toHaveTextContent(/^Try again/);
+    expect(unconfirmedAlert()).toHaveTextContent(
+      "Try again sends that bet as it was: Multiple · 3 picks.",
+    );
+    expect(unconfirmedAlert()).not.toHaveTextContent("this slip");
+    await userEvent.click(mainButton());
+    await screen.findByTestId("ticket-code");
+    expect(sent[1].key).toBe(sent[0].key);
+    expect(sent[1].body.oddsPolicy).toBe(sent[0].body.oddsPolicy);
+    expect(sent[1].body.oddsPolicy).not.toBe("any");
   });
 
   it("names the bet without “this slip” once the slip is cleared (U11)", async () => {
@@ -644,6 +678,32 @@ describe("a bet that had no answer (AC-1; SEC1, M1)", () => {
     expect(
       screen.queryByText("We couldn’t confirm your bet"),
     ).not.toBeInTheDocument();
+  });
+
+  it("gives up on a check of who is signed in that never answers, within the attempt's 30 s (P1)", async () => {
+    bets("drop");
+    render(<BetSlip />);
+    await placeAndLoseTheAnswer();
+
+    // The next attempt's deadline, under the test's control; /api/me hangs.
+    const deadline = new AbortController();
+    vi.spyOn(AbortSignal, "timeout").mockReturnValue(deadline.signal);
+    meHangs = true;
+    await userEvent.click(alertTryAgain());
+    expect(mainButton()).toHaveTextContent("Placing…");
+
+    act(() =>
+      deadline.abort(new DOMException("signal timed out", "TimeoutError")),
+    );
+
+    // Nothing was sent: the bet is still unconfirmed, with its key, and the
+    // slip is free again.
+    await waitFor(() => expect(mainButton()).toHaveTextContent(/^Try again/));
+    expect(sent).toHaveLength(1);
+    expect(slip().placement).toMatchObject({
+      sending: null,
+      unconfirmed: { key: sent[0].key },
+    });
   });
 
   it("keeps the picks and asks to log in when the session is gone on a first try (N3)", async () => {

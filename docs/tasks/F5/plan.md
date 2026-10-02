@@ -295,3 +295,20 @@ under Ask me; the policy reset on load), `golden.test.ts` (all 366 rows, untouch
 - **Files changed beyond round 1's list**: none new; `src/features/auth/api/auth.ts` is now read by
   `use-place-bet.ts` (`getMe`).
 - **Screens**: added `home-slip-unconfirmed-refused` (a Try again answered 429).
+
+### Review round 3 (2026-10-03) — what changed
+
+- **One deadline for the whole attempt** (P1, MAJOR): round 2's check of who is signed in before a Try
+  again had no time limit of its own, so a hanging `/api/me` left the slip on "Placing…" for good.
+  `placementDeadline()` (30 s) is made once per attempt and bounds both the `/api/me` read and the POST;
+  past it the bet is unanswered and stays unconfirmed with its key. The read goes to `getMe` directly,
+  not through the query cache, so a read already in flight can't outlast it; a different player
+  invalidates `/api/me` so the slip follows.
+- **A respelled price is the same price** (P2): `samePrices` compares with `compareOdds`, as the slip
+  does, so `"3.050"` can't make the unconfirmed bet look like another one.
+- **The alert says "as it was" whenever Try again sends what the slip doesn't show** (M9): other prices,
+  or another odds setting. `SlipAlerts` takes `unconfirmedNote` (`asItWas` / `changed` / none) from
+  `BetSlip` instead of `slipIsThatBet`; the key `unconfirmed.cleared` is now `unconfirmed.asItWas`.
+- **The bet's name doesn't break across lines** (U12): `kindOf` joins it with non-breaking spaces.
+- **Not done**: holding Try again until a rate limit's `Retry-After` has passed (U13, optional) — a
+  follow-up.

@@ -161,6 +161,13 @@ describe("slipIsThatBet: is the slip on screen the unconfirmed bet?", () => {
     // Back at the price it was sent at: that bet, never a new key for it.
     expect(slipIsThatBet(REQUEST, UNCONFIRMED, true)).toBe(true);
   });
+
+  it("takes a respelled price for the same price, as the slip does (P2)", () => {
+    // Realtime may send "3.050" for 3.05: no move, so still that bet.
+    const respelled = { ...REQUEST, legs: legs("1.620", "3.050") };
+    expect(samePrices(respelled, REQUEST)).toBe(true);
+    expect(slipIsThatBet(respelled, UNCONFIRMED, true)).toBe(true);
+  });
 });
 
 describe("newIdempotencyKey", () => {

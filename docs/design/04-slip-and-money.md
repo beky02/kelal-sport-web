@@ -66,8 +66,9 @@ from the stake, void refunds) stay the backend's to answer.
      is Try again. Once it is another bet, the main button places it as a new bet ("Place as a new bet",
      with the slip's amount), or does whatever the slip needs first (Accept changes, Remove); Try again
      stays in the alert, which names the bet ("Try again sends that bet as it was: Multiple · 3 picks")
-     and, while the slip has picks, warns that placing this slip as well makes two bets. A Try again
-     never asks for the same picks at the same prices under a new key.
+     and, while the slip has picks, warns that placing this slip as well makes two bets. The alert
+     names it too whenever Try again would send what the slip doesn't show — other prices, another
+     odds setting. The same picks at the same prices (`"3.05"` is `"3.050"`) never go under a new key.
    - **A refused Try again is said as one**: "Try again didn't go through", with the reason (the odds on
      that bet have changed, a selection in it is no longer available, the rate limit, the balance…) and
      the fix where there is one — never "Bet not accepted" or "wasn't placed". A refusal of that bet's
@@ -76,7 +77,8 @@ from the stake, void refunds) stay the backend's to answer.
      (Accept, then Place as a new bet), and the alert keeps Try again to find out whether the first try
      went through.
    - Try again first reads `/api/me` afresh and sends nothing if someone else is signed in now (another
-     tab), so a bet is only ever sent for the player who placed it.
+     tab), so a bet is only ever sent for the player who placed it. That read and the POST share the
+     attempt's 30 s: past it the bet is unanswered, never left on "Placing…".
 
    A ticket or a refusal of any other attempt spends its key: a second bet on the same slip, or
    accepting new odds, is a new intent with a new key.

@@ -336,7 +336,7 @@ Added in the F5a review, round 2 (2026-10-03). `unconfirmed.changed` was reworde
 | `betSlip.singlesLabel`             | ነጠላ · {n} ውርርዶች                                                                     | `betSlip.single` (ነጠላ), `betSlip.betCount`                            |
 | `betSlip.alerts.oddsChangedBody`   | ለመቀጠል አዲሱን ኦድ ይቀበሉ።                                                                 | `refused.oddsChanged` (አዲሱን ኦድ ይቀበሉ); no count, so no plural          |
 | `betSlip.unconfirmed.changed`      | እንደገና መሞከር ያንን ውርርድ እንደነበረ ይልካል፦ {bet}። ያ ውርርድ ተይዞ ከሆነ፣ ይህንንም ማስያዝ ሁለት ውርርዶች ያደርጋል። | `common.retry` (እንደገና), `unconfirmed.body` (ተይዞ ከሆነ), `betSlip.bets`  |
-| `betSlip.unconfirmed.cleared`      | እንደገና መሞከር ያንን ውርርድ እንደነበረ ይልካል፦ {bet}።                                             | as above; `{bet}` is `multipleLabel`, `systemLabel` or `singlesLabel` |
+| `betSlip.unconfirmed.asItWas`      | እንደገና መሞከር ያንን ውርርድ እንደነበረ ይልካል፦ {bet}።                                             | as above; `{bet}` is `multipleLabel`, `systemLabel` or `singlesLabel` |
 | `betSlip.unconfirmed.retry`        | እንደገና ይሞክሩ · {amount}                                                               | `common.retry`                                                        |
 | `betSlip.unconfirmed.retryRefused` | እንደገና መሞከሩ አልተሳካም                                                                   | `common.retry`, `placeFailedBody` (አልተሳካም)                            |
 | `betSlip.unconfirmed.oddsChanged`  | ከዚያ በኋላ የዚያ ውርርድ ኦድ ተቀይሯል።                                                          | `alerts.oddsChangedTitle` (ኦድ ተቀይሯል)                                  |

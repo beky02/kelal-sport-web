@@ -11,7 +11,7 @@ import { useAuthStore } from "@/features/auth/stores/auth.store";
 import { useBetSlip } from "../hooks/use-bet-slip";
 import { usePlaceBet } from "../hooks/use-place-bet";
 import type { CtaAction } from "../lib/calculate";
-import { placeRequestFrom, slipIsThatBet } from "../lib/placement";
+import { placeRequestFrom, samePrices, slipIsThatBet } from "../lib/placement";
 import { ownPlacement, useBetSlipStore } from "../stores/bet-slip.store";
 import { BetModeTabs } from "./BetModeTabs";
 import { BetPlacedConfirmation } from "./BetPlacedConfirmation";
@@ -113,6 +113,20 @@ export function BetSlip({ onClose }: { onClose?: () => void }) {
       : action === "place" || action === "place-new"
         ? (totals.quote?.totalStake ?? null)
         : null;
+  // The alert says which bet Try again sends whenever the slip doesn't show
+  // exactly it — its prices and its odds setting too — and warns of two
+  // bets once the main button would place the slip as another.
+  const exactly =
+    intent !== null &&
+    unconfirmed !== null &&
+    samePrices(intent.request, unconfirmed.request) &&
+    intent.request.oddsPolicy === unconfirmed.request.oddsPolicy;
+  const unconfirmedNote =
+    unconfirmed === null || exactly
+      ? null
+      : !thatBet && totals.count > 0
+        ? "changed"
+        : "asItWas";
 
   // Booking saves the slip slipcalc priced: its live picks, bet type and
   // system size. Null when it can't be booked (nothing live, a same-match
@@ -184,7 +198,7 @@ export function BetSlip({ onClose }: { onClose?: () => void }) {
         rulesState={rulesState}
         onRetryRules={retryRules}
         placement={placement}
-        slipIsThatBet={thatBet}
+        unconfirmedNote={unconfirmedNote}
         // A refusal the player can act on carries the fix, rather than
         // leaving them to work out what would be accepted.
         fixes={{

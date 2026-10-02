@@ -3,12 +3,15 @@ import { betReceiptSchema } from "@/lib/api/schemas";
 import type { BetReceipt, PlaceBetRequest } from "../types";
 
 /**
- * How long Place waits before saying it couldn't confirm the bet. Placement's
- * own target is 0.8 s (C08 §1); past this the player is offered Try again,
- * which sends the same request with the same key, so a slow answer can never
- * turn into a second bet.
+ * How long one attempt to place may take — every request it makes — before
+ * the slip says it couldn't confirm the bet. Placement's own target is 0.8 s
+ * (C08 §1); past this the player is offered Try again, which sends the same
+ * request with the same key, so a slow answer can never turn into a second
+ * bet, and nothing leaves the slip "Placing…" for good.
  */
-const PLACE_TIMEOUT_MS = 30_000;
+export const placementDeadline = (): AbortSignal =>
+  // Every browser Next.js 16 supports has it (Chrome 111+, Safari 16.4+).
+  AbortSignal.timeout(30_000);
 
 /**
  * Places the slip through `/api/bets` (C08).
@@ -21,10 +24,10 @@ const PLACE_TIMEOUT_MS = 30_000;
 export function placeBet(
   request: PlaceBetRequest,
   idempotencyKey: string,
+  deadline: AbortSignal,
 ): Promise<BetReceipt> {
   return apiClient.post("/bets", betReceiptSchema, request, {
     headers: { "Idempotency-Key": idempotencyKey },
-    // Every browser Next.js 16 supports has it (Chrome 111+, Safari 16.4+).
-    signal: AbortSignal.timeout(PLACE_TIMEOUT_MS),
+    signal: deadline,
   });
 }

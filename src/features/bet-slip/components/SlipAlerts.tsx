@@ -63,25 +63,25 @@ function say(text: RefusalText, t: Translator): string {
 
 /**
  * A bet as the slip names it — "Multiple · 3 picks", "System 2/4 · 6 bets" —
- * for one that is no longer on screen.
+ * for one that is no longer on screen. Its spaces don't break: a name split
+ * across lines, or a line starting with "·", reads as two things.
  */
 function kindOf(attempt: PlaceAttempt, t: Translator): string {
   const { betType, legs, systemSizes } = attempt.request;
   const n = legs.length;
-  switch (betType) {
-    case "multiple":
-      return t.t("betSlip.multipleLabel", { n });
-    case "system":
-      return t.t("betSlip.systemLabel", {
-        k: systemSizes.join(", "),
-        n,
-        c: attempt.lines,
-      });
-    default:
-      return n === 1
-        ? t.t("betSlip.single")
-        : t.t("betSlip.singlesLabel", { n });
-  }
+  const name =
+    betType === "multiple"
+      ? t.t("betSlip.multipleLabel", { n })
+      : betType === "system"
+        ? t.t("betSlip.systemLabel", {
+            k: systemSizes.join(", "),
+            n,
+            c: attempt.lines,
+          })
+        : n === 1
+          ? t.t("betSlip.single")
+          : t.t("betSlip.singlesLabel", { n });
+  return name.replace(/ /g, "\u00a0");
 }
 
 /** The engine's refusal (`refusalNotice`) as an alert, its fix as a button. */
@@ -192,7 +192,7 @@ export function SlipAlerts({
   rulesState,
   onRetryRules,
   placement,
-  slipIsThatBet,
+  unconfirmedNote,
   fixes,
 }: {
   totals: BetSlipTotals;
@@ -202,10 +202,13 @@ export function SlipAlerts({
   /** The signed-in player's own placement (`ownPlacement`). */
   placement: Placement;
   /**
-   * The slip on screen still is the unconfirmed bet, so the main button
-   * under it is Try again (`slipIsThatBet`).
+   * What the unconfirmed alert says about the bet Try again sends: nothing
+   * while the slip is exactly it; "as it was" while Try again would send
+   * something the slip doesn't show (other prices, another odds setting, an
+   * empty slip); and the two-bets warning once the main button would place
+   * the slip as another bet.
    */
-  slipIsThatBet: boolean;
+  unconfirmedNote: "asItWas" | "changed" | null;
   fixes: PlacementFixes;
 }) {
   const t = useTranslation();
@@ -239,16 +242,17 @@ export function SlipAlerts({
       tone: "error",
       title: t.t("betSlip.unconfirmed.title"),
       body: t.t("betSlip.unconfirmed.body"),
-      // Once the slip is no longer that bet, its Try again is only here: say
-      // which bet it sends, and that placing this slip as well makes two.
-      detail: slipIsThatBet
-        ? null
-        : t.t(
-            totals.count > 0
+      // Whenever Try again would send what the slip doesn't show, say which
+      // bet it sends — and, once the slip is another bet, that placing it as
+      // well makes two.
+      detail: unconfirmedNote
+        ? t.t(
+            unconfirmedNote === "changed"
               ? "betSlip.unconfirmed.changed"
-              : "betSlip.unconfirmed.cleared",
+              : "betSlip.unconfirmed.asItWas",
             { bet: kindOf(unconfirmed, t) },
-          ),
+          )
+        : null,
       action: {
         label: retrying
           ? t.t("betSlip.placing")

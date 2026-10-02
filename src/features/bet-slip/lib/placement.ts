@@ -1,6 +1,6 @@
 import { ApiError } from "@/lib/api/errors";
 import { ODDS_PATTERN } from "@/lib/api/patterns";
-import { normaliseMoney } from "@/lib/money";
+import { compareOdds, normaliseMoney } from "@/lib/money";
 import type {
   BetSelection,
   OddsPolicy,
@@ -70,11 +70,14 @@ export function sameBet(a: PlaceBetRequest, b: PlaceBetRequest): boolean {
   );
 }
 
-/** The same bet with every pick at the same price. */
+/** The same bet with every pick at the same price — `"3.05"` and `"3.050"` are one. */
 export function samePrices(a: PlaceBetRequest, b: PlaceBetRequest): boolean {
   if (!sameBet(a, b)) return false;
   const odds = new Map(b.legs.map((l) => [l.outcomeId, l.odds]));
-  return a.legs.every((l) => odds.get(l.outcomeId) === l.odds);
+  return a.legs.every((l) => {
+    const other = odds.get(l.outcomeId);
+    return other !== undefined && compareOdds(l.odds, other) === 0;
+  });
 }
 
 /**
