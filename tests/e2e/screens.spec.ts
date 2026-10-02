@@ -120,6 +120,151 @@ const loginAnswering =
     await answered;
   };
 
+/** A consent row's own box, at its left — the middle of the row may be a link. */
+const BOX = { x: 11, y: 21 };
+
+/** Asks Prism for a named answer on one of this app's routes (next dev only). */
+const preferOn = (page: Page, route: string, prefer: string) =>
+  page.route(`**${route}`, (r) =>
+    r.continue({ headers: { ...r.request().headers(), prefer } }),
+  );
+
+/**
+ * Registration through the dialog, as far as `stop`: the code step, the
+ * details filled in, or the ID step with the account created (Prism's
+ * register example sets a real sealed session).
+ */
+async function registerTo(
+  page: Page,
+  lang: Lang,
+  stop: "code" | "details" | "created",
+) {
+  const t = MESSAGES[lang];
+  const dialog = page.getByRole("dialog");
+  await dialog.getByLabel(t.auth.phone, { exact: true }).fill("911234567");
+  await dialog.getByRole("checkbox").nth(0).click({ position: BOX });
+  await dialog.getByRole("checkbox").nth(1).click({ position: BOX });
+  await dialog
+    .getByRole("button", { name: t.auth.continue, exact: true })
+    .click();
+  await dialog.getByLabel(t.auth.otpLabel).waitFor();
+  if (stop === "code") return;
+
+  await dialog.getByLabel(t.auth.otpLabel).fill("482913");
+  await dialog
+    .getByRole("button", { name: t.auth.continue, exact: true })
+    .click();
+  await dialog.getByLabel(t.auth.fullName).fill("Abebe Kebede");
+  await dialog.getByLabel(t.auth.dateOfBirth).fill("12/04/1998");
+  await dialog
+    .getByLabel(t.auth.password, { exact: true })
+    .fill("correct horse battery");
+  await dialog.getByLabel(t.auth.confirmPassword).fill("correct horse battery");
+  if (stop === "details") return;
+
+  const answered = page.waitForResponse("**/api/auth/register");
+  await dialog.getByRole("button", { name: t.auth.createAccount }).click();
+  await answered;
+}
+
+const registerStep =
+  (stop: "code" | "details" | "created") =>
+  async (page: Page, _device: Device, lang: Lang) => {
+    await registerTo(page, lang, stop);
+    if (stop === "created") {
+      await page
+        .getByRole("dialog")
+        .getByLabel(MESSAGES[lang].auth.fin)
+        .waitFor();
+    }
+  };
+
+/** `REG_PHONE_TAKEN`: Prism's 409 on `/v1/auth/otp`. */
+async function phoneTaken(page: Page, _device: Device, lang: Lang) {
+  await preferOn(page, "/api/auth/otp", "code=409");
+  const t = MESSAGES[lang];
+  const dialog = page.getByRole("dialog");
+  await dialog.getByLabel(t.auth.phone, { exact: true }).fill("911234567");
+  await dialog.getByRole("checkbox").nth(0).click({ position: BOX });
+  await dialog.getByRole("checkbox").nth(1).click({ position: BOX });
+  await dialog
+    .getByRole("button", { name: t.auth.continue, exact: true })
+    .click();
+  await dialog.getByRole("alert").waitFor();
+}
+
+/**
+ * `AUTH_OTP_INVALID` at Create account. Prism has no example of it (contract
+ * request 006), so this app's own route answers with the contract's
+ * `Problem` shape, in the browser.
+ */
+async function codeRefused(page: Page, _device: Device, lang: Lang) {
+  await page.route("**/api/auth/register", (route) =>
+    route.fulfill({
+      status: 422,
+      contentType: "application/problem+json",
+      json: {
+        type: "https://api.example.et/errors/otp-invalid",
+        title: "Wrong code",
+        status: 422,
+        code: "AUTH_OTP_INVALID",
+        request_id: "req_ui",
+      },
+    }),
+  );
+  await registerTo(page, lang, "created");
+  await page.getByRole("dialog").getByRole("alert").waitFor();
+}
+
+/** Fayda's verdict, by Prism's named example on `/v1/kyc/fayda/verify` (AC-10). */
+const faydaVerdict =
+  (example: "verified" | "pending" | "needs_info") =>
+  async (page: Page, _device: Device, lang: Lang) => {
+    await preferOn(page, "/api/kyc/fayda/verify", `example=${example}`);
+    const t = MESSAGES[lang];
+    await registerTo(page, lang, "created");
+    const dialog = page.getByRole("dialog");
+    await dialog.getByLabel(t.auth.fin).fill("482109375516");
+    await dialog.getByRole("checkbox").first().click({ position: BOX });
+    await dialog.getByRole("button", { name: t.auth.verifyWithFayda }).click();
+    await dialog.getByLabel(t.auth.otpLabel).fill("123456");
+    const answered = page.waitForResponse("**/api/kyc/fayda/verify");
+    await dialog
+      .getByRole("button", { name: t.auth.verify, exact: true })
+      .click();
+    await answered;
+    const title = {
+      verified: t.auth.kycVerifiedTitle,
+      pending: t.auth.pendingTitle,
+      needs_info: t.auth.needsInfoTitle,
+    }[example];
+    await dialog.getByRole("heading", { name: title }).waitFor();
+  };
+
+/** A forgotten password from the login form, to the code step or done (AC-9). */
+const resetTo =
+  (stop: "code" | "done") =>
+  async (page: Page, _device: Device, lang: Lang) => {
+    const t = MESSAGES[lang];
+    const dialog = page.getByRole("dialog");
+    await dialog.getByLabel(t.auth.phone, { exact: true }).fill("911234567");
+    await dialog.getByRole("button", { name: t.auth.forgotPassword }).click();
+    await dialog.getByRole("button", { name: t.auth.sendCode }).click();
+    await dialog.getByLabel(t.auth.otpLabel).waitFor();
+    if (stop === "code") return;
+
+    await dialog.getByLabel(t.auth.otpLabel).fill("551203");
+    await dialog
+      .getByRole("button", { name: t.auth.continue, exact: true })
+      .click();
+    await dialog.getByLabel(t.auth.newPassword).fill("another long passphrase");
+    await dialog
+      .getByLabel(t.auth.confirmPassword)
+      .fill("another long passphrase");
+    await dialog.getByRole("button", { name: t.auth.savePassword }).click();
+    await dialog.getByRole("status").waitFor();
+  };
+
 /** `/b/7KQ2M9X`, loaded into the slip — the sheet opens on a phone. */
 async function loadBooking(page: Page, _device: Device, lang: Lang) {
   await page
@@ -189,6 +334,42 @@ const SCREENS: Array<{
     allowConsole: /status of 423/,
   },
   { name: "register", path: "/register" },
+  { name: "register-code", path: "/register", prepare: registerStep("code") },
+  {
+    name: "register-details",
+    path: "/register",
+    prepare: registerStep("details"),
+  },
+  { name: "register-id", path: "/register", prepare: registerStep("created") },
+  {
+    name: "register-phone-taken",
+    path: "/register",
+    prepare: phoneTaken,
+    allowConsole: /status of 409/,
+  },
+  {
+    name: "register-code-invalid",
+    path: "/register",
+    prepare: codeRefused,
+    allowConsole: /status of 422/,
+  },
+  {
+    name: "verify-verified",
+    path: "/register",
+    prepare: faydaVerdict("verified"),
+  },
+  {
+    name: "verify-pending",
+    path: "/register",
+    prepare: faydaVerdict("pending"),
+  },
+  {
+    name: "verify-needs-info",
+    path: "/register",
+    prepare: faydaVerdict("needs_info"),
+  },
+  { name: "reset-code", path: "/login", prepare: resetTo("code") },
+  { name: "reset-done", path: "/login", prepare: resetTo("done") },
 ];
 
 const DEVICES = {

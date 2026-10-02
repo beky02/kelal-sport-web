@@ -15,6 +15,9 @@ const TOKEN_MARKERS = [
 
 const CREDENTIALS = { phone: "911234567", password: "correct horse battery" };
 
+/** A consent row's own box, at its left — the middle of the row may be a link. */
+const BOX = { x: 11, y: 21 };
+
 /** The dialog's own form — a guest's header has a "Log in" button of its own. */
 async function logInThroughTheDialog(page: import("@playwright/test").Page) {
   const dialog = page.getByRole("dialog");
@@ -161,4 +164,77 @@ test("logging out clears the session and the account pages close again (AC-8)", 
   await expect(page).toHaveURL(/\/login\?next=%2Fwallet$/);
   const me = await page.request.get("/api/me");
   expect(await me.json()).toEqual({ player: null });
+});
+
+test("registers with the SMS code, is signed in, and verifies with Fayda against Prism (AC-1)", async ({
+  page,
+  context,
+}) => {
+  const bodies: string[] = [];
+  page.on("response", async (response) => {
+    if (new URL(response.url()).pathname.startsWith("/api/")) {
+      bodies.push(await response.text().catch(() => ""));
+    }
+  });
+
+  await page.goto("/register");
+  const dialog = page.getByRole("dialog");
+
+  // Phone and both consents (age, then terms) — ticked on the box: the
+  // terms row's middle is its links.
+  await dialog.getByLabel(en.auth.phone, { exact: true }).fill("911234567");
+  await dialog.getByRole("checkbox").nth(0).click({ position: BOX });
+  await dialog.getByRole("checkbox").nth(1).click({ position: BOX });
+  await dialog
+    .getByRole("button", { name: en.auth.continue, exact: true })
+    .click();
+
+  // The code is held here and checked with the details.
+  await dialog.getByLabel(en.auth.otpLabel).fill("482913");
+  await dialog
+    .getByRole("button", { name: en.auth.continue, exact: true })
+    .click();
+
+  await dialog.getByLabel(en.auth.fullName).fill("Abebe Kebede");
+  await dialog.getByLabel(en.auth.dateOfBirth).fill("12/04/1998");
+  await dialog
+    .getByLabel(en.auth.password, { exact: true })
+    .fill("correct horse battery");
+  await dialog
+    .getByLabel(en.auth.confirmPassword)
+    .fill("correct horse battery");
+  const created = page.waitForResponse("**/api/auth/register");
+  await dialog.getByRole("button", { name: en.auth.createAccount }).click();
+  expect((await created).status()).toBe(201);
+
+  // Signed in: the sealed, httpOnly cookie, and /api/me says who.
+  await expect(dialog.getByLabel(en.auth.fin)).toBeVisible();
+  const session = (await context.cookies()).find(
+    (cookie) => cookie.name === "kelal.session",
+  );
+  expect(session?.httpOnly).toBe(true);
+  const me = await page.request.get("/api/me");
+  expect((await me.json()).player).not.toBeNull();
+
+  // The ID: Fayda texts its own code; Prism's first verdict is `verified`.
+  await dialog.getByLabel(en.auth.fin).fill("482109375516");
+  await dialog.getByRole("checkbox").first().click({ position: BOX });
+  await dialog.getByRole("button", { name: en.auth.verifyWithFayda }).click();
+  await dialog.getByLabel(en.auth.otpLabel).fill("123456");
+  await dialog
+    .getByRole("button", { name: en.auth.verify, exact: true })
+    .click();
+  await expect(dialog.getByText(en.auth.kycVerifiedTitle)).toBeVisible();
+
+  const inBrowser = await page.evaluate(() => ({
+    cookie: document.cookie,
+    local: JSON.stringify(localStorage),
+  }));
+  for (const marker of TOKEN_MARKERS) {
+    expect(inBrowser.cookie, "document.cookie").not.toContain(marker);
+    expect(inBrowser.local, "localStorage").not.toContain(marker);
+    for (const body of bodies) {
+      expect(body, "a response body to the browser").not.toContain(marker);
+    }
+  }
 });

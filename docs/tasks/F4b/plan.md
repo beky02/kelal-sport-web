@@ -157,7 +157,7 @@ Change:
 - `src/components/layout/AppHeader.tsx`, `src/features/profile/components/ProfileView.tsx`, `src/features/wallet/components/WalletView.tsx`, `src/app/register/page.tsx`, `src/app/login/page.tsx` — new entry names.
 - `src/lib/i18n/messages/en.json`, `am.json`, `TRANSLATION-NOTES.md`.
 - `tests/unit/auth-mappers.test.ts` (new mappers on the contract's examples), `tests/unit/auth-flow.test.ts` (error views with context), `tests/component/AuthDialog.test.tsx` (entry names), `tests/e2e/auth.spec.ts` (AC-1), `tests/e2e/screens.spec.ts` (new screens).
-- `docs/design/03-session-and-account.md`, `02-journeys.md`, `05-errors-and-states.md`, `01-screens.md` — registration, reset and KYC as built.
+- `docs/design/03-session-and-account.md`, `02-journeys.md`, `05-errors-and-states.md`, `01-screens.md`, `07-tenancy-and-theming.md` (who reads `legal.terms_version`) — registration, reset and KYC as built.
 - `docs/contract-requests/README.md`, `docs/tasks/F4b-register-kyc.md`, `docs/tasks/README.md`.
 
 Delete:
