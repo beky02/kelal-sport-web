@@ -15,12 +15,18 @@ const TOKEN_MARKERS = [
 
 const CREDENTIALS = { phone: "911234567", password: "correct horse battery" };
 
+/** The dialog's own form — a guest's header has a "Log in" button of its own. */
 async function logInThroughTheDialog(page: import("@playwright/test").Page) {
-  await page.getByLabel(en.auth.phone, { exact: true }).fill(CREDENTIALS.phone);
-  await page
+  const dialog = page.getByRole("dialog");
+  await dialog
+    .getByLabel(en.auth.phone, { exact: true })
+    .fill(CREDENTIALS.phone);
+  await dialog
     .getByLabel(en.auth.password, { exact: true })
     .fill(CREDENTIALS.password);
-  await page.getByRole("button", { name: en.auth.logIn }).click();
+  await dialog
+    .getByRole("button", { name: en.auth.logIn, exact: true })
+    .click();
 }
 
 test("logs in through the dialog and leaves no token in the browser (AC-3)", async ({
@@ -38,9 +44,9 @@ test("logs in through the dialog and leaves no token in the browser (AC-3)", asy
   await logInThroughTheDialog(page);
   // Signed in: the header shows the balance instead of Log in / Register.
   await expect(page.getByRole("link", { name: /balance/i })).toBeVisible();
-  await expect(page.getByRole("button", { name: en.header.login })).toHaveCount(
-    0,
-  );
+  await expect(
+    page.getByRole("button", { name: en.header.login, exact: true }),
+  ).toHaveCount(0);
 
   const session = (await context.cookies()).find(
     (cookie) => cookie.name === "kelal.session",
@@ -69,6 +75,27 @@ test("logs in through the dialog and leaves no token in the browser (AC-3)", asy
       expect(body, "a response body to the browser").not.toContain(marker);
     }
   }
+});
+
+test("a wrong password is refused in the API's own terms, not as an outage", async ({
+  page,
+}) => {
+  // Prism's 401 (`Prefer`, next dev only). Inside Next.js a 401 to a POST once
+  // surfaced as "fetch failed"; this is the regression check.
+  await page.route("**/api/auth/login", (route) =>
+    route.continue({
+      headers: { ...route.request().headers(), prefer: "code=401" },
+    }),
+  );
+  await page.goto("/login");
+  const answered = page.waitForResponse("**/api/auth/login");
+  await logInThroughTheDialog(page);
+  const response = await answered;
+  expect(response.status()).toBe(401);
+  expect((await response.json()).code).toBe("AUTH_INVALID_CREDENTIALS");
+  await expect(page.getByRole("dialog").getByRole("alert")).toHaveText(
+    en.auth.errors.AUTH_INVALID_CREDENTIALS,
+  );
 });
 
 test("refuses a cross-origin POST, and one without the CSRF header (AC-4)", async ({
@@ -127,7 +154,7 @@ test("logging out clears the session and the account pages close again (AC-8)", 
   await page.getByRole("button", { name: en.profile.logOut }).click();
   await page.waitForURL("/");
   await expect(
-    page.getByRole("button", { name: en.header.login }).first(),
+    page.getByRole("button", { name: en.header.login, exact: true }).first(),
   ).toBeVisible();
 
   await page.goto("/wallet");

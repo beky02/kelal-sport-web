@@ -9,7 +9,7 @@ import { z } from "zod";
 import type { components } from "@/lib/api/schema";
 import { DEVICE_COOKIE, SESSION_COOKIE } from "@/lib/session-cookie";
 import type { Lang } from "@/types/common";
-import { serverConfig } from "./config";
+import { sessionSecret } from "./config";
 import { UpstreamError, unwrap, upstream } from "./upstream";
 
 export { DEVICE_COOKIE, SESSION_COOKIE };
@@ -48,7 +48,7 @@ const decode = (text: string) => Buffer.from(text, "base64url");
 /** AES-256-GCM: confidentiality and integrity in one; a changed byte opens to nothing. */
 export function seal(
   session: Session,
-  secret: string = serverConfig.sessionSecret,
+  secret: string = sessionSecret(),
 ): string {
   const iv = randomBytes(12);
   const cipher = createCipheriv("aes-256-gcm", keyFor(secret), iv);
@@ -67,7 +67,7 @@ export function seal(
 /** The session a cookie value holds, or null for anything tampered, foreign or stale in shape. */
 export function open(
   value: string,
-  secret: string = serverConfig.sessionSecret,
+  secret: string = sessionSecret(),
 ): Session | null {
   const [version, iv, sealed, tag, ...rest] = value.split(".");
   if (version !== VERSION || !iv || !sealed || !tag || rest.length > 0) {

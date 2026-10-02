@@ -7,6 +7,11 @@ const load = async () => {
   return import("@/lib/server/config");
 };
 
+/** The secret as the loaded module reads it right now (it reads env at call time). */
+let sessionSecretNow: () => string = () => {
+  throw new Error("load() first");
+};
+
 afterEach(() => vi.unstubAllEnvs());
 
 describe("server configuration", () => {
@@ -33,29 +38,47 @@ describe("the session secret", () => {
   it("refuses to start in production without SESSION_SECRET", async () => {
     vi.stubEnv("NODE_ENV", "production");
     vi.stubEnv("SESSION_SECRET", "");
-    await expect(load()).rejects.toThrow(/SESSION_SECRET/);
+    vi.stubEnv("NEXT_RUNTIME", "nodejs");
+    const { sessionSecret } = await load();
+    expect(() => sessionSecret()).toThrow(/SESSION_SECRET/);
+    // The server's startup hook is what asks.
+    const { register } = await import("@/instrumentation");
+    await expect(register()).rejects.toThrow(/SESSION_SECRET/);
   });
 
   it("refuses a short secret, and the development key, in production", async () => {
     vi.stubEnv("NODE_ENV", "production");
     vi.stubEnv("SESSION_SECRET", "too-short");
-    await expect(load()).rejects.toThrow(/SESSION_SECRET/);
-
+    const mod = await load();
+    sessionSecretNow = mod.sessionSecret;
     const dev = await (async () => {
       vi.stubEnv("NODE_ENV", "test");
       vi.stubEnv("SESSION_SECRET", "");
-      return (await load()).serverConfig.sessionSecret;
+      return sessionSecretNow();
     })();
     vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("SESSION_SECRET", "too-short");
+    expect(() => sessionSecretNow()).toThrow(/SESSION_SECRET/);
     vi.stubEnv("SESSION_SECRET", dev);
-    await expect(load()).rejects.toThrow(/SESSION_SECRET/);
+    expect(() => sessionSecretNow()).toThrow(/SESSION_SECRET/);
+    vi.stubEnv("SESSION_SECRET", "a".repeat(48));
+    expect(sessionSecretNow()).toBe("a".repeat(48));
   });
 
-  it("falls back to a development key outside production", async () => {
+  it("falls back to a development key outside production, and the build needs none", async () => {
     vi.stubEnv("NODE_ENV", "development");
     vi.stubEnv("SESSION_SECRET", "");
-    const { serverConfig } = await load();
-    expect(serverConfig.sessionSecret.length).toBeGreaterThanOrEqual(32);
+    const { sessionSecret } = await load();
+    expect(sessionSecret().length).toBeGreaterThanOrEqual(32);
+
+    // `next build` evaluates the server modules with NODE_ENV=production and
+    // no secret: importing must not throw; only using the secret does.
+    vi.stubEnv("NODE_ENV", "production");
+    const built = await load();
+    expect(() => built.sessionSecret()).toThrow(/SESSION_SECRET/);
+    const { register } = await import("@/instrumentation");
+    vi.stubEnv("NEXT_RUNTIME", "edge");
+    await expect(register()).resolves.toBeUndefined();
   });
 });
 

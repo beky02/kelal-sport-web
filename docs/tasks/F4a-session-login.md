@@ -1,7 +1,7 @@
 ---
 id: F4a
 title: Session cookie, login with the new-device OTP, logout, /api/me, trusted proxy
-status: planned
+status: verifying
 depends_on: [F0]
 contract_tags: [Auth, Me]
 touches_money: false

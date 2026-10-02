@@ -37,19 +37,24 @@ const schema = z.object({
    * one the trusted edge appended, never the first.
    */
   trustedProxyHops: z.number().int().nonnegative(),
-  /** Seals the session cookie (`lib/server/session.ts`). */
-  sessionSecret: z.string().min(32),
 });
 
 /**
  * Lets `next dev` and the tests run with no `.env.local`. Production refuses
- * it — and refuses to start with no secret at all — so it can never seal a
- * real player's tokens.
+ * it — and refuses to start with no secret at all (`instrumentation.ts`) — so
+ * it can never seal a real player's tokens.
  */
 const DEVELOPMENT_SESSION_SECRET =
   "kelalsport-development-only-session-secret-never-in-production";
 
-function sessionSecret(): string {
+/**
+ * What seals the session cookie (`lib/server/session.ts`).
+ *
+ * Read when first needed, not at import: `next build` runs with
+ * `NODE_ENV=production` and evaluates the route handlers, and a build must not
+ * need a runtime secret. The production server checks it at startup instead.
+ */
+export function sessionSecret(): string {
   const raw = process.env.SESSION_SECRET?.trim() ?? "";
   if (process.env.NODE_ENV === "production") {
     if (raw.length < 32 || raw === DEVELOPMENT_SESSION_SECRET) {
@@ -60,6 +65,11 @@ function sessionSecret(): string {
     return raw;
   }
   return raw.length >= 32 ? raw : DEVELOPMENT_SESSION_SECRET;
+}
+
+/** Everything a production server must have before it takes a request. */
+export function assertServerSecrets(): void {
+  sessionSecret();
 }
 
 function parseHostMap(raw: string | undefined): Record<string, string> {
@@ -85,7 +95,6 @@ const parsed = schema.safeParse({
   defaultTenant: process.env.DEFAULT_TENANT ?? "demo",
   tenantHostMap: parseHostMap(process.env.TENANT_HOST_MAP),
   trustedProxyHops: Number(process.env.TRUSTED_PROXY_HOPS?.trim() || "0"),
-  sessionSecret: sessionSecret(),
 });
 
 if (!parsed.success) {

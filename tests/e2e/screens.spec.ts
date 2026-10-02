@@ -107,12 +107,16 @@ const loginAnswering =
         headers: { ...route.request().headers(), prefer },
       }),
     );
-    await page.getByLabel(t.auth.phone, { exact: true }).fill("911234567");
-    await page
+    // The dialog's own form: a guest's header has a Log in button too.
+    const dialog = page.getByRole("dialog");
+    await dialog.getByLabel(t.auth.phone, { exact: true }).fill("911234567");
+    await dialog
       .getByLabel(t.auth.password, { exact: true })
       .fill("correct horse battery");
     const answered = page.waitForResponse("**/api/auth/login");
-    await page.getByRole("button", { name: t.auth.logIn }).click();
+    await dialog
+      .getByRole("button", { name: t.auth.logIn, exact: true })
+      .click();
     await answered;
   };
 
@@ -138,6 +142,12 @@ const SCREENS: Array<{
   headers?: Record<string, string>;
   /** Runs before the page is opened — logging in, for the account pages. */
   before?: (page: Page) => Promise<void>;
+  /**
+   * Console errors this screen is expected to produce: Chrome logs a refused
+   * fetch ("Failed to load resource … 401") as an error, and a refusal is the
+   * point of an error screen.
+   */
+  allowConsole?: RegExp;
   prepare?: (page: Page, device: Device, lang: Lang) => Promise<void>;
 }> = [
   { name: "home", path: "/" },
@@ -170,8 +180,14 @@ const SCREENS: Array<{
     name: "login-wrong-password",
     path: "/login",
     prepare: loginAnswering("code=401"),
+    allowConsole: /status of 401/,
   },
-  { name: "login-locked", path: "/login", prepare: loginAnswering("code=423") },
+  {
+    name: "login-locked",
+    path: "/login",
+    prepare: loginAnswering("code=423"),
+    allowConsole: /status of 423/,
+  },
   { name: "register", path: "/register" },
 ];
 
@@ -248,7 +264,10 @@ for (const [device, viewport] of Object.entries(DEVICES)) {
               document.documentElement.clientWidth,
           );
 
-          expect(errors, "console errors").toEqual([]);
+          expect(
+            errors.filter((error) => !screen.allowConsole?.test(error)),
+            "console errors",
+          ).toEqual([]);
           expect(overflow, "horizontal scroll").toBeLessThanOrEqual(0);
           expect(
             MESSAGE_KEYS.filter((key) => text.includes(key)),
