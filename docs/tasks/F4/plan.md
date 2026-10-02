@@ -1,7 +1,7 @@
 # F4 — plan
 
 F4 is split (see **Sub-tasks**). This plan covers **F4a — session and login**; F4b (register, reset,
-Fayda KYC) gets its own plan when it starts. Plan gate: awaiting approval (mode: interactive).
+Fayda KYC) gets its own plan when it starts. Plan gate: approved 2026-10-02 (mode: interactive).
 
 ## Understanding
 
@@ -136,7 +136,7 @@ None new. Release 2 flags untouched.
 
 Create:
 
-- `src/lib/session-cookie.ts` — cookie names shared by the session module and the proxy.
+- `src/lib/session-cookie.ts` — cookie names and the CSRF header, shared by the session module, the proxy and `apiClient`.
 - `src/lib/server/session.ts` — sealing, cookies, device id, `withSession` refresh with dedupe.
 - `src/lib/server/csrf.ts` — same-origin + `X-Requested-With` + JSON check for every POST.
 - `src/lib/server/body.ts` — capped JSON body reader (moved from the bookings route).

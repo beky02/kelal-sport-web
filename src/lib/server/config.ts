@@ -1,4 +1,5 @@
 import "server-only";
+import { isIP } from "node:net";
 import { z } from "zod";
 
 /**
@@ -27,7 +28,39 @@ const schema = z.object({
   defaultTenant: z.string().min(1),
   /** `host=tenant` pairs, comma-separated: `kelalsport.et=kelal,localhost=demo`. */
   tenantHostMap: z.record(z.string(), z.string()),
+  /**
+   * How many proxies of ours stand in front of this server and set
+   * `X-Forwarded-*`. At 0 (the default) only `Host` is believed: a forwarded
+   * host or address is whatever the client typed (F4 AC-7, contract request
+   * 004). At n, the edge's `X-Forwarded-Host` and `-Proto` are trusted and the
+   * player's address is the n-th `X-Forwarded-For` entry from the right — the
+   * one the trusted edge appended, never the first.
+   */
+  trustedProxyHops: z.number().int().nonnegative(),
+  /** Seals the session cookie (`lib/server/session.ts`). */
+  sessionSecret: z.string().min(32),
 });
+
+/**
+ * Lets `next dev` and the tests run with no `.env.local`. Production refuses
+ * it — and refuses to start with no secret at all — so it can never seal a
+ * real player's tokens.
+ */
+const DEVELOPMENT_SESSION_SECRET =
+  "kelalsport-development-only-session-secret-never-in-production";
+
+function sessionSecret(): string {
+  const raw = process.env.SESSION_SECRET?.trim() ?? "";
+  if (process.env.NODE_ENV === "production") {
+    if (raw.length < 32 || raw === DEVELOPMENT_SESSION_SECRET) {
+      throw new Error(
+        "SESSION_SECRET must be set to at least 32 characters in production",
+      );
+    }
+    return raw;
+  }
+  return raw.length >= 32 ? raw : DEVELOPMENT_SESSION_SECRET;
+}
 
 function parseHostMap(raw: string | undefined): Record<string, string> {
   return Object.fromEntries(
@@ -51,6 +84,8 @@ const parsed = schema.safeParse({
     .filter(Boolean),
   defaultTenant: process.env.DEFAULT_TENANT ?? "demo",
   tenantHostMap: parseHostMap(process.env.TENANT_HOST_MAP),
+  trustedProxyHops: Number(process.env.TRUSTED_PROXY_HOPS?.trim() || "0"),
+  sessionSecret: sessionSecret(),
 });
 
 if (!parsed.success) {
@@ -102,9 +137,29 @@ export function tenantForHost(host: string | null): string {
 const firstOf = (value: string | null): string | null =>
   value?.split(",")[0]?.trim() || null;
 
-/** The host a request arrived on (trusted-proxy handling: F4 AC-7). */
-const requestHost = (headers: Headers): string | null =>
-  firstOf(headers.get("x-forwarded-host")) ?? firstOf(headers.get("host"));
+/** A forwarded header, believed only behind a trusted proxy (AC-7). */
+const forwarded = (headers: Headers, name: string): string | null =>
+  serverConfig.trustedProxyHops > 0 ? firstOf(headers.get(name)) : null;
+
+/** The host a request arrived on: the trusted edge's, else `Host` itself. */
+export const requestHost = (headers: Headers): string | null =>
+  forwarded(headers, "x-forwarded-host") ?? firstOf(headers.get("host"));
+
+/**
+ * The player's own address, for contract request 004: the `X-Forwarded-For`
+ * entry the trusted edge appended. Null with no trusted proxy, with too few
+ * entries, or when the entry is not an address — never a guess.
+ */
+export function clientIpFromHeaders(headers: Headers): string | null {
+  const hops = serverConfig.trustedProxyHops;
+  if (hops === 0) return null;
+  const entries = (headers.get("x-forwarded-for") ?? "")
+    .split(",")
+    .map((entry) => entry.trim())
+    .filter(Boolean);
+  const candidate = entries[entries.length - hops];
+  return candidate && isIP(candidate) ? candidate : null;
+}
 
 /** The tenant for a request's headers — route handlers and pages alike. */
 export const tenantFromHeaders = (headers: Headers): string =>
@@ -139,7 +194,7 @@ export function publicOrigin(headers: Headers, tenant: string): string {
     host = "localhost";
   }
 
-  const proto = firstOf(headers.get("x-forwarded-proto"))?.toLowerCase();
+  const proto = forwarded(headers, "x-forwarded-proto")?.toLowerCase();
   const scheme =
     proto === "http" || proto === "https"
       ? proto

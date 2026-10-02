@@ -15,6 +15,11 @@ export interface RequestContext {
    * be exercised end to end in development. See `mockPreference`.
    */
   prefer?: string;
+  /**
+   * `Bearer <access token>` for a call made for a player — only ever from the
+   * session cookie, through `withSession()` (`lib/server/session.ts`).
+   */
+  authorization?: string;
 }
 
 /**
@@ -51,7 +56,7 @@ export async function both<T>(
  */
 export function upstream(
   tag: ApiTag,
-  { tenant, lang, prefer }: RequestContext,
+  { tenant, lang, prefer, authorization }: RequestContext,
 ) {
   const client = createClient<paths>({
     baseUrl: baseUrlFor(tag),
@@ -59,6 +64,7 @@ export function upstream(
       "X-Tenant-Id": tenant,
       "Accept-Language": lang,
       ...(prefer && !usesRealApi(tag) ? { Prefer: prefer } : {}),
+      ...(authorization ? { Authorization: authorization } : {}),
     },
   });
   client.use({
@@ -94,4 +100,14 @@ export function unwrap<T>(result: {
     throw new UpstreamError(result.response.status, result.error ?? null);
   }
   return result.data;
+}
+
+/** A `204` answered, or throw: openapi-fetch gives no `data` for an empty body. */
+export function unwrapEmpty(result: {
+  error?: unknown;
+  response: Response;
+}): void {
+  if (!result.response.ok) {
+    throw new UpstreamError(result.response.status, result.error ?? null);
+  }
 }
