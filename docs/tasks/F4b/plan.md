@@ -149,6 +149,7 @@ Create:
 Change:
 
 - `src/lib/server/auth.ts` — `sendOtp`, `register`, `resetPassword`.
+- `src/lib/server/body.ts` — `readForm()`: the capped, schema-checked JSON body the five new handlers share (added while implementing).
 - `src/lib/api/mappers/auth.ts` — OTP, register, reset mappers.
 - `src/lib/api/schemas.ts` — browser-facing and request schemas for the five handlers.
 - `src/features/auth/types.ts`, `stores/auth.store.ts` (entry + prefill), `lib/flow.ts` (prefill), `lib/errors.ts`, `lib/schemas.ts`, `api/auth.ts`, `hooks/use-session.ts` (`useRegister`, shared `signedIn`), `hooks/use-countdown.ts` (deadline).

@@ -1,4 +1,6 @@
 import "server-only";
+import type { z } from "zod";
+import { problemResponse } from "./respond";
 
 /**
  * The request body as JSON, `null` when it is not JSON, or `"too_large"` —
@@ -29,4 +31,27 @@ export async function readJson(
   } catch {
     return null;
   }
+}
+
+/** A JSON body small enough to hold — a form, a code — and nothing bigger. */
+const FORM_MAX_BYTES = 4 * 1024;
+
+/**
+ * The request's JSON body checked against `schema`, or the Problem to answer
+ * instead: 413 when it is too large, 422 when it is not what `schema` accepts.
+ * Nothing is sent upstream before this has passed.
+ */
+export async function readForm<T>(
+  request: Request,
+  schema: z.ZodType<T>,
+  refusal: string,
+): Promise<T | Response> {
+  const json = await readJson(request, FORM_MAX_BYTES);
+  if (json === "too_large") {
+    return problemResponse(413, "VALIDATION_FAILED", "Too large");
+  }
+  const form = schema.safeParse(json);
+  return form.success
+    ? form.data
+    : problemResponse(422, "VALIDATION_FAILED", refusal);
 }
