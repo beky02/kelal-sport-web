@@ -343,6 +343,37 @@ describe("POST /api/auth/login", () => {
   });
 });
 
+describe("what a Problem carries to the browser", () => {
+  it("forwards only the Problem's own fields, never anything else the API put in the body", async () => {
+    const mod = await load();
+    const locked = responseExample("/v1/auth/login", "post", 423) as object;
+    upstreamAnswers(() => ({
+      status: 423,
+      body: {
+        ...locked,
+        secret: "not for the browser",
+        errors: [{ code: "LOCKED", nested: { token: "rt_x" } }],
+      },
+    }));
+    const response = await post(mod.login, LOGIN, CREDENTIALS);
+    expect(response.status).toBe(423);
+    const body = await response.json();
+    expect(body).toEqual({ ...locked, errors: [{ code: "LOCKED" }] });
+    expect(JSON.stringify(body)).not.toContain("rt_x");
+  });
+
+  it("answers a generic Problem when the API's refusal is not one", async () => {
+    const mod = await load();
+    upstreamAnswers(() => ({ status: 500, body: { oops: true } }));
+    const response = await post(mod.login, LOGIN, CREDENTIALS);
+    expect(response.status).toBe(500);
+    expect(await response.json()).toMatchObject({
+      status: 500,
+      code: "SERVICE_UNAVAILABLE",
+    });
+  });
+});
+
 describe("GET /api/me", () => {
   it("without a cookie says guest, calling nothing (AC-8)", async () => {
     const mod = await load();

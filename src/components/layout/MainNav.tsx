@@ -30,7 +30,9 @@ const LINKS: Array<{
 export function MainNav() {
   const t = useTranslation();
   const pathname = usePathname();
-  const { isGuest } = useSession();
+  const { isGuest: guestOrPending, isLoading } = useSession();
+  // Until /api/me answers, a player is not sent to log in.
+  const isGuest = !isLoading && guestOrPending;
   const openAuth = useAuthStore((s) => s.open);
 
   const liveCount = useLiveEventCount();

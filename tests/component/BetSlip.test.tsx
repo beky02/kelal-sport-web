@@ -406,6 +406,13 @@ describe("BetSlip", () => {
     ).toBeInTheDocument();
   });
 
+  it("keeps the place button idle until /api/me has answered, instead of calling a player a guest", () => {
+    seedReferenceSlip();
+    render(<BetSlip />, { session: null });
+    expect(screen.queryByRole("button", { name: "Log in to bet" })).toBeNull();
+    expect(screen.getByRole("button", { name: /Place bet/ })).toBeDisabled();
+  });
+
   it("asks a guest to log in instead of betting", async () => {
     seedReferenceSlip();
     render(<BetSlip />, { session: "guest" });

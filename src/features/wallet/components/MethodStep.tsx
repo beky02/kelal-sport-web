@@ -18,6 +18,7 @@ import type { PaymentMethod, WalletMode } from "../types";
 export function MethodStep({
   mode,
   kycVerified,
+  canWithdraw,
   selected,
   onSelect,
   onContinue,
@@ -25,6 +26,8 @@ export function MethodStep({
 }: {
   mode: WalletMode;
   kycVerified: boolean;
+  /** The API's own verdict (`can_withdraw`); the server decides again on submit. */
+  canWithdraw: boolean;
   selected: PaymentMethod | null;
   onSelect: (method: PaymentMethod) => void;
   onContinue: () => void;
@@ -33,8 +36,9 @@ export function MethodStep({
   const t = useTranslation();
   const { data: methods, isPending } = usePaymentMethods(mode);
 
-  // Withdrawals are the point at which Ethiopian law needs the ID checked.
-  const locked = mode === "withdraw" && !kycVerified;
+  // Withdrawals are the point at which Ethiopian law needs the ID checked —
+  // and the API may say no for other reasons, which are not fixed by the ID.
+  const locked = mode === "withdraw" && !canWithdraw;
 
   return (
     <div className="flex flex-col gap-3.5 px-4 pt-4.5 pb-6">
@@ -54,14 +58,18 @@ export function MethodStep({
             aria-hidden
             className="text-accent shrink-0"
           />
-          <span className="flex-1 text-xs">{t.t("wallet.kycLock")}</span>
-          <button
-            type="button"
-            onClick={onVerify}
-            className="text-accent cursor-pointer bg-transparent text-xs font-semibold"
-          >
-            {t.t("wallet.verifyNow")}
-          </button>
+          <span className="flex-1 text-xs">
+            {t.t(kycVerified ? "wallet.withdrawUnavailable" : "wallet.kycLock")}
+          </span>
+          {!kycVerified && (
+            <button
+              type="button"
+              onClick={onVerify}
+              className="text-accent cursor-pointer bg-transparent text-xs font-semibold"
+            >
+              {t.t("wallet.verifyNow")}
+            </button>
+          )}
         </div>
       )}
 

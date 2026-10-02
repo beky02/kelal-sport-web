@@ -193,3 +193,5 @@ has ended.
 | `auth.errors.failed`                   | ችግር ተፈጥሯል። ግንኙነትዎን ያረጋግጡና እንደገና ይሞክሩ።           | `board.error.body`                               |
 | `auth.newDeviceBody`                   | አዲስ መሣሪያ። እርስዎ መሆንዎን ለማረጋገጥ ወደ {phone} ኮድ ልከናል። | `auth.otpSentTo` + new                           |
 | `system.sessionBody`                   | ቆይታዎ አብቅቷል። ለመቀጠል እንደገና ይግቡ። ትኬትዎ ተቀምጧል።        | `system.sessionTitle`, former body's last clause |
+| `header.accountLoading`                | መለያዎ እየተጫነ ነው…                                  | `መለያ` + new (screen readers only)                |
+| `wallet.withdrawUnavailable`           | በመለያዎ ላይ ገንዘብ ማውጣት አሁን አይቻልም።                   | `wallet.kycLock` vocabulary                      |

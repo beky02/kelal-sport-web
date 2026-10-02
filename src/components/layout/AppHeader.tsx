@@ -93,7 +93,12 @@ export function AppHeader() {
         // Until /api/me answers, neither a guest's buttons nor a player's
         // balance: the one thing worse than a moment's blank is a flash of the
         // wrong state.
-        <Skeleton className="h-[34px] w-[88px] rounded-md md:h-9 md:w-[120px]" />
+        <>
+          <Skeleton className="h-[34px] w-[88px] rounded-md md:h-9 md:w-[120px]" />
+          <span role="status" className="sr-only">
+            {t.t("header.accountLoading")}
+          </span>
+        </>
       ) : isGuest ? (
         <>
           <Button

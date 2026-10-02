@@ -15,6 +15,12 @@ export type OverlayKind =
 interface SystemState {
   overlay: OverlayKind | null;
   /**
+   * The player asked to log out, so the guest state that follows is theirs:
+   * `SessionWatcher` says nothing. A guest state without this flag means the
+   * API stopped honouring the session, which is worth a word.
+   */
+  loggedOut: boolean;
+  /**
    * Whether the browser believes it has a connection. Written by a single
    * watcher in the shell — every odds button reads it, and a listener pair per
    * button would be waste.
@@ -23,14 +29,19 @@ interface SystemState {
   show: (overlay: OverlayKind) => void;
   dismiss: () => void;
   setOnline: (online: boolean) => void;
+  noteLogout: () => void;
+  clearLoggedOut: () => void;
 }
 
 export const useSystemStore = create<SystemState>()((set) => ({
   overlay: null,
+  loggedOut: false,
   online: true,
   show: (overlay) => set({ overlay }),
   dismiss: () => set({ overlay: null }),
   setOnline: (online) => set({ online }),
+  noteLogout: () => set({ loggedOut: true }),
+  clearLoggedOut: () => set({ loggedOut: false }),
 }));
 
 export const useIsOnline = (): boolean => useSystemStore((s) => s.online);

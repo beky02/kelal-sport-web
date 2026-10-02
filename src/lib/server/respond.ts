@@ -1,4 +1,5 @@
 import "server-only";
+import { z } from "zod";
 import type { Lang } from "@/types/common";
 import { tenantFromHeaders } from "./config";
 import { SessionGoneError } from "./session";
@@ -21,6 +22,30 @@ export const problemResponse = (
 
 const problem = problemResponse;
 
+/**
+ * A Problem as the contract defines it, and nothing more: what the API put in
+ * an error body beyond these fields never reaches the browser.
+ */
+const problemSchema = z.object({
+  type: z.string(),
+  title: z.string(),
+  status: z.number().int(),
+  code: z.string(),
+  detail: z.string().optional(),
+  request_id: z.string().optional(),
+  errors: z
+    .array(
+      z.object({
+        field: z.string().optional(),
+        code: z.string(),
+        message: z.string().optional(),
+        current: z.string().optional(),
+        limit: z.string().optional(),
+      }),
+    )
+    .optional(),
+});
+
 /** The UI's language, as `apiClient` sends it; English when it says nothing. */
 export const langFromHeaders = (headers: Headers): Lang =>
   /^\s*am\b/i.test(headers.get("accept-language") ?? "") ? "am" : "en";
@@ -39,11 +64,12 @@ export interface RouteContext {
  * Runs a route handler's read and answers in the API's own terms.
  *
  * Success is plain JSON (or an empty 204). An API error passes through with
- * its status and its `Problem` body untouched, so the UI switches on the same
- * `code` and reads the same `errors[]` it would get from the API directly. An
- * API that cannot be reached becomes `SERVICE_UNAVAILABLE`, never an HTML
- * error page. Cookies the loader set — a rotated session, a cleared one — go
- * out on every answer, because a rotation that is not saved logs the player out.
+ * its status and its `Problem` body — the contract's fields of it — so the UI
+ * switches on the same `code` and reads the same `errors[]` it would get from
+ * the API directly. An API that cannot be reached becomes
+ * `SERVICE_UNAVAILABLE`, never an HTML error page. Cookies the loader set — a
+ * rotated session, a cleared one — go out on every answer, because a rotation
+ * that is not saved logs the player out.
  */
 export async function respond<T>(
   request: Request,
@@ -65,8 +91,9 @@ export async function respond<T>(
       request,
       setCookie: (header) => cookies.push(header),
     });
-    if (status === 204)
+    if (status === 204) {
       return new Response(null, { status, headers: headers() });
+    }
     return Response.json(body, { status, headers: headers() });
   } catch (error) {
     if (error instanceof SessionGoneError) {
@@ -78,13 +105,11 @@ export async function respond<T>(
       );
     }
     if (error instanceof UpstreamError) {
-      if (error.problem && typeof error.problem === "object") {
+      const parsed = problemSchema.safeParse(error.problem);
+      if (parsed.success) {
         const h = headers();
         h.set("Content-Type", "application/problem+json");
-        return Response.json(error.problem, {
-          status: error.status,
-          headers: h,
-        });
+        return Response.json(parsed.data, { status: error.status, headers: h });
       }
       return problem(
         error.status,

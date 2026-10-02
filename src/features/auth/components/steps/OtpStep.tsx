@@ -32,7 +32,7 @@ export function OtpStep({
 }: {
   phoneMasked: string;
   /** Replaces "Sent to {phone}" when the code needs explaining. */
-  body?: string;
+  body?: React.ReactNode;
   pending?: boolean;
   error?: AuthErrorView | null;
   onFix?: () => void;

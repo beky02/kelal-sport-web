@@ -220,3 +220,46 @@ Delete:
 
 - [F4a — session and login](../F4a-session-login.md): this plan.
 - [F4b — register, reset, Fayda KYC](../F4b-register-kyc.md): AC-1, AC-2, AC-9, AC-10; depends on F4a.
+
+## Changes during implementation and verification
+
+Recorded for the spec review (S1) and the other reviewers' findings (`verification.md`):
+
+- **Files.** `tests/unit/auth-phone.test.ts` became `tests/unit/auth-lib.test.ts` (phone + `safeNextPath`);
+  `src/features/auth/lib/paths.ts`, `src/instrumentation.ts`, `tests/unit/dates.test.ts` were added;
+  `src/components/ui/Field.tsx` gained a `trailing` slot (so "Forgot password?" is a control beside the
+  label, not inside it) and `PhoneInput` takes a ref; `src/components/layout/SportsbookShell.tsx` mounts
+  `SessionWatcher`; `useSessionGone()` shipped as that `SessionWatcher` component. The open-redirect test
+  lives in `auth-lib.test.ts` (`safeNextPath`) and `AuthDialog.test.tsx`, not `auth-route.test.ts`.
+- **i18n.** Added: `auth.errors.*` (six), `auth.newDeviceBody`, `auth.logInAgain`, `header.accountLoading`
+  (the header's loading placeholder, for screen readers), `wallet.withdrawUnavailable`; changed
+  `system.sessionBody`; removed `profile.name` and `profile.faydaId` (no longer rendered). `auth.tryAgain`
+  was never needed.
+- **Decision 5.** `SESSION_SECRET` is read lazily and checked by `instrumentation.ts` at server start, so
+  `next build` needs no secret. The key is HKDF-SHA256 of the secret with the cookie version as info and
+  as AEAD associated data; `SESSION_SECRET_PREVIOUS` opens cookies during a rotation.
+- **Decision 4.** `Secure` outside production follows the trusted edge's `X-Forwarded-Proto` (decision 9's
+  rule), never the request URL, which Next builds from whatever the client sent. In production the cookie
+  is `__Host-kelal.session`.
+- **Decision 9.** Every forwarded header — host, proto, for — is read as the n-th entry from the right for
+  n trusted hops; the first entry is never trusted. `Auth` joins `Bookings` in the tags refused on the
+  real API until contract request 004 lands.
+- **Decision 7 / respond().** A refused refresh other than 401 becomes a generic Problem (the refresh token
+  was in that request); every forwarded Problem is reduced to the contract's fields.
+- **Decision 8 / caches.** Everything only a player may see (wallet, bets, transactions, responsible
+  gaming) is dropped whenever the session changes hands: on logout, on a login before `/api/me` is read,
+  and when `SessionWatcher` sees a player become a guest (money review M1). A logout the server never
+  received is not a logout: the player stays signed in and is told (quality review Q1); the "this was a
+  logout" flag lives on the system store, not in a module variable.
+- **Decision 12 / canWithdraw.** No inference from KYC status: `can_withdraw` absent means not allowed;
+  the wallet's lock names the ID only when the ID is the reason. The identity row masks the phone; the
+  full number stays under Personal info. The date of birth follows the calendar preference
+  (`formatLongDate`).
+- **Pending ≠ guest.** The slip, nav, tab bar and aside treat a pending `/api/me` like the header does:
+  nobody is a guest, the place button waits.
+- **Next.js and a 401 to a POST.** `upstream()` sends `fetch(url, init)` with a string body; see
+  `verification.md` → Found while verifying.
+- **Error table.** `AUTH_LOCKED` holds the Log in button until a field changes, as promised. The API's
+  `detail` is rendered as its own line, not joined into our sentence.
+- **Contract.** Commit `74098f1` is a `pnpm contract:sync` pulled because the backend moved mid-task
+  (400/404/503 on config and app-version); nothing in it touches Auth, Me or KYC.

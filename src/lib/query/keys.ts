@@ -61,6 +61,11 @@ export const transactionKeys = {
   list: (kind: string) => [...transactionKeys.all, kind] as const,
 };
 
+/** A break or self-exclusion in force — server state, read like the balance. */
+export const rgKeys = {
+  all: ["responsible-gaming"] as const,
+};
+
 export const walletKeys = {
   all: ["wallet"] as const,
   balance: () => [...walletKeys.all, "balance"] as const,

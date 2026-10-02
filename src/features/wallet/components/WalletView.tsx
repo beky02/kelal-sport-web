@@ -53,7 +53,7 @@ export function WalletView() {
 
   // Whether a withdrawal may start is the API's call (`can_withdraw`), read
   // with the session — never a flag kept in the browser.
-  const { isGuest, canWithdraw } = useSession();
+  const { isGuest, kycVerified, canWithdraw } = useSession();
   const openAuth = useAuthStore((s) => s.open);
 
   const { data: overview } = useWallet(!isGuest);
@@ -135,7 +135,8 @@ export function WalletView() {
       {currentStep === "method" && (
         <MethodStep
           mode={mode}
-          kycVerified={canWithdraw}
+          kycVerified={kycVerified}
+          canWithdraw={canWithdraw}
           selected={method}
           onSelect={setMethod}
           onContinue={() => setStep("amount")}

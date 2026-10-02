@@ -23,7 +23,9 @@ export function AsidePanel() {
   const setPanel = useUiStore((s) => s.setAsidePanel);
 
   const selectionCount = useBetSlipStore((s) => s.selections.length);
-  const { isGuest } = useSession();
+  const { isGuest: guestOrPending, isLoading } = useSession();
+  // Until /api/me answers, a player is not sent to log in.
+  const isGuest = !isLoading && guestOrPending;
   const openAuth = useAuthStore((s) => s.open);
   // A guest has no bets to count, so this stays idle until they sign in.
   const { data: bets } = useBets("open");

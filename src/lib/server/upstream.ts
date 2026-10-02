@@ -125,13 +125,3 @@ export function unwrap<T>(result: {
   }
   return result.data;
 }
-
-/** A `204` answered, or throw: openapi-fetch gives no `data` for an empty body. */
-export function unwrapEmpty(result: {
-  error?: unknown;
-  response: Response;
-}): void {
-  if (!result.response.ok) {
-    throw new UpstreamError(result.response.status, result.error ?? null);
-  }
-}

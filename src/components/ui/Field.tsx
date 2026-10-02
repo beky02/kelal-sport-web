@@ -85,7 +85,7 @@ export function TextInput({
 export function PhoneInput({
   className,
   ...rest
-}: React.ComponentPropsWithoutRef<"input">) {
+}: React.ComponentProps<"input">) {
   return (
     <div className="bg-raised flex h-12 rounded-md">
       <span className="border-divider flex items-center gap-1.5 border-r px-3 font-semibold">

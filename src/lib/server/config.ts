@@ -16,13 +16,13 @@ const schema = z.object({
   apiRealUrl: z.string().url().optional(),
   apiRealTags: z
     .array(z.string())
-    .refine((tags) => !tags.includes("Bookings"), {
-      // Anonymous bookings would reach the API from this server's address, so
-      // its per-IP and per-device limits would be one bucket for every guest.
-      // Refused until contract request 004 (X-Client-IP / X-Client-Device) and a
-      // trusted-proxy setting land.
+    .refine((tags) => !tags.includes("Bookings") && !tags.includes("Auth"), {
+      // Bookings and logins would reach the API from this server's address, so
+      // its per-IP and per-device limits (booking codes, OTP sends, failed
+      // passwords) would be one bucket for every player. Refused until contract
+      // request 004 (X-Client-IP / X-Client-Device) lands.
       message:
-        "Bookings cannot use the real API yet: contract request 004 (client IP and device) must land first",
+        "Bookings and Auth cannot use the real API yet: contract request 004 (client IP and device) must land first",
     }),
   /** Tenant for hosts not in the map. `demo` locally. */
   defaultTenant: z.string().min(1),
@@ -44,7 +44,7 @@ const schema = z.object({
  * it — and refuses to start with no secret at all (`instrumentation.ts`) — so
  * it can never seal a real player's tokens.
  */
-const DEVELOPMENT_SESSION_SECRET =
+export const DEVELOPMENT_SESSION_SECRET =
   "kelalsport-development-only-session-secret-never-in-production";
 
 /**
@@ -65,6 +65,19 @@ export function sessionSecret(): string {
     return raw;
   }
   return raw.length >= 32 ? raw : DEVELOPMENT_SESSION_SECRET;
+}
+
+/**
+ * The secrets a cookie may have been sealed with: the current one first, then
+ * `SESSION_SECRET_PREVIOUS` during a rotation, so players stay signed in while
+ * the old key is retired. New cookies always use the current one.
+ */
+export function sessionSecrets(): string[] {
+  const current = sessionSecret();
+  const previous = process.env.SESSION_SECRET_PREVIOUS?.trim() ?? "";
+  return previous.length >= 32 && previous !== current
+    ? [current, previous]
+    : [current];
 }
 
 /** Everything a production server must have before it takes a request. */
@@ -146,27 +159,32 @@ export function tenantForHost(host: string | null): string {
 const firstOf = (value: string | null): string | null =>
   value?.split(",")[0]?.trim() || null;
 
-/** A forwarded header, believed only behind a trusted proxy (AC-7). */
-const forwarded = (headers: Headers, name: string): string | null =>
-  serverConfig.trustedProxyHops > 0 ? firstOf(headers.get(name)) : null;
-
-/** The host a request arrived on: the trusted edge's, else `Host` itself. */
-export const requestHost = (headers: Headers): string | null =>
-  forwarded(headers, "x-forwarded-host") ?? firstOf(headers.get("host"));
-
 /**
- * The player's own address, for contract request 004: the `X-Forwarded-For`
- * entry the trusted edge appended. Null with no trusted proxy, with too few
- * entries, or when the entry is not an address — never a guess.
+ * A forwarded header (`X-Forwarded-Host`, `-Proto`, `-For`), believed only
+ * behind a trusted proxy (AC-7), and then only the entry our edge appended:
+ * the n-th from the right for n trusted hops. Whatever a client sent sits to
+ * the left of it. Null with no trusted proxy or too few entries.
  */
-export function clientIpFromHeaders(headers: Headers): string | null {
+export function forwardedHeader(headers: Headers, name: string): string | null {
   const hops = serverConfig.trustedProxyHops;
   if (hops === 0) return null;
-  const entries = (headers.get("x-forwarded-for") ?? "")
+  const entries = (headers.get(name) ?? "")
     .split(",")
     .map((entry) => entry.trim())
     .filter(Boolean);
-  const candidate = entries[entries.length - hops];
+  return entries[entries.length - hops] ?? null;
+}
+
+/** The host a request arrived on: the trusted edge's, else `Host` itself. */
+export const requestHost = (headers: Headers): string | null =>
+  forwardedHeader(headers, "x-forwarded-host") ?? firstOf(headers.get("host"));
+
+/**
+ * The player's own address, for contract request 004: the `X-Forwarded-For`
+ * entry the trusted edge appended, when it is an address — never a guess.
+ */
+export function clientIpFromHeaders(headers: Headers): string | null {
+  const candidate = forwardedHeader(headers, "x-forwarded-for");
   return candidate && isIP(candidate) ? candidate : null;
 }
 
@@ -203,7 +221,7 @@ export function publicOrigin(headers: Headers, tenant: string): string {
     host = "localhost";
   }
 
-  const proto = forwarded(headers, "x-forwarded-proto")?.toLowerCase();
+  const proto = forwardedHeader(headers, "x-forwarded-proto")?.toLowerCase();
   const scheme =
     proto === "http" || proto === "https"
       ? proto

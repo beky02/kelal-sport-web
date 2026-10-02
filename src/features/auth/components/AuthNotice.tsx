@@ -11,7 +11,8 @@ const FIX_LABEL: Record<NonNullable<AuthErrorView["fix"]>, MessageKey> = {
 /**
  * A refusal, in the form, where the player is looking. Announced as an alert
  * so a screen reader hears it without hunting; when there is something to do
- * about it, the action is right there.
+ * about it, the action is right there. The API's own `detail` is its own
+ * line, never glued into our sentence: each keeps its script and rhythm.
  */
 export function AuthNotice({
   error,
@@ -30,14 +31,16 @@ export function AuthNotice({
   return (
     <div
       role="alert"
-      className="bg-loss-bg text-text flex flex-col gap-2 rounded-md px-3 py-2.5 text-[13px]"
+      className="bg-loss-bg text-text flex flex-col gap-1 rounded-md px-3 py-2.5 text-[13px]"
     >
-      <span>{error.detail ? `${message} ${error.detail}` : message}</span>
+      <span className="block">{message}</span>
+      {error.detail && <span className="block">{error.detail}</span>}
       {error.fix && onFix && (
         <button
           type="button"
           onClick={onFix}
-          className="text-accent cursor-pointer self-start bg-transparent font-semibold"
+          // A 44 px hit area around a one-line link, without moving the text.
+          className="text-accent -my-2 flex min-h-11 cursor-pointer items-center self-start bg-transparent px-1 font-semibold"
         >
           {t.t(FIX_LABEL[error.fix])}
         </button>

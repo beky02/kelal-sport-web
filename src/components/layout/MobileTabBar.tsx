@@ -66,7 +66,9 @@ export function MobileTabBar() {
   const liveCount = useLiveEventCount();
   const selectionCount = useBetSlipStore((s) => s.selections.length);
   const openSlip = useUiStore((s) => s.setMobileSlipOpen);
-  const { isGuest } = useSession();
+  const { isGuest: guestOrPending, isLoading } = useSession();
+  // Until /api/me answers, a player is not sent to log in.
+  const isGuest = !isLoading && guestOrPending;
   const openAuth = useAuthStore((s) => s.open);
 
   const tone = (tab: Tab) => (active === tab ? "text-accent" : "text-muted");

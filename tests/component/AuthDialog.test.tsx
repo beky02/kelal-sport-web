@@ -5,7 +5,7 @@ import { AuthDialog } from "@/features/auth/components/AuthDialog";
 import { useAuthStore } from "@/features/auth/stores/auth.store";
 import { toPlayer } from "@/lib/api/mappers/auth";
 import { CSRF_HEADER, CSRF_VALUE } from "@/lib/session-cookie";
-import { sessionKeys } from "@/lib/query/keys";
+import { sessionKeys, walletKeys } from "@/lib/query/keys";
 import { useUiStore } from "@/stores/ui.store";
 import { example } from "../contract";
 import { render } from "./render";
@@ -108,10 +108,13 @@ describe("logging in through the dialog", () => {
       return [404, problem(404, "NOT_FOUND", "Not found")];
     });
     const { queryClient } = render(<AuthDialog />, { session: "guest" });
+    // Whatever a previous player left in the cache goes before the new one is read.
+    queryClient.setQueryData(walletKeys.balance(), { balance: 999 });
 
     await fillLogin();
 
     await waitFor(() => expect(useAuthStore.getState().step).toBeNull());
+    expect(queryClient.getQueryData(walletKeys.balance())).toBeUndefined();
     const login = posts()[0];
     expect(login.path).toBe("/api/auth/login");
     expect(login.body).toEqual({
@@ -250,10 +253,52 @@ describe("logging in through the dialog", () => {
     await userEvent.click(screen.getByRole("button", { name: "Log in" }));
     await waitFor(() =>
       expect(screen.getByRole("alert")).toHaveTextContent(
-        "Too many failed attempts. Your account is locked for a short while. Try again in 15 minutes.",
+        "Too many failed attempts. Your account is locked for a short while.",
       ),
     );
+    // The API's own detail, as its own line — never glued into our sentence.
+    expect(screen.getByText("Try again in 15 minutes.")).toBeInTheDocument();
     expect(useAuthStore.getState().step).toBe("login");
+
+    // Locked: nothing to resubmit until a field changes.
+    expect(screen.getByRole("button", { name: "Log in" })).toBeDisabled();
+    await userEvent.type(screen.getByLabelText("Password"), "x");
+    expect(screen.getByRole("button", { name: "Log in" })).toBeEnabled();
+  });
+
+  it("focuses the phone field when it opens on login, with no back arrow to nowhere", () => {
+    api(() => [404, problem(404, "NOT_FOUND", "Not found")]);
+    render(<AuthDialog />, { session: "guest" });
+    expect(screen.getByLabelText("Phone number")).toHaveFocus();
+    expect(screen.queryByRole("button", { name: "Back" })).toBeNull();
+  });
+
+  it("keeps the masked number on one line in the code step", async () => {
+    api((call) =>
+      call.path === "/api/auth/login"
+        ? [200, OTP_REQUIRED]
+        : [404, problem(404, "NOT_FOUND", "Not found")],
+    );
+    render(<AuthDialog />, { session: "guest" });
+    await fillLogin();
+    const phone = await screen.findByText("+251 9•• ••• 567");
+    expect(phone).toHaveClass("whitespace-nowrap");
+    // Back from the code goes to the form, so the arrow is there.
+    expect(screen.getByRole("button", { name: "Back" })).toBeInTheDocument();
+  });
+
+  it("still closes when the login worked but reading the profile failed: the cookie is set", async () => {
+    api((call) => {
+      if (call.path === "/api/auth/login") return [200, OK];
+      if (call.path === "/api/me") {
+        return [503, problem(503, "SERVICE_UNAVAILABLE", "Down")];
+      }
+      return [404, problem(404, "NOT_FOUND", "Not found")];
+    });
+    render(<AuthDialog />, { session: "guest" });
+    await fillLogin();
+    await waitFor(() => expect(useAuthStore.getState().step).toBeNull());
+    expect(screen.queryByRole("alert")).toBeNull();
   });
 
   it("says so in Amharic too", async () => {

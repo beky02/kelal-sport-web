@@ -49,8 +49,10 @@ export function useBetSlip(): BetSlipView {
   const config = usePublicConfig();
   const rules = config.data?.betting ?? null;
 
-  const { isGuest } = useSession();
-  const wallet = useWallet(!isGuest);
+  const session = useSession();
+  // Until /api/me answers, nobody is called a guest and nothing is placeable.
+  const isGuest = !session.isLoading && session.isGuest;
+  const wallet = useWallet(!session.isLoading && !session.isGuest);
   // Wallet amounts become strings in F6; until then, bridged here.
   const walletBalance = wallet.data?.balance;
   const balance =
@@ -84,7 +86,9 @@ export function useBetSlip(): BetSlipView {
 
   return {
     totals,
-    cta: resolveCta(totals, isGuest),
+    cta: session.isLoading
+      ? { action: "place", disabled: true }
+      : resolveCta(totals, isGuest),
     isGuest,
     balance,
     rules,

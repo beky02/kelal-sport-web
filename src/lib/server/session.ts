@@ -3,13 +3,14 @@ import {
   createCipheriv,
   createDecipheriv,
   createHash,
+  hkdfSync,
   randomBytes,
 } from "node:crypto";
 import { z } from "zod";
 import type { components } from "@/lib/api/schema";
 import { DEVICE_COOKIE, SESSION_COOKIE } from "@/lib/session-cookie";
 import type { Lang } from "@/types/common";
-import { sessionSecret } from "./config";
+import { forwardedHeader, sessionSecret, sessionSecrets } from "./config";
 import { UpstreamError, unwrap, upstream } from "./upstream";
 
 export { DEVICE_COOKIE, SESSION_COOKIE };
@@ -40,10 +41,14 @@ const sessionSchema = z.object({
 // ── sealing ─────────────────────────────────────────────────────────────────
 
 const VERSION = "v1";
+/** The cookie's purpose, bound into the key so the secret serves nothing else. */
+const KEY_INFO = `kelal.session.${VERSION}`;
 const keyFor = (secret: string) =>
-  createHash("sha256").update(secret, "utf8").digest();
+  Buffer.from(hkdfSync("sha256", secret, "", KEY_INFO, 32));
 const encode = (bytes: Buffer) => bytes.toString("base64url");
 const decode = (text: string) => Buffer.from(text, "base64url");
+/** The version is authenticated too: a `v1` tag cannot be presented as another. */
+const AAD = Buffer.from(VERSION, "utf8");
 
 /** AES-256-GCM: confidentiality and integrity in one; a changed byte opens to nothing. */
 export function seal(
@@ -52,6 +57,7 @@ export function seal(
 ): string {
   const iv = randomBytes(12);
   const cipher = createCipheriv("aes-256-gcm", keyFor(secret), iv);
+  cipher.setAAD(AAD);
   const sealed = Buffer.concat([
     cipher.update(Buffer.from(JSON.stringify(session), "utf8")),
     cipher.final(),
@@ -64,21 +70,19 @@ export function seal(
   ].join(".");
 }
 
-/** The session a cookie value holds, or null for anything tampered, foreign or stale in shape. */
-export function open(
-  value: string,
-  secret: string = sessionSecret(),
+function openWith(
+  secret: string,
+  iv: string,
+  sealed: string,
+  tag: string,
 ): Session | null {
-  const [version, iv, sealed, tag, ...rest] = value.split(".");
-  if (version !== VERSION || !iv || !sealed || !tag || rest.length > 0) {
-    return null;
-  }
   try {
     const decipher = createDecipheriv(
       "aes-256-gcm",
       keyFor(secret),
       decode(iv),
     );
+    decipher.setAAD(AAD);
     decipher.setAuthTag(decode(tag));
     const plain = Buffer.concat([
       decipher.update(decode(sealed)),
@@ -91,30 +95,54 @@ export function open(
   }
 }
 
+/**
+ * The session a cookie value holds, or null for anything tampered, foreign or
+ * stale in shape. Tried with the current secret, then the previous one during
+ * a rotation (`sessionSecrets()`), unless a secret is given.
+ */
+export function open(value: string, secret?: string): Session | null {
+  const [version, iv, sealed, tag, ...rest] = value.split(".");
+  if (version !== VERSION || !iv || !sealed || !tag || rest.length > 0) {
+    return null;
+  }
+  for (const candidate of secret ? [secret] : sessionSecrets()) {
+    const session = openWith(candidate, iv, sealed, tag);
+    if (session) return session;
+  }
+  return null;
+}
+
 // ── cookies ─────────────────────────────────────────────────────────────────
 
 /** C01 §9 `auth.refresh_ttl_days`: the refresh token, not the cookie, ends a session. */
 const SESSION_MAX_AGE_S = 30 * 24 * 60 * 60;
 const DEVICE_MAX_AGE_S = 365 * 24 * 60 * 60;
 
-function cookieValue(request: Request, name: string): string | null {
+/** Every value sent under `name` — a browser may send more than one. */
+function cookieValues(request: Request, name: string): string[] {
   const header = request.headers.get("cookie");
-  if (!header) return null;
+  if (!header) return [];
+  const values: string[] = [];
   for (const part of header.split(";")) {
     const [key, ...value] = part.trim().split("=");
-    if (key === name) return value.join("=");
+    if (key === name) values.push(value.join("="));
   }
-  return null;
+  return values;
 }
 
 /**
  * `Secure` always in production — TLS ends at the edge, so the request this
- * server sees may be plain HTTP — and otherwise only when the request itself
- * is HTTPS, so `http://localhost` and a phone on the LAN can still log in.
+ * server sees may be plain HTTP — and otherwise only when a trusted edge says
+ * the player came over HTTPS (AC-7's rule, never the request URL, which Next
+ * builds from whatever `X-Forwarded-Proto` the client sent). So
+ * `http://localhost` and a phone on the LAN can still log in.
  */
 export function secureFor(request: Request): boolean {
   if (process.env.NODE_ENV === "production") return true;
-  return new URL(request.url).protocol === "https:";
+  return (
+    forwardedHeader(request.headers, "x-forwarded-proto")?.toLowerCase() ===
+    "https"
+  );
 }
 
 function cookie(
@@ -133,11 +161,17 @@ function cookie(
   ].join("; ");
 }
 
-/** The session the request carries for this tenant, or null (AC-7). */
+/**
+ * The session the request carries for this tenant, or null (AC-7). The first
+ * same-named cookie that opens counts, so one planted on a parent domain or
+ * another path cannot shadow the real one.
+ */
 export function readSession(request: Request, tenant: string): Session | null {
-  const raw = cookieValue(request, SESSION_COOKIE);
-  const session = raw ? open(raw) : null;
-  return session && session.tenant === tenant ? session : null;
+  for (const raw of cookieValues(request, SESSION_COOKIE)) {
+    const session = open(raw);
+    if (session && session.tenant === tenant) return session;
+  }
+  return null;
 }
 
 /** The `Set-Cookie` value that stores a session. */
@@ -152,8 +186,11 @@ export const clearSessionCookie = (request: Request): string =>
 const DEVICE_ID = /^[A-Za-z0-9_-]{8,64}$/;
 
 export function readDevice(request: Request): string | null {
-  const value = cookieValue(request, DEVICE_COOKIE);
-  return value && DEVICE_ID.test(value) ? value : null;
+  return (
+    cookieValues(request, DEVICE_COOKIE).find((value) =>
+      DEVICE_ID.test(value),
+    ) ?? null
+  );
 }
 
 /**
@@ -260,6 +297,17 @@ async function refresh(
       lang: ctx.lang,
     }).POST("/v1/auth/refresh", { body: { refresh_token: session.refresh } });
     if (result.response.status === 401) throw new SessionGoneError();
+    if (!result.response.ok) {
+      // The refresh token was in that request: whatever the API echoed about
+      // it stays here. The browser learns only that the session could not be
+      // kept.
+      throw new UpstreamError(result.response.status, {
+        type: "about:blank",
+        title: "The session could not be refreshed",
+        status: result.response.status,
+        code: "SERVICE_UNAVAILABLE",
+      });
+    }
     const next = sessionFromTokens(
       ctx.tenant,
       unwrap(result),

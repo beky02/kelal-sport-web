@@ -9,9 +9,13 @@ import { Segmented } from "@/components/ui/Segmented";
 import { Switch } from "@/components/ui/Switch";
 import { LICENCE } from "@/config/constants";
 import { routes } from "@/config/routes";
+import { AuthNotice } from "@/features/auth/components/AuthNotice";
 import { useLogout, useSession } from "@/features/auth/hooks/use-session";
+import { authErrorMessage } from "@/features/auth/lib/errors";
+import { maskPhone } from "@/features/auth/lib/phone";
 import { useAuthStore } from "@/features/auth/stores/auth.store";
 import { Skeleton } from "@/components/ui/Skeleton";
+import { formatLongDate } from "@/lib/i18n/dates";
 import { useUiStore } from "@/stores/ui.store";
 import type {
   CalendarSystem,
@@ -30,15 +34,6 @@ const initials = (name: string) =>
     .slice(0, 2)
     .map((part) => part[0]?.toUpperCase() ?? "")
     .join("");
-
-/** A `YYYY-MM-DD` as a person reads it, in the Gregorian calendar (D7). */
-const formatBirthDate = (date: string, lang: "en" | "am") =>
-  new Intl.DateTimeFormat(lang === "am" ? "am-ET" : "en-GB", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-    timeZone: "UTC",
-  }).format(new Date(`${date}T00:00:00Z`));
 
 /**
  * Account and settings.
@@ -139,7 +134,9 @@ export function ProfileView() {
               <div className="font-display text-lg leading-[1.15]">
                 {player.fullName}
               </div>
-              <div className="text-muted numeric text-xs">{player.phone}</div>
+              <div className="text-muted numeric text-xs">
+                {maskPhone(player.phone)}
+              </div>
             </div>
             <span
               className={cn(
@@ -198,7 +195,7 @@ export function ProfileView() {
             {player.dateOfBirth && (
               <InfoRow
                 label={t.t("profile.dateOfBirth")}
-                value={formatBirthDate(player.dateOfBirth, t.lang)}
+                value={formatLongDate(player.dateOfBirth, t.lang, calendar)}
               />
             )}
           </div>
@@ -352,7 +349,10 @@ export function ProfileView() {
       </div>
 
       {player && (
-        <div className="px-4 pt-4.5">
+        <div className="flex flex-col gap-3 px-4 pt-4.5">
+          {logout.isError && (
+            <AuthNotice error={authErrorMessage(logout.error)} />
+          )}
           <button
             type="button"
             disabled={logout.isPending}

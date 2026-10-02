@@ -17,7 +17,8 @@
     "profile": "Profile",
     "currency": "ETB",
     "openSlip": "Open bet slip",
-    "walletBalance": "Wallet, balance {amount}"
+    "walletBalance": "Wallet, balance {amount}",
+    "accountLoading": "Loading your account…"
   },
   "sidebar": {
     "favourites": "Favourites",
@@ -440,11 +441,11 @@
     "otherMethod": "Choose another method",
     "kycLock": "Verify your Fayda ID to unlock withdrawals.",
     "verifyNow": "Verify",
-    "startFailed": "Couldn’t start the payment"
+    "startFailed": "Couldn’t start the payment",
+    "withdrawUnavailable": "Withdrawals aren’t available on your account right now."
   },
   "profile": {
     "menu": "Menu",
-    "name": "Abebe Kebede",
     "kycVerified": "ID verified",
     "kycPending": "ID pending",
     "kycNone": "ID not verified",
@@ -456,7 +457,6 @@
     "fullName": "Full name",
     "phone": "Phone",
     "dateOfBirth": "Date of birth",
-    "faydaId": "Fayda ID",
     "preferences": "Preferences",
     "language": "Language",
     "theme": "Theme",

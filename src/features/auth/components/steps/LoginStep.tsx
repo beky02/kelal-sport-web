@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "@/lib/i18n/use-translation";
 import {
   Field,
@@ -34,6 +34,24 @@ export function LoginStep({
   const [show, setShow] = useState(false);
   const [phone, setPhone] = useState(initialPhone);
   const [password, setPassword] = useState("");
+  const phoneInput = useRef<HTMLInputElement>(null);
+
+  // The caret starts in the first field: this step is the form.
+  useEffect(() => {
+    phoneInput.current?.focus();
+  }, []);
+
+  // A lock-out refuses everything until the API lifts it; resubmitting the
+  // same fields is pointless, so the button waits for a change.
+  const [editedFor, setEditedFor] = useState<AuthErrorView | null>(null);
+  const locked =
+    error?.key === "auth.errors.AUTH_LOCKED" && editedFor !== error;
+  const edit =
+    <T,>(set: (value: T) => void) =>
+    (value: T) => {
+      set(value);
+      setEditedFor(error);
+    };
 
   return (
     <form
@@ -49,8 +67,9 @@ export function LoginStep({
         {(props) => (
           <PhoneInput
             {...props}
+            ref={phoneInput}
             value={phone}
-            onChange={(event) => setPhone(event.target.value)}
+            onChange={(event) => edit(setPhone)(event.target.value)}
             placeholder="912 345 482"
           />
         )}
@@ -75,7 +94,7 @@ export function LoginStep({
             {...props}
             autoComplete="current-password"
             value={password}
-            onChange={(event) => setPassword(event.target.value)}
+            onChange={(event) => edit(setPassword)(event.target.value)}
             show={show}
             onToggleShow={() => setShow(!show)}
             showLabel={show ? t.t("auth.hide") : t.t("auth.show")}
@@ -86,7 +105,7 @@ export function LoginStep({
       <AuthNotice error={error} onFix={onFix} />
 
       <SubmitButton
-        disabled={phone.trim() === "" || password === "" || pending}
+        disabled={phone.trim() === "" || password === "" || pending || locked}
         aria-busy={pending || undefined}
       >
         {t.t("auth.logIn")}

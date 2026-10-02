@@ -4,6 +4,7 @@ import { useReducer } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { Dialog } from "radix-ui";
 import { ChevronLeft, X } from "lucide-react";
+import { useRichTranslation } from "@/lib/i18n/rich";
 import { useTranslation } from "@/lib/i18n/use-translation";
 import { routes } from "@/config/routes";
 import { useLogin } from "../hooks/use-session";
@@ -35,6 +36,7 @@ import { PhoneStep } from "./steps/PhoneStep";
  */
 export function AuthDialog() {
   const t = useTranslation();
+  const rich = useRichTranslation();
   const router = useRouter();
   const pathname = usePathname();
 
@@ -121,6 +123,16 @@ export function AuthDialog() {
         : "";
 
   const loginPhone = toE164(login.phone);
+  const masked = loginPhone ? maskPhone(loginPhone) : login.phone;
+
+  // On the first step of either flow the arrow could only close the dialog,
+  // which the cross already does.
+  const canGoBack = !(
+    step === "phone" ||
+    (step === "login" && login.step === "login")
+  );
+  // The login form puts the caret in its first field itself.
+  const focusesItself = step === "login" && login.step === "login";
 
   return (
     <Dialog.Root
@@ -131,20 +143,29 @@ export function AuthDialog() {
     >
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-40 bg-black/60" />
-        <Dialog.Content className="bg-ground border-border fixed top-1/2 left-1/2 z-40 flex max-h-[92dvh] w-[440px] max-w-[calc(100vw-2.5rem)] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-lg border outline-none">
+        <Dialog.Content
+          onOpenAutoFocus={(event) => {
+            if (focusesItself) event.preventDefault();
+          }}
+          className="bg-ground border-border fixed top-1/2 left-1/2 z-40 flex max-h-[92dvh] w-[440px] max-w-[calc(100vw-2.5rem)] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-lg border outline-none"
+        >
           <Dialog.Title className="sr-only">
             {t.t("auth.dialogLabel")}
           </Dialog.Title>
 
           <div className="border-divider grid min-h-12 shrink-0 grid-cols-[44px_minmax(0,1fr)_44px] items-center border-b px-1">
-            <button
-              type="button"
-              aria-label={t.t("auth.back")}
-              onClick={goBack}
-              className="text-text grid size-11 cursor-pointer place-items-center rounded-md bg-transparent"
-            >
-              <ChevronLeft size={20} strokeWidth={1.5} aria-hidden />
-            </button>
+            {canGoBack ? (
+              <button
+                type="button"
+                aria-label={t.t("auth.back")}
+                onClick={goBack}
+                className="text-text grid size-11 cursor-pointer place-items-center rounded-md bg-transparent"
+              >
+                <ChevronLeft size={20} strokeWidth={1.5} aria-hidden />
+              </button>
+            ) : (
+              <span aria-hidden />
+            )}
 
             <div className="text-muted text-center text-xs">{heading}</div>
 
@@ -187,9 +208,9 @@ export function AuthDialog() {
             {step === "login" && login.step === "loginOtp" && (
               <OtpStep
                 key={login.attempts}
-                phoneMasked={loginPhone ? maskPhone(loginPhone) : login.phone}
-                body={t.t("auth.newDeviceBody", {
-                  phone: loginPhone ? maskPhone(loginPhone) : login.phone,
+                phoneMasked={masked}
+                body={rich("auth.newDeviceBody", {
+                  phone: <span className="whitespace-nowrap">{masked}</span>,
                 })}
                 pending={login.pending}
                 error={login.error}

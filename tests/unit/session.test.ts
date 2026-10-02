@@ -124,7 +124,7 @@ describe("the sealed session cookie", () => {
     ).toBeNull();
   });
 
-  it("is httpOnly, SameSite=Lax, site-wide and lives 30 days; Secure follows the request outside production", async () => {
+  it("is httpOnly, SameSite=Lax, site-wide and lives 30 days; Secure follows the trusted edge's protocol outside production", async () => {
     const { sessionCookie, clearSessionCookie, SESSION_COOKIE } = await load();
     const plain = sessionCookie(
       live(),
@@ -137,11 +137,16 @@ describe("the sealed session cookie", () => {
     expect(plain).toMatch(/; Max-Age=2592000/);
     expect(plain).not.toMatch(/; Secure/);
 
-    const https = sessionCookie(
+    // A client-sent X-Forwarded-Proto, or the request URL Next builds from it,
+    // decides nothing without a trusted proxy (AC-7): a forged "https" over
+    // plain HTTP would make the browser drop the cookie.
+    const forged = sessionCookie(
       live(),
-      new Request("https://kelalsport.et/api/auth/login"),
+      new Request("https://localhost:3000/api/auth/login", {
+        headers: { "x-forwarded-proto": "https" },
+      }),
     );
-    expect(https).toMatch(/; Secure/);
+    expect(forged).not.toMatch(/; Secure/);
 
     const cleared = clearSessionCookie(
       new Request("http://localhost:3000/api/auth/logout"),
@@ -151,13 +156,70 @@ describe("the sealed session cookie", () => {
     expect(cleared).toMatch(/; HttpOnly/);
   });
 
-  it("is always Secure in production", async () => {
-    vi.stubEnv("NODE_ENV", "production");
-    vi.stubEnv("SESSION_SECRET", "a".repeat(48));
+  it("is Secure behind a trusted edge that says https", async () => {
+    vi.stubEnv("TRUSTED_PROXY_HOPS", "1");
     const { sessionCookie } = await load();
     expect(
-      sessionCookie(live(), new Request("http://internal:3000/api/auth/login")),
+      sessionCookie(
+        live(),
+        new Request("http://web.internal:3000/api/auth/login", {
+          headers: { "x-forwarded-proto": "https" },
+        }),
+      ),
     ).toMatch(/; Secure/);
+    expect(
+      sessionCookie(
+        live(),
+        new Request("http://web.internal:3000/api/auth/login", {
+          headers: { "x-forwarded-proto": "http" },
+        }),
+      ),
+    ).not.toMatch(/; Secure/);
+  });
+
+  it("is always Secure in production, under the __Host- name", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("SESSION_SECRET", "a".repeat(48));
+    const { sessionCookie, SESSION_COOKIE } = await load();
+    expect(SESSION_COOKIE).toBe("__Host-kelal.session");
+    const cookie = sessionCookie(
+      live(),
+      new Request("http://internal:3000/api/auth/login"),
+    );
+    expect(cookie.startsWith("__Host-kelal.session=")).toBe(true);
+    expect(cookie).toMatch(/; Secure/);
+    expect(cookie).toMatch(/; Path=\//);
+    expect(cookie).not.toMatch(/Domain=/);
+  });
+
+  it("uses the first same-named cookie that opens, so a planted one cannot shadow the session", async () => {
+    const { seal, readSession, SESSION_COOKIE } = await load();
+    const request = new Request("http://localhost:3000/api/me", {
+      headers: {
+        cookie: `${SESSION_COOKIE}=planted; ${SESSION_COOKIE}=${seal(live())}; ${SESSION_COOKIE}=v1.x.y.z`,
+      },
+    });
+    expect(readSession(request, "demo")).toEqual(live());
+  });
+
+  it("opens a session sealed with the previous secret after a rotation, and nothing sealed with any other", async () => {
+    const before = "the-secret-before-the-rotation-32-chars-long";
+    const after = "the-secret-after-the-rotation-32-chars-long!";
+    const other = "a-secret-this-server-has-never-been-given-!";
+    const { seal, open } = await load();
+    const sealed = seal(live(), before);
+
+    // Mid-rotation: the current secret cannot open it, the previous one can.
+    vi.stubEnv("SESSION_SECRET", after);
+    vi.stubEnv("SESSION_SECRET_PREVIOUS", before);
+    expect(open(sealed, after)).toBeNull();
+    expect(open(sealed)).toEqual(live());
+    // New cookies are sealed with the new secret: the old one cannot open them.
+    expect(open(seal(live()), before)).toBeNull();
+    expect(open(seal(live()), after)).toEqual(live());
+
+    // A secret this server was never given opens nothing.
+    expect(open(seal(live(), other))).toBeNull();
   });
 
   it("turns the API's tokens into a session that expires when the access token does", async () => {

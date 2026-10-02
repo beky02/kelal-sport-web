@@ -7,11 +7,6 @@ const load = async () => {
   return import("@/lib/server/config");
 };
 
-/** The secret as the loaded module reads it right now (it reads env at call time). */
-let sessionSecretNow: () => string = () => {
-  throw new Error("load() first");
-};
-
 afterEach(() => vi.unstubAllEnvs());
 
 describe("server configuration", () => {
@@ -48,21 +43,20 @@ describe("the session secret", () => {
 
   it("refuses a short secret, and the development key, in production", async () => {
     vi.stubEnv("NODE_ENV", "production");
+    const { sessionSecret, DEVELOPMENT_SESSION_SECRET } = await load();
+
     vi.stubEnv("SESSION_SECRET", "too-short");
-    const mod = await load();
-    sessionSecretNow = mod.sessionSecret;
-    const dev = await (async () => {
-      vi.stubEnv("NODE_ENV", "test");
-      vi.stubEnv("SESSION_SECRET", "");
-      return sessionSecretNow();
-    })();
-    vi.stubEnv("NODE_ENV", "production");
-    vi.stubEnv("SESSION_SECRET", "too-short");
-    expect(() => sessionSecretNow()).toThrow(/SESSION_SECRET/);
-    vi.stubEnv("SESSION_SECRET", dev);
-    expect(() => sessionSecretNow()).toThrow(/SESSION_SECRET/);
+    expect(() => sessionSecret()).toThrow(/SESSION_SECRET/);
+    vi.stubEnv("SESSION_SECRET", DEVELOPMENT_SESSION_SECRET);
+    expect(() => sessionSecret()).toThrow(/SESSION_SECRET/);
     vi.stubEnv("SESSION_SECRET", "a".repeat(48));
-    expect(sessionSecretNow()).toBe("a".repeat(48));
+    expect(sessionSecret()).toBe("a".repeat(48));
+  });
+
+  it("refuses to send logins to the real API before contract request 004, like bookings", async () => {
+    vi.stubEnv("API_REAL_URL", "http://localhost:8000");
+    vi.stubEnv("API_REAL_TAGS", "Catalogue,Auth");
+    await expect(load()).rejects.toThrow(/contract request 004/);
   });
 
   it("falls back to a development key outside production, and the build needs none", async () => {
@@ -146,15 +140,30 @@ describe("the tenant and its public address (AC-7: forwarded headers only behind
     await expect(load()).rejects.toThrow(/TRUSTED_PROXY_HOPS|trustedProxyHops/);
   });
 
-  it("takes the first host of a forwarded list instead of failing", async () => {
+  it("takes the forwarded host the trusted edge appended, never one the client sent", async () => {
     vi.stubEnv("TENANT_HOST_MAP", "kelalsport.et=kelal,localhost=demo");
     vi.stubEnv("TRUSTED_PROXY_HOPS", "1");
     const { tenantFromHeaders } = await load();
+    // The same rule as X-Forwarded-For: the n-th entry from the right.
     expect(
       tenantFromHeaders(
-        new Headers({ "x-forwarded-host": "kelalsport.et, proxy.internal" }),
+        new Headers({ "x-forwarded-host": "evil.example, kelalsport.et" }),
       ),
     ).toBe("kelal");
+    expect(
+      tenantFromHeaders(new Headers({ "x-forwarded-host": "kelalsport.et" })),
+    ).toBe("kelal");
+    // Fewer entries than hops: nothing trustworthy, so Host decides.
+    vi.stubEnv("TRUSTED_PROXY_HOPS", "2");
+    const two = await load();
+    expect(
+      two.tenantFromHeaders(
+        new Headers({
+          host: "localhost:3000",
+          "x-forwarded-host": "kelalsport.et",
+        }),
+      ),
+    ).toBe("demo");
   });
 
   it("links a booking from the tenant's own host, never a forwarded one it doesn't own", async () => {
@@ -182,7 +191,7 @@ describe("the tenant and its public address (AC-7: forwarded headers only behind
       publicOrigin(
         new Headers({
           "x-forwarded-host": "kelalsport.et",
-          "x-forwarded-proto": "https,http",
+          "x-forwarded-proto": "http, https",
         }),
         "kelal",
       ),
