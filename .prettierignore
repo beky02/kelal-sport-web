@@ -3,3 +3,6 @@ src/lib/api/schema.d.ts
 contracts/
 pnpm-lock.yaml
 docs/backend/
+
+# Local, per-machine settings written by the Claude app; not ours to format.
+.claude/settings.local.json
