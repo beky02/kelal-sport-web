@@ -1,7 +1,7 @@
 ---
 id: F4b
 title: Register with the SMS code, reset the password, verify with Fayda
-status: planned
+status: verifying
 depends_on: [F4a]
 contract_tags: [Auth, KYC]
 touches_money: false

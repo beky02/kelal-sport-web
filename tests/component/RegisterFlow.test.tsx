@@ -229,6 +229,12 @@ describe("registering through the dialog", () => {
       screen.getByRole("button", { name: "Start betting" }),
     );
     expect(useAuthStore.getState().entry).toBeNull();
+
+    // The password, the codes, the date of birth and the Fayda number go with
+    // the dialog: nothing left in the mutation cache for the next page to read.
+    await waitFor(() =>
+      expect(queryClient.getMutationCache().getAll()).toHaveLength(0),
+    );
   });
 
   it("Do this later finishes with the account created and nothing sent to Fayda", async () => {

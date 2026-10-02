@@ -16,6 +16,7 @@ import {
 } from "@/lib/query/keys";
 import { useSystemStore } from "@/stores/system.store";
 import { getMe, login, logout, register } from "../api/auth";
+import { FORGET_AT_ONCE } from "./use-account";
 import type { Player, SessionView } from "../types";
 
 export interface SessionState {
@@ -98,6 +99,7 @@ export function useLogin() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: login,
+    ...FORGET_AT_ONCE,
     onSuccess: async (result) => {
       if (result.status === "ok") await signedIn(queryClient);
     },
@@ -109,6 +111,7 @@ export function useRegister() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: register,
+    ...FORGET_AT_ONCE,
     onSuccess: () => signedIn(queryClient),
   });
 }

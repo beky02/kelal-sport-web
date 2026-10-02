@@ -170,6 +170,29 @@ describe("POST /api/auth/otp", () => {
     });
   });
 
+  it("reads or mints this browser's device cookie, as registration will send it", async () => {
+    const mod = await load();
+    upstreamAnswers(() => ({
+      status: 202,
+      body: responseExample("/v1/auth/otp", "post", 202),
+    }));
+
+    const first = await post(mod.otp, OTP, {
+      phone: "911234567",
+      purpose: "register",
+    });
+    const device = deviceCookieOf(mod, first);
+    expect(device).toMatch(/; HttpOnly/);
+
+    const again = await post(
+      mod.otp,
+      OTP,
+      { phone: "911234567", purpose: "register" },
+      { ...SAME_SITE, cookie: `${mod.DEVICE_COOKIE}=${valueOf(device!)}` },
+    );
+    expect(deviceCookieOf(mod, again)).toBeUndefined();
+  });
+
   it("passes the contract's 409 REG_PHONE_TAKEN through unchanged (AC-2)", async () => {
     const mod = await load();
     const taken = responseExample("/v1/auth/otp", "post", 409);
@@ -282,6 +305,51 @@ describe("POST /api/auth/register", () => {
       refresh: result.tokens.refresh_token,
       expiresAt: NOW + result.tokens.expires_in * 1000,
     });
+  });
+
+  it("revokes the session the browser had before sealing the new one", async () => {
+    const mod = await load();
+    upstreamAnswers((request) =>
+      path(request) === "/v1/auth/logout"
+        ? { status: 204 }
+        : {
+            status: 201,
+            body: responseExample("/v1/auth/register", "post", 201),
+          },
+    );
+
+    const response = await post(
+      mod.register,
+      REGISTER,
+      REGISTRATION,
+      withSession(mod),
+    );
+
+    expect(response.status).toBe(201);
+    // The new account first; only then is the old session given up.
+    expect(sent.map(path)).toEqual(["/v1/auth/register", "/v1/auth/logout"]);
+    expect(sent[1].headers.get("authorization")).toBe("Bearer eyJ.live.access");
+    const cookie = sessionCookieOf(mod, response);
+    expect(mod.open(valueOf(cookie!))?.access).toBe("eyJhbGciOi...");
+  });
+
+  it("keeps the session it had when the registration is refused", async () => {
+    const mod = await load();
+    upstreamAnswers(() => ({
+      status: 409,
+      body: responseExample("/v1/auth/otp", "post", 409),
+    }));
+
+    const response = await post(
+      mod.register,
+      REGISTER,
+      REGISTRATION,
+      withSession(mod),
+    );
+
+    expect(response.status).toBe(409);
+    expect(sent.map(path)).toEqual(["/v1/auth/register"]);
+    expect(sessionCookieOf(mod, response)).toBeUndefined();
   });
 
   it("answers 503 when the tenant has no terms version, creating nothing", async () => {

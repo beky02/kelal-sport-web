@@ -202,7 +202,7 @@ Composed, not from the design: the design had no copy for the API's refusals,
 the reset code, the new details step or any Fayda result but "pending".
 `auth.pendingBody` was rewritten in both languages because no source promises
 "under 10 minutes" or an SMS; it now says only that the ID is being reviewed.
-`auth.ruleLetterNumber` and `auth.stepPassword` were removed (C01 §2: no
+`auth.ruleLetterNumber`, `auth.stepPassword`, `auth.passwordTitle` and `auth.required` were removed (C01 §2: no
 composition rules; the third step is now "Details"). "Session" follows
 `system.sessionBody` (ቆይታ); "Done" follows `wallet.done`.
 
@@ -232,7 +232,7 @@ composition rules; the third step is now "Details"). "Session" follows
 | `auth.tryAgain`                        | እንደገና ይሞክሩ                                          | rejection copy                                  |
 | `auth.done`                            | ተጠናቀቀ                                               | `wallet.done`                                   |
 | `auth.resetCodeBody`                   | {phone} መለያ ካለው ኮድ ልከንለታል።                          | `auth.newDeviceBody` + `መለያ`                    |
-| `auth.newPasswordTitle`                | አዲስ የይለፍ ቃል ያስገቡ                                    | `auth.passwordTitle`                            |
+| `auth.newPasswordTitle`                | አዲስ የይለፍ ቃል ያስገቡ                                    | the former `auth.passwordTitle`                 |
 | `auth.newPassword`                     | አዲስ የይለፍ ቃል                                         | `auth.password`                                 |
 | `auth.savePassword`                    | የይለፍ ቃሉን አስቀምጥ                                      | `auth.password` + new                           |
 | `auth.passwordChanged`                 | የይለፍ ቃልዎ ተቀይሯል። በአዲሱ የይለፍ ቃል ይግቡ።                   | `auth.password`, `ይግቡ` (header.login)           |
