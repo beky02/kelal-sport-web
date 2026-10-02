@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { placeBetRequestSchema } from "@/lib/api/schemas";
 import { placeBet } from "@/lib/server/bets";
-import { readJson } from "@/lib/server/body";
+import { readForm } from "@/lib/server/body";
 import { assertSameOrigin } from "@/lib/server/csrf";
 import { problemResponse, respond } from "@/lib/server/respond";
 import { readSession, SessionGoneError } from "@/lib/server/session";
@@ -34,14 +34,13 @@ export async function POST(request: Request) {
     );
   }
 
-  const json = await readJson(request, MAX_BODY_BYTES);
-  if (json === "too_large") {
-    return problemResponse(413, "VALIDATION_FAILED", "Too large");
-  }
-  const body = placeBetRequestSchema.safeParse(json);
-  if (!body.success) {
-    return problemResponse(422, "VALIDATION_FAILED", "Not a bet");
-  }
+  const bet = await readForm(
+    request,
+    placeBetRequestSchema,
+    "Not a bet",
+    MAX_BODY_BYTES,
+  );
+  if (bet instanceof Response) return bet;
 
   return respond(
     request,
@@ -51,7 +50,7 @@ export async function POST(request: Request) {
       return placeBet(
         { ...ctx, prefer: mockPreference(request.headers.get("prefer")) },
         session,
-        body.data,
+        bet,
         key.data,
       );
     },

@@ -334,4 +334,20 @@ describe("POST /api/bets", () => {
     await place(mod, BET, headers(mod, { prefer }));
     expect(sent[1].headers.get("prefer")).toBeNull();
   });
+
+  it("never sends Prefer to the real API, even under next dev (SEC3)", async () => {
+    vi.stubEnv("NODE_ENV", "development");
+    vi.stubEnv("API_REAL_URL", "http://real.test");
+    vi.stubEnv("API_REAL_TAGS", "Bets");
+    const mod = await load();
+    upstreamAnswers(() => ({
+      status: 201,
+      body: responseExample("/v1/bets", "post", 201),
+    }));
+
+    await place(mod, BET, headers(mod, { prefer: "code=409" }));
+
+    expect(new URL(sent[0].url).host).toBe("real.test");
+    expect(sent[0].headers.get("prefer")).toBeNull();
+  });
 });

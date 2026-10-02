@@ -4,6 +4,11 @@ import {
   useBetSlipStore,
 } from "@/features/bet-slip/stores/bet-slip.store";
 import type { OutcomeRef } from "@/features/markets/types";
+import type {
+  BetReceipt,
+  PlaceAttempt,
+  PlaceRefusal,
+} from "@/features/bet-slip/types";
 
 const ref = (eventId: string): OutcomeRef => ({
   eventId,
@@ -29,6 +34,7 @@ const selection = (outcomeId: string) =>
 
 beforeEach(() => {
   slip().clear();
+  slip().forgetPlacement();
   slip().toggleSelection(pick("m1", "2.10"));
   slip().toggleSelection(pick("m2", "1.80"));
 });
@@ -51,6 +57,8 @@ describe("the slip store: agreeing to prices", () => {
   });
 
   it("agrees to every moved price at once with Accept all, and leaves the rest", () => {
+    slip().toggleSelection(pick("m3", "3.00"));
+    const untouched = selection("oc_m3");
     slip().applyOddsUpdate(ref("m1"), "1.95");
     slip().applyOddsUpdate(ref("m2"), "1.90");
     slip().acceptAllPending();
@@ -59,7 +67,10 @@ describe("the slip store: agreeing to prices", () => {
     ).toEqual([
       ["1.95", "1.95"],
       ["1.90", "1.90"],
+      ["3.00", "3.00"],
     ]);
+    // An unmoved pick is the same object: nothing re-renders for it.
+    expect(selection("oc_m3")).toBe(untouched);
   });
 });
 
@@ -86,5 +97,134 @@ describe("the slip store: the odds policy (AC-6)", () => {
       notice: { code: "7KQ2M9X", added: 1, notAdded: [], systemSizes: null },
     });
     expect(slip().oddsPolicy).toBeNull();
+  });
+});
+
+const ATTEMPT = (key: string, stake = "100.00"): PlaceAttempt => ({
+  key,
+  request: {
+    betType: "multiple",
+    systemSizes: [],
+    legs: [
+      { outcomeId: "oc_m1", odds: "2.10" },
+      { outcomeId: "oc_m2", odds: "1.80" },
+    ],
+    stake,
+    oddsPolicy: "higher",
+  },
+});
+const RECEIPT = { ticketId: "K7Q2-M9XP-M" } as BetReceipt;
+const REFUSAL: PlaceRefusal = {
+  status: 409,
+  code: "BET_ODDS_CHANGED",
+  title: "Odds have changed",
+  detail: null,
+  errors: [{ field: "legs[1].odds", code: "ODDS_CHANGED", current: "1.55" }],
+  retryAfter: null,
+};
+const placement = () => slip().placement;
+
+/** Sent with key k1 for player p1, and never answered. */
+function unanswered() {
+  slip().placementSent(ATTEMPT("k1"), "p1");
+  slip().placementUnanswered("k1");
+  expect(placement().unconfirmed?.key).toBe("k1");
+}
+
+describe("the slip store: a bet that had no answer (SEC1, M1)", () => {
+  it("keeps it through any change to the slip, even one that changes nothing", () => {
+    unanswered();
+    slip().setStake("100");
+    slip().setStake("50");
+    slip().setStake("100");
+    slip().setMode("multiple");
+    slip().setSystemK(2);
+    slip().setOddsPolicy("any");
+    slip().toggleSelection(pick("m3", "3.00"));
+    slip().removeSelection("oc_m3");
+    slip().applyOddsUpdate(ref("m1"), "2.40");
+    slip().acceptAllPending();
+    slip().clear();
+    expect(placement().unconfirmed).toEqual(ATTEMPT("k1"));
+  });
+
+  it("keeps it when a retry is refused or the session ends: neither says the first try failed", () => {
+    unanswered();
+    slip().placementSent(ATTEMPT("k1"), "p1");
+    slip().placementRefused("k1", REFUSAL);
+    expect(placement()).toMatchObject({
+      sending: null,
+      refusal: REFUSAL,
+      unconfirmed: ATTEMPT("k1"),
+    });
+
+    slip().placementSent(ATTEMPT("k1"), "p1");
+    slip().placementSessionEnded("k1");
+    expect(placement()).toMatchObject({
+      sending: null,
+      unconfirmed: ATTEMPT("k1"),
+    });
+  });
+
+  it("ends it with the ticket for its own key", () => {
+    unanswered();
+    slip().placementSent(ATTEMPT("k1"), "p1");
+    slip().placementPlaced("k1", RECEIPT);
+    expect(placement()).toMatchObject({
+      sending: null,
+      unconfirmed: null,
+      receipt: RECEIPT,
+    });
+  });
+
+  it("lets it go only when the player places a different bet on purpose", () => {
+    unanswered();
+    slip().placementSent(ATTEMPT("k2", "50.00"), "p1", { asNew: true });
+    expect(placement()).toMatchObject({
+      sending: ATTEMPT("k2", "50.00"),
+      unconfirmed: null,
+    });
+  });
+});
+
+describe("the slip store: whose placement it is (SEC2, Q1)", () => {
+  it("starts afresh for another player", () => {
+    unanswered();
+    slip().placementSent(ATTEMPT("k9"), "p2");
+    expect(placement()).toMatchObject({
+      owner: "p2",
+      unconfirmed: null,
+      sending: ATTEMPT("k9"),
+    });
+  });
+
+  it("forgets everything on request, and ignores an answer for an attempt no longer on its way", () => {
+    slip().placementSent(ATTEMPT("k1"), "p1");
+    slip().forgetPlacement();
+    slip().placementPlaced("k1", RECEIPT);
+    slip().placementUnanswered("k1");
+    expect(placement()).toEqual({
+      owner: null,
+      sending: null,
+      unconfirmed: null,
+      refusal: null,
+      receipt: null,
+    });
+  });
+});
+
+describe("the slip store: a refusal", () => {
+  it("goes once the slip changes; the ticket stays until it is dismissed", () => {
+    slip().placementSent(ATTEMPT("k1"), "p1");
+    slip().placementRefused("k1", REFUSAL);
+    slip().setStake("50");
+    expect(placement().refusal).toBeNull();
+
+    slip().placementSent(ATTEMPT("k2"), "p1");
+    slip().placementPlaced("k2", RECEIPT);
+    slip().setStake("100");
+    expect(placement().receipt).toBe(RECEIPT);
+    slip().dismissReceipt();
+    expect(placement().receipt).toBeNull();
   });
 });

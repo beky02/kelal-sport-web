@@ -1,16 +1,13 @@
 import { ApiError } from "@/lib/api/errors";
+import { ODDS_PATTERN } from "@/lib/api/patterns";
 import { normaliseMoney } from "@/lib/money";
 import type {
   BetSelection,
   OddsPolicy,
-  PlaceAttempt,
   PlaceBetRequest,
   PlaceRefusal,
 } from "../types";
 import { stakeToPrice, type BetSlipTotals } from "./calculate";
-
-/** The contract's `Odds` pattern: a price the slip can take. */
-const ODDS = /^\d{1,6}\.\d{2,3}$/;
 
 /**
  * The slip as a bet, or null while it can't be placed as it stands: no price
@@ -53,9 +50,9 @@ export function placeRequestFrom({
   };
 }
 
-/** One placing intent: the request's contents, in its fixed key order. */
-export const signatureOf = (request: PlaceBetRequest): string =>
-  JSON.stringify(request);
+/** The same bet: the same picks at the same odds, type, stake and policy. */
+export const sameRequest = (a: PlaceBetRequest, b: PlaceBetRequest): boolean =>
+  JSON.stringify(a) === JSON.stringify(b);
 
 /**
  * A v4 UUID for an `Idempotency-Key`. `crypto.randomUUID` exists only in a
@@ -77,46 +74,30 @@ export function newIdempotencyKey(): string {
   ].join("-");
 }
 
-/**
- * The key to place `request` with now.
- *
- * The last attempt's own key only when this is the same request again and that
- * attempt never had an answer that settles it — then the bet may already
- * exist, and the same key makes the engine return that ticket instead of
- * taking a second stake (C08 §2). Anything else is a new intent with a new
- * key: a changed slip, accepted odds, or a second bet on the same slip after
- * the first was placed (the old key would only replay the first ticket).
- */
-export function keyFor(
-  attempt: PlaceAttempt | null,
-  request: PlaceBetRequest,
-  make: () => string = newIdempotencyKey,
-): string {
-  return attempt?.status === "unanswered" &&
-    signatureOf(attempt.request) === signatureOf(request)
-    ? attempt.key
-    : make();
-}
-
-export type PlacementOutcome = "unanswered" | "session" | "refused";
+export type PlacementOutcome =
+  | { kind: "unanswered" }
+  | { kind: "session" }
+  | { kind: "refused"; error: ApiError };
 
 /**
- * What a failed attempt means for its key.
+ * What a failed attempt means.
  *
- * `unanswered`: nothing settled it — no response, a 5xx, or a reply this app
- * could not read (a ticket may exist, so only the same request with the same
- * key may go again). `session`: the session is gone (the route handler has
- * refreshed once already). `refused`: the engine said no — a 4xx, or
- * `REAL_MONEY_DISABLED` — and the key is spent.
+ * `unanswered`: nothing settled it — no response (a dropped connection, the
+ * 30 s limit), a 5xx, or a reply this app could not read; a ticket may exist,
+ * so the bet stays unconfirmed and only the same request with the same key
+ * may go again. `session`: the session is gone (the route handler has
+ * refreshed once already). `refused`: the engine said no to this attempt — a
+ * 4xx, or `REAL_MONEY_DISABLED`.
  */
 export function placementOutcome(error: unknown): PlacementOutcome {
-  if (!(error instanceof ApiError)) return "unanswered";
-  if (error.status === 0) return "unanswered";
-  if (error.status === 401) return "session";
-  if (error.status >= 500 && error.code !== "REAL_MONEY_DISABLED") {
-    return "unanswered";
+  if (!(error instanceof ApiError) || error.status === 0) {
+    return { kind: "unanswered" };
   }
-  return "refused";
+  if (error.status === 401) return { kind: "session" };
+  if (error.status >= 500 && error.code !== "REAL_MONEY_DISABLED") {
+    return { kind: "unanswered" };
+  }
+  return { kind: "refused", error };
 }
 
 /** A refusal as the slip keeps it: the Problem's contract fields. */
@@ -157,7 +138,7 @@ export function legUpdates(
     const leg = index === undefined ? undefined : request.legs[Number(index)];
     if (!leg) continue;
     if (refusal.code === "BET_ODDS_CHANGED") {
-      if (error.current && ODDS.test(error.current)) {
+      if (error.current && ODDS_PATTERN.test(error.current)) {
         odds.push({
           outcomeId: leg.outcomeId,
           sent: leg.odds,

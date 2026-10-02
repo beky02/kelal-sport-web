@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Check, Send } from "lucide-react";
+import { Check } from "lucide-react";
 import { useTranslation } from "@/lib/i18n/use-translation";
 import { Barcode } from "@/components/ui/Barcode";
 import { Button } from "@/components/ui/Button";
@@ -123,15 +123,8 @@ export function BetPlacedConfirmation({
         </div>
       </div>
 
-      {/* Telegram is how tickets get shared in this market, so it is a first
-          class action rather than hidden behind a generic share sheet. */}
-      <button
-        type="button"
-        className="bg-telegram font-body flex h-12 cursor-pointer items-center justify-center gap-2 rounded-md text-sm font-bold text-white"
-      >
-        <Send size={17} strokeWidth={1.5} aria-hidden />
-        {t.t("betSlip.shareTelegram")}
-      </button>
+      {/* Share on Telegram comes back in F5b, with the public `/t/{ticket}`
+          page to share: until then it would be a button that does nothing. */}
 
       <div className="grid grid-cols-2 gap-2">
         <Button size="lg" onClick={onKeepSelections}>

@@ -83,15 +83,12 @@ export interface BetReceipt {
 }
 
 /**
- * One request to place, and its `Idempotency-Key`. `sending` while in flight;
- * `unanswered` when it got no answer that settles it (no response, a 5xx, a
- * reply this app could not read) — then the bet may exist, and only the same
- * request with the same key may go again.
+ * One request to place, and the `Idempotency-Key` it goes with: the same
+ * request always goes again with the same key.
  */
 export interface PlaceAttempt {
   request: PlaceBetRequest;
   key: string;
-  status: "sending" | "unanswered";
 }
 
 /** The engine's refusal of the slip as it stands: its Problem, as kept and shown. */

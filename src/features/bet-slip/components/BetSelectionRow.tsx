@@ -85,12 +85,15 @@ export function BetSelectionRow({
               </span>
             </span>
             {pending && (
+              // A 44 px target (a fix, after a 409) around the small pill.
               <button
                 type="button"
                 onClick={() => acceptSelection(selection.outcomeId)}
-                className="bg-accent text-on-accent font-body h-7 cursor-pointer rounded-md px-2.5 text-[11px] font-bold"
+                className="font-body -my-2 flex h-11 cursor-pointer items-center bg-transparent"
               >
-                {t.t("betSlip.accept")}
+                <span className="bg-accent text-on-accent flex h-7 items-center rounded-md px-2.5 text-[11px] font-bold">
+                  {t.t("betSlip.accept")}
+                </span>
               </button>
             )}
           </>

@@ -1,7 +1,7 @@
 ---
 id: F5a
 title: Place a bet with an Idempotency-Key per intent, the 409 flow and every refusal's fix; Code 128
-status: planned
+status: verifying
 depends_on: [F3a, F3b, F4]
 contract_tags: [Bets]
 touches_money: true

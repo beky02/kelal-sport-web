@@ -17,7 +17,6 @@ import {
   type BetSlipMode,
   type OddsPolicy,
   type PlaceAttempt,
-  type PlaceBetRequest,
   type PlaceRefusal,
 } from "../types";
 
@@ -40,21 +39,51 @@ export interface BookingIntent {
 }
 
 /**
- * Placing this slip: the attempt on its way or owed an answer, the engine's
+ * Placing this slip: the bet on its way, a bet the engine never answered, its
  * last refusal of the slip as it stands, and the ticket once issued.
  *
  * Kept here, not in the Place button, for the booking intent's reason: the
  * slip is mounted twice (the desktop aside and the phone sheet), and a sheet
  * closed mid-request unmounts its own. So every mounted slip sees a bet on its
  * way and cannot send a second one; a ticket that lands after the sheet closed
- * is still there when it opens; and a key stays with its request for Try
- * again. Not a cache of server data: it goes when the slip changes.
+ * is still there when it opens; and an unanswered bet keeps its key.
  */
 export interface Placement {
-  attempt: PlaceAttempt | null;
+  /**
+   * The signed-in player it was placed for. Shown and acted on only for them
+   * (`ownPlacement`): never for a guest, and dropped when someone else signs
+   * in — a shared phone hands over nothing.
+   */
+  owner: string | null;
+  /** A bet on its way. */
+  sending: PlaceAttempt | null;
+  /**
+   * A bet sent and never answered in a way that settles it — no response, a
+   * 5xx, a reply this app could not read. It may exist, so it stays until a
+   * ticket comes back for its own key, or the player chooses to place a
+   * different bet anyway. No change to the slip drops it, and neither does a
+   * refusal of a retry or a lost session: neither says the first try failed
+   * (the engine records a key only once a bet commits, C08 §7).
+   */
+  unconfirmed: PlaceAttempt | null;
   refusal: PlaceRefusal | null;
   receipt: BetReceipt | null;
 }
+
+export const NO_PLACEMENT: Placement = {
+  owner: null,
+  sending: null,
+  unconfirmed: null,
+  refusal: null,
+  receipt: null,
+};
+
+/** The placement if it is this player's; nothing for anyone else or a guest. */
+export const ownPlacement = (
+  placement: Placement,
+  playerId: string | null,
+): Placement =>
+  playerId !== null && placement.owner === playerId ? placement : NO_PLACEMENT;
 
 interface BetSlipState {
   selections: BetSelection[];
@@ -112,23 +141,36 @@ interface BetSlipState {
   setOddsPolicy: (policy: OddsPolicy | null) => void;
 
   placement: Placement;
-  /** Place was tapped: this request is on its way with this key. */
-  placementSent: (attempt: { request: PlaceBetRequest; key: string }) => void;
-  /** It had no answer that settles it: its key is kept for Try again. */
-  placementUnanswered: () => void;
   /**
-   * The engine said no — or, with `refusal` null, the session ended. The
-   * picks it re-priced show old → new (the price sent becomes the agreed
-   * one), and the ones whose match started or market closed are suspended.
+   * This request is on its way with this key, for this player. `asNew` is the
+   * player's explicit choice to place a different bet while one is
+   * unconfirmed: only then does the unconfirmed bet stop being tracked.
+   */
+  placementSent: (
+    attempt: PlaceAttempt,
+    owner: string,
+    options?: { asNew?: boolean },
+  ) => void;
+  /** The bet on its way (`key`) had no answer that settles it. */
+  placementUnanswered: (key: string) => void;
+  /**
+   * The engine refused the bet on its way (`key`). The picks it re-priced
+   * show old → new (the price sent becomes the agreed one), and the ones
+   * whose match started or market closed are suspended.
    */
   placementRefused: (
-    refusal: PlaceRefusal | null,
+    key: string,
+    refusal: PlaceRefusal,
     updates?: { odds: OddsUpdate[]; closed: string[] },
   ) => void;
-  /** The engine issued a ticket. */
-  placementPlaced: (receipt: BetReceipt) => void;
+  /** The session ended while the bet (`key`) was on its way. */
+  placementSessionEnded: (key: string) => void;
+  /** The engine issued a ticket for the bet on its way (`key`). */
+  placementPlaced: (key: string, receipt: BetReceipt) => void;
   /** Back from the ticket to the same picks (Keep selections). */
   dismissReceipt: () => void;
+  /** Another player is signed in: nothing of the last one's placing stays. */
+  forgetPlacement: () => void;
 
   /** Realtime: a price moved. Updates in place, keeping `initialOdds`. */
   applyOddsUpdate: (ref: OutcomeRef, odds: string | null) => void;
@@ -149,17 +191,12 @@ export function sanitiseStake(raw: string): string {
 }
 
 /**
- * The slip changed: a refusal and an unanswered attempt describe a slip that
- * no longer exists, so they go. A bet on its way stays: its answer is coming.
+ * The slip changed: a refusal describes a slip that no longer exists, so it
+ * goes. A bet on its way and an unconfirmed one stay — they are bets, not
+ * descriptions of the slip.
  */
 const changed = (p: Placement): Placement =>
-  p.refusal === null && p.attempt?.status !== "unanswered"
-    ? p
-    : {
-        ...p,
-        refusal: null,
-        attempt: p.attempt?.status === "sending" ? p.attempt : null,
-      };
+  p.refusal === null ? p : { ...p, refusal: null };
 
 const sameRef = (s: BetSelection, ref: OutcomeRef) =>
   s.eventId === ref.eventId &&
@@ -186,7 +223,7 @@ export const useBetSlipStore = create<BetSlipState>()((set, get) => ({
   oddsPolicy: null,
   bookingNotice: null,
   bookingIntent: null,
-  placement: { attempt: null, refusal: null, receipt: null },
+  placement: NO_PLACEMENT,
 
   toggleSelection: (selection) => {
     const { selections, placement } = get();
@@ -220,14 +257,9 @@ export const useBetSlipStore = create<BetSlipState>()((set, get) => ({
       oddsPolicy: null,
       bookingNotice: null,
       bookingIntent: null,
-      placement: {
-        attempt:
-          state.placement.attempt?.status === "sending"
-            ? state.placement.attempt
-            : null,
-        refusal: null,
-        receipt: null,
-      },
+      // Clearing the picks clears what was said about them; a bet on its way
+      // or unconfirmed is still a bet.
+      placement: { ...state.placement, refusal: null, receipt: null },
     })),
 
   replaceSlip: ({ selections, mode, systemK, stake, notice }) =>
@@ -275,30 +307,40 @@ export const useBetSlipStore = create<BetSlipState>()((set, get) => ({
   setOddsPolicy: (oddsPolicy) =>
     set({ oddsPolicy, placement: changed(get().placement) }),
 
-  placementSent: ({ request, key }) =>
-    set({
-      placement: {
-        attempt: { request, key, status: "sending" },
-        refusal: null,
-        receipt: null,
-      },
+  placementSent: (attempt, owner, { asNew = false } = {}) =>
+    set((state) => {
+      const current =
+        state.placement.owner === owner ? state.placement : NO_PLACEMENT;
+      return {
+        placement: {
+          owner,
+          sending: attempt,
+          unconfirmed: asNew ? null : current.unconfirmed,
+          refusal: null,
+          receipt: null,
+        },
+      };
     }),
 
-  placementUnanswered: () => {
-    const { attempt } = get().placement;
-    if (!attempt) return;
+  // An answer lands only on the bet that asked: one for an attempt no longer
+  // on its way (forgotten when another player signed in) changes nothing.
+  placementUnanswered: (key) => {
+    const { placement } = get();
+    if (placement.sending?.key !== key) return;
     set({
       placement: {
-        ...get().placement,
-        attempt: { ...attempt, status: "unanswered" },
+        ...placement,
+        sending: null,
+        unconfirmed: placement.sending,
       },
     });
   },
 
-  placementRefused: (refusal, updates) => {
+  placementRefused: (key, refusal, updates) => {
+    const { placement, selections } = get();
+    if (placement.sending?.key !== key) return;
     const odds = new Map(updates?.odds.map((u) => [u.outcomeId, u]));
     const closed = new Set(updates?.closed);
-    const { selections } = get();
     set({
       selections:
         odds.size + closed.size === 0
@@ -314,15 +356,35 @@ export const useBetSlipStore = create<BetSlipState>()((set, get) => ({
               }
               return closed.has(s.outcomeId) ? { ...s, suspended: true } : s;
             }),
-      placement: { attempt: null, refusal, receipt: null },
+      placement: { ...placement, sending: null, refusal },
     });
   },
 
-  placementPlaced: (receipt) =>
-    set({ placement: { attempt: null, refusal: null, receipt } }),
+  placementSessionEnded: (key) => {
+    const { placement } = get();
+    if (placement.sending?.key !== key) return;
+    set({ placement: { ...placement, sending: null } });
+  },
+
+  placementPlaced: (key, receipt) => {
+    const { placement } = get();
+    if (placement.sending?.key !== key) return;
+    set({
+      placement: {
+        ...placement,
+        sending: null,
+        unconfirmed:
+          placement.unconfirmed?.key === key ? null : placement.unconfirmed,
+        refusal: null,
+        receipt,
+      },
+    });
+  },
 
   dismissReceipt: () =>
     set({ placement: { ...get().placement, receipt: null } }),
+
+  forgetPlacement: () => set({ placement: NO_PLACEMENT }),
 
   applyOddsUpdate: (ref, odds) => {
     if (!get().selections.some((s) => sameRef(s, ref))) return;

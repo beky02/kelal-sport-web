@@ -6,14 +6,14 @@ are in `docs/tasks/F3b/verification.md` and `docs/tasks/F4/verification.md`.
 
 ## The boundaries
 
-| Rule                                 | How                                                                                                                                                                                                                    |
-| ------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| The browser never calls the API (D3) | `apiClient` only knows `/api/`; `lib/server/*` is `server-only`; the route handlers add `X-Tenant-Id`, `Accept-Language`, `X-Request-Id`, and `Authorization` from the session                                         |
-| Tokens never reach the browser       | Sealed in the httpOnly cookie; the login answer is a player summary; `/api/me` is the profile; the Playwright check reads `document.cookie`, `localStorage`, `sessionStorage` and every `/api` body after a real login |
-| Who is signed in is the API's answer | `/api/me` on every load and on focus; no browser flag; player caches dropped on every session change                                                                                                                   |
-| The proxy only redirects             | `src/proxy.ts` checks that a cookie exists and sends guests to log in; every route handler re-reads the session and the API checks every token (CVE-2025-29927)                                                        |
-| Money waits for the server           | No optimistic placement, deposit, withdrawal or cash out; `Idempotency-Key` per intent, reused on retry, new for a new intent                                                                                          |
-| Secrets stay out of the repo         | `.env.local` is never read or printed; nothing sensitive in code, tests, fixtures, logs or screenshots; `SESSION_SECRET` is required in production and the server refuses to start without it                          |
+| Rule                                 | How                                                                                                                                                                                                                                                                                                                                                                                     |
+| ------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| The browser never calls the API (D3) | `apiClient` only knows `/api/`; `lib/server/*` is `server-only`; the route handlers add `X-Tenant-Id`, `Accept-Language`, `X-Request-Id`, and `Authorization` from the session                                                                                                                                                                                                          |
+| Tokens never reach the browser       | Sealed in the httpOnly cookie; the login answer is a player summary; `/api/me` is the profile; the Playwright check reads `document.cookie`, `localStorage`, `sessionStorage` and every `/api` body after a real login                                                                                                                                                                  |
+| Who is signed in is the API's answer | `/api/me` on every load and on focus; no browser flag; player caches dropped on every session change                                                                                                                                                                                                                                                                                    |
+| The proxy only redirects             | `src/proxy.ts` checks that a cookie exists and sends guests to log in; every route handler re-reads the session and the API checks every token (CVE-2025-29927)                                                                                                                                                                                                                         |
+| Money waits for the server           | No optimistic placement, deposit, withdrawal or cash out. One `Idempotency-Key` per bet: a bet with no answer stays unconfirmed — Place becomes Try again (same request, same key) until its ticket comes back, and a different bet goes only by the player's explicit choice (F5a). Placing is scoped to the signed-in player: hidden from a guest, dropped when someone else signs in |
+| Secrets stay out of the repo         | `.env.local` is never read or printed; nothing sensitive in code, tests, fixtures, logs or screenshots; `SESSION_SECRET` is required in production and the server refuses to start without it                                                                                                                                                                                           |
 
 ## The session cookie
 
@@ -55,9 +55,11 @@ but not yet sent; `Auth` and `Bookings` stay off the real API until it lands, en
 A Problem reduced to the contract's fields (`type`, `title`, `status`, `code`, `detail`, `request_id`,
 `errors[]`); anything else the API put in an error body is dropped. A refresh failure other than 401
 becomes a generic Problem (the refresh token was in that request). Route-handler bodies are capped
-(4 KiB login, 16 KiB bookings) and validated with strict Zod schemas before anything is sent on; a
-malformed code never reaches an upstream path. Prism's `Prefer` is forwarded only under `next dev` and
-never to the real API.
+(4 KiB login, 16 KiB bookings and bets) and validated with strict Zod schemas before anything is sent
+on; a malformed code never reaches an upstream path. `POST /api/bets` (F5a) also requires a UUID
+`Idempotency-Key` (400 otherwise), forwards it unchanged and never makes one, and requires a session for
+this tenant (401) — all before the body goes upstream. Prism's `Prefer` (`code=NNN`, `example=name` or
+both) is forwarded only under `next dev` and never to the real API (route test with `API_REAL_TAGS`).
 
 ## Logging
 

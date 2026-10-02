@@ -231,3 +231,37 @@ rows, untouched).
   F5b adds normalising there), `src/features/bet-slip/components/BookingCode.tsx` (its barcode lost the
   fake pattern's props).
 - **Contract request 007** written (question 3): `docs/contract-requests/007-bet-figures-and-refusal-examples.md`.
+
+### Review round 1 (2026-10-03) — what changed in the design
+
+- **Decisions 8–10 replaced by "the unconfirmed bet"** (SEC1, M1, S1, U1, Q2). A bet with no answer
+  that settles it is _unconfirmed_ and stays so through any change to the slip (even edit-and-revert or
+  a tap that changes nothing), a price move, a refusal of a retry (the engine caches a key only after
+  commit, C08 §7, so a refused retry proves nothing about the first try) and a lost session. While it
+  is, the main button is Try again — that very request with its key — and a different bet goes only
+  through the alert's explicit "Place as a new bet", offered once the slip differs. Only the ticket for
+  its key ends it. `keyFor` is gone: `place` always mints a key, and nothing but Try again re-sends one.
+- **Placement belongs to one player** (SEC2, Q1). `Placement.owner` is the `/api/me` player it was made
+  for; the slip shows and acts on it only for them (`ownPlacement`), hides it from a guest, and drops it
+  when another player signs in. An answer lands only on the attempt still on its way (`sending.key`), so
+  a late answer after a hand-over changes nothing. Owner-scoping rather than clearing in `forgetPlayer`
+  keeps an unconfirmed bet for the same player across a lost session (M1(b)).
+- **Refusal copy moved to `lib/refusals.ts`** (Q6), pure and unit-tested per code: `BET_LIMIT_EXCEEDED`
+  offers a limit only from `errors[field=stake]` (M2); the engine's minimum is split across the lines
+  with the slip's own `smallestStake` (M3); a non-Problem answer never shows the app's technical message,
+  a stake refusal without a figure has its own copy (Q5).
+- **Decision 13 corrected** (S7): an unknown code has no separate Try again; the main Place button is
+  the retry (a new intent), as docs/design/05 says ("Place again").
+- **Accessibility**: the odds-changed refusal is `role="alert"` (S6); Place stays focusable while
+  sending (`aria-disabled`, `aria-busy`, "Placing…", Q8); the per-pick Accept has a 44 px target (U4);
+  tinted alert text reaches AA in the light theme (U5).
+- **Smaller**: the contract's patterns live once in `lib/api/patterns.ts` and the route uses `readForm`'s
+  new size option (Q7); the dead `AbortSignal.timeout` fallback went (Q3); Share on Telegram is hidden on
+  the confirmation until F5b (U6); the select has spacing and a chevron (U2, U3); the odds-changed copy
+  drops its count (Q11).
+- **Files added in this round**: `src/lib/api/patterns.ts`, `src/features/bet-slip/lib/refusals.ts`,
+  `tests/unit/refusals.test.ts`; changed beyond the list: `BetSelectionRow.tsx` (moved prices, the 44 px
+  Accept — S7), `src/lib/server/body.ts` (`readForm` size), `src/lib/api/mappers/bookings.ts` (shared
+  Odds pattern); removed: `src/features/bets/lib/ticket-number.ts`.
+- **Screens**: the RG screen is `home-slip-limit-reached` (S7); added `home-slip-insufficient`,
+  `-stake-too-high`, `-verify` and `-unconfirmed-changed` (U8); the dev badge is hidden in shots (U9).

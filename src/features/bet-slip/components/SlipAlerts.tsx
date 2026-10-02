@@ -7,9 +7,13 @@ import { useDateTimeText } from "@/features/bookings/hooks/use-date-time-text";
 import { useTranslation, type Translator } from "@/lib/i18n/use-translation";
 import { normaliseMoney } from "@/lib/money";
 import { cn } from "@/lib/utils/cn";
-import { useBetSlipStore } from "../stores/bet-slip.store";
+import { useBetSlipStore, type Placement } from "../stores/bet-slip.store";
 import type { BetSlipTotals, SlipProblem } from "../lib/calculate";
-import type { PlaceRefusal } from "../types";
+import {
+  refusalNotice,
+  type RefusalNotice,
+  type RefusalText,
+} from "../lib/refusals";
 
 type Tone = "error" | "warn" | "info";
 
@@ -18,193 +22,68 @@ interface Alert {
   tone: Tone;
   title: string;
   body?: string;
-  /** The API's own `detail`, as its own line. */
+  /** A further line: the API's own `detail`, or what changed since. */
   detail?: string | null;
+  /**
+   * Announce it at once (`role="alert"`) whatever its tone — a refusal of the
+   * bet, even when it only needs an Accept.
+   */
+  urgent?: boolean;
   action?: { label: string; onClick: () => void };
+  /** A second choice, shown beside the first under the text. */
+  secondary?: { label: string; onClick: () => void };
 }
 
-/** What a refusal of the bet can offer as its fix. */
+/** What the slip can do about the engine's answer. */
 export interface PlacementFixes {
-  /** Send again the request that had no answer, with its own key. */
+  /** Send the unconfirmed bet again: its own request and key. */
   retry: () => void;
+  /** Place the slip as it is now as a new bet; null when there is nothing to choose. */
+  placeAsNew: (() => void) | null;
   deposit: () => void;
   verify: () => void;
   viewLimits: () => void;
 }
 
-/**
- * The engine's refusal of the bet, by its Problem `code` — never by its
- * title, which is display text in whatever language the API chose — with
- * the fix where there is one. Null when another alert already says it: the
- * picks a 409 re-priced or closed carry their own (`pickChanged`,
- * `pickClosed`).
- */
-function refusalAlert(
-  refusal: PlaceRefusal,
-  t: Translator,
-  ctx: {
-    fixes: PlacementFixes;
-    setStake: (stake: string) => void;
-    rules: RuleSetJson | null;
-    pickChanged: boolean;
-    pickClosed: boolean;
-    breakUntil: string | null;
-  },
-): Alert | null {
-  const notPlaced = t.t("betSlip.placeFailed");
-  const base = {
-    id: "refused",
-    tone: "error" as const,
-    detail: refusal.detail,
-  };
-  const limit = refusal.errors.find((e) => e.limit !== undefined)?.limit;
+/** A refusal's text, filled in for the language on screen. */
+function say(text: RefusalText, t: Translator): string {
+  return t.t(text.key, {
+    ...(text.amount !== undefined ? { amount: t.money(text.amount) } : {}),
+    ...(text.n !== undefined ? { n: text.n } : {}),
+    ...(text.seconds !== undefined ? { seconds: text.seconds } : {}),
+    ...(text.date !== undefined ? { date: text.date } : {}),
+  });
+}
 
-  switch (refusal.code) {
-    case "BET_ODDS_CHANGED":
-      // The odds alert says it when a re-priced pick waits for the player's
-      // yes; otherwise (no pick named, or a rise the policy takes) this does.
-      return ctx.pickChanged
-        ? null
-        : {
-            ...base,
-            title: notPlaced,
-            body: t.t("betSlip.refused.oddsUnknown"),
-          };
-    case "BET_EVENT_STARTED":
-    case "BET_MARKET_SUSPENDED":
-      return ctx.pickClosed
-        ? null
-        : {
-            ...base,
-            title: notPlaced,
-            body: t.t("betSlip.refused.closedUnknown"),
-          };
-    case "BET_STAKE_TOO_LOW":
-    case "BET_STAKE_TOO_HIGH": {
-      const low = refusal.code === "BET_STAKE_TOO_LOW";
-      const stake = refusal.errors.find((e) => e.field === "stake")?.limit;
-      const title = t.t(
-        low
-          ? "betSlip.errors.stakeTooLowTitle"
-          : "betSlip.errors.stakeTooHighTitle",
-      );
-      if (!stake)
-        return { ...base, title, body: t.t("betSlip.placeFailedBody") };
-      return {
-        ...base,
-        // The limit says it all; the API's own sentence would repeat it.
-        detail: null,
-        title,
-        body: t.t(
-          low
-            ? "betSlip.errors.stakeTooLowBody"
-            : "betSlip.errors.stakeTooHighBody",
-          { amount: t.money(stake) },
-        ),
-        action: {
-          label: t.t("betSlip.setMax", { amount: t.number(stake) }),
-          onClick: () => ctx.setStake(stake),
-        },
-      };
-    }
-    case "BET_LIMIT_EXCEEDED":
-      return {
-        ...base,
-        title: t.t("betSlip.refused.limitTitle"),
-        body: limit
-          ? t.t("betSlip.refused.limitWith", { amount: t.money(limit) })
-          : t.t("betSlip.refused.limit"),
-        action: limit
-          ? {
-              label: t.t("betSlip.setMax", { amount: t.number(limit) }),
-              onClick: () => ctx.setStake(limit),
-            }
-          : undefined,
-      };
-    case "WALLET_INSUFFICIENT_FUNDS":
-      return {
-        ...base,
-        title: t.t("betSlip.alerts.insufficientTitle"),
-        body: t.t("betSlip.refused.insufficient"),
-        action: {
-          label: t.t("betSlip.alerts.deposit"),
-          onClick: ctx.fixes.deposit,
-        },
-      };
-    case "BET_RELATED_SELECTIONS":
-      return {
-        ...base,
-        title: notPlaced,
-        body: t.t("betSlip.alerts.conflictBody"),
-      };
-    case "BET_TOO_MANY_LEGS":
-      return {
-        ...base,
-        title: notPlaced,
-        body: t.t("betSlip.errors.tooManyLegsBody", {
-          n: limit ?? ctx.rules?.max_legs ?? "",
-        }),
-      };
-    case "BET_TOO_MANY_LINES":
-      return {
-        ...base,
-        title: notPlaced,
-        body: t.t("betSlip.errors.tooManyLinesBody", {
-          n: limit ?? ctx.rules?.max_lines ?? "",
-        }),
-      };
-    case "KYC_REQUIRED":
-      return {
-        ...base,
-        title: t.t("betSlip.refused.kycTitle"),
-        body: t.t("betSlip.refused.kyc"),
-        action: { label: t.t("auth.verify"), onClick: ctx.fixes.verify },
-      };
-    case "RG_LIMIT_REACHED":
-      return {
-        ...base,
-        title: t.t("betSlip.refused.rgLimitTitle"),
-        body: t.t("betSlip.refused.rgLimit"),
-        action: {
-          label: t.t("system.viewLimits"),
-          onClick: ctx.fixes.viewLimits,
-        },
-      };
-    case "RG_SELF_EXCLUDED":
-    case "RG_COOLING_OFF":
-      // Nothing to offer: a break cannot be ended from here.
-      return {
-        ...base,
-        title: t.t("betSlip.refused.breakTitle"),
-        body: ctx.breakUntil
-          ? t.t("betSlip.refused.breakUntil", { date: ctx.breakUntil })
-          : t.t("betSlip.refused.break"),
-      };
-    case "REAL_MONEY_DISABLED":
-      return {
-        ...base,
-        title: notPlaced,
-        body: t.t("betSlip.refused.realMoney"),
-      };
-    case "RATE_LIMITED":
-      return {
-        ...base,
-        title: notPlaced,
-        body:
-          refusal.retryAfter !== null
-            ? t.t("betSlip.refused.rateLimitedSeconds", {
-                seconds: refusal.retryAfter,
-              })
-            : t.t("betSlip.refused.rateLimited"),
-      };
-    default:
-      // A code this app has no copy of: the API's own, translated title.
-      return {
-        ...base,
-        title: notPlaced,
-        body: refusal.title || t.t("betSlip.placeFailedBody"),
-      };
-  }
+/** The engine's refusal (`refusalNotice`) as an alert, its fix as a button. */
+function refusalAlert(
+  notice: RefusalNotice,
+  t: Translator,
+  fixes: PlacementFixes & { setStake: (stake: string) => void },
+): Alert {
+  const { fix } = notice;
+  return {
+    id: "refused",
+    tone: "error",
+    title: say(notice.title, t),
+    body: "text" in notice.body ? notice.body.text : say(notice.body, t),
+    detail: notice.detail,
+    action: !fix
+      ? undefined
+      : fix.kind === "stake"
+        ? {
+            label: t.t("betSlip.setMax", { amount: t.number(fix.amount) }),
+            onClick: () => fixes.setStake(fix.amount),
+          }
+        : fix.kind === "deposit"
+          ? { label: t.t("betSlip.alerts.deposit"), onClick: fixes.deposit }
+          : fix.kind === "verify"
+            ? { label: t.t("auth.verify"), onClick: fixes.verify }
+            : {
+                label: t.t("system.viewLimits"),
+                onClick: fixes.viewLimits,
+              },
+  };
 }
 
 /** A refusal from slipcalc, with the change that would make it go through. */
@@ -282,18 +161,23 @@ export function SlipAlerts({
   rules,
   rulesState,
   onRetryRules,
+  placement,
+  slipChanged,
   fixes,
 }: {
   totals: BetSlipTotals;
   rules: RuleSetJson | null;
   rulesState: "loading" | "ready" | "error";
   onRetryRules: () => void;
+  /** The signed-in player's own placement (`ownPlacement`). */
+  placement: Placement;
+  /** A bet is unconfirmed and the slip is no longer that bet. */
+  slipChanged: boolean;
   fixes: PlacementFixes;
 }) {
   const t = useTranslation();
   const dateTime = useDateTimeText();
   const excludedUntil = useSession().player?.flags.excludedUntil ?? null;
-  const placement = useBetSlipStore((s) => s.placement);
   const stake = useBetSlipStore((s) => s.stake);
   const setStake = useBetSlipStore((s) => s.setStake);
   const setMode = useBetSlipStore((s) => s.setMode);
@@ -311,30 +195,41 @@ export function SlipAlerts({
     });
   }
 
-  // No answer: the bet may have gone through, so the way on is the same
-  // request with the same key — never a new bet.
-  if (placement.attempt?.status === "unanswered") {
+  // No answer: the bet may have gone through. The way on is the same bet with
+  // the same key; a different bet only by the player's explicit choice.
+  const { unconfirmed } = placement;
+  if (unconfirmed) {
     alerts.push({
       id: "unconfirmed",
       tone: "error",
       title: t.t("betSlip.unconfirmed.title"),
       body: t.t("betSlip.unconfirmed.body"),
+      detail: slipChanged ? t.t("betSlip.unconfirmed.changed") : null,
       action: { label: t.t("common.retry"), onClick: fixes.retry },
+      secondary: fixes.placeAsNew
+        ? {
+            label: t.t("betSlip.unconfirmed.placeNew"),
+            onClick: fixes.placeAsNew,
+          }
+        : undefined,
     });
   }
 
+  // A refusal of the bet. While an earlier bet is unconfirmed this was a
+  // retry, and nothing may say "your bet wasn't placed".
   const refusal = placement.refusal;
-  const refused = refusal
-    ? refusalAlert(refusal, t, {
-        fixes,
-        setStake,
+  const firstTry = refusal !== null && unconfirmed === null;
+  const notice = refusal
+    ? refusalNotice(refusal, {
+        lines: totals.lineCount,
         rules,
         pickChanged: totals.pendingOddsChanges.length > 0,
         pickClosed: totals.suspendedSelection !== null,
+        unconfirmed: unconfirmed !== null,
         breakUntil: excludedUntil ? dateTime(excludedUntil) : null,
       })
     : null;
-  if (refused) alerts.push(refused);
+  if (notice) alerts.push(refusalAlert(notice, t, { ...fixes, setStake }));
 
   if (totals.hasConflict) {
     alerts.push({
@@ -352,8 +247,8 @@ export function SlipAlerts({
   if (totals.suspendedSelection) {
     const id = totals.suspendedSelection.outcomeId;
     // After the engine refused the bet for it, say so — and which it was.
-    const started = refusal?.code === "BET_EVENT_STARTED";
-    const paused = refusal?.code === "BET_MARKET_SUSPENDED";
+    const started = firstTry && refusal?.code === "BET_EVENT_STARTED";
+    const paused = firstTry && refusal?.code === "BET_MARKET_SUSPENDED";
     alerts.push({
       id: "suspended",
       tone: "error",
@@ -386,16 +281,18 @@ export function SlipAlerts({
   }
 
   if (totals.pendingOddsChanges.length > 0) {
+    // The engine's refusal says the bet wasn't placed: announced at once.
+    const refused = firstTry && refusal?.code === "BET_ODDS_CHANGED";
     alerts.push({
       id: "odds",
       tone: "warn",
+      urgent: refused,
       title: t.t("betSlip.alerts.oddsChangedTitle"),
-      body: t.t(
-        refusal?.code === "BET_ODDS_CHANGED"
-          ? "betSlip.refused.oddsChanged"
-          : "betSlip.alerts.oddsChangedBody",
-        { n: totals.pendingOddsChanges.length },
-      ),
+      body: refused
+        ? t.t("betSlip.refused.oddsChanged")
+        : t.t("betSlip.alerts.oddsChangedBody", {
+            n: totals.pendingOddsChanges.length,
+          }),
       action: {
         label: t.t("betSlip.acceptAll"),
         onClick: acceptAllPending,
@@ -458,9 +355,9 @@ export function SlipAlerts({
       {alerts.map((alert) => (
         <div
           key={alert.id}
-          role={alert.tone === "error" ? "alert" : "status"}
+          role={alert.tone === "error" || alert.urgent ? "alert" : "status"}
           className={cn(
-            "mx-3 mb-2.5 flex items-center gap-2.5 rounded-md py-2.5 pr-2 pl-3",
+            "mx-3 mb-2.5 flex flex-wrap items-center gap-2.5 rounded-md py-2.5 pr-2 pl-3",
             alert.tone === "error"
               ? "bg-loss-bg"
               : alert.tone === "warn"
@@ -487,14 +384,30 @@ export function SlipAlerts({
             >
               {alert.title}
             </div>
+            {/* On a tinted alert, muted text would fall under AA in the light
+                theme: the body and detail carry the instructions. */}
             {alert.body && (
-              <div className="text-muted text-xs">{alert.body}</div>
+              <div
+                className={cn(
+                  "text-xs",
+                  alert.tone === "info" ? "text-muted" : "text-text/80",
+                )}
+              >
+                {alert.body}
+              </div>
             )}
             {alert.detail && (
-              <div className="text-muted text-xs">{alert.detail}</div>
+              <div
+                className={cn(
+                  "text-xs",
+                  alert.tone === "info" ? "text-muted" : "text-text/80",
+                )}
+              >
+                {alert.detail}
+              </div>
             )}
           </div>
-          {alert.action && (
+          {alert.action && !alert.secondary && (
             <button
               type="button"
               onClick={alert.action.onClick}
@@ -502,6 +415,26 @@ export function SlipAlerts({
             >
               {alert.action.label}
             </button>
+          )}
+          {/* Two choices go under the text, side by side, so neither squeezes
+              it in the narrow aside. */}
+          {alert.action && alert.secondary && (
+            <div className="grid w-full grid-cols-2 gap-2 pl-[27px]">
+              <button
+                type="button"
+                onClick={alert.action.onClick}
+                className="bg-raised text-text font-body min-h-11 cursor-pointer rounded-lg px-3 text-xs font-bold"
+              >
+                {alert.action.label}
+              </button>
+              <button
+                type="button"
+                onClick={alert.secondary.onClick}
+                className="text-text font-body border-divider min-h-11 cursor-pointer rounded-lg border bg-transparent px-3 text-xs font-bold"
+              >
+                {alert.secondary.label}
+              </button>
+            </div>
           )}
         </div>
       ))}

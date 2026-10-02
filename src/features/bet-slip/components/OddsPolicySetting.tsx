@@ -1,6 +1,7 @@
 "use client";
 
 import { useId } from "react";
+import { ChevronDown } from "lucide-react";
 import { useTranslation } from "@/lib/i18n/use-translation";
 import { ODDS_POLICIES, type OddsPolicy } from "../types";
 
@@ -33,21 +34,29 @@ export function OddsPolicySetting({
       <label htmlFor={id} className="text-[13px]">
         {t.t("betSlip.oddsPolicy.label")}
       </label>
-      <select
-        id={id}
-        value={value}
-        onChange={(event) => {
-          const next = ODDS_POLICIES.find((p) => p === event.target.value);
-          if (next) onChange(next);
-        }}
-        className="bg-raised text-text font-body h-11 max-w-[60%] min-w-0 cursor-pointer rounded-md px-3 text-[13px] font-semibold"
-      >
-        {ODDS_POLICIES.map((policy) => (
-          <option key={policy} value={policy}>
-            {label[policy]}
-          </option>
-        ))}
-      </select>
+      <span className="relative max-w-[60%] min-w-0">
+        <select
+          id={id}
+          value={value}
+          onChange={(event) => {
+            const next = ODDS_POLICIES.find((p) => p === event.target.value);
+            if (next) onChange(next);
+          }}
+          className="bg-raised text-text font-body h-11 w-full cursor-pointer appearance-none truncate rounded-md pr-9 pl-3 text-[13px] font-semibold"
+        >
+          {ODDS_POLICIES.map((policy) => (
+            <option key={policy} value={policy}>
+              {label[policy]}
+            </option>
+          ))}
+        </select>
+        <ChevronDown
+          size={16}
+          strokeWidth={1.5}
+          aria-hidden
+          className="text-muted pointer-events-none absolute top-1/2 right-3 -translate-y-1/2"
+        />
+      </span>
     </div>
   );
 }

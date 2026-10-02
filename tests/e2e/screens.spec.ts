@@ -276,7 +276,13 @@ const placeAnd =
     {
       answer,
       askMe = false,
-    }: { answer?: (page: Page) => Promise<unknown>; askMe?: boolean } = {},
+      then,
+    }: {
+      answer?: (page: Page) => Promise<unknown>;
+      askMe?: boolean;
+      /** A step after the answer, e.g. changing the slip. */
+      then?: (page: Page, lang: Lang) => Promise<unknown>;
+    } = {},
   ) =>
   async (page: Page, device: Device, lang: Lang) => {
     const t = MESSAGES[lang];
@@ -297,11 +303,28 @@ const placeAnd =
         ? page.getByTestId("ticket-code").filter({ visible: true })
         : page.getByRole(shown).filter({ visible: true }).first();
     await result.waitFor();
+    if (then) await then(page, lang);
     // On a phone the sheet scrolls inside itself: bring the answer into view.
     // On desktop, back to the top so the sticky header stays where it is.
     if (device === "phone") await result.scrollIntoViewIfNeeded();
     else await page.evaluate(() => window.scrollTo(0, 0));
   };
+
+/** A refusal Prism has no example of: the contract's Problem, in the browser. */
+const refuse =
+  (status: number, problem: Record<string, unknown>) => (page: Page) =>
+    page.route("**/api/bets", (route) =>
+      route.fulfill({
+        status,
+        contentType: "application/problem+json",
+        json: {
+          type: "https://api.example.et/errors/x",
+          status,
+          request_id: "req_ui",
+          ...problem,
+        },
+      }),
+    );
 
 /** `RG_LIMIT_REACHED` has no Prism example: the contract's Problem, in the browser. */
 const limitReached = (page: Page) =>
@@ -368,7 +391,7 @@ const SCREENS: Array<{
     name: "home-slip-odds-changed",
     path: "/",
     before: loginViaApi,
-    prepare: placeAnd("status", {
+    prepare: placeAnd("alert", {
       answer: (page) => preferOn(page, "/api/bets", "code=409"),
       askMe: true,
     }),
@@ -390,6 +413,55 @@ const SCREENS: Array<{
     before: loginViaApi,
     prepare: placeAnd("alert", { answer: limitReached }),
     allowConsole: /status of 403/,
+  },
+  {
+    name: "home-slip-insufficient",
+    path: "/",
+    before: loginViaApi,
+    prepare: placeAnd("alert", {
+      answer: (page) =>
+        preferOn(page, "/api/bets", "code=422, example=insufficient_funds"),
+    }),
+    allowConsole: /status of 422/,
+  },
+  {
+    name: "home-slip-stake-too-high",
+    path: "/",
+    before: loginViaApi,
+    prepare: placeAnd("alert", {
+      answer: refuse(422, {
+        title: "Stake is above the maximum",
+        code: "BET_STAKE_TOO_HIGH",
+        errors: [{ field: "stake", code: "MAX", limit: "50.00" }],
+      }),
+    }),
+    allowConsole: /status of 422/,
+  },
+  {
+    name: "home-slip-verify",
+    path: "/",
+    before: loginViaApi,
+    prepare: placeAnd("alert", {
+      answer: (page) => preferOn(page, "/api/bets", "code=403"),
+    }),
+    allowConsole: /status of 403/,
+  },
+  {
+    // A bet with no answer and a slip changed since: Try again, or the
+    // player's explicit "Place as a new bet".
+    name: "home-slip-unconfirmed-changed",
+    path: "/",
+    before: loginViaApi,
+    prepare: placeAnd("alert", {
+      answer: (page) =>
+        page.route("**/api/bets", (route) => route.abort("connectionreset")),
+      then: (page) =>
+        page
+          .getByRole("button", { name: "50", exact: true })
+          .filter({ visible: true })
+          .click(),
+    }),
+    allowConsole: /ERR_CONNECTION_RESET|Failed to load resource/,
   },
   {
     name: "home-slip-unconfirmed",
@@ -531,6 +603,10 @@ for (const [device, viewport] of Object.entries(DEVICES)) {
             await screen.prepare(page, device as Device, lang);
             await settle(page);
           }
+          // The dev server's badge would cover whatever sits in the corner.
+          await page.addStyleTag({
+            content: "nextjs-portal { display: none !important; }",
+          });
           await page.screenshot({
             path: `${SHOTS}/${screen.name}-${lang}-${device}.png`,
             fullPage: true,

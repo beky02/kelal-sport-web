@@ -4,18 +4,13 @@ import {
   type BetSlipInput,
 } from "@/features/bet-slip/lib/calculate";
 import {
-  keyFor,
   legUpdates,
   newIdempotencyKey,
   placeRequestFrom,
   placementOutcome,
   refusalOf,
 } from "@/features/bet-slip/lib/placement";
-import type {
-  BetSelection,
-  PlaceAttempt,
-  PlaceBetRequest,
-} from "@/features/bet-slip/types";
+import type { BetSelection, PlaceBetRequest } from "@/features/bet-slip/types";
 import { ApiError, ContractError } from "@/lib/api/errors";
 import { GOLDEN_RULES } from "../golden";
 import { responseExample } from "../contract";
@@ -123,36 +118,6 @@ describe("placeRequestFrom", () => {
   });
 });
 
-describe("keyFor (AC-1)", () => {
-  const attempt = (
-    status: PlaceAttempt["status"],
-    request = REQUEST,
-  ): PlaceAttempt => ({ request, key: "key-1", status });
-  const make = () => "key-new";
-
-  it("reuses a key only for the same request after an attempt with no answer", () => {
-    expect(keyFor(attempt("unanswered"), { ...REQUEST }, make)).toBe("key-1");
-  });
-
-  it("makes a new key for a first attempt, a changed request, or one still in flight", () => {
-    expect(keyFor(null, REQUEST, make)).toBe("key-new");
-    expect(
-      keyFor(attempt("unanswered"), { ...REQUEST, stake: "50.00" }, make),
-    ).toBe("key-new");
-    expect(
-      keyFor(
-        attempt("unanswered"),
-        {
-          ...REQUEST,
-          legs: [{ outcomeId: "oc_a", odds: "1.55" }, ...REQUEST.legs.slice(1)],
-        },
-        make,
-      ),
-    ).toBe("key-new");
-    expect(keyFor(attempt("sending"), REQUEST, make)).toBe("key-new");
-  });
-});
-
 describe("newIdempotencyKey", () => {
   const UUID_V4 =
     /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
@@ -177,34 +142,34 @@ describe("newIdempotencyKey", () => {
 });
 
 describe("placementOutcome", () => {
-  it("tells an attempt with no answer from a refusal and from a lost session", () => {
-    expect(placementOutcome(new ApiError("offline", 0, "network"))).toBe(
-      "unanswered",
-    );
-    expect(
-      placementOutcome(new ApiError("down", 503, "SERVICE_UNAVAILABLE")),
-    ).toBe("unanswered");
-    expect(placementOutcome(new ApiError("gateway", 504, "http_error"))).toBe(
-      "unanswered",
-    );
-    // A 201 this app could not read: the bet may well exist.
-    expect(placementOutcome(new ContractError("/bets", "bad shape"))).toBe(
-      "unanswered",
-    );
-    expect(placementOutcome(new SyntaxError("not JSON"))).toBe("unanswered");
+  const kind = (error: unknown) => placementOutcome(error).kind;
 
-    expect(
-      placementOutcome(new ApiError("no", 503, "REAL_MONEY_DISABLED")),
-    ).toBe("refused");
-    expect(placementOutcome(new ApiError("no", 409, "BET_ODDS_CHANGED"))).toBe(
+  it("treats no answer, a 5xx and an unreadable reply as unanswered: the bet may exist", () => {
+    expect(kind(new ApiError("offline", 0, "network"))).toBe("unanswered");
+    // What fetch throws when the 30 s limit aborts it, through apiClient.
+    expect(kind(new ApiError("timed out", 0, "network"))).toBe("unanswered");
+    expect(kind(new ApiError("down", 503, "SERVICE_UNAVAILABLE"))).toBe(
+      "unanswered",
+    );
+    expect(kind(new ApiError("gateway", 504, "http_error"))).toBe("unanswered");
+    // A 201 this app could not read: the bet may well exist.
+    expect(kind(new ContractError("/bets", "bad shape"))).toBe("unanswered");
+    expect(kind(new SyntaxError("not JSON"))).toBe("unanswered");
+  });
+
+  it("tells a refusal, with its error, from a lost session", () => {
+    const refused = new ApiError("no", 409, "BET_ODDS_CHANGED");
+    expect(placementOutcome(refused)).toEqual({
+      kind: "refused",
+      error: refused,
+    });
+    expect(kind(new ApiError("no", 503, "REAL_MONEY_DISABLED"))).toBe(
       "refused",
     );
-    expect(placementOutcome(new ApiError("no", 429, "RATE_LIMITED"))).toBe(
-      "refused",
+    expect(kind(new ApiError("no", 429, "RATE_LIMITED"))).toBe("refused");
+    expect(kind(new ApiError("gone", 401, "AUTH_TOKEN_EXPIRED"))).toBe(
+      "session",
     );
-    expect(
-      placementOutcome(new ApiError("gone", 401, "AUTH_TOKEN_EXPIRED")),
-    ).toBe("session");
   });
 });
 

@@ -23,7 +23,6 @@ import type { Market, MarketGroup, Outcome } from "@/features/markets/types";
 import type { SearchResults } from "@/features/search/types";
 import type { Sport } from "@/features/sports/types";
 import type { Bet, Transaction } from "@/features/bets/types";
-import { TICKET_NUMBER } from "@/features/bets/lib/ticket-number";
 import type { BetReceipt, PlaceBetRequest } from "@/features/bet-slip/types";
 import type { BettingRules, PublicConfigView } from "@/features/config/types";
 import type {
@@ -51,6 +50,7 @@ import type {
 import { isIsoDate } from "@/features/auth/lib/birth-date";
 import { toE164 } from "@/features/auth/lib/phone";
 import { compareMoney } from "@/lib/money";
+import { MONEY_PATTERN, ODDS_PATTERN, TICKET_NUMBER_PATTERN } from "./patterns";
 import type {
   PaymentMethod,
   PaymentResult,
@@ -407,8 +407,8 @@ export const bookingRequestSchema = z.strictObject({
 // ── placing a bet (F5a) ─────────────────────────────────────────────────────
 
 /** The contract's `Odds` and `Money` patterns: what may be sent upstream. */
-const contractOddsSchema = z.string().regex(/^\d{1,6}\.\d{2,3}$/);
-const contractMoneySchema = z.string().regex(/^-?\d{1,12}\.\d{2}$/);
+const contractOddsSchema = z.string().regex(ODDS_PATTERN);
+const contractMoneySchema = z.string().regex(MONEY_PATTERN);
 
 /**
  * What `/api/bets` accepts from the browser — strict, within the contract's
@@ -446,7 +446,7 @@ export const placeBetRequestSchema = z
 /** `/api/bets`'s answer: the engine's ticket. No balance, no token. */
 export const betReceiptSchema = z.object({
   id: z.string().min(1),
-  ticketId: z.string().regex(TICKET_NUMBER),
+  ticketId: z.string().regex(TICKET_NUMBER_PATTERN),
   placedAt: z.string(),
   betType: betTypeSchema,
   systemSizes: z.array(z.number().int().positive()),

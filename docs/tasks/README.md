@@ -22,7 +22,7 @@ Engineering Decisions say differently. The order follows the Build Plan's fronte
 | [F4a](F4a-session-login.md)        | Split from F4: session cookie, login with the new-device OTP, logout, `/api/me`, trusted proxy | F0           | B5            | done        |
 | [F4b](F4b-register-kyc.md)         | Split from F4: register with the SMS code, reset the password, verify with Fayda               | F4a          | B5, B12       | done        |
 | [F5](F5-place-bet-my-bets.md)      | Place bet with `Idempotency-Key` and the 409 flow; My bets; `/t/[ticket]`                      | F3a, F3b, F4 | B6            | in_progress |
-| [F5a](F5a-place-bet.md)            | Split from F5: place a bet, a key per intent, the 409 flow and every refusal's fix; Code 128   | F3a, F3b, F4 | B6            | planned     |
+| [F5a](F5a-place-bet.md)            | Split from F5: place a bet, a key per intent, the 409 flow and every refusal's fix; Code 128   | F3a, F3b, F4 | B6            | verifying   |
 | [F5b](F5b-my-bets-ticket-check.md) | Split from F5: My bets and ticket detail from the contract, cursor paging; `/t/[ticket]`       | F5a          | B6            | todo        |
 | [F6](F6-wallet.md)                 | Wallet: balances, deposits with `next_action`, withdrawals, payout accounts, history           | F4           | B8            | todo        |
 | [F7](F7-account-rg-inbox.md)       | Account, limits, self-exclusion, reality check, promotions, inbox; delete the mocks            | F4           | B8, B13       | todo        |

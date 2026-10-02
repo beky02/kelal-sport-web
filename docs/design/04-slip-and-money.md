@@ -52,12 +52,16 @@ from the stake, void refunds) stay the backend's to answer.
 2. The route handler checks the request (origin, CSRF header, JSON, 16 KiB, a strict schema, a session)
    and forwards the key unchanged; it never makes one. Nothing in the UI changes until the answer: no
    balance moves, no ticket appears. Place waits, in every mounted slip, until it comes.
-3. **The key belongs to one request.** It is sent again only with that same request after an attempt
-   that had no answer that settles it — no response, a 5xx, a reply the app could not read, or 30 s
-   without one: "We couldn't confirm your bet. It may have gone through — try again, and if it did
-   you'll see the same ticket." Try again re-sends the stored request with its key. Any definitive answer
-   (a ticket, a refusal) spends the key: a second bet on the same slip, or accepting new odds, is a new
-   intent with a new key.
+3. **The key belongs to one bet.** A bet sent and never answered in a way that settles it — no response,
+   a 5xx, a reply the app could not read, or 30 s without one — is **unconfirmed**: "We couldn't confirm
+   your bet. It may have gone through — try again, and if it did you'll see the same ticket." While it is,
+   the main button is Try again, which sends that very request with its key (not the slip as it is now),
+   and no change to the slip, no price move, no refusal of a retry and no lost session drops it: a
+   refusal of a retry says nothing about the first try, which may still commit (the engine records a key
+   only once a bet commits, C08 §7). It ends only with the ticket for its key, or when the player chooses
+   "Place as a new bet" — offered once the slip differs from the bet ("if that bet went through, placing
+   this slip as well makes two bets"). A ticket or a refusal of a first try spends the key: a second bet
+   on the same slip, or accepting new odds, is a new intent with a new key.
 4. `409 BET_ODDS_CHANGED`: `errors[].field` (`legs[i].odds`) names the leg by its place in the request
    sent; its price sent becomes the agreed one and `errors[].current` its price now, so the slip shows
    old → new, slipcalc re-prices the preview, and the odds alert says the bet wasn't placed. Accept, then
@@ -67,7 +71,8 @@ from the stake, void refunds) stay the backend's to answer.
    stake, stake tax, total odds (single-line), accumulator bonus, potential payout; no winnings tax
    until settlement. The wallet and bets are read again, never adjusted in the browser. The attempt,
    a refusal and the ticket live in the slip store, so a sheet closed mid-request shows the ticket when
-   it opens.
+   it opens. It is the signed-in player's alone: hidden from a guest, dropped when someone else signs
+   in, so a shared phone hands nothing over.
 
 Other refusals and their fixes: 05-errors. `BET_STAKE_TOO_HIGH` offers the limit from `errors[].limit`;
 `WALLET_INSUFFICIENT_FUNDS` offers Deposit; `KYC_REQUIRED` offers Verify; RG blocks say a limit is

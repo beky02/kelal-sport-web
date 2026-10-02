@@ -28,7 +28,19 @@ show `Bet` the same way. Four gaps:
    offers View limits) and `RG_SELF_EXCLUDED` / `RG_COOLING_OFF` (betting paused). None of them can be
    seen against Prism; F5a proves them with component tests in the contract's `Problem` shape and one
    `pnpm ui` screen answered in the browser, as F4b did for request 006.
-4. **No counts on `GET /v1/bets`** (for F5b). The My bets tabs are designed "Open / Settled with counts"
+4. **A retry cannot tell the web whether the first try failed.** After a placement with no answer, the
+   slip sends the same request with the same `Idempotency-Key`. C08 §7 checks its idempotency cache
+   first but writes it only after the bet commits, so a retry that arrives while the first try is still
+   being processed is re-priced on its own and can be refused (`BET_ODDS_CHANGED`) while the first try
+   then commits. The web therefore keeps such a bet "unconfirmed" through any refusal of a retry and only
+   lets the player place a different bet by an explicit choice (F5a). Reserving the key before re-pricing
+   — insert first, as D2 does for the ledger — or answering an in-flight duplicate with its own code would
+   let a refusal of a retry settle it.
+5. **`BET_LIMIT_EXCEEDED`'s `errors[]` are not defined.** TD-01 calls it "trader limit or liability";
+   C08's risk limits are a maximum stake, payout or liability. The slip offers a limit as the stake to set
+   only when it is on `field: stake`; a leg's liability is never offered. Please say which field carries
+   which limit.
+6. **No counts on `GET /v1/bets`** (for F5b). The My bets tabs are designed "Open / Settled with counts"
    (`docs/design/01-screens.md`), but the list is cursor-paged and carries no totals, so F5b will show
    the tabs without counts unless this lands. Low priority.
 
@@ -161,6 +173,15 @@ examples: # was a single `example`; kyc_required stays first
 ```
 
 ```yaml
+# contracts/src/03_components.yaml → components.schemas.ErrorCode.enum (new value, for item 4)
+- IDEMPOTENCY_IN_PROGRESS # 409: a request with this key is still being processed; ask again
+```
+
+`BET_LIMIT_EXCEEDED` (item 5): document in TD-01 §4 and on the `limit_exceeded` example that a maximum
+stake comes as `errors[] { field: stake, code: LIMIT, limit }` and a liability as
+`{ field: "legs[i].outcome_id", code: MAX_LIABILITY }`.
+
+```yaml
 # contracts/src/01_head_player.yaml → paths./v1/bets.get.responses.200 schema.properties (optional; F5b)
 counts:
   type: object
@@ -181,7 +202,10 @@ counts:
 
 - The placed ticket shows the API's figures only — no rule-set version, no recomputation — and labels
   `potential_payout` "Potential payout", which claims nothing about tax.
-- `BET_MARKET_SUSPENDED`, `BET_STAKE_TOO_HIGH`, `BET_LIMIT_EXCEEDED` and the RG refusals are proven in
-  `tests/component/PlaceBet.test.tsx` with the contract's `Problem` shape; `pnpm ui` shows
-  `home-slip-limit-reached` from an answer given in the browser.
+- `BET_MARKET_SUSPENDED`, `BET_STAKE_TOO_HIGH`, `BET_LIMIT_EXCEEDED` (on the stake and on a leg) and the
+  RG refusals are proven in `tests/component/PlaceBet.test.tsx` and `tests/unit/refusals.test.ts` with
+  the contract's `Problem` shape; `pnpm ui` shows `home-slip-limit-reached` and
+  `home-slip-stake-too-high` from answers given in the browser.
+- A bet with no answer stays unconfirmed through any refusal of a retry; only its ticket, or the player's
+  explicit "Place as a new bet", ends it.
 - F5b shows the My bets tabs without counts.

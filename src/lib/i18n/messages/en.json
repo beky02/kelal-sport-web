@@ -106,6 +106,7 @@
     "accept": "Accept",
     "acceptAll": "Accept all",
     "placeBet": "Place bet",
+    "placing": "Placing…",
     "acceptChanges": "Accept changes",
     "loginToBet": "Log in to bet",
     "removeSameMatch": "Remove same-match pick",
@@ -173,7 +174,7 @@
     "tax": "Tax",
     "placeFailedBody": "Something went wrong placing this bet. Try again.",
     "refused": {
-      "oddsChanged": "Your bet wasn’t placed: {n} selection changed price. Accept the new odds to place it.",
+      "oddsChanged": "Your bet wasn’t placed: the odds changed. Accept the new odds to place it.",
       "oddsUnknown": "Your bet wasn’t placed: the odds changed. Check the prices and place it again.",
       "startedTitle": "Match started",
       "started": "Your bet wasn’t placed: a match in your slip has started. Remove it to place the rest.",
@@ -192,11 +193,15 @@
       "breakUntil": "Betting is paused until {date}.",
       "realMoney": "Real-money betting isn’t available yet.",
       "rateLimited": "Too many bets in a short time. Wait a moment and try again.",
-      "rateLimitedSeconds": "Too many bets in a short time. Try again in {seconds} seconds."
+      "rateLimitedSeconds": "Too many bets in a short time. Try again in {seconds} seconds.",
+      "stakeLow": "This stake is under the minimum for this bet.",
+      "stakeHigh": "This stake is over the maximum for this bet."
     },
     "unconfirmed": {
       "title": "We couldn’t confirm your bet",
-      "body": "It may have gone through. Try again — if it did, you’ll see the same ticket."
+      "body": "It may have gone through. Try again — if it did, you’ll see the same ticket.",
+      "changed": "Your slip has changed since. If that bet went through, placing this slip as well makes two bets.",
+      "placeNew": "Place as a new bet"
     },
     "taxRateStakeOver": "{tax} · {rate} of the whole stake once it’s over {amount}"
   },

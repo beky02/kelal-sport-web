@@ -6,11 +6,12 @@ import { Check, Loader2 } from "lucide-react";
 import { useTranslation } from "@/lib/i18n/use-translation";
 import { routes } from "@/config/routes";
 import { cn } from "@/lib/utils/cn";
+import { useSession } from "@/features/auth/hooks/use-session";
 import { useAuthStore } from "@/features/auth/stores/auth.store";
 import { useBetSlip } from "../hooks/use-bet-slip";
 import { usePlaceBet } from "../hooks/use-place-bet";
-import { placeRequestFrom } from "../lib/placement";
-import { useBetSlipStore } from "../stores/bet-slip.store";
+import { placeRequestFrom, sameRequest } from "../lib/placement";
+import { ownPlacement, useBetSlipStore } from "../stores/bet-slip.store";
 import { BetModeTabs } from "./BetModeTabs";
 import { BetPlacedConfirmation } from "./BetPlacedConfirmation";
 import { BetSelectionRow } from "./BetSelectionRow";
@@ -37,8 +38,10 @@ import { TaxBreakdown } from "./TaxBreakdown";
  * Same component in the desktop aside and the mobile sheet — only `onClose`
  * differs, because only the sheet can be dismissed. Every number on screen comes
  * from `useBetSlip`, and the confirmation is the engine's ticket. Placing —
- * the attempt, a refusal, the ticket — lives in the slip store, so both
- * mounted slips show the same state and a closed sheet loses none of it.
+ * the bet on its way, an unconfirmed one, a refusal, the ticket — lives in the
+ * slip store, so both mounted slips show the same state and a closed sheet
+ * loses none of it. It is the signed-in player's alone: a guest sees none of
+ * it, and it is dropped when someone else signs in.
  */
 export function BetSlip({ onClose }: { onClose?: () => void }) {
   const t = useTranslation();
@@ -62,15 +65,31 @@ export function BetSlip({ onClose }: { onClose?: () => void }) {
   const setStake = useBetSlipStore((s) => s.setStake);
   const stake = useBetSlipStore((s) => s.stake);
 
-  const placement = useBetSlipStore((s) => s.placement);
+  const playerId = useSession().player?.id ?? null;
+  const stored = useBetSlipStore((s) => s.placement);
+  const forgetPlacement = useBetSlipStore((s) => s.forgetPlacement);
   const dismissReceipt = useBetSlipStore((s) => s.dismissReceipt);
-  const { place, retry } = usePlaceBet();
-  const placing = placement.attempt?.status === "sending";
+  // Another player signed in on this device: nothing of the last one's
+  // ticket, refusal or unconfirmed bet stays (docs/design/09).
+  useEffect(() => {
+    if (playerId && stored.owner && stored.owner !== playerId) {
+      forgetPlacement();
+    }
+  }, [playerId, stored.owner, forgetPlacement]);
+  const placement = ownPlacement(stored, playerId);
+  const { place, retry, placeAsNew } = usePlaceBet(playerId);
+  const placing = placement.sending !== null;
+  const unconfirmed = placement.unconfirmed;
   // The slip as a bet: null while it can't be placed as it stands.
   const request = useMemo(
     () => placeRequestFrom({ selections, totals, stake, oddsPolicy }),
     [selections, totals, stake, oddsPolicy],
   );
+  // A bet is unconfirmed and the slip is no longer that bet: placing it is a
+  // different bet, which only the player's explicit choice sends.
+  const slipChanged =
+    unconfirmed !== null &&
+    (request === null || !sameRequest(request, unconfirmed.request));
 
   // Booking saves the slip slipcalc priced: its live picks, bet type and
   // system size. Null when it can't be booked (nothing live, a same-match
@@ -141,10 +160,13 @@ export function BetSlip({ onClose }: { onClose?: () => void }) {
         rules={rules?.calc ?? null}
         rulesState={rulesState}
         onRetryRules={retryRules}
+        placement={placement}
+        slipChanged={slipChanged}
         // A refusal the player can act on carries the fix, rather than
         // leaving them to work out what would be accepted.
         fixes={{
           retry,
+          placeAsNew: slipChanged && request ? () => placeAsNew(request) : null,
           deposit: () => router.push(routes.walletAction("deposit")),
           verify: () => openAuth("verify"),
           viewLimits: () => router.push(routes.responsibleGaming),
@@ -193,7 +215,7 @@ export function BetSlip({ onClose }: { onClose?: () => void }) {
             )
           )}
 
-          <div className="px-4">
+          <div className="mt-2 px-4">
             <OddsPolicySetting value={oddsPolicy} onChange={setOddsPolicy} />
           </div>
 
@@ -269,13 +291,16 @@ export function BetSlip({ onClose }: { onClose?: () => void }) {
             </>
           ) : (
             <PlaceBetButton
-              action={cta.action}
-              disabled={cta.disabled}
+              // While a bet is unconfirmed the button's job is Try again: the
+              // same bet with the same key, whatever the slip shows now.
+              action={unconfirmed ? "retry" : cta.action}
+              disabled={unconfirmed ? false : cta.disabled}
               totals={totals}
               pending={placing}
               onPlace={() => {
                 if (request) place(request);
               }}
+              onRetry={retry}
               onDeposit={() => router.push(routes.walletAction("deposit"))}
               // A dialog, not a navigation: the slip they just built is the
               // reason they are logging in.
