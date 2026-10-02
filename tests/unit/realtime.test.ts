@@ -60,6 +60,18 @@ describe("parseServerMessage", () => {
   });
 });
 
+describe("mockRepository.listBoard", () => {
+  it("accepts both the contract sport ID and the mock sport key", async () => {
+    const footballBoard = await mockRepository.listBoard({
+      sportId: "s_football",
+    });
+    expect(footballBoard.length).toBeGreaterThan(0);
+    expect(
+      footballBoard.flatMap((section) => section.events).length,
+    ).toBeGreaterThan(3);
+  });
+});
+
 describe("applyToBoard", () => {
   it("updates the addressed price", () => {
     const next = applyToBoard(board, oddsUpdate("m3", "1", "1.67", "up"));

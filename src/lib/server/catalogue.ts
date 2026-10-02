@@ -1,4 +1,6 @@
 import "server-only";
+import { env } from "@/config/env";
+import { mockRepository } from "@/lib/api/mock/repository";
 import type { Lang } from "@/types/common";
 import type {
   BoardSection,
@@ -82,6 +84,13 @@ export async function loadBoard(
   filters: EventFilters,
   dataSaver: boolean,
 ): Promise<BoardSection[]> {
+  // `NEXT_PUBLIC_REALTIME=simulate` drives the whole live pipeline locally,
+  // board included: the in-repo fixtures with their simulated matches instead
+  // of Prism. Every other mode reads the contract.
+  if (env.realtime === "simulate") {
+    return mockRepository.listBoard(filters, dataSaver);
+  }
+
   // Release 1 is pre-match only (D8): there is nothing in play to list.
   if (filters.live) return [];
 

@@ -1,3 +1,5 @@
+import { env } from "./env";
+
 /**
  * Slip behaviour that is the UI's own. Every commercial number — taxes, stake
  * limits, the payout cap, the accumulator bonus, quick stakes — is the tenant's
@@ -64,6 +66,7 @@ export const STALE_TIME = {
 /**
  * How often the board and event page re-read prices while realtime is off.
  * Release 1 polls every 30 s (D5); with realtime on, prices arrive as messages
- * and nothing polls.
+ * and nothing polls. The local simulation ticks faster so moves are visible.
  */
-export const ODDS_REFRESH_MS = 30 * 1000;
+export const ODDS_REFRESH_MS =
+  env.realtime === "simulate" ? 8 * 1000 : 30 * 1000;

@@ -146,7 +146,7 @@ export interface RawGroup {
   matches: RawMatch[];
 }
 
-export const GROUPS: RawGroup[] = [
+const BASE_GROUPS: RawGroup[] = [
   {
     id: "epl",
     sportId: "soccer",
@@ -330,6 +330,426 @@ export const GROUPS: RawGroup[] = [
       },
     ],
   },
+  {
+    id: "uefa",
+    sportId: "soccer",
+    countryCode: "EUR",
+    country: t("Europe", "አውሮፓ"),
+    league: t("UEFA Champions League", "የዩሮፓ ቻምፒየንስ ሊግ"),
+    round: t("Group stage", "የቡድን ዙር"),
+    matches: [
+      {
+        id: "m13",
+        home: t("Barcelona"),
+        away: t("Bayern"),
+        status: "live",
+        minute: "58'",
+        homeScore: 2,
+        awayScore: 1,
+        odds: [2.2, 3.4, 2.8],
+        movement: ["up", null, "down"],
+        overUnder: [2.15, 1.7],
+        marketCount: 72,
+      },
+      {
+        id: "m14",
+        home: t("Liverpool"),
+        away: t("Inter"),
+        status: "live",
+        minute: "66'",
+        homeScore: 1,
+        awayScore: 2,
+        odds: [1.95, 3.5, 3.25],
+        movement: [null, "up", "down"],
+        overUnder: [2.45, 1.55],
+        marketCount: 68,
+      },
+      {
+        id: "m15",
+        home: t("Real Madrid"),
+        away: t("Leipzig"),
+        status: "up",
+        time: "20:45",
+        odds: [1.58, 4.6, 6.25],
+        overUnder: [1.8, 2.05],
+        marketCount: 74,
+      },
+    ],
+  },
+  {
+    id: "france",
+    sportId: "soccer",
+    countryCode: "EUR",
+    country: t("Europe", "አውሮፓ"),
+    league: t("Ligue 1", "ሊግ 1"),
+    round: t("Round 8", "8ኛ ዙር"),
+    matches: [
+      {
+        id: "m16",
+        home: t("Chelsea"),
+        away: t("Arsenal"),
+        status: "live",
+        minute: "49'",
+        homeScore: 1,
+        awayScore: 1,
+        odds: [2.35, 3.2, 2.7],
+        movement: ["down", "up", null],
+        overUnder: [2.2, 1.68],
+        marketCount: 63,
+      },
+      {
+        id: "m17",
+        home: t("Brighton"),
+        away: t("Newcastle"),
+        status: "soon",
+        startsIn: 18,
+        time: "18:30",
+        odds: [2.15, 3.55, 3.1],
+        overUnder: [2.35, 1.62],
+        marketCount: 60,
+      },
+      {
+        id: "m18",
+        home: t("Villarreal"),
+        away: t("Sevilla"),
+        status: "up",
+        time: "19:15",
+        odds: [2.48, 3.15, 2.7],
+        overUnder: [2.05, 1.8],
+        marketCount: 64,
+      },
+    ],
+  },
+  {
+    id: "africa-cup",
+    sportId: "soccer",
+    countryCode: null,
+    country: t("Africa", "አፍሪካ"),
+    league: t("CAF Champions League", "የካፍ ቻምፒየንስ ሊግ"),
+    round: t("Semi-finals", "አጋማሽ ፍፃሜ"),
+    matches: [
+      {
+        id: "m19",
+        home: t("Saint George", "ቅዱስ ጊዮርጊስ"),
+        away: t("Ethiopian Coffee", "ኢትዮጵያ ቡና"),
+        status: "live",
+        minute: "72'",
+        homeScore: 2,
+        awayScore: 0,
+        odds: [1.65, 3.8, 5.1],
+        movement: ["up", null, "down"],
+        overUnder: [1.95, 1.85],
+        marketCount: 71,
+      },
+      {
+        id: "m20",
+        home: t("Fasil Kenema", "ፋሲል ከነማ"),
+        away: t("Bahir Dar Kenema", "ባሕር ዳር ከነማ"),
+        status: "up",
+        time: "19:45",
+        odds: [2.12, 3.05, 3.35],
+        overUnder: [2.25, 1.6],
+        marketCount: 66,
+      },
+    ],
+  },
+  {
+    id: "intl",
+    sportId: "soccer",
+    countryCode: "EUR",
+    country: t("Europe", "አውሮፓ"),
+    league: t("International friendlies", "ዓለም አቀፍ የማርካቶች"),
+    round: t("Weekend fixtures", "የሳምንት ጨዋታዎች"),
+    matches: [
+      {
+        id: "m21",
+        home: t("England", "እንግሊዝ"),
+        away: t("Italy", "ጣሊያን"),
+        status: "soon",
+        startsIn: 35,
+        time: "20:15",
+        odds: [2.55, 3.4, 2.9],
+        overUnder: [2.7, 1.42],
+        marketCount: 58,
+      },
+      {
+        id: "m22",
+        home: t("Spain", "ስፔን"),
+        away: t("Germany", "ጀርመን"),
+        status: "live",
+        minute: "31'",
+        homeScore: 0,
+        awayScore: 1,
+        odds: [2.15, 3.3, 2.95],
+        movement: ["up", null, "down"],
+        overUnder: [1.9, 1.96],
+        marketCount: 70,
+      },
+    ],
+  },
+];
+
+export const LIVE_SIMULATION_GROUPS: RawGroup[] = [
+  {
+    id: "sim-live",
+    sportId: "soccer",
+    countryCode: "ENG",
+    country: t("England", "እንግሊዝ"),
+    league: t("Live simulation", "የቀጥታ ማስመሰያ"),
+    round: t("Realtime", "ቀጥታ"),
+    matches: [
+      {
+        id: "sim-1",
+        home: t("Arsenal"),
+        away: t("Liverpool"),
+        status: "live",
+        minute: "54'",
+        homeScore: 2,
+        awayScore: 2,
+        odds: [2.24, 3.55, 2.9],
+        movement: ["up", null, "down"],
+        overUnder: [2.25, 1.65],
+        marketCount: 81,
+      },
+      {
+        id: "sim-2",
+        home: t("Chelsea"),
+        away: t("Man City"),
+        status: "live",
+        minute: "61'",
+        homeScore: 1,
+        awayScore: 0,
+        odds: [2.65, 3.25, 2.15],
+        movement: [null, "up", "down"],
+        overUnder: [1.95, 1.88],
+        marketCount: 76,
+      },
+      {
+        id: "sim-3",
+        home: t("Newcastle"),
+        away: t("Brighton"),
+        status: "live",
+        minute: "45'",
+        homeScore: 1,
+        awayScore: 1,
+        odds: [1.95, 3.45, 3.1],
+        movement: ["up", null, "down"],
+        overUnder: [2.1, 1.72],
+        marketCount: 70,
+      },
+    ],
+  },
+  {
+    id: "sim-italy",
+    sportId: "soccer",
+    countryCode: "ITA",
+    country: t("Italy", "ጣሊያን"),
+    league: t("Live simulation", "የቀጥታ ማስመሰያ"),
+    round: t("Realtime", "ቀጥታ"),
+    matches: [
+      {
+        id: "sim-4",
+        home: t("Inter"),
+        away: t("Torino"),
+        status: "live",
+        minute: "71'",
+        homeScore: 2,
+        awayScore: 1,
+        odds: [1.72, 3.65, 4.6],
+        movement: ["up", null, "down"],
+        overUnder: [2.35, 1.56],
+        marketCount: 68,
+      },
+    ],
+  },
+  {
+    id: "sim-spain",
+    sportId: "soccer",
+    countryCode: "ESP",
+    country: t("Spain", "ስፔን"),
+    league: t("Live simulation", "የቀጥታ ማስመሰያ"),
+    round: t("Realtime", "ቀጥታ"),
+    matches: [
+      {
+        id: "sim-5",
+        home: t("Barcelona"),
+        away: t("Real Madrid"),
+        status: "live",
+        minute: "66'",
+        homeScore: 1,
+        awayScore: 2,
+        odds: [2.35, 3.3, 2.25],
+        movement: [null, "up", "down"],
+        overUnder: [2.2, 1.7],
+        marketCount: 78,
+      },
+    ],
+  },
+  {
+    id: "sim-africa",
+    sportId: "soccer",
+    countryCode: null,
+    country: t("Africa", "አፍሪካ"),
+    league: t("Live simulation", "የቀጥታ ማስመሰያ"),
+    round: t("Realtime", "ቀጥታ"),
+    matches: [
+      {
+        id: "sim-6",
+        home: t("Ethiopia", "ኢትዮጵያ"),
+        away: t("Ghana", "ጋና"),
+        status: "live",
+        minute: "57'",
+        homeScore: 1,
+        awayScore: 1,
+        odds: [3.4, 3.15, 2.2],
+        movement: ["down", "up", null],
+        overUnder: [2.45, 1.52],
+        marketCount: 73,
+      },
+    ],
+  },
+  {
+    id: "sim-france",
+    sportId: "soccer",
+    countryCode: "EUR",
+    country: t("Europe", "አውሮፓ"),
+    league: t("Live simulation", "የቀጥታ ማስመሰያ"),
+    round: t("Realtime", "ቀጥታ"),
+    matches: [
+      {
+        id: "sim-7",
+        home: t("Chelsea"),
+        away: t("Sevilla"),
+        status: "live",
+        minute: "77'",
+        homeScore: 2,
+        awayScore: 0,
+        odds: [1.9, 3.7, 4.2],
+        movement: ["up", null, "down"],
+        overUnder: [2.65, 1.46],
+        marketCount: 69,
+      },
+    ],
+  },
+  {
+    id: "sim-germany",
+    sportId: "soccer",
+    countryCode: "GER",
+    country: t("Germany", "ጀርመን"),
+    league: t("Live simulation", "የቀጥታ ማስመሰያ"),
+    round: t("Realtime", "ቀጥታ"),
+    matches: [
+      {
+        id: "sim-8",
+        home: t("Bayern"),
+        away: t("Leipzig"),
+        status: "live",
+        minute: "82'",
+        homeScore: 3,
+        awayScore: 1,
+        odds: [1.42, 4.85, 6.9],
+        movement: ["up", null, "down"],
+        overUnder: [2.8, 1.38],
+        marketCount: 74,
+      },
+    ],
+  },
+  {
+    id: "sim-ethio",
+    sportId: "soccer",
+    countryCode: "ETH",
+    country: t("Ethiopia", "ኢትዮጵያ"),
+    league: t("Live simulation", "የቀጥታ ማስመሰያ"),
+    round: t("Realtime", "ቀጥታ"),
+    matches: [
+      {
+        id: "sim-9",
+        home: t("Saint George", "ቅዱስ ጊዮርጊስ"),
+        away: t("Fasil Kenema", "ፋሲል ከነማ"),
+        status: "live",
+        minute: "68'",
+        homeScore: 1,
+        awayScore: 1,
+        odds: [2.5, 3.05, 2.7],
+        movement: [null, "up", "down"],
+        overUnder: [2.1, 1.75],
+        marketCount: 72,
+      },
+    ],
+  },
+];
+
+export const buildLiveSimulationGroups = (): RawGroup[] =>
+  LIVE_SIMULATION_GROUPS.map((group) => ({
+    ...group,
+    matches: group.matches.map((match) => ({
+      ...match,
+      odds: [...match.odds] as [number | null, number | null, number | null],
+      overUnder: [...match.overUnder] as [number | null, number | null],
+      movement: match.movement ? [...match.movement] : undefined,
+      previous: match.previous ? [...match.previous] : undefined,
+    })),
+  }));
+
+export function advanceLiveMatchState(match: RawMatch, tick = 1): RawMatch {
+  if (match.status !== "live") return { ...match };
+
+  const minuteValue = Number.parseInt(
+    match.minute?.replace(/[^\d]/g, "") ?? "0",
+    10,
+  );
+  const nextMinute = Math.min(90, minuteValue + 2 * tick);
+  const next: RawMatch = {
+    ...match,
+    minute: `${nextMinute}'`,
+    previous: match.odds.map((value) =>
+      value === null ? null : Number(value.toFixed(2)),
+    ),
+  };
+
+  const pulse = ((match.id.charCodeAt(0) + tick * 7) % 9) / 100;
+  next.odds = match.odds.map((value, index) => {
+    if (value === null) return null;
+
+    const bias = [0.028, -0.022, 0.031][index] ?? 0.02;
+    const updated = value * (1 + bias + pulse * (index === 1 ? 0.5 : 1));
+    return Number(Math.max(1.05, updated).toFixed(2));
+  }) as [number | null, number | null, number | null];
+
+  next.movement = next.odds.map((value, index) => {
+    const previousValue = match.odds[index];
+    if (value === null || previousValue === null) return null;
+    return value > previousValue ? "up" : value < previousValue ? "down" : null;
+  }) as Array<"up" | "down" | null>;
+
+  const totalGoals = (match.homeScore ?? 0) + (match.awayScore ?? 0);
+  const scoreBias = (match.id.charCodeAt(1) + tick * 3) % 5;
+  const homeGoalShift = scoreBias === 0 || scoreBias === 2 ? 1 : 0;
+  const awayGoalShift = scoreBias === 1 || scoreBias === 3 ? 1 : 0;
+
+  next.homeScore = (match.homeScore ?? 0) + homeGoalShift;
+  next.awayScore = (match.awayScore ?? 0) + awayGoalShift;
+  next.overUnder = [
+    Number(
+      Math.max(
+        1.05,
+        (match.overUnder[0] ?? 1.8) + (totalGoals > 2 ? 0.12 : -0.08),
+      ).toFixed(2),
+    ),
+    Number(
+      Math.max(
+        1.05,
+        (match.overUnder[1] ?? 1.8) + (totalGoals > 2 ? -0.1 : 0.08),
+      ).toFixed(2),
+    ),
+  ] as [number | null, number | null];
+
+  return next;
+}
+
+export const GROUPS: RawGroup[] = [
+  ...BASE_GROUPS,
+  ...buildLiveSimulationGroups(),
 ];
 
 /** Market template for the event detail page, keyed by market type. */
