@@ -11,8 +11,10 @@ import { CalculationSteps } from "./CalculationSteps";
 function Line({ label, value }: { label: React.ReactNode; value: string }) {
   return (
     <div className="flex justify-between gap-3">
-      <span>{label}</span>
-      <span className="font-bold whitespace-nowrap">{value}</span>
+      <span className="min-w-0">{label}</span>
+      {/* Never squeezed: `* { min-width: 0 }` would let a long label push the
+          amount out of the card. The label wraps instead. */}
+      <span className="shrink-0 font-bold whitespace-nowrap">{value}</span>
     </div>
   );
 }

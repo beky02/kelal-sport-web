@@ -1,7 +1,7 @@
 ---
 id: F3b
 title: Booking codes and the /b/[code] deep link
-status: planned
+status: verifying
 depends_on: [F3a]
 contract_tags: [Bookings, Config]
 touches_money: false

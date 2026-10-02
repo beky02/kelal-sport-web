@@ -17,7 +17,7 @@ Engineering Decisions say differently. The order follows the Build Plan's fronte
 | [F2b](F2b-catalogue-screens.md) | Server-rendered catalogue, popular, lazy market groups, paging, phone search         | F2a          | B4            | todo        |
 | [F3](F3-slip-calculator.md)     | Slip on slipcalc (D1), rules from config, bookings and `/b/[code]`                   | F0           | B3            | in_progress |
 | [F3a](F3a-slip-calculator.md)   | Split from F3: slip on slipcalc (D1), rules from config, money as strings            | F0           | B3            | done        |
-| [F3b](F3b-bookings.md)          | Split from F3: booking codes and `/b/[code]`                                         | F3a          | B3            | planned     |
+| [F3b](F3b-bookings.md)          | Split from F3: booking codes and `/b/[code]`                                         | F3a          | B3            | verifying   |
 | [F4](F4-auth-session.md)        | Auth through route handlers and an httpOnly session cookie; KYC                      | F0           | B5, B12       | todo        |
 | [F5](F5-place-bet-my-bets.md)   | Place bet with `Idempotency-Key` and the 409 flow; My bets; `/t/[ticket]`            | F3a, F3b, F4 | B6            | todo        |
 | [F6](F6-wallet.md)              | Wallet: balances, deposits with `next_action`, withdrawals, payout accounts, history | F4           | B8            | todo        |
