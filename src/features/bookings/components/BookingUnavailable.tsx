@@ -16,7 +16,8 @@ export function BookingUnavailable({
   code,
 }: {
   status: "expired" | "not_found" | "failed";
-  code: string;
+  /** Null when the address held no well-formed code to repeat. */
+  code: string | null;
 }) {
   const t = useTranslation();
   const router = useRouter();
@@ -28,7 +29,11 @@ export function BookingUnavailable({
         <StateMessage
           icon={<CalendarX2 size={24} strokeWidth={1.5} />}
           title={t.t("booking.expiredTitle")}
-          body={t.t("booking.expiredBody", { code })}
+          body={
+            code
+              ? t.t("booking.expiredBody", { code })
+              : t.t("booking.notFoundBodyNoCode")
+          }
           action={back}
         />
       );
@@ -37,7 +42,11 @@ export function BookingUnavailable({
         <StateMessage
           icon={<SearchX size={24} strokeWidth={1.5} />}
           title={t.t("booking.notFoundTitle")}
-          body={t.t("booking.notFoundBody", { code })}
+          body={
+            code
+              ? t.t("booking.notFoundBody", { code })
+              : t.t("booking.notFoundBodyNoCode")
+          }
           action={back}
         />
       );

@@ -95,6 +95,56 @@ export function tenantForHost(host: string | null): string {
   return serverConfig.tenantHostMap[name] ?? serverConfig.defaultTenant;
 }
 
+/**
+ * The first value of a forwarded header. Proxies that append (`a, b`) put the
+ * original first; the whole list is never a host.
+ */
+const firstOf = (value: string | null): string | null =>
+  value?.split(",")[0]?.trim() || null;
+
+/** The host a request arrived on (trusted-proxy handling: F4 AC-7). */
+const requestHost = (headers: Headers): string | null =>
+  firstOf(headers.get("x-forwarded-host")) ?? firstOf(headers.get("host"));
+
 /** The tenant for a request's headers — route handlers and pages alike. */
 export const tenantFromHeaders = (headers: Headers): string =>
-  tenantForHost(headers.get("x-forwarded-host") ?? headers.get("host"));
+  tenantForHost(requestHost(headers));
+
+const HOST = /^[a-z0-9.-]+(:\d{1,5})?$/i;
+const LOCAL = /^(localhost|127\.0\.0\.1)(:|$)/;
+
+/**
+ * The origin to put in a link to this site (Open Graph `og:url`): the request's
+ * own host when the tenant owns it — keeping a local port — otherwise the
+ * tenant's first mapped host. A forwarded host the tenant doesn't own never
+ * makes it into a link, and a malformed one can't throw.
+ */
+export function publicOrigin(headers: Headers, tenant: string): string {
+  const owned = Object.entries(serverConfig.tenantHostMap)
+    .filter(([, t]) => t === tenant)
+    .map(([host]) => host);
+  const asked = requestHost(headers)?.toLowerCase() ?? null;
+  const askedName = asked?.split(":")[0] ?? null;
+
+  let host: string;
+  if (
+    asked &&
+    HOST.test(asked) &&
+    (owned.length === 0 || (askedName !== null && owned.includes(askedName)))
+  ) {
+    host = asked;
+  } else if (owned.length > 0) {
+    host = owned[0];
+  } else {
+    host = "localhost";
+  }
+
+  const proto = firstOf(headers.get("x-forwarded-proto"))?.toLowerCase();
+  const scheme =
+    proto === "http" || proto === "https"
+      ? proto
+      : LOCAL.test(host)
+        ? "http"
+        : "https";
+  return `${scheme}://${host}`;
+}

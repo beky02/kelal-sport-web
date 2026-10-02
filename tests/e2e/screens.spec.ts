@@ -50,6 +50,17 @@ async function openSlipWithPicks(page: Page, device: Device, lang: Lang) {
  */
 async function bookAsGuest(page: Page, device: Device, lang: Lang) {
   const t = MESSAGES[lang];
+  // Prism's example code has a fixed expiry (4 October 2026), and the slip
+  // drops a code once its lifetime has passed. Give the screen a live one:
+  // the same receipt, expiring a day after Prism issued it.
+  await page.route("**/api/bookings", async (route) => {
+    const response = await route.fetch();
+    const receipt = await response.json();
+    receipt.expiresAt = new Date(
+      Date.parse(receipt.issuedAt) + 24 * 60 * 60 * 1000,
+    ).toISOString();
+    await route.fulfill({ response, json: receipt });
+  });
   await page.getByRole("button", { name: t.profile.logOut }).click();
   await page.waitForURL("/");
   await openSlipWithPicks(page, device, lang);

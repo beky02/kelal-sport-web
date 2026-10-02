@@ -134,7 +134,8 @@ export function CalculationSteps({
             </span>
             <span
               className={cn(
-                "whitespace-nowrap",
+                // The label wraps; the amount never shrinks out of the row.
+                "shrink-0 whitespace-nowrap",
                 row.total ? "font-bold" : "font-medium",
               )}
             >

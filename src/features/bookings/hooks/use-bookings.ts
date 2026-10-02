@@ -9,7 +9,8 @@ import { slipFromBooking } from "../lib/to-slip";
 import type { Booking, BookingReceipt, BookingRequest } from "../types";
 
 /**
- * Loads a code into the slip, replacing it.
+ * Loads a code into the slip, replacing it — unless none of its legs can be
+ * added now, in which case the slip is left alone and the notice says why.
  *
  * Always a fresh read: loading re-prices every leg (C09), so a booking cached a
  * minute ago may already hold a started match. A mutation rather than a query
@@ -18,6 +19,7 @@ import type { Booking, BookingReceipt, BookingRequest } from "../types";
 export function useLoadBooking(onLoaded?: (booking: Booking) => void) {
   const queryClient = useQueryClient();
   const replaceSlip = useBetSlipStore((s) => s.replaceSlip);
+  const showBookingNotice = useBetSlipStore((s) => s.showBookingNotice);
 
   return useMutation({
     mutationFn: (code: string) =>
@@ -27,7 +29,9 @@ export function useLoadBooking(onLoaded?: (booking: Booking) => void) {
         staleTime: 0,
       }),
     onSuccess: (booking) => {
-      replaceSlip(slipFromBooking(booking));
+      const slip = slipFromBooking(booking);
+      if (slip.selections.length > 0) replaceSlip(slip);
+      else showBookingNotice(slip.notice);
       onLoaded?.(booking);
     },
   });
@@ -56,7 +60,12 @@ export function useCreateBooking() {
     mutationFn: ({ request, key }: { request: BookingRequest; key: string }) =>
       createBooking(request, key),
     onSuccess: (receipt, { request, key }) =>
-      setIntent({ signature: signatureOf(request), key, receipt }),
+      setIntent({
+        signature: signatureOf(request),
+        key,
+        receipt,
+        receivedAt: Date.now(),
+      }),
   });
   const { mutate } = mutation;
 
@@ -67,7 +76,7 @@ export function useCreateBooking() {
       const key =
         current?.signature === signature ? current.key : crypto.randomUUID();
       if (current?.signature !== signature) {
-        setIntent({ signature, key, receipt: null });
+        setIntent({ signature, key, receipt: null, receivedAt: null });
       }
       mutate({ request, key });
     },
@@ -75,9 +84,13 @@ export function useCreateBooking() {
   );
 
   // An expired code is no use at a shop, and must not keep Book switched off.
+  // Its lifetime is the server's (issued → expires), counted on this device
+  // from when it arrived, so a phone clock that is hours out changes nothing.
   useEffect(() => {
-    if (!intent?.receipt) return;
-    const left = Date.parse(intent.receipt.expiresAt) - Date.now();
+    if (!intent?.receipt || intent.receivedAt === null) return;
+    const { expiresAt, issuedAt } = intent.receipt;
+    const lifetime = Date.parse(expiresAt) - Date.parse(issuedAt);
+    const left = lifetime - (Date.now() - intent.receivedAt);
     const timer = setTimeout(
       () => setIntent(null),
       Math.max(0, Math.min(left, MAX_TIMER_MS)),

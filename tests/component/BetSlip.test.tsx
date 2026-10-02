@@ -390,6 +390,24 @@ describe("BetSlip", () => {
     expect(screen.getByText("ETB 594.40")).toBeInTheDocument();
   });
 
+  it("shows the ticket number large with its barcode, ready to copy", async () => {
+    seedReferenceSlip();
+    render(<BetSlip />);
+
+    await userEvent.click(
+      await screen.findByRole("button", { name: /Place bet/ }),
+    );
+
+    const card = await screen.findByTestId("ticket-code");
+    const ticket = within(card).getByText(/^KS-\d{6}-\d{4}$/).textContent!;
+    expect(
+      within(card).getByRole("img", { name: `Ticket: ${ticket}` }),
+    ).toBeInTheDocument();
+    expect(
+      within(card).getByRole("button", { name: "Copy code" }),
+    ).toBeInTheDocument();
+  });
+
   it("asks a guest to log in instead of betting", async () => {
     useSessionStore.setState({ isGuest: true });
     seedReferenceSlip();

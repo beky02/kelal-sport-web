@@ -14,17 +14,21 @@ export function bookingMetadata(
     lang,
     siteName,
     url,
+    bookingCodes = true,
   }: {
     lang: Lang;
     /** The tenant's brand; null when config could not be read — no other brand stands in. */
     siteName: string | null;
     /** The canonical link, absolute. */
     url: string;
+    /** The tenant's switch: off, the page is a 404 and says nothing of a booking. */
+    bookingCodes?: boolean;
   },
 ): Metadata {
   // Codes expire within days and are passed hand to hand; they are not pages
   // anyone should find by searching.
   const robots = { index: false, follow: false };
+  if (!bookingCodes) return { robots };
   const titled = (title: string) =>
     siteName ? `${title} · ${siteName}` : title;
   const site = siteName ? { siteName } : {};

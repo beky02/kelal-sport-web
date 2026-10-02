@@ -44,8 +44,9 @@
 
   --color-live: #ff4d4f;
   --color-warn: #f5b83d;
-  /* Telegram's own blue, for "Share on Telegram" in every theme. */
-  --color-telegram: #229ed9;
+  /* Telegram's blue for "Share on Telegram", a shade darker than #229ed9 so
+     its white label reads at 4.7:1 (WCAG AA for small bold text). */
+  --color-telegram: #177ba8;
   --color-warn-bg: rgb(245 184 61 / 0.12);
 }
 

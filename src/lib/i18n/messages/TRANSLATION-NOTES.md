@@ -131,11 +131,8 @@ Composed, not from the design. "Booking code" follows the design's own term, `�
 | `booking.shareText`               | የውርርድ ትኬት {code}                                            |
 | `booking.loaded`                  | የትኬት ኮድ {code} ትኬትዎ ውስጥ ገብቷል።                               |
 | `booking.notAddedTitle`           | አልተጨመሩም፤ ከእንግዲህ አይገኙም፦                                      |
-| `booking.notAddedLeg`             | {event} · {pick}፦ {reason}                                  |
-| `booking.sizesNote`               | ይህ ኮድ የሲስተም መጠኖችን {sizes} ያጣምራል። ትኬቱ {k} ያሳያል።              |
 | `booking.dismiss`                 | ዝጋ                                                          |
 | `booking.loadIntoSlip`            | ወደ ትኬት ጫን                                                   |
-| `booking.replacesSlip`            | ትኬትዎ ውስጥ ያሉትን {n} ምርጫዎች ይተካል።                               |
 | `booking.stakeHint`               | የተጠቆመ የውርርድ መጠን                                             |
 | `booking.pageTitle`               | የውርርድ ትኬት {code}                                            |
 | `booking.selections`              | ምርጫዎች                                                       |
@@ -145,14 +142,12 @@ Composed, not from the design. "Booking code" follows the design's own term, `�
 | `booking.notFoundTitle`           | በዚህ ኮድ የተቀመጠ ትኬት የለም                                        |
 | `booking.notFoundBody`            | ኮድ {code}ን ያረጋግጡና እንደገና ይሞክሩ።                               |
 | `booking.failedTitle`             | ይህን ትኬት መጫን አልተሳካም                                          |
-| `booking.failedBody`              | ግንኙነትዎን ያረጋግጡ እና እንደገና ይሞክሩ።                                |
 | `booking.invalidCode`             | የትኬት ኮድ 7 ፊደላትና ቁጥሮች ነው፤ ለምሳሌ 7KQ2M9X።                      |
 | `booking.reason.EVENT_STARTED`    | ጨዋታው ተጀምሯል                                                  |
 | `booking.reason.MARKET_SUSPENDED` | ውርርድ ቆሟል                                                    |
 | `booking.reason.MARKET_CLOSED`    | ገበያው ተዘግቷል                                                  |
 | `booking.reason.NOT_FOUND`        | ከእንግዲህ አይቀርብም                                               |
 | `booking.reason.UNPRICED`         | አሁን ዋጋ የለውም                                                 |
-| `booking.errors.expired`          | ኮድ {code} ጊዜው አልፏል።                                         |
 | `booking.errors.notFound`         | በኮድ {code} የተቀመጠ ትኬት የለም። ያረጋግጡና እንደገና ይሞክሩ።                |
 | `booking.errors.rateLimited`      | አሁን በጣም ብዙ የትኬት ኮዶች ተሠርተዋል። ቆይተው ይሞክሩ።                      |
 | `booking.errors.cannotBook`       | ይህ ትኬት እንዳለ ሊቀመጥ አይችልም።                                     |
@@ -160,3 +155,22 @@ Composed, not from the design. "Booking code" follows the design's own term, `�
 | `booking.og.description`          | ምርጫዎች፦ {picks}                                              |
 | `booking.og.expired`              | ይህ የትኬት ኮድ ጊዜው አልፏል።                                        |
 | `booking.og.notFound`             | በዚህ ኮድ የተቀመጠ ትኬት የለም።                                       |
+
+### F3b verification (2026-10-02)
+
+Added or reworded after review; composed, need native review like the rest of this section.
+
+| Key                          | Amharic                                             |
+| ---------------------------- | --------------------------------------------------- |
+| `booking.nothingAdded`       | ከትኬት ኮድ {code} አሁን ምንም መጨመር አይቻልም።                  |
+| `booking.sizesNote`          | ይህ ኮድ የ{sizes} ሲስተም ነው፤ ትኬቱ {k}/{n} ያሰላል።           |
+| `booking.sizesNoteMultiple`  | ይህ ኮድ የ{sizes} ሲስተም ነው፤ በቀሩት ምርጫዎች ትኬቱ ጥምር ያሰላል።    |
+| `booking.sizesSeparator`     | ፣                                                   |
+| `booking.notFoundBodyNoCode` | ኮዱን ያረጋግጡና እንደገና ይሞክሩ።                              |
+| `booking.replacesSlip`       | መጫን አሁን ትኬትዎ ውስጥ ያለውን ይተካል።                         |
+| `booking.failedBody`         | አሁን መጫን አልተቻለም። እንደገና ይሞክሩ።                         |
+| `booking.notAddedLeg`        | {event} · {market} · {pick}፦ {reason}               |
+| `booking.booked`             | ተቀምጧል                                               |
+| `booking.openSlip`           | ትኬቱን ክፈት                                            |
+| `booking.reason.INCOMPLETE`  | ማረጋገጥ አይቻልም                                         |
+| `booking.errors.expired`     | ኮድ {code} ጊዜው አልፏል። አዲስ ኮድ ይጠይቁ ወይም ትኬቱን እንደገና ይሥሩ። |

@@ -50,6 +50,27 @@ test("answers 404 for an unknown code, in the booking's words", async ({
   await expect(
     page.getByRole("heading", { name: "No booking with this code" }),
   ).toBeVisible();
+  await expect(
+    page.getByText("Check code 7KQ2M9X and try again."),
+  ).toBeVisible();
+  // A 404 can't join screens.spec (its console always has the document's 404),
+  // so its screenshot is taken here for review, at the suite's desktop width.
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.screenshot({
+    path: "test-results/ui/booking-not-found-en-desktop.png",
+    fullPage: true,
+  });
+});
+
+test("never repeats text from the address that isn't a code", async ({
+  page,
+}) => {
+  const response = await page.goto(
+    "/b/CALL%200911000000%20TO%20CLAIM%20YOUR%20WIN",
+  );
+  expect(response?.status()).toBe(404);
+  await expect(page.getByText("Check the code and try again.")).toBeVisible();
+  await expect(page.getByText(/0911000000/)).toHaveCount(0);
 });
 
 test("redirects a lowercase code to the canonical path", async ({ page }) => {

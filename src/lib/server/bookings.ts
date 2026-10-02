@@ -49,16 +49,22 @@ export async function createBooking(
   idempotencyKey: string,
   prefer?: string,
 ): Promise<BookingReceipt> {
-  const created = unwrap(
-    await upstream("Bookings", { tenant, lang: "en", prefer }).POST(
-      "/v1/bookings",
-      {
-        body: toBookingCreate(request),
-        headers: { "Idempotency-Key": idempotencyKey },
-      },
-    ),
-  );
-  return toBookingReceipt(created);
+  const result = await upstream("Bookings", {
+    tenant,
+    lang: "en",
+    prefer,
+  }).POST("/v1/bookings", {
+    body: toBookingCreate(request),
+    headers: { "Idempotency-Key": idempotencyKey },
+  });
+  const created = unwrap(result);
+  // The API's clock, not ours or the phone's: the code lasts from then until
+  // `expires_at`.
+  const date = Date.parse(result.response.headers.get("date") ?? "");
+  const issuedAt = new Date(
+    Number.isNaN(date) ? Date.now() : date,
+  ).toISOString();
+  return toBookingReceipt(created, issuedAt);
 }
 
 /**

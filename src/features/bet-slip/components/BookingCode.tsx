@@ -1,7 +1,8 @@
 "use client";
 
-import { useId, useState } from "react";
-import { CircleAlert, Send } from "lucide-react";
+import { useId, useState, type Ref } from "react";
+import { CircleAlert, Loader2, Send } from "lucide-react";
+import { useBetSlipStore } from "../stores/bet-slip.store";
 import { useTranslation } from "@/lib/i18n/use-translation";
 import { Barcode } from "@/components/ui/Barcode";
 import { useLoadBooking } from "@/features/bookings/hooks/use-bookings";
@@ -21,7 +22,14 @@ const telegramShare = (url: string, text: string) =>
  * code can be placed later, sent to someone, or read out at an agent shop. Big
  * and tracked out because it gets read aloud and typed in.
  */
-export function BookingCode({ receipt }: { receipt: BookingReceipt }) {
+export function BookingCode({
+  receipt,
+  ref,
+}: {
+  receipt: BookingReceipt;
+  /** Focused when the code has just been issued, so it is read out. */
+  ref?: Ref<HTMLDivElement>;
+}) {
   const t = useTranslation();
   const validUntil = useValidUntil();
   const [copied, setCopied] = useState(false);
@@ -39,8 +47,12 @@ export function BookingCode({ receipt }: { receipt: BookingReceipt }) {
 
   return (
     <div
+      ref={ref}
+      tabIndex={-1}
+      role="status"
+      aria-label={`${t.t("betSlip.bookingCode")} ${code}`}
       data-testid="booking-code"
-      className="bg-surface mx-4 mt-3.5 flex flex-col gap-2.5 rounded-lg p-3.5"
+      className="bg-surface focus-visible:outline-accent mx-4 mt-3.5 flex flex-col gap-2.5 rounded-lg p-3.5 outline-none focus-visible:outline-2"
     >
       <div className="text-muted flex flex-wrap items-baseline justify-between gap-x-2 text-[11px]">
         <span>{t.t("betSlip.bookingCode")}</span>
@@ -85,8 +97,14 @@ export function BookingCode({ receipt }: { receipt: BookingReceipt }) {
   );
 }
 
-/** A refusal or failure, in the slip's alert style. */
-export function BookingAlert({ children }: { children: React.ReactNode }) {
+/** A refusal or failure, in the slip's alert style, with its fix if any. */
+export function BookingAlert({
+  children,
+  action,
+}: {
+  children: React.ReactNode;
+  action?: { label: string; onClick: () => void };
+}) {
   return (
     <div
       role="alert"
@@ -99,6 +117,15 @@ export function BookingAlert({ children }: { children: React.ReactNode }) {
         className="text-loss shrink-0"
       />
       <div className="min-w-0 flex-1 text-xs font-semibold">{children}</div>
+      {action && (
+        <button
+          type="button"
+          onClick={action.onClick}
+          className="bg-raised text-text font-body min-h-11 shrink-0 cursor-pointer rounded-lg px-3 text-xs font-bold"
+        >
+          {action.label}
+        </button>
+      )}
     </div>
   );
 }
@@ -109,6 +136,7 @@ export function LoadBookingCode() {
   const [raw, setRaw] = useState("");
   const [invalid, setInvalid] = useState(false);
   const load = useLoadBooking(() => setRaw(""));
+  const inSlip = useBetSlipStore((s) => s.selections.length);
   // Below 1280 px the slip is in the DOM twice (the hidden aside and the
   // sheet), so fixed IDs would tie the label to the hidden input.
   const inputId = useId();
@@ -124,9 +152,10 @@ export function LoadBookingCode() {
       onSubmit={(event) => {
         event.preventDefault();
         const code = normaliseBookingCode(raw);
-        setInvalid(code === null);
+        setInvalid(raw.trim() !== "" && code === null);
         // Checked before any call: only a well-formed code reaches the API.
-        if (code && !load.isPending) load.mutate(code);
+        if (raw.trim() === "" || load.isPending) return;
+        if (code) load.mutate(code);
       }}
     >
       <label htmlFor={inputId} className="text-muted text-[11px]">
@@ -151,12 +180,21 @@ export function LoadBookingCode() {
         />
         <button
           type="submit"
-          disabled={load.isPending || raw.trim() === ""}
-          className="bg-raised text-text font-body h-11 cursor-pointer rounded-md px-4 text-[13px] font-bold disabled:opacity-45"
+          // Announced as off, never disabled: the input is cleared after a
+          // load, and a disabled button would drop the focus it holds.
+          aria-disabled={load.isPending || raw.trim() === ""}
+          aria-busy={load.isPending}
+          className="bg-raised text-text font-body flex h-11 cursor-pointer items-center gap-1.5 rounded-md px-4 text-[13px] font-bold aria-disabled:opacity-45"
         >
+          {load.isPending && (
+            <Loader2 size={14} className="animate-spin" aria-hidden />
+          )}
           {t.t("betSlip.load")}
         </button>
       </div>
+      {inSlip > 0 && (
+        <p className="text-muted text-[11px]">{t.t("booking.replacesSlip")}</p>
+      )}
       {invalid && <BookingAlert>{t.t("booking.invalidCode")}</BookingAlert>}
       {failure && (
         <BookingAlert>{t.t(failure.key, failure.values)}</BookingAlert>

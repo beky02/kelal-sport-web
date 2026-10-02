@@ -208,3 +208,32 @@ that loads it into the slip. Expired (410) and unknown (404) codes say so in bot
 
 None. About 1,300 lines of code plus about 700 of tests, all in one area (bookings). Splitting the page
 from the slip flow would leave the page unable to load a booking.
+
+## Changes during implementation and verification
+
+Built across this branch, PR #1 (server half) and PR #2 (the UI, from another session), then reviewed
+on `task/F3b-verify`. Differences from the design above:
+
+- **Decision 14 (Prism `Prefer`)**: forwarded only under `next dev` **and** only to the mock
+  (`usesRealApi`), not merely outside production.
+- **Bookings kept off the real API**: `API_REAL_TAGS` refuses `Bookings` until contract request 004 lands
+  (`src/lib/server/config.ts`; F4 AC-7 carries the trusted-proxy part).
+- **Idempotency key and code in the slip store** (`bookingIntent`), not a hook ref: the key is the
+  player's intent and must survive the sheet closing; the code is dropped when the slip changes or the
+  code expires. Not a cache of server data.
+- **A code's lifetime is the server's**: the receipt carries the API's issue time (its `Date` header);
+  expiry is that lifetime counted on the device from arrival, so a wrong phone clock (or a dated example)
+  doesn't drop a fresh code.
+- **Loading never empties a slip**: a code with nothing loadable leaves the slip alone and the notice says
+  so (decision 6 refined).
+- **Legs without `fixture_id` are not added** (`INCOMPLETE`): the slip couldn't check them for a
+  same-match conflict.
+- **`og:url` from the tenant's own host** (`publicOrigin`), forwarded headers parsed (first value), no OG
+  card when booking codes are off or the address isn't canonical.
+- **`POST /api/bookings`**: same-origin only (`Sec-Fetch-Site`) and a 16 KB body cap.
+- **Accessibility**: Book and Load keep focus (`aria-disabled`), the new code takes focus as a status;
+  "Booked" and "Open bet slip" states.
+- **Shared component**: `StateMessage` gained link actions and an `h2` title; `both()` moved from
+  `lib/server/catalogue.ts` to `lib/server/upstream.ts`.
+- **Telegram colour**: `--color-telegram` is `#177ba8` (Telegram's blue a shade darker) so the white label
+  passes 4.5:1.

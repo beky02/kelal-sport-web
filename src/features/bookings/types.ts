@@ -3,15 +3,17 @@ import type { BetSlipMode } from "@/features/bet-slip/types";
 
 /**
  * Why a stored selection can't be backed now. The first four are the
- * contract's `PricedLeg.reason`; `UNPRICED` is a leg marked available that came
- * without a valid price, which the slip will not guess at.
+ * contract's `PricedLeg.reason`. `UNPRICED` is a leg marked available that came
+ * without a valid price, which the slip will not guess at; `INCOMPLETE` is one
+ * without a fixture, which the slip can't check for a same-match conflict.
  */
 export type BookingUnavailableReason =
   | "EVENT_STARTED"
   | "MARKET_SUSPENDED"
   | "MARKET_CLOSED"
   | "NOT_FOUND"
-  | "UNPRICED";
+  | "UNPRICED"
+  | "INCOMPLETE";
 
 /** One stored selection, re-priced now (`PricedLeg`). */
 export interface BookingLeg {
@@ -51,6 +53,12 @@ export interface BookingReceipt {
   expiresAt: string;
   /** The link to share: the same `/b/{code}` path the app opens (D7). */
   shareUrl: string;
+  /**
+   * When the server issued it, by the server's clock (ISO UTC). With
+   * `expiresAt` it gives the code's lifetime, so a phone whose clock is wrong
+   * still keeps a fresh code for as long as it lasts.
+   */
+  issuedAt: string;
 }
 
 /** What the browser asks `/api/bookings` to save. */

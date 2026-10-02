@@ -1,7 +1,9 @@
 "use client";
 
+import { useState } from "react";
 import { Check, Send } from "lucide-react";
 import { useTranslation } from "@/lib/i18n/use-translation";
+import { Barcode } from "@/components/ui/Barcode";
 import { Button } from "@/components/ui/Button";
 import type { BetReceipt } from "../api/place-bet";
 
@@ -22,6 +24,17 @@ export function BetPlacedConfirmation({
   onDone: () => void;
 }) {
   const t = useTranslation();
+  const [copied, setCopied] = useState(false);
+
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(receipt.ticketId);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // Clipboard access can be refused; the number is on screen either way.
+    }
+  };
 
   // A multiple has one accumulated price. Singles and systems are several
   // separate bets, so quoting a product of their odds would be a number that
@@ -40,10 +53,27 @@ export function BetPlacedConfirmation({
           <Check size={26} strokeWidth={2} aria-hidden />
         </span>
         <span className="font-display text-xl">{t.t("betSlip.placed")}</span>
-        <span className="text-muted text-xs">
-          {t.t("betSlip.ticket")}{" "}
-          <b className="text-text tracking-[0.04em]">{receipt.ticketId}</b>
-        </span>
+      </div>
+
+      {/* The ticket number is what the player reads out, types in to check
+          the ticket, or shows at a shop — so it is big, with its barcode, as
+          on the ticket in My bets. */}
+      <div
+        data-testid="ticket-code"
+        className="bg-surface flex flex-col gap-2.5 rounded-lg p-3.5"
+      >
+        <span className="text-muted text-[11px]">{t.t("betSlip.ticket")}</span>
+        <div className="font-display text-[26px] leading-none tracking-[0.08em] break-all">
+          {receipt.ticketId}
+        </div>
+        <Barcode code={receipt.ticketId} label={t.t("betSlip.ticket")} />
+        <button
+          type="button"
+          onClick={copy}
+          className="bg-raised text-text font-body h-11 cursor-pointer rounded-md text-[13px] font-bold"
+        >
+          {t.t(copied ? "betSlip.copied" : "betSlip.copyCode")}
+        </button>
       </div>
 
       <div className="bg-surface numeric flex flex-col gap-[7px] rounded-lg p-3">
@@ -79,8 +109,7 @@ export function BetPlacedConfirmation({
           class action rather than hidden behind a generic share sheet. */}
       <button
         type="button"
-        className="font-body flex h-12 cursor-pointer items-center justify-center gap-2 rounded-md text-sm font-bold text-white"
-        style={{ background: "#229ed9" }}
+        className="bg-telegram font-body flex h-12 cursor-pointer items-center justify-center gap-2 rounded-md text-sm font-bold text-white"
       >
         <Send size={17} strokeWidth={1.5} aria-hidden />
         {t.t("betSlip.shareTelegram")}
