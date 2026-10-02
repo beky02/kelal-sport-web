@@ -160,7 +160,6 @@ export function CheckboxRow({
   note?: string;
 }) {
   const id = useId();
-  const noteId = `${id}-note`;
 
   return (
     <label
@@ -173,7 +172,6 @@ export function CheckboxRow({
           type="checkbox"
           checked={checked}
           onChange={(event) => onChange(event.target.checked)}
-          aria-describedby={note ? noteId : undefined}
           className="border-muted bg-raised checked:border-accent checked:bg-accent focus-visible:outline-accent size-[22px] cursor-pointer appearance-none rounded-md border-[1.5px] focus-visible:outline-2 focus-visible:outline-offset-2"
         />
         {checked && (
@@ -196,10 +194,8 @@ export function CheckboxRow({
       <span>
         <span className="font-semibold">{children}</span>
         {note && (
-          <span
-            id={noteId}
-            className="text-muted block text-[11px] font-normal"
-          >
+          // Inside the label, so already part of the box's name: read once.
+          <span className="text-muted block text-[11px] font-normal">
             {note}
           </span>
         )}

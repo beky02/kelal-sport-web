@@ -299,7 +299,10 @@ describe("registering through the dialog", () => {
       render(<AuthDialog />, { session: "guest" });
 
       await phoneStep();
-      expect(await screen.findByText("Resend code in 1:00")).toBeVisible();
+      // The faked clock still moves with real time: a slow step may show 0:59.
+      expect(
+        await screen.findByText(/Resend code in (1:00|0:59)/),
+      ).toBeVisible();
       expect(screen.queryByRole("button", { name: "Send code" })).toBeNull();
 
       // Checking the number and coming back: the code sent still stands.
