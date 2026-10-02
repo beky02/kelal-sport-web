@@ -55,7 +55,8 @@ Stack: the dev server on :3000 was already running; Prism had stopped after Phas
 
 Round 1 on `39598f6`: spec PASS (3 MINOR), security PASS (8 MINOR), UI PASS (7 MINOR), quality FAIL
 (1 MAJOR, 11 MINOR), money FAIL (1 MAJOR, 2 MINOR). Both MAJORs and every MINOR marked "fixed" below
-went into the fix-round commit; quality and money were asked to confirm (round 2, below).
+went into the fix-round commit `5fc189f`. Round 2 (quality and money confirming the two MAJORs) was skipped
+at the user's request; both fixes carry component tests that reproduce the reported scenarios.
 
 | id   | reviewer | severity | summary                                                                                                   | decision                                                                                                                                                                     |
 | ---- | -------- | -------- | --------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |

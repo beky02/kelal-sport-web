@@ -1,7 +1,7 @@
 ---
 id: F4a
 title: Session cookie, login with the new-device OTP, logout, /api/me, trusted proxy
-status: verifying
+status: done
 depends_on: [F0]
 contract_tags: [Auth, Me]
 touches_money: false
@@ -64,16 +64,16 @@ Telegram login (P1); sending `X-Client-IP` / `X-Client-Device` (contract request
 
 ## Acceptance criteria
 
-- [ ] **AC-3** No token in `localStorage`, `document.cookie` or any response body to the browser
+- [x] **AC-3** No token in `localStorage`, `document.cookie` or any response body to the browser
       (Playwright check after login).
-- [ ] **AC-4** A cross-origin POST to a mutating route handler is rejected (route test).
-- [ ] **AC-5** An expired access token is refreshed once and the request retried (loader test).
-- [ ] **AC-6** Login answering 202 (new device) asks for the OTP.
-- [ ] **AC-7** The tenant comes from `X-Forwarded-Host` only behind an explicit trusted-proxy setting,
+- [x] **AC-4** A cross-origin POST to a mutating route handler is rejected (route test).
+- [x] **AC-5** An expired access token is refreshed once and the request retried (loader test).
+- [x] **AC-6** Login answering 202 (new device) asks for the OTP.
+- [x] **AC-7** The tenant comes from `X-Forwarded-Host` only behind an explicit trusted-proxy setting,
       else from `Host` (`tenantFromHeaders`, route test): with a session cookie, a forged forwarded host
       must not send tenant A's session with tenant B's `X-Tenant-Id` (F3b security review). The same
       setting lets the route handlers read the player's IP for contract request 004.
-- [ ] **AC-8** `GET /api/me` says who is signed in from the API, never from a browser flag; logging out
+- [x] **AC-8** `GET /api/me` says who is signed in from the API, never from a browser flag; logging out
       clears the cookie and every screen returns to the guest state (route and component tests).
 
 ## Verification
@@ -87,3 +87,5 @@ Telegram login (P1); sending `X-Client-IP` / `X-Client-Device` (contract request
 ## Notes
 
 - 2026-10-02: split from F4 (plan: `docs/tasks/F4/plan.md`). AC numbers keep F4's; AC-8 added here.
+- 2026-10-02: verified — `pnpm verify` green, five reviews, one fix round (`docs/tasks/F4/verification.md`).
+  A second confirmation round for the two MAJORs was skipped at the user's request; both fixes carry tests.
