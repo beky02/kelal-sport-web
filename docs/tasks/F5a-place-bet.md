@@ -1,7 +1,7 @@
 ---
 id: F5a
 title: Place a bet with an Idempotency-Key per intent, the 409 flow and every refusal's fix; Code 128
-status: verifying
+status: blocked
 depends_on: [F3a, F3b, F4]
 contract_tags: [Bets]
 touches_money: true
@@ -92,3 +92,6 @@ Out (do not build here):
   only once a bet commits (C08 §7), so a refused retry says nothing about the first try. Only a ticket
   ends it — its own, or one for a bet the player explicitly placed as new. See `F5/plan.md`, "Review
   round 1" and "Review round 2", and docs/design/04 "Placing a bet".
+- 2026-10-03: **blocked** after the three review rounds. Round 3's only MAJOR (P1: the check before a Try
+  again had no time limit) is fixed and tested in c4e5ac9 but not confirmed by a reviewer; the money and
+  UI reviewers passed round 3. Next: a confirming review, or the user's sign-off (`F5/verification.md`).

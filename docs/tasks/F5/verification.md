@@ -3,28 +3,32 @@
 Branch `task/F5-place-bet-my-bets`. F5 is split; this file covers **F5a**. F5b gets its own when it
 runs.
 
+**Status: blocked** — the three review rounds are used. Round 3's only MAJOR (P1) is fixed and tested in
+c4e5ac9, but no reviewer has confirmed that fix; the money and UI reviewers passed round 3. Waiting
+for the user: one more confirming review, or acceptance on the test evidence.
+
 ## Automated gate
 
 | Check                     | Result       | Command / note                                                                                                                                                                                                                                                                                                          |
 | ------------------------- | ------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Typecheck, lint, Prettier | PASS         | `pnpm check`                                                                                                                                                                                                                                                                                                            |
-| Unit and component tests  | PASS         | `pnpm test` — 42 files, 910 tests (799 on main before F5a; 858 before the round-1 fixes; 896 after them); golden CSV: all 366 rows (`tests/unit/golden.test.ts`, untouched)                                                                                                                                             |
+| Unit and component tests  | PASS         | `pnpm test` — 42 files, 913 tests (799 on main before F5a; 858 before the round-1 fixes; 896 after them; 910 after round 2); golden CSV: all 366 rows (`tests/unit/golden.test.ts`, untouched)                                                                                                                          |
 | Generated API types       | PASS         | `pnpm api:check` — "Generated API types match contracts/openapi.yaml."                                                                                                                                                                                                                                                  |
 | Contract copy             | PASS         | `pnpm contract:sync --check` — contracts/ and docs/backend/ match the backend                                                                                                                                                                                                                                           |
 | Build                     | PASS         | `next build` — `/api/bets` listed as a dynamic route. WARN (pre-existing, not F5a): Node's "localStorage is not available" ExperimentalWarning while generating static pages                                                                                                                                            |
 | UI screens and e2e        | PASS         | `pnpm ui` — 172 Playwright runs, incl. 40 new: `home-slip-placed`, `-odds-changed`, `-event-started`, `-limit-reached`, `-insufficient`, `-stake-too-high`, `-verify`, `-unconfirmed`, `-unconfirmed-changed`, `-unconfirmed-refused` (each at phone and desktop, English and Amharic, where the screen exists at both) |
 | First `pnpm verify` run   | FAIL → flake | `auth.spec.ts:133` (F4a: wallet redirect after login) timed out waiting 5 s for the Wallet heading while six workers ran `next dev` compiles; passed 3/3 alone and in every full run since. Not touched by F5a.                                                                                                         |
 
-Final `pnpm verify` (after the round-2 review fixes, commit 2c0f9b0):
+Final `pnpm verify` (after the round-3 review fixes, commit c4e5ac9):
 
 ```
 Test Files  42 passed (42)
-     Tests  910 passed (910)
+     Tests  913 passed (913)
 Generated API types match contracts/openapi.yaml.
 contracts/ matches the backend.
 docs/backend/ matches the backend.
-✓ Compiled successfully in 1626ms
-172 passed (1.6m)
+✓ Compiled successfully in 1074ms
+172 passed (1.4m)
 exit 0
 ```
 
@@ -32,7 +36,8 @@ The round-2 tests were written with their fixes, so each was checked by putting 
 button always Try again, no retry title, a retried odds refusal silent, no stale flag, a price tick
 turning the button into a new bet, a new bet dropping the unconfirmed one, no session check, any
 `limit` taken, "this slip" on an emptied slip, the alert's amount gone — every one fails at least one
-test (scratchpad `mutate.py`).
+test (scratchpad `mutate.py`). Round 3's likewise: the check without the deadline, prices compared as
+strings, the odds setting ignored by the alert, breaking spaces in the bet's name — each caught.
 
 ## Acceptance criteria
 
@@ -109,6 +114,18 @@ Round 2 (2026-10-03), after commit f5124e4. All round-1 findings were confirmed 
 | R2-1 | spec     | MINOR    | The plan's AC→tests table named deleted tests and screens; the task's scope line predated the refined key rule                                                                                                                  | Fixed: the table lists the current tests; F5a's Notes record the rule                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
 | U11  | ui       | MINOR    | With the slip emptied, the alert still spoke of "this slip"; no way to set an unconfirmed bet aside without placing one                                                                                                         | Copy fixed ("names the bet without “this slip” once the slip is cleared (U11)"). Setting it aside is a product decision, not made here: follow-up (Gaps)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
 
+Round 3 (2026-10-03), after commit 2c0f9b0. Money: PASS (M7, M8 confirmed; every button's amount
+recomputed by hand for a multiple, three singles and a system 2/4). UI: PASS (U10, U11 confirmed at
+312 px, 375 px, light theme, after Clear all). Quality: FAIL on P1 (N1–N5 confirmed). New:
+
+| ID  | Reviewer | Severity | Summary                                                                                                                                                                                                                                 | Decision                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| --- | -------- | -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| P1  | quality  | MAJOR    | Round 2's `/api/me` check before a Try again (SEC7) had no time limit: with `/api/me` hanging, after 35 s every slip still said "Placing…", nothing was sent, and Try again was off — the failure Q3 closed, back on the Try again path | Fixed in c4e5ac9: one `placementDeadline()` (30 s) per attempt bounds the `/api/me` read and the POST; past it the bet is unanswered and keeps its key. The read goes to `getMe` directly, so a cached read in flight can't outlast it. Test "gives up on a check of who is signed in that never answers, within the attempt's 30 s (P1)" — failed before the fix, passes after; putting the bug back fails it. **Not confirmed by a reviewer: the three-round limit** |
+| P2  | quality  | MINOR    | `samePrices` compared odds as strings: a respelled price (`"3.050"`) made a stale unconfirmed bet look like another, so the same bet at the same price could go under a new key                                                         | Fixed in c4e5ac9: compared with `compareOdds`, as the slip does. Test "takes a respelled price for the same price, as the slip does (P2)"                                                                                                                                                                                                                                                                                                                              |
+| M9  | money    | MINOR    | After only the odds setting changed, Try again sent the bet's original setting while the select showed another, and nothing said so                                                                                                     | Fixed in c4e5ac9: the alert says "Try again sends that bet as it was: …" whenever Try again would send what the slip doesn't show (other prices, another setting). Test "says Try again sends the bet as it was when only the odds setting changed (M9)"                                                                                                                                                                                                               |
+| U12 | ui       | MINOR    | The bet's name broke across lines ("Multiple · 3 / picks"; an Amharic line starting with "·")                                                                                                                                           | Fixed in c4e5ac9: joined with non-breaking spaces (asserted in the M7 test; seen in the regenerated `home-slip-unconfirmed-changed` shots)                                                                                                                                                                                                                                                                                                                             |
+| U13 | ui       | MINOR    | After "Try again in 30 seconds", both Try again buttons look and act enabled at once (optional polish)                                                                                                                                  | Follow-up: hold Try again, or count down, until `Retry-After` has passed                                                                                                                                                                                                                                                                                                                                                                                               |
+
 ## Gaps
 
 - **No scanner yet.** The barcodes decode from the screenshots' pixels (UI review), but no shop scanner
@@ -134,3 +151,6 @@ Round 2 (2026-10-03), after commit f5124e4. All round-1 findings were confirmed 
 - **Re-reviewed in round 3 by the reviewers with MAJOR findings** (money, quality, UI). The security and
   spec reviewers passed round 2; their MINOR fixes (SEC5, SEC7, R2-1) are covered by the tests named
   above and the put-the-bug-back check.
+- **Try again during a rate limit** (U13): enabled at once; a tap inside `Retry-After` brings another 429.
+  Follow-up polish.
+- **P1's fix is reviewed only by its tests**: the three-round limit was reached (see Status).
