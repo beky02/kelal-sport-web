@@ -3,7 +3,12 @@ import type {
   KycResultView,
   OtpChallengeView,
 } from "../types";
-import { authErrorMessage, isCodeRefusal, type AuthErrorView } from "./errors";
+import {
+  authErrorMessage,
+  isCodeRefusal,
+  isStaleTerms,
+  type AuthErrorView,
+} from "./errors";
 
 /**
  * Registration and Fayda verification as a pure reducer, so the dialog's
@@ -28,6 +33,13 @@ export interface RegisterState {
    * back to change the number does not ask for them again.
    */
   consented: boolean;
+  /** The terms version on screen when the boxes were ticked; sent back at Create account. */
+  termsVersion: string | null;
+  /**
+   * The terms changed after the consent: the phone step asks for it again,
+   * and the code already sent still stands — no second SMS.
+   */
+  reconsent: boolean;
   challengeId: string | null;
   /** When another code may be asked for, in epoch ms (`resend_after`). */
   resendAt: number | null;
@@ -52,7 +64,8 @@ export interface RegisterState {
 }
 
 export type RegisterEvent =
-  | { type: "sendCode"; phone: string }
+  | { type: "sendCode"; phone: string; termsVersion: string | null }
+  | { type: "reconsented"; termsVersion: string | null }
   | { type: "codeSent"; challenge: OtpChallengeView; now: number }
   | { type: "enterCode"; otp: string }
   | {
@@ -76,6 +89,8 @@ export function initialRegister(mode: RegisterState["mode"]): RegisterState {
     step: mode === "verify" ? "kyc" : "phone",
     phone: "",
     consented: false,
+    termsVersion: null,
+    reconsent: false,
     challengeId: null,
     resendAt: null,
     otp: "",
@@ -135,7 +150,19 @@ export function registerReducer(
         ...state,
         phone: event.phone,
         consented: true,
+        termsVersion: event.termsVersion,
+        reconsent: false,
         pending: true,
+        error: null,
+      };
+    case "reconsented":
+      // Same phone, same code: straight back to the details, as typed.
+      return {
+        ...state,
+        step: "details",
+        consented: true,
+        termsVersion: event.termsVersion,
+        reconsent: false,
         error: null,
       };
     case "codeSent":
@@ -195,6 +222,18 @@ export function registerReducer(
         error: null,
       };
     case "failed": {
+      if (state.step === "details" && isStaleTerms(event.error)) {
+        // New terms since the boxes were ticked: ask again, unticked.
+        return {
+          ...state,
+          step: "phone",
+          consented: false,
+          reconsent: true,
+          pending: false,
+          error: { key: "auth.errors.termsUpdated" },
+          attempts: state.attempts + 1,
+        };
+      }
       // The registration code is checked with the details: its refusal
       // belongs to the code step, emptied for another go.
       const toCode = state.step === "details" && isCodeRefusal(event.error);

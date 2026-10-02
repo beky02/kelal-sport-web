@@ -252,6 +252,38 @@ describe("POST /api/auth/login", () => {
     expect(sessionCookieOf(mod, response)).toBeDefined();
   });
 
+  it("revokes the session the browser had before sealing the new one — not on a 202 or a refusal (F4b, SEC4)", async () => {
+    const mod = await load();
+    upstreamAnswers((request) =>
+      path(request) === "/v1/auth/logout"
+        ? { status: 204 }
+        : {
+            status: 200,
+            body: responseExample("/v1/auth/login", "post", 200),
+          },
+    );
+    const signedIn = { ...SAME_SITE, cookie: cookieHeader(mod) };
+
+    const response = await post(mod.login, LOGIN, CREDENTIALS, signedIn);
+
+    expect(sent.map(path)).toEqual(["/v1/auth/login", "/v1/auth/logout"]);
+    expect(bearer(sent[1])).toBe("eyJ.live.access");
+    expect(mod.open(valueOf(sessionCookieOf(mod, response)!))?.access).toBe(
+      "eyJhbGciOi...",
+    );
+
+    for (const [status, body] of [
+      [202, responseExample("/v1/auth/login", "post", 202)],
+      [401, responseExample("/v1/auth/login", "post", 401)],
+    ] as const) {
+      sent = [];
+      upstreamAnswers(() => ({ status, body }));
+      const answer = await post(mod.login, LOGIN, CREDENTIALS, signedIn);
+      expect(sent.map(path), String(status)).toEqual(["/v1/auth/login"]);
+      expect(sessionCookieOf(mod, answer)).toBeUndefined();
+    }
+  });
+
   it("passes a 401 AUTH_INVALID_CREDENTIALS and a 423 AUTH_LOCKED through unchanged", async () => {
     const mod = await load();
     const wrong = responseExample("/v1/auth/login", "post", 401);

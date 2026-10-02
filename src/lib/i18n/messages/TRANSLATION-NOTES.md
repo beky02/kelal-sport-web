@@ -246,3 +246,20 @@ composition rules; the third step is now "Details"). "Session" follows
 | `auth.errors.KYC_PROVIDER_UNAVAILABLE` | ፋይዳ አሁን አይገኝም። በኋላ ከመገለጫዎ ማረጋገጥ ይችላሉ።               | `auth.doThisLater` (በኋላ), `profile` (መገለጫ)      |
 | `auth.errors.AUTH_TOKEN_EXPIRED`       | ቆይታዎ አብቅቷል። ለመቀጠል እንደገና ይግቡ።                        | `system.sessionBody`'s first two sentences      |
 | `auth.errors.VALIDATION_FAILED`        | አንዳንድ መረጃዎች መስተካከል አለባቸው።                           | new                                             |
+
+### F4b, before merge (2026-10-02)
+
+The ID step's copy was cut to what a source backs (the user's decision): SRS KYC-04 blocks withdrawals
+until the ID is verified; nothing backs "Ethiopian law requires…" (C02 §2 TBD-1), "about 2 minutes",
+or "You can deposit and bet now" (C02 §9 allows a deposit threshold). The age consent now states the
+tenant's `legal.min_age`.
+
+| Key                              | Amharic                                               | Composed from                                   |
+| -------------------------------- | ----------------------------------------------------- | ----------------------------------------------- |
+| `auth.kycBody`                   | አሸናፊነትዎን ከማውጣትዎ በፊት የማንነት ማረጋገጫ ያስፈልጋል።               | former body without "በሕግ" (by law) and the time |
+| `auth.laterNote`                 | መታወቂያዎ እስኪረጋገጥ ገንዘብ ማውጣት አይቻልም።                       | former note's second sentence                   |
+| `auth.age`                       | ዕድሜዬ {age} ዓመት ወይም ከዚያ በላይ ነው                         | former copy, 21 → `{age}`                       |
+| `auth.ageNote`                   | ውርርድ ለ{age}+ ዓመት ብቻ ነው። ይህንን ከፋይዳ መታወቂያዎ ጋር እናረጋግጣለን። | former copy, 21 → `{age}`                       |
+| `auth.errors.termsUpdated`       | ደንቦቻችን ተሻሽለዋል። እባክዎ አንብበው እንደገና ይቀበሉ።                 | `auth.termsLink` (ደንቦቹን), `auth.termsConsent`   |
+| `auth.errors.rateLimitedSeconds` | በጣም ብዙ ሙከራዎች። ከ{seconds} ሰከንድ በኋላ እንደገና ይሞክሩ።         | `auth.errors.RATE_LIMITED` + wait               |
+| `auth.errors.rateLimitedMinutes` | በጣም ብዙ ሙከራዎች። ከ{minutes} ደቂቃ በኋላ እንደገና ይሞክሩ።          | `auth.errors.RATE_LIMITED` + wait               |

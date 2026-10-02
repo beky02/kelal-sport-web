@@ -2,6 +2,9 @@
 
 import { useReducer } from "react";
 import { useRouter } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
+import { usePublicConfig } from "@/features/config/hooks/use-public-config";
+import { configKeys } from "@/lib/query/keys";
 import { useRichTranslation } from "@/lib/i18n/rich";
 import { useTranslation } from "@/lib/i18n/use-translation";
 import { routes } from "@/config/routes";
@@ -13,7 +16,7 @@ import {
 import { useFinishAuth } from "../../hooks/use-finish-auth";
 import { useRegister } from "../../hooks/use-session";
 import { parseBirthDate } from "../../lib/birth-date";
-import type { AuthFix } from "../../lib/errors";
+import { isStaleTerms, type AuthFix } from "../../lib/errors";
 import { maskPhone, toE164 } from "../../lib/phone";
 import {
   canGoBack,
@@ -39,6 +42,9 @@ import { PhoneStep } from "../steps/PhoneStep";
  * Every call goes through this app's route handlers; every refusal is decided
  * by its code (`lib/errors.ts`) and offers its fix.
  */
+/** C01 §9 `auth.min_age`, for a tenant whose config does not say. */
+const DEFAULT_MIN_AGE = 21;
+
 export function RegisterFlow({ mode }: { mode: "register" | "verify" }) {
   const t = useTranslation();
   const rich = useRichTranslation();
@@ -47,14 +53,33 @@ export function RegisterFlow({ mode }: { mode: "register" | "verify" }) {
   const close = useAuthStore((s) => s.close);
   const finish = useFinishAuth();
 
+  const queryClient = useQueryClient();
+  const config = usePublicConfig();
+  const legal = config.data?.legal;
+
   const [state, dispatch] = useReducer(registerReducer, mode, initialRegister);
   const sendOtp = useSendOtp();
   const register = useRegister();
   const startFayda = useStartFayda();
   const verifyFayda = useVerifyFayda();
 
-  const sendCode = async (phone: string) => {
-    dispatch({ type: "sendCode", phone });
+  /** The terms on screen now are what the ticked boxes accept. */
+  const submitPhone = (phone: string) => {
+    const termsVersion = legal?.termsVersion ?? null;
+    // Asked again only because the terms changed: the code already sent for
+    // this number still stands, so no second SMS.
+    if (state.reconsent && state.challengeId && phone === state.phone) {
+      dispatch({ type: "reconsented", termsVersion });
+      return;
+    }
+    return sendCode(phone, termsVersion);
+  };
+
+  const sendCode = async (
+    phone: string,
+    termsVersion: string | null = state.termsVersion,
+  ) => {
+    dispatch({ type: "sendCode", phone, termsVersion });
     try {
       const challenge = await sendOtp.mutateAsync({
         phone,
@@ -78,9 +103,14 @@ export function RegisterFlow({ mode }: { mode: "register" | "verify" }) {
         dateOfBirth,
         password: details.password,
         acceptTerms: true,
+        termsVersion: state.termsVersion ?? "",
       });
       dispatch({ type: "created" });
     } catch (error) {
+      // New terms: read them before the player is asked to accept again.
+      if (isStaleTerms(error)) {
+        void queryClient.invalidateQueries({ queryKey: configKeys.public() });
+      }
       dispatch({ type: "failed", error });
     }
   };
@@ -150,11 +180,13 @@ export function RegisterFlow({ mode }: { mode: "register" | "verify" }) {
       {state.step === "phone" && (
         <PhoneStep
           initialPhone={state.phone}
+          minAge={legal?.minAge ?? DEFAULT_MIN_AGE}
           consented={state.consented}
-          pending={state.pending}
+          // While re-consenting, wait for the new terms to arrive.
+          pending={state.pending || (state.reconsent && config.isFetching)}
           error={state.error}
           onFix={onFix}
-          onSubmit={sendCode}
+          onSubmit={submitPhone}
           onLogin={() => switchTo("login")}
         />
       )}

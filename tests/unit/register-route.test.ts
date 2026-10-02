@@ -101,6 +101,7 @@ const REGISTRATION = {
   dateOfBirth: "1998-04-12",
   password: "correct horse battery",
   acceptTerms: true,
+  termsVersion: "2026-10",
 };
 const RESET_FORM = {
   challengeId: "01J9A7QK3M8X2B7Y4Z5N6P0R1U",
@@ -236,6 +237,38 @@ describe("POST /api/auth/otp", () => {
   });
 });
 
+describe("a 429", () => {
+  it("passes the API's Retry-After on with the Problem", async () => {
+    const mod = await load();
+    vi.spyOn(globalThis, "fetch").mockImplementation(async () =>
+      Response.json(
+        {
+          type: "https://api.example.et/errors/otp-rate-limited",
+          title: "Too many codes requested",
+          status: 429,
+          code: "AUTH_OTP_RATE_LIMITED",
+        },
+        {
+          status: 429,
+          headers: {
+            "Content-Type": "application/problem+json",
+            "Retry-After": "900",
+          },
+        },
+      ),
+    );
+
+    const response = await post(mod.otp, OTP, {
+      phone: "911234567",
+      purpose: "register",
+    });
+
+    expect(response.status).toBe(429);
+    expect(response.headers.get("retry-after")).toBe("900");
+    expect((await response.json()).code).toBe("AUTH_OTP_RATE_LIMITED");
+  });
+});
+
 describe("POST /api/auth/register", () => {
   it("sends the contract's RegisterRequest with the tenant's terms version, the UI language and this browser's device (AC-1)", async () => {
     const mod = await load();
@@ -365,6 +398,26 @@ describe("POST /api/auth/register", () => {
     expect(sessionCookieOf(mod, response)).toBeUndefined();
   });
 
+  it("refuses a consent to terms that are no longer current, naming the current version", async () => {
+    const mod = await load();
+    upstreamAnswers(() => ({ status: 201, body: {} }));
+
+    const response = await post(mod.register, REGISTER, {
+      ...REGISTRATION,
+      termsVersion: "2026-09",
+    });
+
+    expect(response.status).toBe(422);
+    expect(await response.json()).toMatchObject({
+      code: "VALIDATION_FAILED",
+      errors: [
+        { field: "accept_terms_version", code: "STALE", current: "2026-10" },
+      ],
+    });
+    expect(sent).toHaveLength(0);
+    expect(sessionCookieOf(mod, response)).toBeUndefined();
+  });
+
   it("passes a refused code through and sets no session (AC-2)", async () => {
     const mod = await load();
     const invalid = {
@@ -394,8 +447,9 @@ describe("POST /api/auth/register", () => {
       { ...REGISTRATION, dateOfBirth: "12/04/1998" },
       { ...REGISTRATION, dateOfBirth: "1998-02-30" },
       { ...REGISTRATION, password: "short" },
-      // The browser never chooses the terms version.
+      // The browser names the terms it showed, never the API's field.
       { ...REGISTRATION, acceptTermsVersion: "1999-01" },
+      { ...REGISTRATION, termsVersion: undefined },
       { ...REGISTRATION, nationalId: "1234" },
     ]) {
       const response = await post(mod.register, REGISTER, body);

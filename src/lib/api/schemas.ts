@@ -330,6 +330,10 @@ export const bettingRulesSchema = z.object({
 export const publicConfigSchema = z.object({
   betting: bettingRulesSchema,
   features: z.object({ bookingCodes: z.boolean() }),
+  legal: z.object({
+    termsVersion: z.string().nullable(),
+    minAge: z.number().int().positive().nullable(),
+  }),
 }) satisfies z.ZodType<PublicConfigView>;
 
 const betTypeSchema = z.enum(["single", "multiple", "system"]);
@@ -521,8 +525,9 @@ export const registerFormSchema = z.strictObject({
   fullName: z.string().trim().min(3).max(100),
   dateOfBirth: z.string().refine((value) => isIsoDate(value), "Not a date"),
   password: z.string().min(8).max(128),
-  // The consent the phone step required; the version is the tenant's.
+  // The consent the phone step required, and the terms version it showed.
   acceptTerms: z.literal(true),
+  termsVersion: z.string().max(64),
 }) satisfies z.ZodType<RegisterForm>;
 
 export const passwordResetFormSchema = z.strictObject({

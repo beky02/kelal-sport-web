@@ -19,9 +19,23 @@ import type { AuthErrorView } from "../../lib/errors";
 import { phoneSchema, type PhoneForm } from "../../lib/schemas";
 import { AuthNotice } from "../AuthNotice";
 
+/**
+ * Opens a legal page in a new tab, leaving the flow — and the row's box — as
+ * they were: the link sits inside the consent row, which a click or Enter
+ * would otherwise tick or untick, and leaving the page would drop what the
+ * player has typed.
+ */
+const keepFlow = {
+  target: "_blank",
+  rel: "noopener noreferrer",
+  onClick: (event: React.MouseEvent) => event.stopPropagation(),
+  onKeyDown: (event: React.KeyboardEvent) => event.stopPropagation(),
+} as const;
+
 /** Step 1: the number, and the two things the law requires us to ask. */
 export function PhoneStep({
   initialPhone = "",
+  minAge,
   consented = false,
   pending = false,
   error = null,
@@ -30,6 +44,8 @@ export function PhoneStep({
   onLogin,
 }: {
   initialPhone?: string;
+  /** The tenant's minimum age (`legal.min_age`), stated in the age consent. */
+  minAge: number;
   /** Both boxes were ticked before (the player came back to change the number). */
   consented?: boolean;
   pending?: boolean;
@@ -89,19 +105,23 @@ export function PhoneStep({
       </Field>
 
       <div className="flex flex-col gap-1">
-        <CheckboxRow checked={age} onChange={setAge} note={t.t("auth.ageNote")}>
-          {t.t("auth.age")}
+        <CheckboxRow
+          checked={age}
+          onChange={setAge}
+          note={t.t("auth.ageNote", { age: minAge })}
+        >
+          {t.t("auth.age", { age: minAge })}
         </CheckboxRow>
 
         <CheckboxRow checked={terms} onChange={setTerms}>
           {rich("auth.termsConsent", {
             terms: (
-              <Link href={routes.terms} className={linkClass}>
+              <Link href={routes.terms} className={linkClass} {...keepFlow}>
                 {t.t("auth.termsLink")}
               </Link>
             ),
             privacy: (
-              <Link href={routes.privacy} className={linkClass}>
+              <Link href={routes.privacy} className={linkClass} {...keepFlow}>
                 {t.t("auth.privacyLink")}
               </Link>
             ),

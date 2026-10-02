@@ -17,6 +17,8 @@ export type AuthFix =
 export interface AuthErrorView {
   /** Our own words, in both languages, for a code we know. */
   key?: MessageKey;
+  /** Placeholders in `key` — how long to wait. */
+  values?: Record<string, string | number>;
   /** The API's translated title, for a code we don't. */
   text?: string;
   detail?: string;
@@ -64,6 +66,22 @@ function validation(error: ApiError, known: readonly string[]): AuthErrorView {
   };
 }
 
+/**
+ * "Too many attempts", with how long to wait when the API's `Retry-After`
+ * said: seconds under two minutes, whole minutes (rounded up) beyond.
+ */
+function rateLimited(retryAfter: number | null): AuthErrorView {
+  if (retryAfter === null || retryAfter <= 0) {
+    return { key: "auth.errors.RATE_LIMITED" };
+  }
+  return retryAfter < 120
+    ? { key: "auth.errors.rateLimitedSeconds", values: { seconds: retryAfter } }
+    : {
+        key: "auth.errors.rateLimitedMinutes",
+        values: { minutes: Math.ceil(retryAfter / 60) },
+      };
+}
+
 export function authErrorMessage(
   error: unknown,
   { expired = "logInAgain", fields = [] }: AuthErrorOptions = {},
@@ -86,7 +104,7 @@ export function authErrorMessage(
         : { key: "auth.errors.AUTH_OTP_EXPIRED", fix: "logInAgain" };
     case "RATE_LIMITED":
     case "AUTH_OTP_RATE_LIMITED":
-      return { key: "auth.errors.RATE_LIMITED" };
+      return rateLimited(error.retryAfter);
     case "AUTH_OTP_UNAVAILABLE":
       return { key: "auth.errors.AUTH_OTP_UNAVAILABLE" };
     case "REG_PHONE_TAKEN":
@@ -122,3 +140,12 @@ export function authErrorMessage(
 export const isCodeRefusal = (error: unknown): boolean =>
   error instanceof ApiError &&
   (error.code === "AUTH_OTP_INVALID" || error.code === "AUTH_OTP_EXPIRED");
+
+/**
+ * The tenant published other terms between the consent and Create account:
+ * the route handler's `VALIDATION_FAILED` on `accept_terms_version`.
+ */
+export const isStaleTerms = (error: unknown): boolean =>
+  error instanceof ApiError &&
+  error.code === "VALIDATION_FAILED" &&
+  error.errors.some((entry) => entry.field === "accept_terms_version");

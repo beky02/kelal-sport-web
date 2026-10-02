@@ -170,6 +170,7 @@ describe("registration and reset mappers (F4b)", () => {
         dateOfBirth: contract.date_of_birth,
         password: contract.password,
         acceptTerms: true,
+        termsVersion: contract.accept_terms_version,
       },
       contract.accept_terms_version,
       "am",

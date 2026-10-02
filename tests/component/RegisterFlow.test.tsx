@@ -4,9 +4,11 @@ import userEvent from "@testing-library/user-event";
 import { AuthDialog } from "@/features/auth/components/AuthDialog";
 import { useAuthStore } from "@/features/auth/stores/auth.store";
 import type { KycResultView } from "@/features/auth/types";
+import { toPublicConfigView } from "@/lib/api/mappers/config";
 import { CSRF_HEADER, CSRF_VALUE } from "@/lib/session-cookie";
-import { sessionKeys } from "@/lib/query/keys";
+import { configKeys, sessionKeys } from "@/lib/query/keys";
 import { useUiStore } from "@/stores/ui.store";
+import { example } from "../contract";
 import { CONTRACT_PLAYER, render } from "./render";
 
 const replace = vi.fn();
@@ -26,7 +28,9 @@ interface Sent {
 
 /** Stubs this app's own `/api/*`; every call is recorded in `sent`. */
 let sent: Sent[] = [];
-function api(answer: (call: Sent) => [number, unknown]) {
+function api(
+  answer: (call: Sent) => [number, unknown, Record<string, string>?],
+) {
   vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
     const url = new URL(String(input));
     const call: Sent = {
@@ -36,13 +40,14 @@ function api(answer: (call: Sent) => [number, unknown]) {
       body: init?.body ? JSON.parse(String(init.body)) : undefined,
     };
     sent.push(call);
-    const [status, body] = answer(call);
+    const [status, body, headers = {}] = answer(call);
     if (status === 204) return new Response(null, { status });
     return Response.json(body, {
       status,
       headers: {
         "Content-Type":
           status >= 400 ? "application/problem+json" : "application/json",
+        ...headers,
       },
     });
   });
@@ -194,6 +199,8 @@ describe("registering through the dialog", () => {
       dateOfBirth: "1998-04-12",
       password: "correct horse battery",
       acceptTerms: true,
+      // The terms the phone step showed: the tenant's (contract example).
+      termsVersion: "2026-10",
     });
     // Signed in: /api/me is read and the session query says so.
     await waitFor(() =>
@@ -467,6 +474,126 @@ describe("what registration says when the API refuses", () => {
     );
     await userEvent.click(screen.getByRole("button", { name: "Continue" }));
     expect(await screen.findByLabelText("SMS code")).toBeVisible();
+  });
+});
+
+describe("the consents", () => {
+  it("states the tenant's minimum age", async () => {
+    api((call) => happy(call));
+    const { queryClient } = render(<AuthDialog />, { session: "guest" });
+    expect(
+      screen.getByRole("checkbox", { name: /21 years or older/ }),
+    ).toBeVisible();
+
+    const view = toPublicConfigView(example("/v1/config/public"));
+    queryClient.setQueryData(configKeys.public(), {
+      ...view,
+      legal: { ...view.legal, minAge: 18 },
+    });
+    expect(
+      await screen.findByRole("checkbox", { name: /18 years or older/ }),
+    ).toBeVisible();
+  });
+
+  it("opens Terms in a new tab without ticking the box or leaving the flow", async () => {
+    api((call) => happy(call));
+    render(<AuthDialog />, { session: "guest" });
+
+    const terms = screen.getByRole("link", { name: "Terms" });
+    expect(terms).toHaveAttribute("target", "_blank");
+    expect(terms).toHaveAttribute("rel", "noopener noreferrer");
+    await userEvent.click(terms);
+
+    expect(screen.getByRole("checkbox", { name: /I accept/ })).toHaveAttribute(
+      "aria-checked",
+      "false",
+    );
+  });
+
+  it("asks again when the terms changed before Create account — no second SMS, the details kept", async () => {
+    const view = toPublicConfigView(example("/v1/config/public"));
+    let refused = false;
+    api((call) => {
+      if (call.path === "/api/config") {
+        return [
+          200,
+          { ...view, legal: { ...view.legal, termsVersion: "2026-11" } },
+        ];
+      }
+      if (call.path === "/api/auth/register" && !refused) {
+        refused = true;
+        return [
+          422,
+          problem(422, "VALIDATION_FAILED", [
+            { field: "accept_terms_version", code: "STALE" },
+          ]),
+        ];
+      }
+      return happy(call);
+    });
+    render(<AuthDialog />, { session: "guest" });
+
+    await phoneStep();
+    await codeStep();
+    await detailsStep();
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Our terms were updated. Please read and accept them again.",
+    );
+    expect(screen.getByText("Step 1 of 4")).toBeInTheDocument();
+    expect(screen.getByRole("checkbox", { name: /I accept/ })).toHaveAttribute(
+      "aria-checked",
+      "false",
+    );
+    expect(screen.getByLabelText("Phone number")).toHaveValue("911234567");
+
+    await userEvent.click(
+      screen.getByRole("checkbox", { name: /21 years or older/ }),
+    );
+    await userEvent.click(screen.getByRole("checkbox", { name: /I accept/ }));
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Continue" })).toBeEnabled(),
+    );
+    await userEvent.click(screen.getByRole("button", { name: "Continue" }));
+
+    // Straight back to the details, as typed; the code sent before stands.
+    expect(await screen.findByLabelText("Full name as on your ID")).toHaveValue(
+      "Abebe Kebede",
+    );
+    expect(posts("/api/auth/otp")).toHaveLength(1);
+    await userEvent.type(
+      screen.getByLabelText("Password"),
+      "correct horse battery",
+    );
+    await userEvent.type(
+      screen.getByLabelText("Confirm password"),
+      "correct horse battery",
+    );
+    await userEvent.click(
+      screen.getByRole("button", { name: "Create account" }),
+    );
+
+    await waitFor(() => expect(posts("/api/auth/register")).toHaveLength(2));
+    expect(posts("/api/auth/register")[1].body).toMatchObject({
+      otp: "482913",
+      termsVersion: "2026-11",
+    });
+    expect(await screen.findByText("Step 4 of 4")).toBeInTheDocument();
+  });
+
+  it("says how long to wait when too many codes were asked for", async () => {
+    api((call) =>
+      call.path === "/api/auth/otp"
+        ? [429, problem(429, "AUTH_OTP_RATE_LIMITED"), { "Retry-After": "45" }]
+        : happy(call),
+    );
+    render(<AuthDialog />, { session: "guest" });
+
+    await phoneStep();
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Too many attempts. Try again in 45 seconds.",
+    );
   });
 });
 

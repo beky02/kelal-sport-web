@@ -105,8 +105,9 @@ export interface OtpChallengeView {
 
 /**
  * What the details step sends. The code rides along: the API checks it here,
- * not on the code step. The terms version is the tenant's, added by the route
- * handler — the browser only says the box was ticked.
+ * not on the code step. `termsVersion` is the version the phone step showed
+ * when the box was ticked; the route handler refuses it once the tenant's
+ * current version differs, and sends the API its own.
  */
 export interface RegisterForm {
   challengeId: string;
@@ -116,6 +117,7 @@ export interface RegisterForm {
   dateOfBirth: string;
   password: string;
   acceptTerms: true;
+  termsVersion: string;
 }
 
 /** Registration's answer: who was created. The tokens are in the cookie. */

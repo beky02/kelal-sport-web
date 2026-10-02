@@ -77,12 +77,14 @@ async function request<T>(
       code?: string;
       errors?: ProblemFieldError[];
     } | null;
+    const retryAfter = response.headers.get("retry-after")?.trim() ?? "";
     throw new ApiError(
       problem?.title ?? `${method} ${path} failed with ${response.status}`,
       response.status,
       problem?.code ?? "http_error",
       problem,
       problem?.errors ?? [],
+      /^\d{1,6}$/.test(retryAfter) ? Number(retryAfter) : null,
     );
   }
 

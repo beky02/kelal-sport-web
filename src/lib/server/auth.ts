@@ -30,7 +30,7 @@ import {
   type Session,
   type SessionContext,
 } from "./session";
-import { UpstreamError, unwrap, upstream } from "./upstream";
+import { UpstreamError, retryAfterOf, unwrap, upstream } from "./upstream";
 
 type AuthResult = components["schemas"]["AuthResult"];
 type OtpRequired = components["schemas"]["OtpRequired"];
@@ -118,13 +118,12 @@ export async function sendOtp(
 }
 
 /**
- * The tenant's current terms version — what the player's tick on the phone
- * step accepts (REG-03). Never taken from the browser. A tenant with none
- * configured cannot record a consent, so nobody registers there until it does.
+ * The tenant's current terms version (REG-03). A tenant with none configured
+ * cannot record a consent, so nobody registers there until it does.
  */
 async function termsVersion(tenant: string): Promise<string> {
-  const version = (await loadPublicConfig(tenant)).legal?.terms_version;
-  if (version?.trim()) return version;
+  const version = (await loadPublicConfig(tenant)).legal?.terms_version?.trim();
+  if (version) return version;
   throw new UpstreamError(503, {
     type: "about:blank",
     title: "Registration is not available right now",
@@ -137,6 +136,12 @@ async function termsVersion(tenant: string): Promise<string> {
  * Creates the account (C01 §8). The API checks the SMS code here, not on the
  * code step. A 201 is the new player plus a session for the route handler to
  * seal into the cookie, exactly as a login; the tokens go no further.
+ *
+ * The consent is to the terms the phone step showed. If the tenant has
+ * published other terms since, nothing is created: the answer names the
+ * current version (a `VALIDATION_FAILED` on `accept_terms_version`) and the
+ * player is asked to accept again. The version sent upstream is always the
+ * server's own, never one only the browser vouches for.
  */
 export async function register(
   ctx: SessionContext,
@@ -144,6 +149,17 @@ export async function register(
   device: Device,
 ): Promise<{ result: RegisterResult; session: Session }> {
   const terms = await termsVersion(ctx.tenant);
+  if (form.termsVersion !== terms) {
+    throw new UpstreamError(422, {
+      type: "about:blank",
+      title: "The terms have changed",
+      status: 422,
+      code: "VALIDATION_FAILED",
+      errors: [
+        { field: "accept_terms_version", code: "STALE", current: terms },
+      ],
+    });
+  }
   const call = await upstream("Auth", ctx).POST("/v1/auth/register", {
     body: toRegisterRequest(form, terms, ctx.lang, device),
   });
@@ -167,6 +183,10 @@ export async function resetPassword(
     body: toPasswordResetRequest(form),
   });
   if (!call.response.ok) {
-    throw new UpstreamError(call.response.status, call.error ?? null);
+    throw new UpstreamError(
+      call.response.status,
+      call.error ?? null,
+      retryAfterOf(call.response),
+    );
   }
 }

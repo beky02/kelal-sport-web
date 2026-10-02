@@ -65,4 +65,18 @@ describe("toPublicConfigView", () => {
   it("produces what the browser's schema accepts", () => {
     expect(publicConfigSchema.parse(toPublicConfigView(config()))).toBeTruthy();
   });
+
+  it("carries the tenant's terms version and minimum age, and nothing when it has none (F4b)", () => {
+    expect(toPublicConfigView(config()).legal).toEqual({
+      termsVersion: "2026-10",
+      minAge: 21,
+    });
+    const none = config();
+    delete none.legal;
+    expect(toPublicConfigView(none).legal).toEqual({
+      termsVersion: null,
+      minAge: null,
+    });
+    expect(publicConfigSchema.parse(toPublicConfigView(none))).toBeTruthy();
+  });
 });

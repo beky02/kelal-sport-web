@@ -29,7 +29,7 @@ export function AuthNotice({
   if (!error) return null;
 
   const message = error.key
-    ? t.t(error.key)
+    ? t.t(error.key, error.values)
     : (error.text ?? t.t("auth.errors.failed"));
 
   return (

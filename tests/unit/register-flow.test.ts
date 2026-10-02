@@ -52,7 +52,7 @@ const runReset = (state: ResetState, ...events: ResetEvent[]) =>
 const atDetails = () =>
   run(
     initialRegister("register"),
-    { type: "sendCode", phone: "911234567" },
+    { type: "sendCode", phone: "911234567", termsVersion: "2026-10" },
     { type: "codeSent", challenge: CHALLENGE, now: NOW },
     { type: "enterCode", otp: "482913" },
   );
@@ -62,6 +62,7 @@ describe("the registration flow", () => {
     let state = run(initialRegister("register"), {
       type: "sendCode",
       phone: "911234567",
+      termsVersion: "2026-10",
     });
     expect(state).toMatchObject({ step: "phone", pending: true });
 
@@ -151,7 +152,7 @@ describe("the registration flow", () => {
     const attempts = state.attempts;
     state = run(
       state,
-      { type: "sendCode", phone: state.phone },
+      { type: "sendCode", phone: state.phone, termsVersion: "2026-10" },
       {
         type: "codeSent",
         challenge: { ...CHALLENGE, challengeId: "second" },
@@ -172,7 +173,7 @@ describe("the registration flow", () => {
   it("keeps other refusals on the step that caused them", () => {
     const taken = run(
       initialRegister("register"),
-      { type: "sendCode", phone: "911234567" },
+      { type: "sendCode", phone: "911234567", termsVersion: "2026-10" },
       { type: "failed", error: problem(409, "REG_PHONE_TAKEN") },
     );
     expect(taken).toMatchObject({
@@ -189,6 +190,38 @@ describe("the registration flow", () => {
     expect(underage).toMatchObject({
       step: "details",
       error: { key: "auth.errors.REG_UNDERAGE", fix: "responsibleGaming" },
+    });
+  });
+
+  it("asks for the consents again when the terms changed, keeping the code and the details", () => {
+    let state = run(
+      atDetails(),
+      { type: "submitDetails", ...DETAILS },
+      {
+        type: "failed",
+        error: problem(422, "VALIDATION_FAILED", [
+          { field: "accept_terms_version", code: "STALE" },
+        ]),
+      },
+    );
+    expect(state).toMatchObject({
+      step: "phone",
+      consented: false,
+      reconsent: true,
+      otp: "482913",
+      challengeId: CHALLENGE.challengeId,
+      error: { key: "auth.errors.termsUpdated" },
+      ...DETAILS,
+    });
+
+    state = run(state, { type: "reconsented", termsVersion: "2026-11" });
+    expect(state).toMatchObject({
+      step: "details",
+      consented: true,
+      reconsent: false,
+      termsVersion: "2026-11",
+      otp: "482913",
+      error: null,
     });
   });
 
@@ -216,7 +249,7 @@ describe("the registration flow", () => {
   it("goes back only where there is something to go back to", () => {
     const otp = run(
       initialRegister("register"),
-      { type: "sendCode", phone: "911234567" },
+      { type: "sendCode", phone: "911234567", termsVersion: "2026-10" },
       { type: "codeSent", challenge: CHALLENGE, now: NOW },
     );
     expect(canGoBack(otp)).toBe(true);
@@ -357,6 +390,33 @@ describe("the reset flow", () => {
 });
 
 describe("what a registration refusal says", () => {
+  it("says how long to wait when the API's Retry-After does", () => {
+    const limited = (retryAfter: number | null) =>
+      authErrorMessage(
+        new ApiError(
+          "Too many",
+          429,
+          "AUTH_OTP_RATE_LIMITED",
+          undefined,
+          [],
+          retryAfter,
+        ),
+      );
+    expect(limited(null)).toEqual({ key: "auth.errors.RATE_LIMITED" });
+    expect(limited(45)).toEqual({
+      key: "auth.errors.rateLimitedSeconds",
+      values: { seconds: 45 },
+    });
+    expect(limited(900)).toEqual({
+      key: "auth.errors.rateLimitedMinutes",
+      values: { minutes: 15 },
+    });
+    expect(limited(121)).toEqual({
+      key: "auth.errors.rateLimitedMinutes",
+      values: { minutes: 3 },
+    });
+  });
+
   it("has its own words for every F4b code, by code and never by title", () => {
     expect(authErrorMessage(problem(409, "REG_PHONE_TAKEN"))).toEqual({
       key: "auth.errors.REG_PHONE_TAKEN",

@@ -79,9 +79,15 @@ codes, the Fayda number and the date of birth never reach the URL, storage or a 
 
 - **The code is checked with the details.** A wrong code sends the player back to the code step, boxes
   empty, with the message; the details stay filled. An expired one offers Send a new code.
-- **The terms version is the tenant's.** The route handler adds `accept_terms_version` from
-  `legal.terms_version` (config, cached per tenant); the browser only says the box was ticked. No terms
-  version configured → no registration (503).
+- **The consent is to the terms on screen.** The phone step states the tenant's `legal.min_age` and
+  records the `legal.terms_version` shown when the boxes were ticked; Create account sends it back. If
+  the tenant has published other terms since, the route handler creates nothing and answers
+  `VALIDATION_FAILED` on `accept_terms_version` with the current version: the player is back on the
+  consents, unticked, with "Our terms were updated. Please read and accept them again." Ticking them
+  again returns to the details — the code already sent still stands, so no second SMS. The version sent
+  to the API is always the server's own. No terms version configured → no registration (503).
+- **Terms and Privacy open in a new tab** from the consent row, so the flow (and the box) stay as they
+  were.
 - **What is asked, and what is not.** The name and date of birth are what Fayda is matched against, so
   the step asks for them as they are on the ID. The date is typed `DD/MM/YYYY` (Gregorian, D7) and sent as
   `YYYY-MM-DD`; only "is it a real date" is checked here — whether the player is old enough is the API's
@@ -90,8 +96,8 @@ codes, the Fayda number and the date of birth never reach the URL, storage or a 
   marketing consent is not asked (the contract's default, `false`). No national ID at registration — the
   ID goes to Fayda once the account exists. No deposit limit or promo code at sign-up (no design; F7
   owns limits).
-- **Signed in from Create account on.** The previous player's caches go and `/api/me` is read, as after
-  a login. From the ID step there is no going back; closing the dialog leaves the player signed in.
+- **Signed in from Create account on.** A session this browser already had is revoked at the API (as on
+  login); the previous player's caches go and `/api/me` is read, as after a login. From the ID step there is no going back; closing the dialog leaves the player signed in.
 
 ## Fayda verification (F4b; C02 §8)
 

@@ -225,9 +225,30 @@ None (decision 18).
   closes; the Risks section's "go when the dialog closes" now holds (test: `RegisterFlow.test.tsx` AC-1
   run ends with an empty mutation cache).
 - **Device cookie on `/api/auth/otp` (SEC2, spec S4).** The route now reads or mints it, as Design said.
-- **Registering while signed in (SEC4).** The register handler revokes the previous session at the API
-  (best effort, after the new account exists) before sealing the new one. Login has the same gap (F4a's
-  handler) — follow-up.
+- **Signing in on a signed-in browser (SEC4).** The register handler, and F4a's login handler, revoke
+  the previous session at the API (best effort, after the new session exists — not on a 202 or a
+  refusal) before sealing the new one. `src/app/api/auth/login/route.ts` and `tests/unit/auth-route.test.ts`
+  were added to the file list for this.
 - **Error-view tests (spec S5)** live in `tests/unit/register-flow.test.ts` › "what a registration refusal
   says", not `auth-flow.test.ts`, which is unchanged.
 - **Unused keys (spec S6).** `auth.passwordTitle` and `auth.required` removed.
+
+## Changes before merge (2026-10-02, the user's decisions)
+
+- **Decision 3 revised (security SEC3; the user chose "ask for consent again").** `RegisterForm` carries
+  `termsVersion`, the version the phone step showed; the register loader refuses one that is no longer
+  the tenant's current version with `VALIDATION_FAILED` on `accept_terms_version` (`current` = the new
+  version), sends nothing upstream, and the flow returns to the consents unticked with
+  `auth.errors.termsUpdated`. Re-ticking returns to the details without a second SMS; the browser's
+  config is re-read first. The version sent to the API is still the server's own. `/api/config`'s view
+  gained `legal: { termsVersion, minAge }` (`features/config/types.ts`, `mappers/config.ts`, schema,
+  `tests/unit/config-mappers.test.ts`, `tests/component/render.tsx`) — additive, ahead of F1.
+- **Out of scope → done.** The age consent states `legal.min_age` (default 21, C01 §9). `Retry-After` on a
+  429 is carried from the API (`UpstreamError.retryAfter`, `respond()`, `ApiError.retryAfter`) and shown
+  as seconds or minutes (`auth.errors.rateLimitedSeconds`/`Minutes`). Terms and Privacy open in a new tab
+  from the consent row without ticking it.
+- **Copy (spec S2; the user chose the neutral, sourced wording).** `auth.kycBody`: "You need a verified ID
+  to withdraw winnings."; `auth.laterNote`: "Withdrawals stay locked until your ID is verified." (SRS
+  KYC-04).
+- **FAN (decision 5; the user chose FIN only).** Unchanged; the question is in contract request 006.
+- **`.claude/launch.json`** is in `.gitignore` (per-machine preview config).

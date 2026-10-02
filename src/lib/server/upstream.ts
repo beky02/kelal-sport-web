@@ -102,17 +102,25 @@ async function sendPlain(request: Request): Promise<Response> {
 
 /**
  * The API answered with an error. Carries its `Problem` body unchanged, so the
- * route handler can pass the code and `errors[]` through to the UI.
+ * route handler can pass the code and `errors[]` through to the UI — and its
+ * `Retry-After` (the contract's 429), so the UI can say how long to wait.
  */
 export class UpstreamError extends Error {
   constructor(
     readonly status: number,
     readonly problem: unknown,
+    readonly retryAfter: string | null = null,
   ) {
     super(`Upstream responded ${status}`);
     this.name = "UpstreamError";
   }
 }
+
+/** The answer's `Retry-After`, when it is a whole number of seconds. */
+export const retryAfterOf = (response: Response): string | null => {
+  const value = response.headers.get("retry-after")?.trim() ?? "";
+  return /^\d{1,6}$/.test(value) ? value : null;
+};
 
 /** `{ data, error }` → data, or throw. */
 export function unwrap<T>(result: {
@@ -121,7 +129,11 @@ export function unwrap<T>(result: {
   response: Response;
 }): T {
   if (result.data === undefined) {
-    throw new UpstreamError(result.response.status, result.error ?? null);
+    throw new UpstreamError(
+      result.response.status,
+      result.error ?? null,
+      retryAfterOf(result.response),
+    );
   }
   return result.data;
 }

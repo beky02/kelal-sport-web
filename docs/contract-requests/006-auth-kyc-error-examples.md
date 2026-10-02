@@ -145,6 +145,18 @@ Where `REG_ID_TAKEN` is detected after registration is the backend's call — at
 alone is checked) or at `fayda/verify` (once Fayda has confirmed it). The YAML above puts it on verify;
 the web handles it on either.
 
+## A question for the backend: the Fayda FAN
+
+`fayda_number` accepts 12–16 characters, but nothing says whether the backend's Fayda integration takes
+the 16-digit FAN (Fayda Alias Number) as well as the 12-digit FIN. The web asks for the FIN only (F4b
+decision, confirmed by the product owner) until the backend says. If the FAN is accepted, a sentence in
+the operation's description is enough:
+
+```yaml
+# contracts/src/01_head_player.yaml → paths./v1/kyc/fayda/otp.post.requestBody…fayda_number
+description: The 12-digit FIN or the 16-digit FAN, digits only.
+```
+
 ## Clients affected
 
 - **Web**: none in code — the UI already switches on these codes. After the sync, `pnpm ui` can show

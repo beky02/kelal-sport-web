@@ -226,8 +226,8 @@
     "phone": "Phone number",
     "phoneHelp": "We’ll send a 6-digit code by SMS.",
     "phoneInvalid": "Enter a 9-digit Ethiopian mobile number.",
-    "age": "I am 21 years or older",
-    "ageNote": "Betting is only for adults 21+. We check this against your Fayda ID.",
+    "age": "I am {age} years or older",
+    "ageNote": "Betting is only for adults {age}+. We check this against your Fayda ID.",
     "termsConsent": "I accept the {terms} and {privacy}.",
     "termsLink": "Terms",
     "privacyLink": "Privacy Policy",
@@ -256,7 +256,7 @@
     "show": "Show",
     "hide": "Hide",
     "kycTitle": "Verify your identity",
-    "kycBody": "Ethiopian law requires ID verification before you can withdraw winnings. It takes about 2 minutes.",
+    "kycBody": "You need a verified ID to withdraw winnings.",
     "faydaTitle": "Verified with Fayda",
     "faydaBody": "The national digital ID. We never store your biometrics.",
     "fin": "Fayda ID number (FIN, 12 digits)",
@@ -267,7 +267,7 @@
     "verifyWithFayda": "Verify with Fayda",
     "faydaCodeBody": "Fayda sent a code to {phone}, the number registered with your ID.",
     "doThisLater": "Do this later",
-    "laterNote": "You can deposit and bet now. Withdrawals stay locked until your ID is verified.",
+    "laterNote": "Withdrawals stay locked until your ID is verified.",
     "verified": "Verified",
     "kycVerifiedTitle": "Identity verified",
     "kycVerifiedBody": "Your Fayda ID matches your account.",
@@ -322,7 +322,10 @@
       "REG_ID_TAKEN": "This ID is already linked to another account. Contact support.",
       "KYC_PROVIDER_UNAVAILABLE": "Fayda isn’t reachable right now. You can verify later from your profile.",
       "AUTH_TOKEN_EXPIRED": "Your session has ended. Log in again to continue.",
-      "VALIDATION_FAILED": "Some details need fixing."
+      "VALIDATION_FAILED": "Some details need fixing.",
+      "termsUpdated": "Our terms were updated. Please read and accept them again.",
+      "rateLimitedSeconds": "Too many attempts. Try again in {seconds} seconds.",
+      "rateLimitedMinutes": "Too many attempts. Try again in {minutes} minutes."
     }
   },
   "system": {
