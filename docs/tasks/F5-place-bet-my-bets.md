@@ -1,7 +1,7 @@
 ---
 id: F5
 title: Place bet with Idempotency-Key and the 409 flow; My bets; /t/[ticket]
-status: todo
+status: in_progress
 depends_on: [F3a, F3b, F4]
 contract_tags: [Bets, Bookings]
 touches_money: true
@@ -9,6 +9,11 @@ touches_ui: true
 ---
 
 # F5 — Place bet and My bets
+
+Split (2026-10-02) into [F5a — place a bet](F5a-place-bet.md) (AC-1, AC-2, AC-3 on the placed ticket,
+AC-6, AC-7, AC-8) and [F5b — My bets and the ticket check](F5b-my-bets-ticket-check.md) (AC-3 on the
+ticket in My bets, AC-4, AC-5, AC-9), as F3 and F4 were: one reviewable PR each. F5 is done when both
+are. Plan for F5a: `F5/plan.md`.
 
 ## Goal
 
@@ -49,6 +54,18 @@ Out: cash out (Release 2 flag stays off).
 - [ ] **AC-3** The ticket shows the API's `net_payout`, not the preview's.
 - [ ] **AC-4** `/t/R7K2-M9XP-K` renders the ticket status with JavaScript disabled.
 - [ ] **AC-5** My bets pages with `next_cursor`.
+
+Added at the split (2026-10-02) so every scope item above has an observable criterion:
+
+- [ ] **AC-6** The `odds_policy` sent is the slip's setting (`none` / `higher` / `any`), which starts at
+      the tenant's `betting.default_odds_policy`.
+- [ ] **AC-7** Each refusal in scope says what happened and offers its fix: `BET_EVENT_STARTED` /
+      `BET_MARKET_SUSPENDED` mark the pick and offer Remove; `BET_STAKE_TOO_HIGH` offers `errors[].limit`;
+      `WALLET_INSUFFICIENT_FUNDS` offers Deposit; `RG_LIMIT_REACHED` offers View limits; `RG_SELF_EXCLUDED`
+      and `RG_COOLING_OFF` say betting is paused; `KYC_REQUIRED` offers Verify.
+- [ ] **AC-8** Ticket barcodes are Code 128 (symbol table, check character and stop pattern under test).
+- [ ] **AC-9** `/t/[ticket]` puts its Open Graph tags in `<head>` for Telegram's preview bot, answers 404
+      in the ticket's own words for an unknown number, and redirects a typed number to its canonical path.
 
 ## Carried over from F3a review (2026-10-01)
 
