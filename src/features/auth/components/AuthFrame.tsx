@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import { Dialog } from "radix-ui";
 import { ChevronLeft, X } from "lucide-react";
 import { useTranslation } from "@/lib/i18n/use-translation";
@@ -10,20 +11,40 @@ import { AuthStepper } from "./AuthStepper";
  * somewhere to go back to — on a first step it could only close, which the
  * cross already does), where the player is, the cross, the progress bar
  * during registration, and the scrolling body.
+ *
+ * When the step changes, focus goes with it. A step that puts the caret in
+ * its own field (the phone, the code boxes) keeps it; any other step gets
+ * focus on its heading, so a screen reader says where the player now is —
+ * "Your details", "Identity verified" — instead of nothing after Create
+ * account or Verify.
  */
 export function AuthFrame({
   heading,
   onBack,
   stepper = null,
+  stepKey,
   children,
 }: {
   heading: string;
+  /** Which step is showing; focus moves when it changes. */
+  stepKey: string;
   onBack: (() => void) | null;
   /** The registration step's index, or null for no progress bar. */
   stepper?: number | null;
   children: React.ReactNode;
 }) {
   const t = useTranslation();
+  const body = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const root = body.current;
+    // A step's own effects run first: if it focused a field, leave it there.
+    if (!root || root.contains(document.activeElement)) return;
+    const title = root.querySelector("h2");
+    if (!title) return;
+    title.tabIndex = -1;
+    title.focus({ preventScroll: true });
+  }, [stepKey]);
 
   return (
     <>
@@ -53,7 +74,10 @@ export function AuthFrame({
 
       {stepper !== null && <AuthStepper current={stepper} />}
 
-      <div className="no-scrollbar min-h-0 flex-1 overflow-y-auto px-4 pt-5.5 pb-7">
+      <div
+        ref={body}
+        className="no-scrollbar min-h-0 flex-1 overflow-y-auto px-4 pt-5.5 pb-7 [&_h2]:outline-none"
+      >
         {children}
       </div>
     </>

@@ -7,6 +7,8 @@ import {
   authErrorMessage,
   isCodeRefusal,
   isStaleTerms,
+  retryAfterOf,
+  staleTermsCurrent,
   type AuthErrorView,
 } from "./errors";
 
@@ -41,8 +43,10 @@ export interface RegisterState {
    */
   reconsent: boolean;
   challengeId: string | null;
-  /** When another code may be asked for, in epoch ms (`resend_after`). */
+  /** When another code may be asked for, in epoch ms (`resend_after`, or a 429's `Retry-After`). */
   resendAt: number | null;
+  /** When the code sent stops working, in epoch ms (`expires_in`). */
+  expiresAt: number | null;
   /** The SMS code, held until Create account. */
   otp: string;
   fullName: string;
@@ -66,6 +70,8 @@ export interface RegisterState {
 export type RegisterEvent =
   | { type: "sendCode"; phone: string; termsVersion: string | null }
   | { type: "reconsented"; termsVersion: string | null }
+  /** Back on the code step with the same number: the code already sent stands. */
+  | { type: "resume"; termsVersion: string | null }
   | { type: "codeSent"; challenge: OtpChallengeView; now: number }
   | { type: "enterCode"; otp: string }
   | {
@@ -79,7 +85,8 @@ export type RegisterEvent =
   | { type: "faydaSent"; challenge: FaydaChallengeView }
   | { type: "submitFaydaCode" }
   | { type: "verified"; result: KycResultView }
-  | { type: "failed"; error: unknown }
+  /** `now` lets a 429's `Retry-After` move the resend deadline. */
+  | { type: "failed"; error: unknown; now?: number }
   | { type: "back" }
   | { type: "retryKyc" };
 
@@ -93,6 +100,7 @@ export function initialRegister(mode: RegisterState["mode"]): RegisterState {
     reconsent: false,
     challengeId: null,
     resendAt: null,
+    expiresAt: null,
     otp: "",
     fullName: "",
     dateOfBirth: "",
@@ -155,6 +163,14 @@ export function registerReducer(
         pending: true,
         error: null,
       };
+    case "resume":
+      return {
+        ...state,
+        step: "otp",
+        consented: true,
+        termsVersion: event.termsVersion,
+        error: null,
+      };
     case "reconsented":
       // Same phone, same code: straight back to the details, as typed.
       return {
@@ -171,6 +187,7 @@ export function registerReducer(
         step: "otp",
         challengeId: event.challenge.challengeId,
         resendAt: event.now + event.challenge.resendAfter * 1000,
+        expiresAt: event.now + event.challenge.expiresIn * 1000,
         // A new code makes the old one worthless.
         otp: "",
         pending: false,
@@ -224,30 +241,43 @@ export function registerReducer(
     case "failed": {
       if (state.step === "details" && isStaleTerms(event.error)) {
         // New terms since the boxes were ticked: ask again, unticked.
+        // What the player now accepts is the version the refusal names —
+        // not a config read that may still be the old one.
         return {
           ...state,
           step: "phone",
           consented: false,
           reconsent: true,
+          termsVersion: staleTermsCurrent(event.error),
           pending: false,
           error: { key: "auth.errors.termsUpdated" },
-          attempts: state.attempts + 1,
         };
       }
       // The registration code is checked with the details: its refusal
       // belongs to the code step, emptied for another go.
       const toCode = state.step === "details" && isCodeRefusal(event.error);
       const step = toCode ? "otp" : state.step;
+      // The boxes are emptied (the step remounted) only when the refusal is
+      // about the code; a failed resend keeps what the player has typed.
+      const codeCleared =
+        toCode ||
+        ((step === "otp" || step === "kycOtp") && isCodeRefusal(event.error));
+      const wait = retryAfterOf(event.error);
+      const resendAt =
+        step === "otp" && wait !== null && event.now !== undefined
+          ? Math.max(state.resendAt ?? 0, event.now + wait * 1000)
+          : state.resendAt;
       return {
         ...state,
         step,
         otp: toCode ? "" : state.otp,
+        resendAt,
         pending: false,
         error: authErrorMessage(event.error, {
           expired: "sendNewCode",
           fields: FIELDS[step],
         }),
-        attempts: state.attempts + 1,
+        attempts: codeCleared ? state.attempts + 1 : state.attempts,
       };
     }
     case "back": {
@@ -257,7 +287,8 @@ export function registerReducer(
         ...state,
         step: previous,
         error: null,
-        ...(state.step === "otp" ? { challengeId: null, resendAt: null } : {}),
+        // The SMS code already sent stays valid: going back to check the
+        // number must not become a way round the resend wait.
         ...(state.step === "kycOtp" ? { caseId: null, otpSentTo: null } : {}),
       };
     }
@@ -272,3 +303,18 @@ export function registerReducer(
       };
   }
 }
+
+/** Whether the code sent to this number can still be used — so no new SMS. */
+export const liveChallengeFor = (
+  state: {
+    phone: string;
+    challengeId: string | null;
+    expiresAt: number | null;
+  },
+  phone: string,
+  now: number = Date.now(),
+): boolean =>
+  state.challengeId !== null &&
+  state.phone === phone &&
+  state.expiresAt !== null &&
+  now < state.expiresAt;

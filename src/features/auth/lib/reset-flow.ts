@@ -1,5 +1,10 @@
 import type { OtpChallengeView } from "../types";
-import { authErrorMessage, isCodeRefusal, type AuthErrorView } from "./errors";
+import {
+  authErrorMessage,
+  isCodeRefusal,
+  retryAfterOf,
+  type AuthErrorView,
+} from "./errors";
 
 /**
  * A forgotten password, as a pure reducer: phone → code → new password. As in
@@ -14,8 +19,10 @@ export interface ResetState {
   /** As typed: nine digits, or `+251…`. */
   phone: string;
   challengeId: string | null;
-  /** When another code may be asked for, in epoch ms (`resend_after`). */
+  /** When another code may be asked for, in epoch ms (`resend_after`, or a 429's `Retry-After`). */
   resendAt: number | null;
+  /** When the code sent stops working, in epoch ms (`expires_in`). */
+  expiresAt: number | null;
   otp: string;
   /** Kept while the dialog is open, so a refused code costs no retyping. */
   newPassword: string;
@@ -27,9 +34,11 @@ export interface ResetState {
 export type ResetEvent =
   | { type: "sendCode"; phone: string }
   | { type: "codeSent"; challenge: OtpChallengeView; now: number }
+  /** Back on the code step with the same number: the code already sent stands. */
+  | { type: "resume" }
   | { type: "enterCode"; otp: string }
   | { type: "submitPassword"; newPassword: string }
-  | { type: "failed"; error: unknown }
+  | { type: "failed"; error: unknown; now?: number }
   | { type: "back" };
 
 export const initialReset = (phone = ""): ResetState => ({
@@ -37,6 +46,7 @@ export const initialReset = (phone = ""): ResetState => ({
   phone,
   challengeId: null,
   resendAt: null,
+  expiresAt: null,
   otp: "",
   newPassword: "",
   pending: false,
@@ -68,11 +78,14 @@ export function resetReducer(state: ResetState, event: ResetEvent): ResetState {
         step: "otp",
         challengeId: event.challenge.challengeId,
         resendAt: event.now + event.challenge.resendAfter * 1000,
+        expiresAt: event.now + event.challenge.expiresIn * 1000,
         otp: "",
         pending: false,
         error: null,
         attempts: state.attempts + 1,
       };
+    case "resume":
+      return { ...state, step: "otp", error: null };
     case "enterCode":
       return { ...state, step: "password", otp: event.otp, error: null };
     case "submitPassword":
@@ -85,16 +98,23 @@ export function resetReducer(state: ResetState, event: ResetEvent): ResetState {
     case "failed": {
       const toCode = state.step === "password" && isCodeRefusal(event.error);
       const step = toCode ? "otp" : state.step;
+      const codeCleared =
+        toCode || (step === "otp" && isCodeRefusal(event.error));
+      const wait = retryAfterOf(event.error);
       return {
         ...state,
         step,
         otp: toCode ? "" : state.otp,
+        resendAt:
+          step === "otp" && wait !== null && event.now !== undefined
+            ? Math.max(state.resendAt ?? 0, event.now + wait * 1000)
+            : state.resendAt,
         pending: false,
         error: authErrorMessage(event.error, {
           expired: "sendNewCode",
           fields: FIELDS[step],
         }),
-        attempts: state.attempts + 1,
+        attempts: codeCleared ? state.attempts + 1 : state.attempts,
       };
     }
     case "back": {
@@ -104,7 +124,6 @@ export function resetReducer(state: ResetState, event: ResetEvent): ResetState {
         ...state,
         step: previous,
         error: null,
-        ...(state.step === "otp" ? { challengeId: null, resendAt: null } : {}),
       };
     }
   }

@@ -59,9 +59,16 @@ export function AuthNotice({
  * Good news, where the player is looking — a password just changed. A status,
  * not an alert: it is read out without interrupting.
  */
-export function StatusNotice({ children }: { children: React.ReactNode }) {
+export function StatusNotice({
+  id,
+  children,
+}: {
+  id?: string;
+  children: React.ReactNode;
+}) {
   return (
     <div
+      id={id}
       role="status"
       className="bg-win-bg text-text rounded-md px-3 py-2.5 text-[13px]"
     >

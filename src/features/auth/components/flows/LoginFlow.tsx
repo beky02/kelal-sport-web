@@ -65,6 +65,7 @@ export function LoginFlow() {
 
   return (
     <AuthFrame
+      stepKey={login.step}
       heading={t.t("auth.loginTitle")}
       onBack={
         login.step === "loginOtp" ? () => dispatch({ type: "back" }) : null

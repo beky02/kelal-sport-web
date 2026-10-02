@@ -21,6 +21,7 @@ import { maskPhone, toE164 } from "../../lib/phone";
 import {
   canGoBack,
   initialRegister,
+  liveChallengeFor,
   registerReducer,
   stepperIndex,
 } from "../../lib/register-flow";
@@ -33,6 +34,9 @@ import { KycStep } from "../steps/KycStep";
 import { OtpStep } from "../steps/OtpStep";
 import { PhoneStep } from "../steps/PhoneStep";
 
+/** C01 §9 `auth.min_age`, for a tenant whose config does not say. */
+const DEFAULT_MIN_AGE = 21;
+
 /**
  * Registration (C01 §8) and Fayda verification (C02 §8).
  *
@@ -42,9 +46,6 @@ import { PhoneStep } from "../steps/PhoneStep";
  * Every call goes through this app's route handlers; every refusal is decided
  * by its code (`lib/errors.ts`) and offers its fix.
  */
-/** C01 §9 `auth.min_age`, for a tenant whose config does not say. */
-const DEFAULT_MIN_AGE = 21;
-
 export function RegisterFlow({ mode }: { mode: "register" | "verify" }) {
   const t = useTranslation();
   const rich = useRichTranslation();
@@ -63,16 +64,22 @@ export function RegisterFlow({ mode }: { mode: "register" | "verify" }) {
   const startFayda = useStartFayda();
   const verifyFayda = useVerifyFayda();
 
-  /** The terms on screen now are what the ticked boxes accept. */
+  /**
+   * The ticked boxes accept the terms on screen — or, when asked again, the
+   * version the refusal named. A number that already has a live code goes
+   * back to it: no second SMS, and no way round the resend wait.
+   */
   const submitPhone = (phone: string) => {
-    const termsVersion = legal?.termsVersion ?? null;
-    // Asked again only because the terms changed: the code already sent for
-    // this number still stands, so no second SMS.
-    if (state.reconsent && state.challengeId && phone === state.phone) {
-      dispatch({ type: "reconsented", termsVersion });
-      return;
+    const shown = legal?.termsVersion ?? null;
+    const live = liveChallengeFor(state, phone);
+    if (state.reconsent) {
+      const accepted = state.termsVersion ?? shown;
+      if (live)
+        return dispatch({ type: "reconsented", termsVersion: accepted });
+      return sendCode(phone, accepted);
     }
-    return sendCode(phone, termsVersion);
+    if (live) return dispatch({ type: "resume", termsVersion: shown });
+    return sendCode(phone, shown);
   };
 
   const sendCode = async (
@@ -87,7 +94,7 @@ export function RegisterFlow({ mode }: { mode: "register" | "verify" }) {
       });
       dispatch({ type: "codeSent", challenge, now: Date.now() });
     } catch (error) {
-      dispatch({ type: "failed", error });
+      dispatch({ type: "failed", error, now: Date.now() });
     }
   };
 
@@ -173,6 +180,7 @@ export function RegisterFlow({ mode }: { mode: "register" | "verify" }) {
 
   return (
     <AuthFrame
+      stepKey={state.step}
       heading={heading}
       onBack={canGoBack(state) ? () => dispatch({ type: "back" }) : null}
       stepper={index}
@@ -182,8 +190,8 @@ export function RegisterFlow({ mode }: { mode: "register" | "verify" }) {
           initialPhone={state.phone}
           minAge={legal?.minAge ?? DEFAULT_MIN_AGE}
           consented={state.consented}
-          // While re-consenting, wait for the new terms to arrive.
-          pending={state.pending || (state.reconsent && config.isFetching)}
+          // The consent records the terms on screen: wait until they are known.
+          pending={state.pending || config.isPending}
           error={state.error}
           onFix={onFix}
           onSubmit={submitPhone}

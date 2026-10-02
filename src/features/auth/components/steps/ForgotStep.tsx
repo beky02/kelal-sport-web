@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "@/lib/i18n/use-translation";
 import { Field, PhoneInput, SubmitButton } from "@/components/ui/Field";
 import type { AuthErrorView } from "../../lib/errors";
@@ -26,6 +26,12 @@ export function ForgotStep({
   const t = useTranslation();
   const [phone, setPhone] = useState(initialPhone);
   const [touched, setTouched] = useState(false);
+  const phoneInput = useRef<HTMLInputElement>(null);
+
+  // The caret starts in the number: this step is the form.
+  useEffect(() => {
+    phoneInput.current?.focus();
+  }, []);
 
   const valid = toE164(phone) !== null;
   const apiField = error?.fields?.phone;
@@ -54,6 +60,7 @@ export function ForgotStep({
         {(props) => (
           <PhoneInput
             {...props}
+            ref={phoneInput}
             value={phone}
             onChange={(event) => setPhone(event.target.value)}
             onBlur={() => setTouched(true)}
@@ -74,7 +81,7 @@ export function ForgotStep({
       <button
         type="button"
         onClick={() => onBackToLogin(phone.trim())}
-        className="text-accent cursor-pointer bg-transparent text-center font-semibold"
+        className="text-accent min-h-11 cursor-pointer bg-transparent text-center font-semibold"
       >
         {t.t("auth.backToLogin")}
       </button>

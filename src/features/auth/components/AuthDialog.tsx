@@ -37,8 +37,9 @@ export function AuthDialog() {
         <Dialog.Overlay className="fixed inset-0 z-40 bg-black/60" />
         <Dialog.Content
           onOpenAutoFocus={(event) => {
-            // The login form puts the caret in its first field itself.
-            if (entry === "login") event.preventDefault();
+            // Each flow places focus itself (`AuthFrame`): the first field,
+            // or the step's heading — never the close button.
+            event.preventDefault();
           }}
           className="bg-ground border-border fixed top-1/2 left-1/2 z-40 flex max-h-[92dvh] w-[440px] max-w-[calc(100vw-2.5rem)] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-lg border outline-none"
         >

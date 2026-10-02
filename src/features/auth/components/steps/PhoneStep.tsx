@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -20,17 +20,11 @@ import { phoneSchema, type PhoneForm } from "../../lib/schemas";
 import { AuthNotice } from "../AuthNotice";
 
 /**
- * Opens a legal page in a new tab, leaving the flow — and the row's box — as
- * they were: the link sits inside the consent row, which a click or Enter
- * would otherwise tick or untick, and leaving the page would drop what the
- * player has typed.
+ * Legal pages open in a new tab, so the flow — and what the player has typed —
+ * stays. Inside the consent's `<label>` a link is followed, not counted as a
+ * tick.
  */
-const keepFlow = {
-  target: "_blank",
-  rel: "noopener noreferrer",
-  onClick: (event: React.MouseEvent) => event.stopPropagation(),
-  onKeyDown: (event: React.KeyboardEvent) => event.stopPropagation(),
-} as const;
+const NEW_TAB = { target: "_blank", rel: "noopener noreferrer" } as const;
 
 /** Step 1: the number, and the two things the law requires us to ask. */
 export function PhoneStep({
@@ -71,6 +65,14 @@ export function PhoneStep({
     defaultValues: { phone: initialPhone },
   });
 
+  const { ref: registerPhone, ...phoneField } = register("phone");
+  const phoneInput = useRef<HTMLInputElement | null>(null);
+
+  // The caret starts in the number, as on log in: this step is the form.
+  useEffect(() => {
+    phoneInput.current?.focus();
+  }, []);
+
   const apiField = error?.fields?.phone;
   const fieldError = errors.phone
     ? t.t("auth.phoneInvalid")
@@ -98,7 +100,11 @@ export function PhoneStep({
         {(props) => (
           <PhoneInput
             {...props}
-            {...register("phone")}
+            {...phoneField}
+            ref={(element) => {
+              registerPhone(element);
+              phoneInput.current = element;
+            }}
             placeholder="912 345 482"
           />
         )}
@@ -116,13 +122,15 @@ export function PhoneStep({
         <CheckboxRow checked={terms} onChange={setTerms}>
           {rich("auth.termsConsent", {
             terms: (
-              <Link href={routes.terms} className={linkClass} {...keepFlow}>
-                {t.t("auth.termsLink")}
+              <Link href={routes.terms} className={linkClass} {...NEW_TAB}>
+                {t.t("auth.termsLink")}{" "}
+                <span className="sr-only">{t.t("auth.opensInNewTab")}</span>
               </Link>
             ),
             privacy: (
-              <Link href={routes.privacy} className={linkClass} {...keepFlow}>
-                {t.t("auth.privacyLink")}
+              <Link href={routes.privacy} className={linkClass} {...NEW_TAB}>
+                {t.t("auth.privacyLink")}{" "}
+                <span className="sr-only">{t.t("auth.opensInNewTab")}</span>
               </Link>
             ),
           })}
@@ -148,7 +156,7 @@ export function PhoneStep({
         <button
           type="button"
           onClick={onLogin}
-          className="text-accent cursor-pointer bg-transparent font-semibold"
+          className="text-accent -my-3 inline-flex min-h-11 items-center cursor-pointer bg-transparent font-semibold"
         >
           {t.t("auth.logInLink")}
         </button>

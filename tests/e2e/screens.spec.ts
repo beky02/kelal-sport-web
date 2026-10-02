@@ -120,9 +120,6 @@ const loginAnswering =
     await answered;
   };
 
-/** A consent row's own box, at its left — the middle of the row may be a link. */
-const BOX = { x: 11, y: 21 };
-
 /** Asks Prism for a named answer on one of this app's routes (next dev only). */
 const preferOn = (page: Page, route: string, prefer: string) =>
   page.route(`**${route}`, (r) =>
@@ -142,8 +139,8 @@ async function registerTo(
   const t = MESSAGES[lang];
   const dialog = page.getByRole("dialog");
   await dialog.getByLabel(t.auth.phone, { exact: true }).fill("911234567");
-  await dialog.getByRole("checkbox").nth(0).click({ position: BOX });
-  await dialog.getByRole("checkbox").nth(1).click({ position: BOX });
+  await dialog.getByRole("checkbox").nth(0).check();
+  await dialog.getByRole("checkbox").nth(1).check();
   await dialog
     .getByRole("button", { name: t.auth.continue, exact: true })
     .click();
@@ -185,8 +182,8 @@ async function phoneTaken(page: Page, _device: Device, lang: Lang) {
   const t = MESSAGES[lang];
   const dialog = page.getByRole("dialog");
   await dialog.getByLabel(t.auth.phone, { exact: true }).fill("911234567");
-  await dialog.getByRole("checkbox").nth(0).click({ position: BOX });
-  await dialog.getByRole("checkbox").nth(1).click({ position: BOX });
+  await dialog.getByRole("checkbox").nth(0).check();
+  await dialog.getByRole("checkbox").nth(1).check();
   await dialog
     .getByRole("button", { name: t.auth.continue, exact: true })
     .click();
@@ -225,7 +222,7 @@ const faydaVerdict =
     await registerTo(page, lang, "created");
     const dialog = page.getByRole("dialog");
     await dialog.getByLabel(t.auth.fin).fill("482109375516");
-    await dialog.getByRole("checkbox").first().click({ position: BOX });
+    await dialog.getByRole("checkbox").first().check();
     await dialog.getByRole("button", { name: t.auth.verifyWithFayda }).click();
     await dialog.getByLabel(t.auth.otpLabel).fill("123456");
     const answered = page.waitForResponse("**/api/kyc/fayda/verify");

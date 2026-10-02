@@ -15,9 +15,6 @@ const TOKEN_MARKERS = [
 
 const CREDENTIALS = { phone: "911234567", password: "correct horse battery" };
 
-/** A consent row's own box, at its left — the middle of the row may be a link. */
-const BOX = { x: 11, y: 21 };
-
 /** The dialog's own form — a guest's header has a "Log in" button of its own. */
 async function logInThroughTheDialog(page: import("@playwright/test").Page) {
   const dialog = page.getByRole("dialog");
@@ -180,11 +177,22 @@ test("registers with the SMS code, is signed in, and verifies with Fayda against
   await page.goto("/register");
   const dialog = page.getByRole("dialog");
 
-  // Phone and both consents (age, then terms) — ticked on the box: the
-  // terms row's middle is its links.
+  // The caret starts in the number, as on log in — not on the close button.
+  await expect(dialog.getByLabel(en.auth.phone, { exact: true })).toBeFocused();
   await dialog.getByLabel(en.auth.phone, { exact: true }).fill("911234567");
-  await dialog.getByRole("checkbox").nth(0).click({ position: BOX });
-  await dialog.getByRole("checkbox").nth(1).click({ position: BOX });
+
+  // Terms opens in a new tab and leaves its box alone; the flow stays.
+  const popup = page.waitForEvent("popup");
+  await dialog.getByRole("link", { name: /^Terms/ }).click();
+  await (await popup).close();
+  await expect(dialog.getByRole("checkbox").nth(1)).not.toBeChecked();
+  await expect(dialog.getByLabel(en.auth.phone, { exact: true })).toHaveValue(
+    "911234567",
+  );
+
+  // Both consents (age, then terms).
+  await dialog.getByRole("checkbox").nth(0).check();
+  await dialog.getByRole("checkbox").nth(1).check();
   await dialog
     .getByRole("button", { name: en.auth.continue, exact: true })
     .click();
@@ -218,7 +226,7 @@ test("registers with the SMS code, is signed in, and verifies with Fayda against
 
   // The ID: Fayda texts its own code; Prism's first verdict is `verified`.
   await dialog.getByLabel(en.auth.fin).fill("482109375516");
-  await dialog.getByRole("checkbox").first().click({ position: BOX });
+  await dialog.getByRole("checkbox").first().check();
   await dialog.getByRole("button", { name: en.auth.verifyWithFayda }).click();
   await dialog.getByLabel(en.auth.otpLabel).fill("123456");
   await dialog

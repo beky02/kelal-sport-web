@@ -5,6 +5,7 @@ import { initLogin } from "@/features/auth/lib/flow";
 import {
   canGoBack,
   initialRegister,
+  liveChallengeFor,
   registerReducer,
   stepperIndex,
   type RegisterEvent,
@@ -256,7 +257,9 @@ describe("the registration flow", () => {
     expect(run(otp, { type: "back" })).toMatchObject({
       step: "phone",
       phone: "911234567",
-      challengeId: null,
+      // The code already sent stays valid: back is no way round the wait.
+      challengeId: CHALLENGE.challengeId,
+      resendAt: NOW + 60_000,
     });
     expect(run(atDetails(), { type: "back" }).step).toBe("otp");
 
@@ -284,6 +287,69 @@ describe("the registration flow", () => {
       caseId: null,
       fin: "482109375516",
     });
+  });
+
+  it("goes back to a live code for the same number without a new SMS, and knows when it has expired", () => {
+    const otp = run(
+      initialRegister("register"),
+      { type: "sendCode", phone: "911234567", termsVersion: "2026-10" },
+      { type: "codeSent", challenge: CHALLENGE, now: NOW },
+      { type: "back" },
+    );
+    expect(liveChallengeFor(otp, "911234567", NOW + 299_000)).toBe(true);
+    expect(liveChallengeFor(otp, "911234567", NOW + 300_000)).toBe(false);
+    expect(liveChallengeFor(otp, "922334455", NOW + 1_000)).toBe(false);
+    expect(run(otp, { type: "resume", termsVersion: "2026-10" })).toMatchObject(
+      { step: "otp", challengeId: CHALLENGE.challengeId },
+    );
+  });
+
+  it("moves the resend deadline to a 429's Retry-After and keeps the boxes as typed", () => {
+    const otp = run(
+      initialRegister("register"),
+      { type: "sendCode", phone: "911234567", termsVersion: "2026-10" },
+      { type: "codeSent", challenge: CHALLENGE, now: NOW },
+    );
+    const limited = new ApiError(
+      "Too many",
+      429,
+      "AUTH_OTP_RATE_LIMITED",
+      undefined,
+      [],
+      45,
+    );
+    const state = run(
+      otp,
+      { type: "sendCode", phone: "911234567", termsVersion: "2026-10" },
+      { type: "failed", error: limited, now: NOW + 60_000 },
+    );
+    expect(state).toMatchObject({ step: "otp", resendAt: NOW + 105_000 });
+    // Not a refusal of the code: the step is not remounted.
+    expect(state.attempts).toBe(otp.attempts);
+  });
+
+  it("asks for the terms the refusal names, not a config read that may be stale", () => {
+    const state = run(
+      atDetails(),
+      { type: "submitDetails", ...DETAILS },
+      {
+        type: "failed",
+        error: problem(422, "VALIDATION_FAILED", [
+          { field: "accept_terms_version", code: "STALE" },
+        ]),
+      },
+    );
+    expect(state.termsVersion).toBeNull();
+    const named = new ApiError("Changed", 422, "VALIDATION_FAILED", undefined, [
+      { field: "accept_terms_version", code: "STALE", current: "2026-11" },
+    ]);
+    expect(
+      run(
+        atDetails(),
+        { type: "submitDetails", ...DETAILS },
+        { type: "failed", error: named },
+      ).termsVersion,
+    ).toBe("2026-11");
   });
 
   it("tries the ID again after needs_info", () => {

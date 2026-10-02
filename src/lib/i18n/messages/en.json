@@ -326,7 +326,12 @@
       "termsUpdated": "Our terms were updated. Please read and accept them again.",
       "rateLimitedSeconds": "Too many attempts. Try again in {seconds} seconds.",
       "rateLimitedMinutes": "Too many attempts. Try again in {minutes} minutes."
-    }
+    },
+    "opensInNewTab": "(opens in a new tab)",
+    "dateOfBirthHelp": "Day / month / year (DD/MM/YYYY)",
+    "fullNamePlaceholder": "Abebe Kebede Tesfaye",
+    "ruleMet": "(done)",
+    "ruleNotMet": "(not yet)"
   },
   "system": {
     "offlineTitle": "You’re offline.",

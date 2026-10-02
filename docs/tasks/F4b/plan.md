@@ -252,3 +252,25 @@ None (decision 18).
   KYC-04).
 - **FAN (decision 5; the user chose FIN only).** Unchanged; the question is in contract request 006.
 - **`.claude/launch.json`** is in `.gitignore` (per-machine preview config).
+
+## Review fixes before merge (quality and UI reviews, 2026-10-02)
+
+- **Focus follows the step (Q1, MAJOR; U2).** `AuthFrame` takes a `stepKey`; when it changes, focus moves to
+  the step's `<h2>` unless the step put the caret in its own field (phone, code). The phone fields focus
+  themselves; the dialog never auto-focuses its close button. Tests: `RegisterFlow.test.tsx` (AC-1 run
+  asserts focus at every step), `ResetFlow.test.tsx`, `auth.spec.ts` (`toBeFocused` in Chrome).
+- **Consent rows (Q2, MAJOR).** `CheckboxRow` (`src/components/ui/Field.tsx`) is a native checkbox with the
+  sentence as its `<label>`; Terms and Privacy are links of their own (not inside `role="checkbox"`),
+  open in a new tab and say so to screen readers (`auth.opensInNewTab`). The click-propagation workaround
+  is gone. That a link click leaves the box alone is checked in Chrome (`auth.spec.ts`).
+- **Re-consent (Q3, Q5).** The version accepted after a stale-terms refusal is the one the refusal names
+  (`errors[].current`), not a config read; Continue waits until config has loaded. The test now checks
+  the whole second body.
+- **Resend (Q4, Q6).** Going back keeps a live code; the same number goes back to it with no SMS
+  (`liveChallengeFor`); a 429's `Retry-After` moves the resend deadline; only a refusal of the code empties
+  the boxes. The timer test runs on a fake clock.
+- **Smaller.** Touch targets of the text buttons ≥ 44 px (Q7, U4 — inline Terms/Privacy links in the
+  consent sentence excepted); password rules say "(done)/(not yet)" with the field (Q8); the "password
+  changed" notice describes the focused phone field (Q9); the date format as help text and the name
+  placeholder from the catalogues (Q10); the min-age constant moved (Q11); Amharic `resetTitle` and
+  `kycBody` corrected (U1, U3); verdict badges tinted (U5).

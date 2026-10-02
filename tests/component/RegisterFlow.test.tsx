@@ -178,6 +178,9 @@ describe("registering through the dialog", () => {
     const { queryClient } = render(<AuthDialog />, { session: "guest" });
 
     expect(screen.getByText("Step 1 of 4")).toBeInTheDocument();
+    // Each step puts the player somewhere: the field to type in, or the
+    // heading that says where they are now (announced by a screen reader).
+    expect(screen.getByLabelText("Phone number")).toHaveFocus();
     await phoneStep();
     expect(posts("/api/auth/otp")[0].body).toEqual({
       phone: "911234567",
@@ -191,6 +194,7 @@ describe("registering through the dialog", () => {
     expect(posts()).toHaveLength(1);
 
     expect(screen.getByText("Step 3 of 4")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Your details" })).toHaveFocus();
     await detailsStep();
     expect(posts("/api/auth/register")[0].body).toEqual({
       challengeId: "01J9A7QK3M8X2B7Y4Z5N6P0R1S",
@@ -210,6 +214,11 @@ describe("registering through the dialog", () => {
     );
 
     expect(await screen.findByText("Step 4 of 4")).toBeInTheDocument();
+    await waitFor(() =>
+      expect(
+        screen.getByRole("heading", { name: "Verify your identity" }),
+      ).toHaveFocus(),
+    );
     // The account exists: no going back before the ID step.
     expect(screen.queryByRole("button", { name: "Back" })).toBeNull();
     await idStep();
@@ -227,6 +236,10 @@ describe("registering through the dialog", () => {
     });
 
     expect(await screen.findByText("Identity verified")).toBeVisible();
+    // The verdict is what the player waited for: it is where focus lands.
+    expect(
+      screen.getByRole("heading", { name: "Identity verified" }),
+    ).toHaveFocus();
     // The verdict may change the KYC badge and the wallet's lock: whatever
     // reads /api/me (the header, always mounted) reads it again.
     expect(queryClient.getQueryState(sessionKeys.me())?.isInvalidated).toBe(
@@ -259,33 +272,67 @@ describe("registering through the dialog", () => {
     expect(posts("/api/kyc/fayda/otp")).toHaveLength(0);
   });
 
-  it("waits for resend_after, then resends with the same phone and purpose", async () => {
-    let calls = 0;
-    api((call) =>
-      call.path === "/api/auth/otp"
-        ? [200, { ...CHALLENGE, resendAfter: calls++ === 0 ? 60 : 0 }]
-        : happy(call),
-    );
-    render(<AuthDialog />, { session: "guest" });
-
-    await phoneStep();
-    expect(await screen.findByText("Resend code in 1:00")).toBeVisible();
-
-    // Back to the phone, and a new challenge that may be resent at once.
-    await userEvent.click(
-      screen.getByRole("button", { name: "Change number" }),
-    );
-    expect(screen.getByLabelText("Phone number")).toHaveValue("911234567");
-    await userEvent.click(screen.getByRole("button", { name: "Continue" }));
-    await userEvent.click(
-      await screen.findByRole("button", { name: "Send code" }),
-    );
-
-    await waitFor(() => expect(posts("/api/auth/otp")).toHaveLength(3));
-    expect(posts("/api/auth/otp")[2].body).toEqual({
-      phone: "911234567",
-      purpose: "register",
+  it("waits for resend_after on the code step; Change number to the same number sends nothing new", async () => {
+    // A clock the test moves: the countdown and the challenge's deadlines
+    // read Date and tick on setInterval.
+    vi.useFakeTimers({
+      toFake: ["Date", "setInterval", "clearInterval"],
+      shouldAdvanceTime: true,
     });
+    vi.setSystemTime(new Date("2026-10-03T09:00:00Z"));
+    try {
+      let resent = false;
+      api((call) => {
+        if (
+          call.path === "/api/auth/otp" &&
+          posts("/api/auth/otp").length > 1
+        ) {
+          resent = true;
+          return [
+            429,
+            problem(429, "AUTH_OTP_RATE_LIMITED"),
+            { "Retry-After": "45" },
+          ];
+        }
+        return happy(call);
+      });
+      render(<AuthDialog />, { session: "guest" });
+
+      await phoneStep();
+      expect(await screen.findByText("Resend code in 1:00")).toBeVisible();
+      expect(screen.queryByRole("button", { name: "Send code" })).toBeNull();
+
+      // Checking the number and coming back: the code sent still stands.
+      await userEvent.click(
+        screen.getByRole("button", { name: "Change number" }),
+      );
+      await userEvent.click(screen.getByRole("button", { name: "Continue" }));
+      expect(await screen.findByLabelText("SMS code")).toBeVisible();
+      expect(posts("/api/auth/otp")).toHaveLength(1);
+      expect(screen.queryByRole("button", { name: "Send code" })).toBeNull();
+
+      // A minute on, a new code may be asked for — on this same step.
+      await userEvent.type(screen.getByLabelText("SMS code"), "12");
+      vi.advanceTimersByTime(60_000);
+      await userEvent.click(
+        await screen.findByRole("button", { name: "Send code" }),
+      );
+      await waitFor(() => expect(resent).toBe(true));
+      expect(posts("/api/auth/otp")[1].body).toEqual({
+        phone: "911234567",
+        purpose: "register",
+      });
+
+      // Refused for 45 s: said so, the wait shown again, the digits kept.
+      expect(await screen.findByRole("alert")).toHaveTextContent(
+        "Too many attempts. Try again in 45 seconds.",
+      );
+      vi.advanceTimersByTime(1_000);
+      expect(await screen.findByText(/Resend code in 0:4\d/)).toBeVisible();
+      expect(screen.getByLabelText("SMS code")).toHaveValue("12");
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("refuses a date that is not a real one before anything is sent", async () => {
@@ -317,6 +364,15 @@ describe("registering through the dialog", () => {
     expect(screen.getByText("At least 8 characters")).toBeVisible();
     expect(screen.getByText("Both passwords match")).toBeVisible();
     expect(screen.queryByText("A letter and a number")).toBeNull();
+    // Whether each is met is read with the field, not only shown as a dot.
+    const password = screen.getByLabelText("Password");
+    expect(password).toHaveAccessibleDescription(
+      "At least 8 characters (not yet) Both passwords match (not yet)",
+    );
+    await userEvent.type(password, "long enough");
+    expect(password).toHaveAccessibleDescription(
+      "At least 8 characters (done) Both passwords match (not yet)",
+    );
   });
 });
 
@@ -455,7 +511,7 @@ describe("what registration says when the API refuses", () => {
       "Some details need fixing.",
     );
     expect(screen.getByLabelText("Password")).toHaveAccessibleDescription(
-      "Too common.",
+      expect.stringContaining("Too common."),
     );
   });
 
@@ -495,38 +551,48 @@ describe("the consents", () => {
     ).toBeVisible();
   });
 
-  it("opens Terms in a new tab without ticking the box or leaving the flow", async () => {
+  it("keeps Terms and Privacy as links of their own, opening in a new tab, and the sentence ticks the box", async () => {
     api((call) => happy(call));
     render(<AuthDialog />, { session: "guest" });
 
-    const terms = screen.getByRole("link", { name: "Terms" });
-    expect(terms).toHaveAttribute("target", "_blank");
-    expect(terms).toHaveAttribute("rel", "noopener noreferrer");
-    await userEvent.click(terms);
-
-    expect(screen.getByRole("checkbox", { name: /I accept/ })).toHaveAttribute(
-      "aria-checked",
-      "false",
-    );
+    for (const name of ["Terms", "Privacy Policy"]) {
+      const link = screen.getByRole("link", { name: new RegExp(`^${name}`) });
+      expect(link).toHaveAttribute("target", "_blank");
+      expect(link).toHaveAttribute("rel", "noopener noreferrer");
+      // Told before it happens, and not flattened into a checkbox's name.
+      expect(link).toHaveAccessibleName(`${name} (opens in a new tab)`);
+      expect(link.closest('[role="checkbox"], input')).toBeNull();
+    }
+    // (That a click on the link leaves the box alone is the browser's rule
+    // for links inside a <label> — jsdom does not follow it; the e2e run
+    // checks it in Chrome.)
+    await userEvent.click(screen.getByText(/I am 21 years or older/));
+    expect(
+      screen.getByRole("checkbox", { name: /21 years or older/ }),
+    ).toBeChecked();
   });
 
   it("asks again when the terms changed before Create account — no second SMS, the details kept", async () => {
     const view = toPublicConfigView(example("/v1/config/public"));
     let refused = false;
     api((call) => {
-      if (call.path === "/api/config") {
-        return [
-          200,
-          { ...view, legal: { ...view.legal, termsVersion: "2026-11" } },
-        ];
-      }
+      // A config read served by an instance still on the old terms: the
+      // refusal's own `current` is what the player is asked to accept.
+      if (call.path === "/api/config") return [200, view];
       if (call.path === "/api/auth/register" && !refused) {
         refused = true;
         return [
           422,
-          problem(422, "VALIDATION_FAILED", [
-            { field: "accept_terms_version", code: "STALE" },
-          ]),
+          {
+            ...problem(422, "VALIDATION_FAILED"),
+            errors: [
+              {
+                field: "accept_terms_version",
+                code: "STALE",
+                current: "2026-11",
+              },
+            ],
+          },
         ];
       }
       return happy(call);
@@ -541,10 +607,9 @@ describe("the consents", () => {
       "Our terms were updated. Please read and accept them again.",
     );
     expect(screen.getByText("Step 1 of 4")).toBeInTheDocument();
-    expect(screen.getByRole("checkbox", { name: /I accept/ })).toHaveAttribute(
-      "aria-checked",
-      "false",
-    );
+    expect(
+      screen.getByRole("checkbox", { name: /I accept/ }),
+    ).not.toBeChecked();
     expect(screen.getByLabelText("Phone number")).toHaveValue("911234567");
 
     await userEvent.click(
@@ -561,12 +626,7 @@ describe("the consents", () => {
       "Abebe Kebede",
     );
     expect(posts("/api/auth/otp")).toHaveLength(1);
-    await userEvent.type(
-      screen.getByLabelText("Password"),
-      "correct horse battery",
-    );
-    await userEvent.type(
-      screen.getByLabelText("Confirm password"),
+    expect(screen.getByLabelText("Password")).toHaveValue(
       "correct horse battery",
     );
     await userEvent.click(
@@ -574,8 +634,13 @@ describe("the consents", () => {
     );
 
     await waitFor(() => expect(posts("/api/auth/register")).toHaveLength(2));
-    expect(posts("/api/auth/register")[1].body).toMatchObject({
+    expect(posts("/api/auth/register")[1].body).toEqual({
+      challengeId: "01J9A7QK3M8X2B7Y4Z5N6P0R1S",
       otp: "482913",
+      fullName: "Abebe Kebede",
+      dateOfBirth: "1998-04-12",
+      password: "correct horse battery",
+      acceptTerms: true,
       termsVersion: "2026-11",
     });
     expect(await screen.findByText("Step 4 of 4")).toBeInTheDocument();

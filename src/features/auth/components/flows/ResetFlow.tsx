@@ -4,6 +4,7 @@ import { useReducer } from "react";
 import { useTranslation } from "@/lib/i18n/use-translation";
 import { useResetPassword, useSendOtp } from "../../hooks/use-account";
 import { maskPhone, toE164 } from "../../lib/phone";
+import { liveChallengeFor } from "../../lib/register-flow";
 import {
   canGoBackReset,
   initialReset,
@@ -40,7 +41,7 @@ export function ResetFlow() {
       const challenge = await sendOtp.mutateAsync({ phone, purpose: "reset" });
       dispatch({ type: "codeSent", challenge, now: Date.now() });
     } catch (error) {
-      dispatch({ type: "failed", error });
+      dispatch({ type: "failed", error, now: Date.now() });
     }
   };
 
@@ -59,6 +60,12 @@ export function ResetFlow() {
     }
   };
 
+  /** A number that already has a live code goes back to it: no second SMS. */
+  const submitPhone = (phone: string) =>
+    liveChallengeFor(state, phone)
+      ? dispatch({ type: "resume" })
+      : sendCode(phone);
+
   const toLogin = (phone: string) => switchTo("login", { phone, notice: null });
 
   const onFix = () => {
@@ -70,6 +77,7 @@ export function ResetFlow() {
 
   return (
     <AuthFrame
+      stepKey={state.step}
       heading={t.t("auth.resetTitle")}
       onBack={
         state.step === "phone"
@@ -85,7 +93,7 @@ export function ResetFlow() {
           pending={state.pending}
           error={state.error}
           onFix={onFix}
-          onSubmit={sendCode}
+          onSubmit={submitPhone}
           onBackToLogin={toLogin}
         />
       )}

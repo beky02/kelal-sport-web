@@ -10,31 +10,41 @@ import type { KycResultView } from "../../types";
 
 const LOOK: Record<
   KycResultView["status"],
-  { icon: LucideIcon; badge: MessageKey; title: MessageKey; tone: string }
+  {
+    icon: LucideIcon;
+    badge: MessageKey;
+    title: MessageKey;
+    tone: string;
+    badgeTone: string;
+  }
 > = {
   verified: {
     icon: BadgeCheck,
     badge: "auth.verified",
     title: "auth.kycVerifiedTitle",
     tone: "text-win",
+    badgeTone: "bg-win-bg text-win",
   },
   pending: {
     icon: Clock,
     badge: "auth.pending",
     title: "auth.pendingTitle",
     tone: "text-accent",
+    badgeTone: "bg-accent-100 text-accent",
   },
   needs_info: {
     icon: CircleAlert,
     badge: "auth.needsInfo",
     title: "auth.needsInfoTitle",
     tone: "text-warn",
+    badgeTone: "bg-warn-bg text-warn",
   },
   rejected: {
     icon: CircleX,
     badge: "auth.rejected",
     title: "auth.rejectedTitle",
     tone: "text-loss",
+    badgeTone: "bg-loss-bg text-loss",
   },
 };
 
@@ -82,7 +92,9 @@ export function KycResultStep({
         >
           <Icon size={28} strokeWidth={1.5} aria-hidden />
         </div>
-        <span className="bg-surface text-muted label-caps rounded-md px-2 py-[3px]">
+        <span
+          className={cn("label-caps rounded-md px-2 py-[3px]", look.badgeTone)}
+        >
           {t.t(look.badge)}
         </span>
         <h2 className="mt-1 text-[22px]">{t.t(look.title)}</h2>

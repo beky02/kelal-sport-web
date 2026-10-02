@@ -256,7 +256,7 @@
     "show": "አሳይ",
     "hide": "ደብቅ",
     "kycTitle": "ማንነትዎን ያረጋግጡ",
-    "kycBody": "አሸናፊነትዎን ከማውጣትዎ በፊት የማንነት ማረጋገጫ ያስፈልጋል።",
+    "kycBody": "ያሸነፉትን ገንዘብ ለማውጣት የተረጋገጠ መታወቂያ ያስፈልግዎታል።",
     "faydaTitle": "በፋይዳ የተረጋገጠ",
     "faydaBody": "ብሔራዊ ዲጂታል መታወቂያ። ባዮሜትሪክ መረጃዎን አናስቀምጥም።",
     "fin": "የፋይዳ ቁጥር (FIN፣ 12 አሃዝ)",
@@ -298,7 +298,7 @@
     "forgotBody": "ወደ ስልክዎ ኮድ እንልካለን።",
     "sendCode": "ኮድ ላክ",
     "backToLogin": "ወደ መግቢያ ተመለስ",
-    "resetTitle": "የይለፍ ቃል",
+    "resetTitle": "የይለፍ ቃል ዳግም ማስጀመር",
     "resetCodeBody": "{phone} መለያ ካለው ኮድ ልከንለታል።",
     "newPasswordTitle": "አዲስ የይለፍ ቃል ያስገቡ",
     "newPassword": "አዲስ የይለፍ ቃል",
@@ -326,7 +326,12 @@
       "termsUpdated": "ደንቦቻችን ተሻሽለዋል። እባክዎ አንብበው እንደገና ይቀበሉ።",
       "rateLimitedSeconds": "በጣም ብዙ ሙከራዎች። ከ{seconds} ሰከንድ በኋላ እንደገና ይሞክሩ።",
       "rateLimitedMinutes": "በጣም ብዙ ሙከራዎች። ከ{minutes} ደቂቃ በኋላ እንደገና ይሞክሩ።"
-    }
+    },
+    "opensInNewTab": "(በአዲስ ትር ይከፈታል)",
+    "dateOfBirthHelp": "ቀን / ወር / ዓመት (DD/MM/YYYY)",
+    "fullNamePlaceholder": "አበበ ከበደ ተስፋዬ",
+    "ruleMet": "(ተሟልቷል)",
+    "ruleNotMet": "(ገና አልተሟላም)"
   },
   "system": {
     "offlineTitle": "ከመስመር ውጭ ነዎት።",

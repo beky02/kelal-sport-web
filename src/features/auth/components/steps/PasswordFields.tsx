@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useId, useState } from "react";
 import { useTranslation } from "@/lib/i18n/use-translation";
 import { Field, PasswordInput } from "@/components/ui/Field";
 import { cn } from "@/lib/utils/cn";
@@ -36,6 +36,7 @@ export function PasswordFields({
 }) {
   const t = useTranslation();
   const [show, setShow] = useState(false);
+  const rulesId = useId();
 
   const checks = [
     { label: t.t("auth.rule8"), met: passwordRules.length(password) },
@@ -51,6 +52,10 @@ export function PasswordFields({
         {(props) => (
           <PasswordInput
             {...props}
+            // The rules are read with the field, each with whether it is met.
+            aria-describedby={[props["aria-describedby"], rulesId]
+              .filter(Boolean)
+              .join(" ")}
             autoComplete="new-password"
             maxLength={PASSWORD_MAX}
             value={password}
@@ -77,7 +82,7 @@ export function PasswordFields({
         )}
       </Field>
 
-      <ul className="flex list-none flex-col gap-1.5 p-0">
+      <ul id={rulesId} className="flex list-none flex-col gap-1.5 p-0">
         {checks.map((check) => (
           <li key={check.label} className="flex items-center gap-2 text-xs">
             <span
@@ -91,6 +96,9 @@ export function PasswordFields({
             />
             <span className={check.met ? "text-text" : "text-muted"}>
               {check.label}
+            </span>{" "}
+            <span className="sr-only">
+              {check.met ? t.t("auth.ruleMet") : t.t("auth.ruleNotMet")}
             </span>
           </li>
         ))}

@@ -263,3 +263,18 @@ tenant's `legal.min_age`.
 | `auth.errors.termsUpdated`       | ደንቦቻችን ተሻሽለዋል። እባክዎ አንብበው እንደገና ይቀበሉ።                 | `auth.termsLink` (ደንቦቹን), `auth.termsConsent`   |
 | `auth.errors.rateLimitedSeconds` | በጣም ብዙ ሙከራዎች። ከ{seconds} ሰከንድ በኋላ እንደገና ይሞክሩ።         | `auth.errors.RATE_LIMITED` + wait               |
 | `auth.errors.rateLimitedMinutes` | በጣም ብዙ ሙከራዎች። ከ{minutes} ደቂቃ በኋላ እንደገና ይሞክሩ።          | `auth.errors.RATE_LIMITED` + wait               |
+
+### F4b, review fixes before merge (2026-10-02)
+
+The UI review found two Amharic strings that read wrongly: `auth.resetTitle` said only "Password", and
+`auth.kycBody`'s "አሸናፊነት" reads as "victory", not money won.
+
+| Key                        | Amharic                                  | Composed from                              |
+| -------------------------- | ---------------------------------------- | ------------------------------------------ |
+| `auth.resetTitle`          | የይለፍ ቃል ዳግም ማስጀመር                        | `auth.forgotTitle` (…ዳግም ያስጀምሩ), as a noun |
+| `auth.kycBody`             | ያሸነፉትን ገንዘብ ለማውጣት የተረጋገጠ መታወቂያ ያስፈልግዎታል። | new: "the money you won"                   |
+| `auth.opensInNewTab`       | (በአዲስ ትር ይከፈታል)                          | new (screen readers only)                  |
+| `auth.dateOfBirthHelp`     | ቀን / ወር / ዓመት (DD/MM/YYYY)               | `auth.dateOfBirthInvalid`                  |
+| `auth.fullNamePlaceholder` | አበበ ከበደ ተስፋዬ                             | the English example, in Ethiopic           |
+| `auth.ruleMet`             | (ተሟልቷል)                                  | new (screen readers only)                  |
+| `auth.ruleNotMet`          | (ገና አልተሟላም)                              | new (screen readers only)                  |

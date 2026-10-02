@@ -109,7 +109,7 @@ export function OtpStep({
                 type="button"
                 onClick={onResend}
                 disabled={pending}
-                className="text-accent cursor-pointer bg-transparent font-semibold disabled:cursor-not-allowed disabled:opacity-45"
+                className="text-accent -my-3 inline-flex min-h-11 items-center cursor-pointer bg-transparent font-semibold disabled:cursor-not-allowed disabled:opacity-45"
               >
                 {t.t("auth.sendCode")}
               </button>
@@ -125,7 +125,7 @@ export function OtpStep({
             <button
               type="button"
               onClick={onChangeNumber}
-              className="text-accent cursor-pointer bg-transparent font-semibold"
+              className="text-accent -my-3 inline-flex min-h-11 items-center cursor-pointer bg-transparent font-semibold"
             >
               {t.t("auth.changeNumber")}
             </button>

@@ -90,13 +90,15 @@ export function DetailsStep({
             value={fullName}
             onChange={(event) => setFullName(event.target.value)}
             onBlur={() => setTouched((s) => ({ ...s, name: true }))}
-            placeholder="Abebe Kebede Tesfaye"
+            placeholder={t.t("auth.fullNamePlaceholder")}
           />
         )}
       </Field>
 
       <Field
         label={t.t("auth.dateOfBirth")}
+        // The format stays in view once the placeholder has gone.
+        help={t.t("auth.dateOfBirthHelp")}
         error={fieldError(
           "date_of_birth",
           touched.date && !dateOk ? t.t("auth.dateOfBirthInvalid") : undefined,

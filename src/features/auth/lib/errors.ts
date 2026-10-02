@@ -149,3 +149,16 @@ export const isStaleTerms = (error: unknown): boolean =>
   error instanceof ApiError &&
   error.code === "VALIDATION_FAILED" &&
   error.errors.some((entry) => entry.field === "accept_terms_version");
+
+/** The terms version a stale-terms refusal names as current, if it does. */
+export function staleTermsCurrent(error: unknown): string | null {
+  if (!isStaleTerms(error)) return null;
+  const entry = (error as ApiError).errors.find(
+    (e) => e.field === "accept_terms_version",
+  );
+  return entry?.current?.trim() || null;
+}
+
+/** How long the API asked to wait (`Retry-After`), in seconds, if it did. */
+export const retryAfterOf = (error: unknown): number | null =>
+  error instanceof ApiError ? error.retryAfter : null;

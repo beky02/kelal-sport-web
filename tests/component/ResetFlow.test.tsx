@@ -75,6 +75,12 @@ async function forgot(phone = "911234567") {
 async function newPassword(code: string, password = "another long passphrase") {
   await userEvent.type(await screen.findByLabelText("SMS code"), code);
   await userEvent.click(screen.getByRole("button", { name: "Continue" }));
+  // Where the player is now, said out loud: the new step's heading.
+  await waitFor(() =>
+    expect(
+      screen.getByRole("heading", { name: "Set a new password" }),
+    ).toHaveFocus(),
+  );
   for (const label of ["New password", "Confirm password"]) {
     const field = await screen.findByLabelText(label);
     await userEvent.clear(field);
@@ -111,6 +117,12 @@ describe("resetting a password", () => {
 
     const notice = await screen.findByRole("status");
     expect(notice).toHaveTextContent(
+      "Password changed. Log in with your new password.",
+    );
+    // Read with the field the caret lands in, not lost as a live region that
+    // was already full when it appeared.
+    expect(screen.getByLabelText("Phone number")).toHaveFocus();
+    expect(screen.getByLabelText("Phone number")).toHaveAccessibleDescription(
       "Password changed. Log in with your new password.",
     );
     expect(useAuthStore.getState().entry).toBe("login");
