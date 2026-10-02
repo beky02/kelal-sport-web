@@ -152,9 +152,10 @@ export function LoadBookingCode() {
       onSubmit={(event) => {
         event.preventDefault();
         const code = normaliseBookingCode(raw);
-        setInvalid(code === null);
+        setInvalid(raw.trim() !== "" && code === null);
         // Checked before any call: only a well-formed code reaches the API.
-        if (code && !load.isPending) load.mutate(code);
+        if (raw.trim() === "" || load.isPending) return;
+        if (code) load.mutate(code);
       }}
     >
       <label htmlFor={inputId} className="text-muted text-[11px]">
@@ -179,11 +180,11 @@ export function LoadBookingCode() {
         />
         <button
           type="submit"
-          disabled={raw.trim() === ""}
-          // Keeps focus while it asks; a second submit is ignored above.
-          aria-disabled={load.isPending}
+          // Announced as off, never disabled: the input is cleared after a
+          // load, and a disabled button would drop the focus it holds.
+          aria-disabled={load.isPending || raw.trim() === ""}
           aria-busy={load.isPending}
-          className="bg-raised text-text font-body flex h-11 cursor-pointer items-center gap-1.5 rounded-md px-4 text-[13px] font-bold disabled:opacity-45 aria-disabled:opacity-45"
+          className="bg-raised text-text font-body flex h-11 cursor-pointer items-center gap-1.5 rounded-md px-4 text-[13px] font-bold aria-disabled:opacity-45"
         >
           {load.isPending && (
             <Loader2 size={14} className="animate-spin" aria-hidden />

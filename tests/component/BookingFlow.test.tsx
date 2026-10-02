@@ -442,16 +442,26 @@ describe("booking the slip", () => {
   });
 
   it("keeps a fresh code on a phone whose clock is days ahead", async () => {
-    vi.spyOn(Date, "now").mockReturnValue(Date.parse("2031-01-01T00:00:00Z"));
-    api(() => [201, RECEIPT()]);
-    render(<BetSlip />);
+    // Timers are under the test's control; the clock itself stays mocked.
+    vi.useFakeTimers({
+      toFake: ["setTimeout", "clearTimeout"],
+      shouldAdvanceTime: true,
+    });
+    try {
+      vi.spyOn(Date, "now").mockReturnValue(Date.parse("2031-01-01T00:00:00Z"));
+      api(() => [201, RECEIPT()]);
+      render(<BetSlip />);
+      const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
 
-    await userEvent.click(screen.getByRole("button", { name: "Book bet" }));
+      await user.click(screen.getByRole("button", { name: "Book bet" }));
+      expect(await screen.findByTestId("booking-code")).toBeInTheDocument();
 
-    expect(await screen.findByTestId("booking-code")).toBeInTheDocument();
-    // Still there once effects have run.
-    await new Promise((resolve) => setTimeout(resolve, 50));
-    expect(screen.getByTestId("booking-code")).toBeInTheDocument();
+      // A wrongly-timed expiry would fire at once; an hour on, it's still here.
+      act(() => vi.advanceTimersByTime(60 * 60 * 1000));
+      expect(screen.getByTestId("booking-code")).toBeInTheDocument();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("moves focus to the new code so it is read out, and keeps Book focusable while asking", async () => {
@@ -487,6 +497,18 @@ describe("booking the slip", () => {
       within(alert).getByRole("button", { name: "Set 5.00" }),
     );
     expect(useBetSlipStore.getState().stake).toBe("5.00");
+  });
+
+  it("says the slip can't be booked for any other refusal, not that the service is down", async () => {
+    api(() => [
+      422,
+      { type: "x", title: "x", status: 422, code: "BET_TOO_MANY_LEGS" },
+    ]);
+    render(<BetSlip />);
+    await userEvent.click(screen.getByRole("button", { name: "Book bet" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "This slip can’t be booked as it is.",
+    );
   });
 
   it("says to try later when rate-limited", async () => {
@@ -596,6 +618,27 @@ describe("the /b/[code] page", () => {
     expect(
       screen.getByText("Loading replaces what's in your slip now."),
     ).toBeInTheDocument();
+  });
+
+  it("says so when a fresh read finds nothing left to load, and keeps focus on the button", async () => {
+    const nothing = BOOKING();
+    nothing.legs = nothing.legs.map((leg) => ({
+      ...leg,
+      odds: null,
+      unavailable: "MARKET_SUSPENDED" as const,
+    }));
+    api(() => [200, nothing]);
+    render(<BookingView booking={BOOKING()} />);
+    const button = screen.getByRole("button", { name: "Load into bet slip" });
+
+    await userEvent.click(button);
+
+    expect(
+      await screen.findByText("Nothing in booking 7KQ2M9X can be added now."),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("Booking 7KQ2M9X is in your slip.")).toBeNull();
+    expect(button).toHaveAttribute("aria-disabled", "true");
+    expect(button).not.toBeDisabled();
   });
 
   it("suggests a stake only when the code has a positive one", () => {

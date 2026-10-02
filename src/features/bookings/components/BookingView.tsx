@@ -88,21 +88,29 @@ export function BookingView({ booking: rendered }: { booking: Booking }) {
           <p className="text-muted text-xs">{t.t("booking.replacesSlip")}</p>
         )}
         {load.isSuccess && (
-          <p role="status" className="text-win text-xs font-semibold">
-            {t.t("booking.loaded", { code: booking.code })}
+          <p
+            role="status"
+            className={cn(
+              "text-xs font-semibold",
+              loaded ? "text-win" : "text-muted",
+            )}
+          >
+            {t.t(loaded ? "booking.loaded" : "booking.nothingAdded", {
+              code: booking.code,
+            })}
           </p>
         )}
         <button
           type="button"
-          disabled={!loadable}
-          // Keeps focus while it asks; a second tap is ignored.
-          aria-disabled={load.isPending}
+          // Announced as off but kept focusable — while it asks, and when a
+          // fresh read finds nothing left to load — so focus isn't lost.
+          aria-disabled={load.isPending || !loadable}
           aria-busy={load.isPending}
           onClick={() => {
             if (loaded) openSlip();
-            else if (!load.isPending) load.mutate(booking.code);
+            else if (!load.isPending && loadable) load.mutate(booking.code);
           }}
-          className="bg-accent text-on-accent font-body flex h-12 cursor-pointer items-center justify-center gap-2 rounded-md text-sm font-bold disabled:cursor-not-allowed disabled:opacity-45 aria-disabled:opacity-45"
+          className="bg-accent text-on-accent font-body flex h-12 cursor-pointer items-center justify-center gap-2 rounded-md text-sm font-bold aria-disabled:cursor-not-allowed aria-disabled:opacity-45"
         >
           {load.isPending && (
             <Loader2 size={16} className="animate-spin" aria-hidden />

@@ -34,6 +34,9 @@ export function bookingErrorMessage(
     case "VALIDATION_FAILED":
       return { key: "booking.errors.cannotBook" };
     default:
-      return { key: "booking.errors.failed" };
+      // Any other refusal of the request itself is not a connection problem.
+      return problem?.status === 422
+        ? { key: "booking.errors.cannotBook" }
+        : { key: "booking.errors.failed" };
   }
 }

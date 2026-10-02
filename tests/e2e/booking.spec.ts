@@ -54,7 +54,8 @@ test("answers 404 for an unknown code, in the booking's words", async ({
     page.getByText("Check code 7KQ2M9X and try again."),
   ).toBeVisible();
   // A 404 can't join screens.spec (its console always has the document's 404),
-  // so its screenshot is taken here for review.
+  // so its screenshot is taken here for review, at the suite's desktop width.
+  await page.setViewportSize({ width: 1440, height: 900 });
   await page.screenshot({
     path: "test-results/ui/booking-not-found-en-desktop.png",
     fullPage: true,
