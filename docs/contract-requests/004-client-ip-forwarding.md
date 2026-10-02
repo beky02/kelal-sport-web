@@ -75,6 +75,12 @@ The web side only needs the header names and the rule. Points from the F3b secur
 - **Web side**: the IP comes from the edge's `X-Forwarded-For` with a configured number of trusted hops —
   the right-most entry the edge added, never the first — and a client-sent `X-Client-IP` is dropped.
 
+Also from F3b's review: the web reads a booking in both languages (names come back in one language per
+request), so one player's load is 2 upstream reads, and a `/b` page view plus "Load into bet slip" is 4.
+A per-IP load limit (60/min, C09) or the `loads` counter would count each load 2–4 times. Once the
+language is in the URL (F2a) a page can read one language; until then the backend may want to count
+loads per booking code and request, not per call.
+
 ## Clients affected
 
 - **Web (Next.js player app, later terminal/POS/agent apps on the same server pattern)**: every route
