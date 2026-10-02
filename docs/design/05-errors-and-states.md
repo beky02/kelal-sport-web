@@ -1,0 +1,97 @@
+# 05 — Errors and states
+
+Rejections are RFC 7807 Problems from the API, passed through the route handlers with their status and
+the contract's fields (`type`, `title`, `status`, `code`, `detail`, `request_id`, `errors[]`). The UI
+switches on `code` — the contract's `ErrorCode` enum, registry in TD-01 §4 — never on `title`, which is
+translated display text. A rejection the player can act on offers the action with the corrected value
+from `errors[]` (`current`, `limit`). Known codes get our own copy in both languages (Prism's titles are
+English); an unknown code shows the API's translated `title` and a retry. The API's `detail`, when
+present, is shown as its own line.
+
+Three things every error state does: say what failed in the player's words, keep what they had (the slip,
+the typed amount, the phone number), and offer the next thing — a fix, a retry, or a way out.
+
+## By screen
+
+### Login, registration, reset (F4a built; F4b)
+
+| Code                                    | HTTP | Message (en)                                                                                               | Fix offered                                            |
+| --------------------------------------- | ---- | ---------------------------------------------------------------------------------------------------------- | ------------------------------------------------------ |
+| `AUTH_INVALID_CREDENTIALS`              | 401  | Wrong phone number or password.                                                                            | Forgot password? is in the label row                   |
+| `AUTH_LOCKED`                           | 423  | Too many failed attempts… + the API's `detail` ("Try again in 15 minutes.")                                | Log in waits until a field changes                     |
+| `AUTH_OTP_INVALID`                      | 422  | That code isn't right. Check the SMS and try again.                                                        | Code cleared, caret back in the boxes                  |
+| `AUTH_OTP_EXPIRED`                      | 422  | That code has expired. Log in again to get a new one.                                                      | Log in again (login) / Send a new code (register, F4b) |
+| `AUTH_OTP_RATE_LIMITED`, `RATE_LIMITED` | 429  | Too many attempts. Please wait a moment and try again.                                                     | Resend waits for `resend_after`                        |
+| `AUTH_OTP_UNAVAILABLE`                  | 503  | We can't send SMS right now. Try again in a few minutes. (F4b)                                             | Retry                                                  |
+| `REG_PHONE_TAKEN`                       | 409  | This phone number already has an account. (F4b)                                                            | Log in instead, phone kept                             |
+| `REG_UNDERAGE`                          | 422  | You must be of legal age to open an account. (F4b)                                                         | None; responsible-gaming link                          |
+| `REG_ID_TAKEN`                          | 409  | This ID is already linked to another account. (F4b)                                                        | Support                                                |
+| `VALIDATION_FAILED`                     | 422  | `errors[].message` next to the field it names (F4b)                                                        | Fix the field                                          |
+| `KYC_PROVIDER_UNAVAILABLE`              | 503  | Fayda isn't reachable right now. You can verify later from your profile. (F4b)                             | Do this later                                          |
+| `AUTH_TOKEN_EXPIRED`                    | 401  | Never shown: the route handler refreshes and retries. A refused refresh → guest + the session-ended dialog | Log in again                                           |
+| network / 5xx                           | —    | Something went wrong. Check your connection and try again.                                                 | Retry                                                  |
+
+### Slip, booking and placement (F3 built; F5)
+
+| Code                                                                | HTTP      | Where                      | Shown                                                                  | Fix offered                                   |
+| ------------------------------------------------------------------- | --------- | -------------------------- | ---------------------------------------------------------------------- | --------------------------------------------- |
+| `BET_ODDS_CHANGED`                                                  | 409       | Place                      | Each changed leg old → new (`errors[].current`); preview recomputed    | Accept and place again with a new key         |
+| `BET_MARKET_SUSPENDED`, `BET_EVENT_STARTED`                         | 409       | Place / load a code        | The pick is marked suspended or started                                | Remove it                                     |
+| `BET_STAKE_TOO_LOW` / `_TOO_HIGH`                                   | 422       | Place / Book               | "Stake is below the minimum" / "above the maximum" with the amount     | A button with the stake from `errors[].limit` |
+| `BET_MAX_PAYOUT`                                                    | 422       | Place                      | Not used in Release 1 (D1.7: the cap reduces, placement accepts)       | —                                             |
+| `BET_RELATED_SELECTIONS`, `BET_TOO_MANY_LEGS`, `BET_TOO_MANY_LINES` | 422       | Place                      | The slip already prevents these; shown if the API still refuses        | Which pick to drop                            |
+| `BET_LIMIT_EXCEEDED`                                                | 422       | Place                      | "This stake is over the limit for this market" with `limit` when given | Offer the limit                               |
+| `BET_FREE_BET_INVALID`                                              | 422       | Place with a free bet      | The free bet's terms (F7)                                              | Place without it                              |
+| `WALLET_INSUFFICIENT_FUNDS`                                         | 422       | Place                      | Balance too low                                                        | Deposit                                       |
+| `RG_LIMIT_REACHED`                                                  | 403       | Place / deposit            | The limit that is reached and when it resets                           | View limits                                   |
+| `RG_SELF_EXCLUDED`, `RG_COOLING_OFF`                                | 403       | Place / deposit            | The break and its end date (`flags.excluded_until`)                    | None; the slip is locked, funds withdrawable  |
+| `REAL_MONEY_DISABLED`                                               | 503       | Place / deposit / withdraw | "Real-money play is not available yet"                                 | None (CFG-04); F1 shows the notice up front   |
+| `BOOKING_EXPIRED` / `BOOKING_NOT_FOUND` (and `NOT_FOUND`)           | 410 / 404 | `/b/[code]`, Load          | "This code has expired" / "No booking with this code" with the code    | Back to the sportsbook; check the code        |
+| `IDEMPOTENCY_MISMATCH`                                              | 422       | Any money POST             | Should not happen (same key, different body)                           | Treated as a failure with retry (new intent)  |
+
+### Wallet (F6)
+
+| Code                             | HTTP | Shown                                               | Fix offered                       |
+| -------------------------------- | ---- | --------------------------------------------------- | --------------------------------- |
+| `PAY_METHOD_UNAVAILABLE`         | 422  | The method is marked unavailable on its tile        | Choose another                    |
+| `PAY_AMOUNT_OUT_OF_RANGE`        | 422  | The method's min–max                                | The nearest allowed amount        |
+| `PAY_PROVIDER_ERROR`             | 502  | "Payment provider did not respond"                  | Retry; choose another             |
+| `PAY_WITHDRAWAL_NOT_CANCELLABLE` | 409  | "This withdrawal is already being paid"             | None                              |
+| `PAY_ACTIVE_BONUS_WAGERING`      | 422  | What withdrawing now forfeits (BON-07)              | Confirm forfeit, or keep wagering |
+| `KYC_REQUIRED`                   | 403  | Verify your Fayda ID to unlock withdrawals          | Verify                            |
+| Deposit `failed` / `expired`     | —    | Status screens with the provider reference (DEP-08) | Retry; choose another; Done       |
+
+### Account, promotions, inbox (F7)
+
+`PROMO_INVALID`, `PROMO_ALREADY_USED` on redeem; `PERMISSION_DENIED` where the API refuses an action;
+limits that cannot be lowered below usage; `RG_*` as above.
+
+### Route-handler refusals (ours, same shape)
+
+| Code                  | HTTP                      | When                                                                                |
+| --------------------- | ------------------------- | ----------------------------------------------------------------------------------- |
+| `PERMISSION_DENIED`   | 403                       | A POST from another origin, without the CSRF header (09-security)                   |
+| `VALIDATION_FAILED`   | 400 / 413 / 415 / 422     | Missing `Idempotency-Key`; body too large; not JSON; a body that is not the request |
+| `SERVICE_UNAVAILABLE` | 503 (or the API's status) | The API could not be reached, or answered with something that is not a Problem      |
+
+## System states
+
+| State                | Trigger                                                         | Screen                                                                            | Rule                                                       |
+| -------------------- | --------------------------------------------------------------- | --------------------------------------------------------------------------------- | ---------------------------------------------------------- |
+| Loading              | Any query pending                                               | Skeletons that keep the layout; the header's labelled placeholder for the session | Nothing jumps when data lands; no flash of the wrong state |
+| Empty                | No matches for the filter, no bets, no transactions, empty slip | A sentence and the next thing to do                                               | Never a blank card                                         |
+| Error                | A query failed                                                  | What failed and Retry; the previous data stays if there was any                   | Retries only for 5xx and network (`ApiError.retryable`)    |
+| Offline              | `navigator.onLine` false                                        | Banner: odds may be stale; placing disabled                                       | One watcher in the shell, every odds button reads it       |
+| Suspended market     | `status: suspended` or no price                                 | Locks on the board and the match page; "Betting paused. Markets reopen shortly."  | Never a stale price                                        |
+| Cool-off / exclusion | RG status query                                                 | Banner with the end; slip locked; deposits off                                    | Server state; a reload changes nothing                     |
+| Reality check        | `rg.reality_check_minutes` (F7)                                 | Dialog with the session's figures from the API                                    | Not dismissible by clicking away                           |
+| Session ended        | A player found to be a guest without logging out                | Dialog; the slip is saved                                                         | 03-session                                                 |
+| Deposit limit        | A deposit refused by `RG_LIMIT_REACHED`                         | Dialog with the amount used and the reset time                                    | Figures from the API                                       |
+| Maintenance          | The API says so (a status endpoint is not in the contract yet)  | Full screen: back at `{time}`, balances and bets are safe                         | Placeholder copy in `constants.ts` until then              |
+| Age gate             | First visit                                                     | Full screen 21+ question                                                          | Placeholder trigger until F7                               |
+| Real money off       | `real_money_enabled: false` in config (F1)                      | A clear notice; placing, depositing and withdrawing disabled                      | CFG-04                                                     |
+
+## Accessibility of errors
+
+A notice is `role="alert"` so it is announced; after an error, focus goes to the first invalid field or
+the code input; the fix is a real button with a 44 px hit area; messages never rely on colour alone.

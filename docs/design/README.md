@@ -1,27 +1,32 @@
-# Frontend design docs — outline (for review)
+# Frontend design docs
 
-Our own design documents for the web apps, derived from the backend's engineering decisions, the
-component pages in `docs/backend/design/`, the SRS and the PRD, and the claude.ai design project (look
-and copy). They say what a player sees and does; the backend docs say what the API does. Where they
-disagree, the precedence in `CLAUDE.md` decides and the page notes it.
+Our own design documents for the web apps. They are derived from the backend's engineering decisions
+(`docs/backend/engineering-decisions.md`, D1–D9), the component pages in `docs/backend/design/`, the SRS
+and PRD in `docs/backend/product/`, this repo's decisions (`docs/decisions.md`, FD1–FD5) and the
+claude.ai design project (look and copy). They say what a player sees and does and what the browser
+and the route handlers are responsible for; the backend docs say what the API does. Where they disagree,
+the precedence in `CLAUDE.md` decides and the page says so.
 
-Proposed pages (each 2–4 screens of prose plus tables; no code):
+Each page names the task that builds or changes what it describes (`docs/tasks/`). "Built" means on
+`main` or on a merged task branch today; a task id means that task delivers it.
 
-| Page                            | Covers                                                                                                                                                        | Sources                                                            |
-| ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------ |
-| `00-overview.md`                | The apps (player web now; terminal, POS, agent, back office later), one build per tenant, the route map (FD3), languages (FD2), what is Release 2 (D8)        | C18 §1–4, D7–D8, FD1–FD5, PRD goals                                |
-| `01-screens.md`                 | Every player screen with its purpose, states (loading, empty, error, guest, player), data it reads, actions it offers, and the design-project page it mirrors | design project, `tests/e2e/screens.spec.ts`, C18 §4.1, §4.5        |
-| `02-journeys.md`                | The journeys as flows: find a match → slip → place (J1), book a code, register → verify, deposit, withdraw, self-exclude; each step's screen and API call     | PRD journeys, SRS REG/KYC/BET/PAY/RG, C01, C02, C04, C08, C09, C12 |
-| `03-session-and-account.md`     | Session cookie, login, OTP, logout, `/api/me` as the only truth, proxy, KYC states and what each unlocks, the "safety state is server state" rule             | F4 plan and verification, D3, C01, C02, C18 §4.4                   |
-| `04-slip-and-money.md`          | What the slip shows and why (D1 in player terms), money as strings (FD4), idempotency, the 409 flow, balances and withdrawable, tax copy rules                | D1, D9, C07, C08, C03, FD4                                         |
-| `05-errors-and-states.md`       | The Problem codes a player can meet, grouped by screen, with the message and the fix each offers; offline, maintenance, reality check, limits                 | TD-01 §4, every task's error table, C12                            |
-| `06-language-and-format.md`     | Amharic and English rules: catalogues, placeholders, line height, no uppercase, money/date/time formats, calendar and clock preferences, translation review   | FD2, D7, `TRANSLATION-NOTES.md`                                    |
-| `07-tenancy-and-theming.md`     | Host → tenant, `/v1/config/public` (brand, colours, features, rules), tokens not hex, the component gallery                                                   | D3, D7, C16, C18 §4.3, F1                                          |
-| `08-performance-and-offline.md` | Budgets (C18 §8), data saver, polling vs realtime (D5), PWA scope, what works without JavaScript                                                              | C18 §4.6, §8, §9, D5                                               |
-| `09-security.md`                | The browser never calls the API, tokens never in the browser, CSRF, trusted proxy, open redirects, what the proxy does and does not do, secrets               | D3, C18 §4.4, F3b/F4 security reviews                              |
+| Page                                                           | Covers                                                                                                       |
+| -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| [00-overview.md](00-overview.md)                               | The apps, one build per tenant, the route map, languages, what is Release 2, the layouts                     |
+| [01-screens.md](01-screens.md)                                 | Every player screen: purpose, states, data, actions, the design-project page and the `pnpm ui` screenshot    |
+| [02-journeys.md](02-journeys.md)                               | The journeys as step tables: find a match → slip → place, book a code, register → verify, deposit, withdraw… |
+| [03-session-and-account.md](03-session-and-account.md)         | Session cookie, login, OTP, logout, `/api/me` as the only truth, the proxy, KYC states                       |
+| [04-slip-and-money.md](04-slip-and-money.md)                   | What the slip shows and why (D1 in player terms), money as strings, idempotency, the 409 flow, balances      |
+| [05-errors-and-states.md](05-errors-and-states.md)             | Every Problem code a player can meet, by screen, with its message and its fix; the system states             |
+| [06-language-and-format.md](06-language-and-format.md)         | Amharic and English rules, money, date and time formats, the calendar and clock preferences                  |
+| [07-tenancy-and-theming.md](07-tenancy-and-theming.md)         | Host → tenant, `/v1/config/public`, tokens not hex, the component gallery                                    |
+| [08-performance-and-offline.md](08-performance-and-offline.md) | Budgets, data saver, polling versus realtime, PWA scope, what works without JavaScript                       |
+| [09-security.md](09-security.md)                               | The browser never calls the API, tokens never in the browser, CSRF, trusted proxy, what the proxy does       |
 
-Questions for the review:
+Three choices made when these were written (2026-10-02): one page per topic rather than one per screen
+(the screens page lists them all, so a per-screen view is one table away); screenshots are named, not
+embedded, because `pnpm ui` regenerates them and a stale picture is worse than none; the terminal, POS
+and agent apps are summarised in the overview and get their own pages when F8–F10 start.
 
-1. One page per topic as above, or one page per screen (closer to the design project)?
-2. Should `01-screens.md` embed the `pnpm ui` screenshots, or only name them?
-3. Do the terminal, POS and agent apps get their own pages now (from C19) or when F8–F10 start?
+Keep these current: a task that changes a screen, a state, a route, a string rule or a security
+boundary updates the page in the same PR, as it updates the task file.
