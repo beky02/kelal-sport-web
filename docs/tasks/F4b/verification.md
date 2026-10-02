@@ -29,6 +29,18 @@ Running 132 tests using 6 workers
 exit 0
 ```
 
+`pnpm verify` after the review fixes (commit `5d9eaf0`):
+
+```
+ Test Files  35 passed (35)
+      Tests  786 passed (786)
+Generated API types match contracts/openapi.yaml.
+contracts/ matches the backend.
+docs/backend/ matches the backend.
+  132 passed (1.1m)
+exit 0
+```
+
 Route handlers against Prism through the dev server (the task's Verification list):
 
 ```
