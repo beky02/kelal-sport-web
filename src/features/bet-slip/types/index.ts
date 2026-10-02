@@ -4,15 +4,25 @@ import { compareOdds } from "@/lib/money";
 
 export type BetSlipMode = "single" | "multiple" | "system";
 
+/**
+ * What the engine may do with a price that moved before the bet reached it
+ * (the contract's `OddsPolicy`): refuse any change, take a better price, or
+ * take any price.
+ */
+export type OddsPolicy = "none" | "higher" | "any";
+
+export const ODDS_POLICIES: readonly OddsPolicy[] = ["none", "higher", "any"];
+
 export type SelectionStatus = "active" | "suspended" | "odds_changed";
 
 /**
  * One pick in the slip.
  *
- * `initialOdds` is what the user saw when they tapped; `currentOdds` is what
- * the book says now. The gap between them is the whole reason the slip has an
- * accept-changes flow, so both are kept rather than overwritten in place. Both
- * are the contract's decimal strings (FD4).
+ * `initialOdds` is the price the player agreed to — when they tapped, or when
+ * they last accepted a move; `currentOdds` is what the book says now. The gap
+ * between them is the whole reason the slip has an accept-changes flow, so
+ * both are kept rather than overwritten in place. Both are the contract's
+ * decimal strings (FD4).
  */
 export interface BetSelection {
   /** The contract's outcome ID (`oc_ac_1`): what slips, bookings and bets carry. */
@@ -37,9 +47,27 @@ export interface BetSelection {
   suspended: boolean;
 }
 
-/** The price moved since the pick was made — `"2.1"` to `"2.10"` is no move. */
+/** The price moved since it was agreed — `"2.1"` to `"2.10"` is no move. */
 export const oddsMoved = (s: BetSelection): boolean =>
   compareOdds(s.currentOdds, s.initialOdds) !== 0;
+
+/**
+ * The move needs the player's yes before the bet can go: every move under
+ * `none`, a drop under `higher`, nothing under `any` — exactly the moves the
+ * engine would refuse under the same policy (C08 §7).
+ */
+export function awaitsConsent(s: BetSelection, policy: OddsPolicy): boolean {
+  const move = compareOdds(s.currentOdds, s.initialOdds);
+  if (move === 0) return false;
+  switch (policy) {
+    case "none":
+      return true;
+    case "higher":
+      return move < 0;
+    case "any":
+      return false;
+  }
+}
 
 export const selectionStatus = (s: BetSelection): SelectionStatus =>
   s.suspended ? "suspended" : oddsMoved(s) ? "odds_changed" : "active";

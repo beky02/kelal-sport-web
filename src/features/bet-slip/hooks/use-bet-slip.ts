@@ -13,6 +13,7 @@ import {
   type CtaAction,
 } from "../lib/calculate";
 import { useBetSlipStore } from "../stores/bet-slip.store";
+import type { OddsPolicy } from "../types";
 
 export interface BetSlipView {
   totals: BetSlipTotals;
@@ -22,6 +23,12 @@ export interface BetSlipView {
   balance: string | null;
   /** The tenant's rule set; null while loading or after a failure. */
   rules: BettingRules | null;
+  /**
+   * What happens when odds change: the player's choice, else the tenant's
+   * `default_odds_policy`; `none` until the rules arrive, which asks about
+   * everything.
+   */
+  oddsPolicy: OddsPolicy;
   rulesState: "loading" | "ready" | "error";
   retryRules: () => void;
   /**
@@ -43,11 +50,11 @@ export function useBetSlip(): BetSlipView {
   const mode = useBetSlipStore((s) => s.mode);
   const stake = useBetSlipStore((s) => s.stake);
   const systemK = useBetSlipStore((s) => s.systemK);
-  const acceptedIds = useBetSlipStore((s) => s.acceptedIds);
-  const acceptAnyChange = useBetSlipStore((s) => s.acceptAnyChange);
+  const chosenPolicy = useBetSlipStore((s) => s.oddsPolicy);
 
   const config = usePublicConfig();
   const rules = config.data?.betting ?? null;
+  const oddsPolicy = chosenPolicy ?? rules?.defaultOddsPolicy ?? "none";
 
   const session = useSession();
   // Until /api/me answers, nobody is called a guest and nothing is placeable.
@@ -69,19 +76,9 @@ export function useBetSlip(): BetSlipView {
         systemK,
         rules: rules?.calc ?? null,
         balance,
-        acceptedIds,
-        acceptAllOddsChanges: acceptAnyChange,
+        oddsPolicy,
       }),
-    [
-      selections,
-      mode,
-      stake,
-      systemK,
-      rules,
-      balance,
-      acceptedIds,
-      acceptAnyChange,
-    ],
+    [selections, mode, stake, systemK, rules, balance, oddsPolicy],
   );
 
   return {
@@ -92,6 +89,7 @@ export function useBetSlip(): BetSlipView {
     isGuest,
     balance,
     rules,
+    oddsPolicy,
     rulesState: rules ? "ready" : config.isError ? "error" : "loading",
     retryRules: () => void config.refetch(),
     bookingCodes: config.data?.features.bookingCodes ?? true,

@@ -278,3 +278,15 @@ The UI review found two Amharic strings that read wrongly: `auth.resetTitle` sai
 | `auth.fullNamePlaceholder` | አበበ ከበደ ተስፋዬ                             | the English example, in Ethiopic           |
 | `auth.ruleMet`             | (ተሟልቷል)                                  | new (screen readers only)                  |
 | `auth.ruleNotMet`          | (ገና አልተሟላም)                              | new (screen readers only)                  |
+
+## Placing a bet (F5a, 2026-10-02)
+
+Composed, not from the design, for review. The odds-change setting replaces the switch
+`betSlip.acceptAnyChange` ("ማንኛውንም የኦድ ለውጥ ተቀበል"), whose words it reuses.
+
+| Key                         | Amharic      | Composed from                                     |
+| --------------------------- | ------------ | ------------------------------------------------- |
+| `betSlip.oddsPolicy.label`  | ኦድ ሲቀየር      | `ኦድ` (design) + `ሲቀየር` ("when it changes")        |
+| `betSlip.oddsPolicy.none`   | ጠይቀኝ         | new: "ask me", imperative like the slip's buttons |
+| `betSlip.oddsPolicy.higher` | ከፍ ያለውን ተቀበል | `ተቀበል` (`betSlip.accept`) + "the higher one"      |
+| `betSlip.oddsPolicy.any`    | ማንኛውንም ተቀበል  | `betSlip.acceptAnyChange` without "odds change"   |

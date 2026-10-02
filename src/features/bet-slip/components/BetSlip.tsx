@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { Check, CircleAlert, Loader2 } from "lucide-react";
 import { useTranslation } from "@/lib/i18n/use-translation";
 import type { MessageKey } from "@/lib/i18n";
-import { Switch } from "@/components/ui/Switch";
 import { routes } from "@/config/routes";
 import { ApiError } from "@/lib/api/errors";
 import { cn } from "@/lib/utils/cn";
@@ -27,6 +26,7 @@ import { bookingErrorMessage } from "@/features/bookings/lib/errors";
 import { bookingRequestFrom } from "@/features/bookings/lib/request";
 import { BookingAlert, BookingCode, LoadBookingCode } from "./BookingCode";
 import { EmptySlip } from "./EmptySlip";
+import { OddsPolicySetting } from "./OddsPolicySetting";
 import { PayoutSummary } from "./PayoutSummary";
 import { PlaceBetButton } from "./PlaceBetButton";
 import { SlipAlerts } from "./SlipAlerts";
@@ -63,14 +63,14 @@ export function BetSlip({ onClose }: { onClose?: () => void }) {
     isGuest,
     balance,
     rules,
+    oddsPolicy,
     rulesState,
     retryRules,
     bookingCodes,
   } = useBetSlip();
   const selections = useBetSlipStore((s) => s.selections);
   const clear = useBetSlipStore((s) => s.clear);
-  const acceptAnyChange = useBetSlipStore((s) => s.acceptAnyChange);
-  const setAcceptAnyChange = useBetSlipStore((s) => s.setAcceptAnyChange);
+  const setOddsPolicy = useBetSlipStore((s) => s.setOddsPolicy);
   const setStake = useBetSlipStore((s) => s.setStake);
   const stake = useBetSlipStore((s) => s.stake);
 
@@ -246,11 +246,7 @@ export function BetSlip({ onClose }: { onClose?: () => void }) {
           )}
 
           <div className="px-4">
-            <Switch
-              checked={acceptAnyChange}
-              onChange={setAcceptAnyChange}
-              label={t.t("betSlip.acceptAnyChange")}
-            />
+            <OddsPolicySetting value={oddsPolicy} onChange={setOddsPolicy} />
           </div>
 
           {isGuest ? (

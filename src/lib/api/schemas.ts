@@ -300,9 +300,12 @@ export type BoardSectionDto = z.infer<typeof boardSectionSchema>;
 /** A plain decimal string: a rate (`"0.15"`) or a percentage (`"8"`). */
 const decimalSchema = z.string().regex(/^\d+(\.\d+)?$/);
 
+export const oddsPolicySchema = z.enum(["none", "higher", "any"]);
+
 export const bettingRulesSchema = z.object({
   version: z.number().int(),
   quickStakes: z.array(moneySchema),
+  defaultOddsPolicy: oddsPolicySchema,
   calc: z.object({
     min_stake: moneySchema,
     max_stake: moneySchema,

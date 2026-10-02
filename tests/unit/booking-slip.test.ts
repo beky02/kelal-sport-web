@@ -129,8 +129,7 @@ function requestFor(
     systemK,
     rules: GOLDEN_RULES.default_2026_10,
     balance: null,
-    acceptedIds: new Set(),
-    acceptAllOddsChanges: false,
+    oddsPolicy: "none",
   });
   return bookingRequestFrom({ selections, totals, stake });
 }

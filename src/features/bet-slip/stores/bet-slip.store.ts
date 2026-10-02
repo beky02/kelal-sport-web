@@ -9,7 +9,12 @@ import type {
 } from "@/features/bookings/lib/to-slip";
 import type { BookingReceipt } from "@/features/bookings/types";
 
-import { oddsMoved, type BetSelection, type BetSlipMode } from "../types";
+import {
+  oddsMoved,
+  type BetSelection,
+  type BetSlipMode,
+  type OddsPolicy,
+} from "../types";
 
 /**
  * Booking this slip: which slip (its request's signature), the
@@ -45,10 +50,12 @@ interface BetSlipState {
   stake: string;
   systemK: number;
 
-  /** Odds moves the user accepted one at a time, by outcomeId. */
-  acceptedIds: Set<string>;
-  /** Standing consent to any move, from the toggle at the foot of the slip. */
-  acceptAnyChange: boolean;
+  /**
+   * The player's answer to "when odds change" (`none` / `higher` / `any`), or
+   * null for the tenant's `default_odds_policy`. Sent with the bet, and decides
+   * which moves the slip asks about first.
+   */
+  oddsPolicy: OddsPolicy | null;
 
   /** What loading a booking code did, until the player dismisses it. */
   bookingNotice: BookingNotice | null;
@@ -76,9 +83,11 @@ interface BetSlipState {
   setStake: (raw: string) => void;
   setSystemK: (k: number) => void;
 
+  /** The player agrees to this pick's price as it is now. */
   acceptSelection: (outcomeId: string) => void;
+  /** …and to every moved price at once. */
   acceptAllPending: () => void;
-  setAcceptAnyChange: (on: boolean) => void;
+  setOddsPolicy: (policy: OddsPolicy | null) => void;
 
   /** Realtime: a price moved. Updates in place, keeping `initialOdds`. */
   applyOddsUpdate: (ref: OutcomeRef, odds: string | null) => void;
@@ -120,8 +129,7 @@ export const useBetSlipStore = create<BetSlipState>()((set, get) => ({
   mode: "multiple",
   stake: BETTING.defaultStake,
   systemK: 2,
-  acceptedIds: new Set<string>(),
-  acceptAnyChange: false,
+  oddsPolicy: null,
   bookingNotice: null,
   bookingIntent: null,
 
@@ -144,8 +152,7 @@ export const useBetSlipStore = create<BetSlipState>()((set, get) => ({
     set({
       selections: [],
       index: {},
-      acceptedIds: new Set<string>(),
-      acceptAnyChange: false,
+      oddsPolicy: null,
       bookingNotice: null,
       bookingIntent: null,
     }),
@@ -157,8 +164,9 @@ export const useBetSlipStore = create<BetSlipState>()((set, get) => ({
       mode,
       systemK: systemK ?? state.systemK,
       stake: stake ?? state.stake,
-      acceptedIds: new Set<string>(),
-      acceptAnyChange: false,
+      // A loaded slip starts on the tenant's own policy, never on a standing
+      // "accept any" from the slip it replaced.
+      oddsPolicy: null,
       bookingNotice: notice,
     })),
 
@@ -170,18 +178,23 @@ export const useBetSlipStore = create<BetSlipState>()((set, get) => ({
   setStake: (raw) => set({ stake: sanitiseStake(raw) }),
   setSystemK: (systemK) => set({ systemK }),
 
+  // Agreeing makes the shown price the agreed one, so a later move from it is
+  // a new move to ask about — accepted once is not accepted for good.
   acceptSelection: (outcomeId) =>
-    set({ acceptedIds: new Set(get().acceptedIds).add(outcomeId) }),
+    set({
+      selections: get().selections.map((s) =>
+        s.outcomeId === outcomeId ? { ...s, initialOdds: s.currentOdds } : s,
+      ),
+    }),
 
-  acceptAllPending: () => {
-    const accepted = new Set(get().acceptedIds);
-    for (const s of get().selections) {
-      if (oddsMoved(s)) accepted.add(s.outcomeId);
-    }
-    set({ acceptedIds: accepted });
-  },
+  acceptAllPending: () =>
+    set({
+      selections: get().selections.map((s) =>
+        oddsMoved(s) ? { ...s, initialOdds: s.currentOdds } : s,
+      ),
+    }),
 
-  setAcceptAnyChange: (acceptAnyChange) => set({ acceptAnyChange }),
+  setOddsPolicy: (oddsPolicy) => set({ oddsPolicy }),
 
   applyOddsUpdate: (ref, odds) => {
     if (!get().selections.some((s) => sameRef(s, ref))) return;

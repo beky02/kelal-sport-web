@@ -96,7 +96,12 @@
     "taxNote": "ግብሮች በኢትዮጵያ ሕግ መሠረት ይቀነሳሉ።",
     "howCalculated": "እንዴት ይሰላል?",
     "hideCalculation": "ስሌቱን ደብቅ",
-    "acceptAnyChange": "ማንኛውንም የኦድ ለውጥ ተቀበል",
+    "oddsPolicy": {
+      "label": "ኦድ ሲቀየር",
+      "none": "ጠይቀኝ",
+      "higher": "ከፍ ያለውን ተቀበል",
+      "any": "ማንኛውንም ተቀበል"
+    },
     "accept": "ተቀበል",
     "acceptAll": "ሁሉንም ተቀበል",
     "placeBet": "ውርርድ አስይዝ",

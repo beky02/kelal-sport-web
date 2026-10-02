@@ -5,14 +5,15 @@ import { useTranslation } from "@/lib/i18n/use-translation";
 import { compareOdds } from "@/lib/money";
 import { cn } from "@/lib/utils/cn";
 import { useBetSlipStore } from "../stores/bet-slip.store";
-import type { BetSelection } from "../types";
+import { oddsMoved, type BetSelection } from "../types";
 
 /**
  * One pick in the slip.
  *
- * A moved price is shown as old → new with its own Accept, so a user with four
- * picks can take the one that improved and leave the rest — the alert's
- * "accept all" is the shortcut, not the only way.
+ * A moved price is always shown as old → new. When the odds policy needs the
+ * player's yes, it has its own Accept, so a user with four picks can take the
+ * one that moved and leave the rest — the alert's "accept all" is the
+ * shortcut, not the only way.
  */
 export function BetSelectionRow({
   selection,
@@ -24,7 +25,7 @@ export function BetSelectionRow({
   first: boolean;
   /** Shares a match with another pick, which a multiple cannot combine. */
   conflict: boolean;
-  /** Price moved and has not been accepted yet. */
+  /** Price moved, and the odds policy needs the player to accept it. */
   pending: boolean;
 }) {
   const t = useTranslation();
@@ -33,6 +34,7 @@ export function BetSelectionRow({
 
   const pick = t.pick(selection.outcomeName);
   const rising = compareOdds(selection.currentOdds, selection.initialOdds) > 0;
+  const moved = oddsMoved(selection) && !selection.suspended;
 
   return (
     <div
@@ -67,7 +69,7 @@ export function BetSelectionRow({
       </div>
 
       <div className="numeric flex flex-col items-end gap-1">
-        {pending ? (
+        {moved ? (
           <>
             <span className="flex items-baseline gap-1.5">
               <span className="text-muted text-[11px] line-through">
@@ -82,13 +84,15 @@ export function BetSelectionRow({
                 {rising ? "▲" : "▼"} {t.odds(selection.currentOdds)}
               </span>
             </span>
-            <button
-              type="button"
-              onClick={() => acceptSelection(selection.outcomeId)}
-              className="bg-accent text-on-accent font-body h-7 cursor-pointer rounded-md px-2.5 text-[11px] font-bold"
-            >
-              {t.t("betSlip.accept")}
-            </button>
+            {pending && (
+              <button
+                type="button"
+                onClick={() => acceptSelection(selection.outcomeId)}
+                className="bg-accent text-on-accent font-body h-7 cursor-pointer rounded-md px-2.5 text-[11px] font-bold"
+              >
+                {t.t("betSlip.accept")}
+              </button>
+            )}
           </>
         ) : (
           <span

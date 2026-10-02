@@ -82,8 +82,7 @@ async function placeBetAgainstMock(
     systemK: request.systemK,
     rules,
     balance: null,
-    acceptedIds: new Set(selections.map((s) => s.outcomeId)),
-    acceptAllOddsChanges: true,
+    oddsPolicy: "any",
   });
 
   if (totals.hasConflict) {

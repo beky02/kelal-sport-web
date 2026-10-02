@@ -96,7 +96,12 @@
     "taxNote": "Taxes are withheld as required by Ethiopian law.",
     "howCalculated": "How is this calculated?",
     "hideCalculation": "Hide calculation",
-    "acceptAnyChange": "Accept any odds changes",
+    "oddsPolicy": {
+      "label": "When odds change",
+      "none": "Ask me",
+      "higher": "Accept higher",
+      "any": "Accept any"
+    },
     "accept": "Accept",
     "acceptAll": "Accept all",
     "placeBet": "Place bet",

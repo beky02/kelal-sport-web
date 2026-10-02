@@ -16,7 +16,12 @@ import {
   toSantim,
 } from "@/lib/money";
 import { binomial } from "./combinations";
-import { oddsMoved, type BetSelection, type BetSlipMode } from "../types";
+import {
+  awaitsConsent,
+  type BetSelection,
+  type BetSlipMode,
+  type OddsPolicy,
+} from "../types";
 
 /** Every figure the slip shows, as slipcalc computed it (decimal strings). */
 export type SlipQuote = Quote;
@@ -65,9 +70,8 @@ export interface BetSlipInput {
   rules: RuleSetJson | null;
   /** Null for a guest — balance checks are skipped. */
   balance: string | null;
-  /** Outcome IDs whose odds change the user has explicitly accepted. */
-  acceptedIds: ReadonlySet<string>;
-  acceptAllOddsChanges: boolean;
+  /** Which moves need the player's yes before the slip can be placed. */
+  oddsPolicy: OddsPolicy;
 }
 
 export interface BetSlipTotals {
@@ -94,7 +98,7 @@ export interface BetSlipTotals {
   conflictEventIds: string[];
   hasConflict: boolean;
   suspendedSelection: BetSelection | null;
-  /** Moved selections the user has not yet accepted. */
+  /** Moves the player has to accept first, under the odds policy. */
   pendingOddsChanges: BetSelection[];
 }
 
@@ -145,8 +149,7 @@ function problemFor(
  * own rules (same-match conflicts, suspended picks, unaccepted price moves).
  */
 export function calculateBetSlip(input: BetSlipInput): BetSlipTotals {
-  const { selections, rules, balance, acceptedIds, acceptAllOddsChanges } =
-    input;
+  const { selections, rules, balance, oddsPolicy } = input;
 
   const count = selections.length;
   const live = selections.filter((s) => !s.suspended);
@@ -200,9 +203,9 @@ export function calculateBetSlip(input: BetSlipInput): BetSlipTotals {
       ? []
       : [...seen.entries()].filter(([, n]) => n > 1).map(([id]) => id);
 
-  const pendingOddsChanges = acceptAllOddsChanges
-    ? []
-    : selections.filter((s) => oddsMoved(s) && !acceptedIds.has(s.outcomeId));
+  const pendingOddsChanges = selections.filter((s) =>
+    awaitsConsent(s, oddsPolicy),
+  );
 
   return {
     count,

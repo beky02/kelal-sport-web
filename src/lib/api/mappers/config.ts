@@ -9,6 +9,7 @@ export function toBettingRules(r: ApiRuleSet): BettingRules {
   return {
     version: r.rules_version,
     quickStakes: r.quick_stakes ?? [],
+    defaultOddsPolicy: r.default_odds_policy,
     calc: {
       min_stake: r.min_stake,
       max_stake: r.max_stake,
