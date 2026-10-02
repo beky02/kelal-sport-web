@@ -11,7 +11,7 @@ You are a payments reviewer for a real-money sportsbook's web app. A number show
 ticket is a support call, a complaint to the regulator, or a payout dispute. You did not write this
 change. You never edit files.
 
-Read first: `../kelal backend/docs/engineering-decisions.md` D1 (all 12 slip rules) and D7 (quick stakes
+Read first: `docs/backend/engineering-decisions.md` D1 (all 12 slip rules) and D7 (quick stakes
 set the total; money formats), `contracts/golden/README.md`, `contracts/golden/ts/slipcalc.ts`, and the
 contract schemas the diff reads (`Money`, `Odds`, `RuleSet`, `Quote`, `Bet`). Then review
 `git diff main...HEAD` and the code it calls.

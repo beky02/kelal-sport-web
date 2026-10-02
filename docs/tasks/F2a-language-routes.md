@@ -19,8 +19,8 @@ app's unprefixed deep links redirecting.
 ## Read first
 
 - `docs/decisions.md` **FD2** (language in the URL) and **FD3** (routes) — the decisions this carries out
-- `../kelal backend/docs/engineering-decisions.md` D7 (deep links)
-- `../kelal backend/docs/design/components/c18-client-apps.md` §4.1, §4.3, §9
+- `docs/backend/engineering-decisions.md` D7 (deep links)
+- `docs/backend/design/components/c18-client-apps.md` §4.1, §4.3, §9
 - `contracts/openapi.yaml`: `GET /v1/config/public` (`languages`, `default_language`)
 - Next.js: `node_modules/next/dist/docs/` — `proxy` (middleware is renamed in this version), dynamic
   segments, `redirects` in `next.config.ts`, `generateStaticParams`

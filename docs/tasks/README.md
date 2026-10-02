@@ -7,7 +7,7 @@ The screens already exist — they were built from the design before the contrac
 "rewire this screen to the contract": replace the mock repository behind it with a route handler on the
 real operations, map the contract's data onto the domain types, and fix what the contract and the
 Engineering Decisions say differently. The order follows the Build Plan's frontend track
-(`../kelal backend/docs/build-plan.md` §2).
+(`docs/backend/build-plan.md` §2).
 
 | ID                              | Title                                                                                | Depends on   | Backend piece | Status |
 | ------------------------------- | ------------------------------------------------------------------------------------ | ------------ | ------------- | ------ |

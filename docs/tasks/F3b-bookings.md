@@ -20,7 +20,7 @@ back into the slip at current odds, through the contract.
 ## Read first
 
 - `docs/decisions.md` FD3 (`/b/{code}` deep link)
-- `../kelal backend/docs/design/components/c09-booking-codes.md`
+- `docs/backend/design/components/c09-booking-codes.md`
 - `contracts/openapi.yaml`: `POST /v1/bookings`, `GET /v1/bookings/{code}` (`PricedLeg`, 404, 410, 429)
 - Existing: `src/features/bet-slip/components/BookingCode.tsx`, the stand-in code in `BetSlip.tsx`
 

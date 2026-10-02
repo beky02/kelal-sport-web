@@ -2,3 +2,4 @@
 src/lib/api/schema.d.ts
 contracts/
 pnpm-lock.yaml
+docs/backend/

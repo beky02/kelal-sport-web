@@ -19,7 +19,7 @@ cash in and out, close the shift with a Z report.
 
 - `docs/decisions.md` **FD1** — this app is `apps/<name>` in the workspace F8a creates, built on its
   shared packages.
-- `../kelal backend/docs/design/components/c19-retail-network.md`, `c18-client-apps.md` §5 (receipt
+- `docs/backend/design/components/c19-retail-network.md`, `c18-client-apps.md` §5 (receipt
   printing, keyboard shortcuts, scanner input)
 - `contracts/openapi.yaml`: the `Retail - cashier` operations (`/v1/retail/auth/*`, `/shifts/*`,
   `/slip-codes/{code}`, `/tickets/*`, `/settlements/*`)

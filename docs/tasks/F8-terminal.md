@@ -19,8 +19,8 @@ the counter, and reset when idle.
 
 - `docs/decisions.md` **FD1** — this app is `apps/<name>` in the workspace F8a creates, built on its
   shared packages.
-- `../kelal backend/docs/design/components/c19-retail-network.md` §4.1, `c18-client-apps.md` §5
-- `../kelal backend/docs/engineering-decisions.md` D3 (device signatures)
+- `docs/backend/design/components/c19-retail-network.md` §4.1, `c18-client-apps.md` §5
+- `docs/backend/engineering-decisions.md` D3 (device signatures)
 - `contracts/openapi.yaml`: `POST /v1/retail/terminals/activate`, `GET /v1/retail/terminal`,
   `POST /v1/retail/slip-codes`
 

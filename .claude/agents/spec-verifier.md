@@ -26,7 +26,7 @@ Inputs you receive: task id, task file, plan file, and a diff command (usually `
    through `upstream(tag, …)` with the operation's real tag. Handled error codes exist in `ErrorCode`.
    `contracts/` and `src/lib/api/schema.d.ts` were not edited by hand (`pnpm api:check`,
    `git diff --stat main -- contracts`).
-3. **Decisions.** Compare with `../kelal backend/docs/engineering-decisions.md` (D1 slip, D3 tenancy and
+3. **Decisions.** Compare with `docs/backend/engineering-decisions.md` (D1 slip, D3 tenancy and
    the browser never calling the API, D5 catalogue and 30 s refresh, D7 frontend conventions, D8 scope) and
    the sources in the task's "Read first", with the precedence in `CLAUDE.md`. Flag behaviour that
    contradicts a higher source, and rules the code invented that no source states (limits, tax logic,

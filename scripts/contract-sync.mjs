@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 /**
- * Copies the API contract from the backend repo, which owns it, and regenerates
- * the TypeScript types. The copy in this repo is never edited by hand.
+ * Copies the API contract and the backend's docs from the backend repo, which
+ * owns them, and regenerates the TypeScript types. The copies in this repo
+ * (contracts/, docs/backend/) are never edited by hand.
  *
  *   pnpm contract:sync                 # from CONTRACTS_SOURCE or ../../kelal backend/contracts
  *   pnpm contract:sync --check         # exit 1 if the copy differs from the source
@@ -42,31 +43,53 @@ function files(dir) {
     });
 }
 
+/**
+ * What is copied from the backend repo, which owns both: the API contract, and
+ * the docs that explain it (engineering decisions, design pages, product docs).
+ * This repo reads only its own copies.
+ */
+const pairs = [
+  { from: source, to: target, name: "contracts/" },
+  {
+    from: join(source, "..", "docs"),
+    to: join(root, "docs", "backend"),
+    name: "docs/backend/",
+  },
+];
+
 if (check) {
-  const differ = files(source)
-    .map((path) => relative(source, path))
-    .filter((rel) => {
-      const mine = join(target, rel);
-      return (
-        !existsSync(mine) ||
-        !readFileSync(mine).equals(readFileSync(join(source, rel)))
+  let behind = false;
+  for (const { from, to, name } of pairs) {
+    if (!existsSync(from)) continue;
+    const differ = files(from)
+      .map((path) => relative(from, path))
+      .filter((rel) => {
+        const mine = join(to, rel);
+        return (
+          !existsSync(mine) ||
+          !readFileSync(mine).equals(readFileSync(join(from, rel)))
+        );
+      });
+    if (differ.length > 0) {
+      behind = true;
+      console.error(
+        `${name} is behind the backend (${differ.join(", ")}). Run: pnpm contract:sync`,
       );
-    });
-  if (differ.length > 0) {
-    console.error(
-      `contracts/ is behind the backend (${differ.join(", ")}). Run: pnpm contract:sync`,
-    );
-    process.exit(1);
+    } else {
+      console.log(`${name} matches the backend.`);
+    }
   }
-  console.log("contracts/ matches the backend.");
-  process.exit(0);
+  process.exit(behind ? 1 : 0);
 }
 
-cpSync(source, target, {
-  recursive: true,
-  filter: (path) => !skip(path.split("/").pop()),
-});
+for (const { from, to } of pairs) {
+  if (!existsSync(from)) continue;
+  cpSync(from, to, {
+    recursive: true,
+    filter: (path) => !skip(path.split("/").pop()),
+  });
+}
 execFileSync("pnpm", ["api:types"], { cwd: root, stdio: "inherit" });
 console.log(
-  `Synced contracts/ from ${source}. Review \`git diff contracts src/lib/api/schema.d.ts\`.`,
+  `Synced contracts/ and docs/backend/ from the backend. Review \`git diff contracts docs/backend src/lib/api/schema.d.ts\`.`,
 );

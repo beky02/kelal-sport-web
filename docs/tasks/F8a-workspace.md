@@ -19,7 +19,7 @@ sees changes.
 ## Read first
 
 - `docs/decisions.md` **FD1**
-- `../kelal backend/docs/design/components/c18-client-apps.md` §3 (layout and import rules), §7
+- `docs/backend/design/components/c18-client-apps.md` §3 (layout and import rules), §7
 - Existing: everything under `src/`, `scripts/`, `.claude/` (paths in hooks and skills), `CLAUDE.md`
 
 ## Scope

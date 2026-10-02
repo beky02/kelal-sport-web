@@ -20,7 +20,7 @@ pnpm check                # fast gate: typecheck, lint, prettier, unit + compone
 pnpm verify               # full gate: check + generated types + contract drift + build + UI screens
 pnpm ui                   # every screen at 375 and 1440 px, English and Amharic → test-results/ui/*.png
 pnpm api:types            # regenerate src/lib/api/schema.d.ts from contracts/openapi.yaml
-pnpm contract:sync        # copy contracts/ from the backend repo, then regenerate types
+pnpm contract:sync        # copy contracts/ and docs/backend/ from the backend repo, regenerate types
 pnpm vitest run path/to/file.test.ts -t name    # one test (prefer while iterating)
 ```
 
@@ -30,10 +30,14 @@ Arsenal v Chelsea, Real Madrid v Barcelona). Ask for an error or a named example
 
 ## Sources of truth (higher wins)
 
-1. `contracts/openapi.yaml` + `contracts/golden/` → 2. `../kelal backend/docs/engineering-decisions.md`
+1. `contracts/openapi.yaml` + `contracts/golden/` → 2. `docs/backend/engineering-decisions.md`
    (D1–D9) → 3. `docs/decisions.md` (FD1–FD5, this repo's decisions where the sources above leave a
-   choice) → 4. `../kelal backend/docs/design/` (C18 is the web client) → 5. the claude.ai design
-   project (look and copy) → 6. `../kelal backend/docs/product/`.
+   choice) → 4. `docs/backend/design/` (C18 is the web client) → 5. the claude.ai design
+   project (look and copy) → 6. `docs/backend/product/`.
+
+`docs/backend/` is a copy of the backend repo's `docs/` (engineering decisions, design pages, product docs),
+kept current by `pnpm contract:sync` and checked by `pnpm contract:sync --check`. Read the copy; never read
+files from the backend repo itself, and never edit the copy by hand.
 
 If they conflict, follow the higher one and note it in the task's plan. If something isn't decided
 anywhere, ask; don't invent product rules (taxes, limits, payouts, regulator behaviour, copy shown to

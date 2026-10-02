@@ -18,8 +18,8 @@ sees a token.
 
 ## Read first
 
-- `../kelal backend/docs/engineering-decisions.md` D3 (tokens, audiences)
-- `../kelal backend/docs/design/components/c18-client-apps.md` §4.4; `c01-identity-auth.md`; `c02-kyc.md`
+- `docs/backend/engineering-decisions.md` D3 (tokens, audiences)
+- `docs/backend/design/components/c18-client-apps.md` §4.4; `c01-identity-auth.md`; `c02-kyc.md`
 - `contracts/openapi.yaml`: `/v1/auth/otp`, `/register`, `/login` (200 vs 202 OTP required), `/refresh`,
   `/logout`, `/password/reset`, `/v1/me`, `/v1/me/sessions`, `/v1/kyc/fayda/otp`, `/v1/kyc/fayda/verify`
   (`verified`, `needs_info`, `pending`), `/v1/kyc/documents`
