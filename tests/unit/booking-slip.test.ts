@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { GOLDEN_RULES } from "../golden";
 import { example } from "../contract";
 import { toBooking } from "@/lib/api/mappers/bookings";
-import { slipFromBooking } from "@/features/bookings/lib/to-slip";
+import { slipFromBooking, stakeHintOf } from "@/features/bookings/lib/to-slip";
 import { bookingRequestFrom } from "@/features/bookings/lib/request";
 import { calculateBetSlip } from "@/features/bet-slip/lib/calculate";
 import { oddsMoved, type BetSelection } from "@/features/bet-slip/types";
@@ -32,6 +32,17 @@ describe("slipFromBooking", () => {
     });
     // The slip's accept-changes flow takes it from here.
     expect(oddsMoved(arsenal)).toBe(true);
+  });
+
+  it("counts what it added, for the notice", () => {
+    expect(slipFromBooking(booking()).notice.added).toBe(1);
+  });
+
+  it("reads a stake hint only when it is a positive amount", () => {
+    expect(stakeHintOf({ ...booking(), stakeHint: "50.00" })).toBe("50.00");
+    expect(stakeHintOf({ ...booking(), stakeHint: "0.00" })).toBeNull();
+    expect(stakeHintOf({ ...booking(), stakeHint: "-5.00" })).toBeNull();
+    expect(stakeHintOf({ ...booking(), stakeHint: null })).toBeNull();
   });
 
   it("reports the started match instead of adding it", () => {
@@ -81,7 +92,8 @@ describe("slipFromBooking", () => {
       mode: "system",
       systemK: 2,
     });
-    expect(slipFromBooking(system).notice.systemSizes).toBeNull();
+    // The notice keeps the code's sizes; the slip decides whether to mention them.
+    expect(slipFromBooking(system).notice.systemSizes).toEqual([2]);
 
     const trixie = slipFromBooking({ ...system, systemSizes: [2, 3] });
     expect(trixie.systemK).toBe(2);

@@ -9,43 +9,47 @@ import { BookingUnavailable } from "@/features/bookings/components/BookingUnavai
 import { BookingView } from "@/features/bookings/components/BookingView";
 import { normaliseBookingCode } from "@/features/bookings/lib/code";
 import { bookingMetadata } from "@/features/bookings/lib/metadata";
+import type { BookingLookup } from "@/features/bookings/types";
 import { lookupBooking } from "@/lib/server/bookings";
-import { tenantFromHeaders } from "@/lib/server/config";
+import { publicOrigin, tenantFromHeaders } from "@/lib/server/config";
 import { loadPageLocale } from "@/lib/server/public-config";
 import { mockPreference } from "@/lib/server/upstream";
 
 /**
- * The tenant, its page locale and the booking — once per request, shared by
- * the metadata and the page (`cache`).
+ * The tenant, its page locale and — when the tenant has booking codes on — the
+ * booking: once per request, shared by the metadata and the page (`cache`).
  */
 const lookup = cache(async (code: string) => {
   const h = await headers();
   const tenant = tenantFromHeaders(h);
-  const [booking, locale] = await Promise.all([
-    lookupBooking(tenant, code, mockPreference(h.get("prefer"))),
-    loadPageLocale(tenant),
-  ]);
-  const host = h.get("x-forwarded-host") ?? h.get("host") ?? "localhost";
-  const proto =
-    h.get("x-forwarded-proto") ??
-    (host.startsWith("localhost") ? "http" : "https");
+  const locale = await loadPageLocale(tenant);
+  const booking: BookingLookup | null = locale.bookingCodes
+    ? await lookupBooking(tenant, code, mockPreference(h.get("prefer")))
+    : null;
   return {
     booking,
     locale,
-    url: new URL(routes.booking(code), `${proto}://${host}`).toString(),
+    url: `${publicOrigin(h, tenant)}${routes.booking(code)}`,
   };
 });
 
 /**
- * Open Graph tags for a shared code. Telegram's preview bot (`TelegramBot (like
- * TwitterBot)`) is on Next's HTML-limited list, so it gets them in `<head>`.
+ * Open Graph tags for a shared code. Next streams metadata into `<body>` except
+ * for "HTML-limited" bots; Telegram's preview bot is not on that list itself,
+ * but its user agent ("TelegramBot (like TwitterBot)") matches `Twitterbot`,
+ * so it gets them in `<head>` — `tests/e2e/booking.spec.ts` guards that.
  */
 export async function generateMetadata({
   params,
 }: PageProps<"/b/[code]">): Promise<Metadata> {
-  const code = normaliseBookingCode((await params).code);
-  if (!code) return { robots: { index: false, follow: false } };
+  const raw = (await params).code;
+  const code = normaliseBookingCode(raw);
+  // A malformed or non-canonical address answers 404 or a redirect: nothing
+  // to describe, and nothing worth an upstream call.
+  if (!code || code !== raw) return { robots: { index: false, follow: false } };
   const { booking, locale, url } = await lookup(code);
+  // Booking codes off for this tenant: the page is a 404 and says nothing.
+  if (!booking) return { robots: { index: false, follow: false } };
   return bookingMetadata(booking, { ...locale, url });
 }
 
@@ -60,8 +64,8 @@ export default async function BookingPage({ params }: PageProps<"/b/[code]">) {
   // One address per code: `/b/7kq2m9x` and `/b/7KQ2M9O` are 7KQ2M9X/…0.
   if (code !== raw) redirect(routes.booking(code));
 
-  const { booking, locale } = await lookup(code);
-  if (!locale.bookingCodes || booking.status === "not_found") notFound();
+  const { booking } = await lookup(code);
+  if (!booking || booking.status === "not_found") notFound();
 
   return (
     <Suspense>

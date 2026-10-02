@@ -30,6 +30,7 @@ import type {
   BookingRequest,
 } from "@/features/bookings/types";
 import { BOOKING_CODE } from "@/features/bookings/lib/code";
+import { compareMoney } from "@/lib/money";
 import type {
   PaymentMethod,
   PaymentResult,
@@ -335,6 +336,7 @@ const bookingLegSchema = z.object({
       "MARKET_CLOSED",
       "NOT_FOUND",
       "UNPRICED",
+      "INCOMPLETE",
     ])
     .nullable(),
 });
@@ -358,6 +360,7 @@ export const bookingReceiptSchema = z.object({
   code: bookingCodeSchema,
   expiresAt: z.string(),
   shareUrl: shareUrlSchema,
+  issuedAt: z.string(),
 }) satisfies z.ZodType<BookingReceipt>;
 
 /**
@@ -368,5 +371,8 @@ export const bookingRequestSchema = z.strictObject({
   betType: betTypeSchema,
   systemSizes: z.array(z.number().int().min(1).max(30)).max(30),
   outcomeIds: z.array(z.string().min(1).max(64)).min(1).max(30),
-  stake: moneySchema.nullable(),
+  // A hint for whoever loads the code: an amount, never zero or negative.
+  stake: moneySchema
+    .refine((stake) => compareMoney(stake, "0.00") > 0, "Not a stake")
+    .nullable(),
 }) satisfies z.ZodType<BookingRequest>;

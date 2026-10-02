@@ -6,11 +6,22 @@ import type { Booking, BookingLeg } from "../types";
 /** What the slip says after a code is loaded, until the player dismisses it. */
 export interface BookingNotice {
   code: string;
+  /** How many of its legs went into the slip; 0 leaves the slip as it was. */
+  added: number;
   /** Legs the code had that can't be backed now, with why. */
   notAdded: BookingLeg[];
-  /** Every system size the code had, when the slip can show only the first. */
+  /**
+   * The code's system sizes (system bets only). The slip prices one size, and
+   * may fall back when legs drop out, so it says so when that differs.
+   */
   systemSizes: number[] | null;
 }
+
+/** The code's stake hint, when it is an amount worth starting from. */
+export const stakeHintOf = (booking: Booking): string | null =>
+  booking.stakeHint && compareMoney(booking.stakeHint, "0.00") > 0
+    ? booking.stakeHint
+    : null;
 
 /** A loaded booking, ready to replace the slip. */
 export interface SlipFromBooking {
@@ -73,14 +84,12 @@ export function slipFromBooking(booking: Booking): SlipFromBooking {
     mode: booking.betType,
     systemK: sizes[0] ?? null,
     // A zero (or negative) hint is no hint: the slip keeps its stake.
-    stake:
-      booking.stakeHint && compareMoney(booking.stakeHint, "0.00") > 0
-        ? booking.stakeHint
-        : null,
+    stake: stakeHintOf(booking),
     notice: {
       code: booking.code,
+      added: selections.length,
       notAdded,
-      systemSizes: sizes.length > 1 ? sizes : null,
+      systemSizes: sizes.length > 0 ? sizes : null,
     },
   };
 }

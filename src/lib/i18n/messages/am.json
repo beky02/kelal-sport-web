@@ -532,11 +532,11 @@
     "shareText": "የውርርድ ትኬት {code}",
     "loaded": "የትኬት ኮድ {code} ትኬትዎ ውስጥ ገብቷል።",
     "notAddedTitle": "አልተጨመሩም፤ ከእንግዲህ አይገኙም፦",
-    "notAddedLeg": "{event} · {pick}፦ {reason}",
-    "sizesNote": "ይህ ኮድ የሲስተም መጠኖችን {sizes} ያጣምራል። ትኬቱ {k} ያሳያል።",
+    "notAddedLeg": "{event} · {market} · {pick}፦ {reason}",
+    "sizesNote": "ይህ ኮድ የ{sizes} ሲስተም ነው፤ ትኬቱ {k}/{n} ያሰላል።",
     "dismiss": "ዝጋ",
     "loadIntoSlip": "ወደ ትኬት ጫን",
-    "replacesSlip": "ትኬትዎ ውስጥ ያሉትን {n} ምርጫዎች ይተካል።",
+    "replacesSlip": "መጫን አሁን ትኬትዎ ውስጥ ያለውን ይተካል።",
     "stakeHint": "የተጠቆመ የውርርድ መጠን",
     "pageTitle": "የውርርድ ትኬት {code}",
     "selections": "ምርጫዎች",
@@ -546,17 +546,18 @@
     "notFoundTitle": "በዚህ ኮድ የተቀመጠ ትኬት የለም",
     "notFoundBody": "ኮድ {code}ን ያረጋግጡና እንደገና ይሞክሩ።",
     "failedTitle": "ይህን ትኬት መጫን አልተሳካም",
-    "failedBody": "ግንኙነትዎን ያረጋግጡ እና እንደገና ይሞክሩ።",
+    "failedBody": "አሁን መጫን አልተቻለም። እንደገና ይሞክሩ።",
     "invalidCode": "የትኬት ኮድ 7 ፊደላትና ቁጥሮች ነው፤ ለምሳሌ 7KQ2M9X።",
     "reason": {
       "EVENT_STARTED": "ጨዋታው ተጀምሯል",
       "MARKET_SUSPENDED": "ውርርድ ቆሟል",
       "MARKET_CLOSED": "ገበያው ተዘግቷል",
       "NOT_FOUND": "ከእንግዲህ አይቀርብም",
-      "UNPRICED": "አሁን ዋጋ የለውም"
+      "UNPRICED": "አሁን ዋጋ የለውም",
+      "INCOMPLETE": "ማረጋገጥ አይቻልም"
     },
     "errors": {
-      "expired": "ኮድ {code} ጊዜው አልፏል።",
+      "expired": "ኮድ {code} ጊዜው አልፏል። አዲስ ኮድ ይጠይቁ ወይም ትኬቱን እንደገና ይሥሩ።",
       "notFound": "በኮድ {code} የተቀመጠ ትኬት የለም። ያረጋግጡና እንደገና ይሞክሩ።",
       "rateLimited": "አሁን በጣም ብዙ የትኬት ኮዶች ተሠርተዋል። ቆይተው ይሞክሩ።",
       "cannotBook": "ይህ ትኬት እንዳለ ሊቀመጥ አይችልም።",
@@ -566,6 +567,12 @@
       "description": "ምርጫዎች፦ {picks}",
       "expired": "ይህ የትኬት ኮድ ጊዜው አልፏል።",
       "notFound": "በዚህ ኮድ የተቀመጠ ትኬት የለም።"
-    }
+    },
+    "nothingAdded": "ከትኬት ኮድ {code} አሁን ምንም መጨመር አይቻልም።",
+    "sizesNoteMultiple": "ይህ ኮድ የ{sizes} ሲስተም ነው፤ በቀሩት ምርጫዎች ትኬቱ ሲስተም ማስላት አይችልም።",
+    "sizesSeparator": "፣ ",
+    "notFoundBodyNoCode": "ኮዱን ያረጋግጡና እንደገና ይሞክሩ።",
+    "booked": "ተቀምጧል",
+    "openSlip": "ትኬቱን ክፈት"
   }
 }

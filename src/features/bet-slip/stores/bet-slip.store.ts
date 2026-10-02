@@ -9,16 +9,25 @@ import type {
 } from "@/features/bookings/lib/to-slip";
 import type { BookingReceipt } from "@/features/bookings/types";
 
+import { oddsMoved, type BetSelection, type BetSlipMode } from "../types";
+
 /**
  * Booking this slip: which slip (its request's signature), the
  * `Idempotency-Key` made for it, and — once the server answers — its code.
+ *
+ * Kept here rather than in the booking hook, so the code and the key outlive
+ * the slip sheet closing: the key is the player's intent (it must be the same
+ * on a retry after a remount), and the code is what they will read out at a
+ * shop. It is not a cache of server data — it is dropped when the slip
+ * changes or the code expires.
  */
 export interface BookingIntent {
   signature: string;
   key: string;
   receipt: BookingReceipt | null;
+  /** This device's clock when the receipt arrived, to time its expiry. */
+  receivedAt: number | null;
 }
-import { oddsMoved, type BetSelection, type BetSlipMode } from "../types";
 
 interface BetSlipState {
   selections: BetSelection[];
@@ -59,6 +68,8 @@ interface BetSlipState {
    */
   replaceSlip: (slip: SlipFromBooking) => void;
   dismissBookingNotice: () => void;
+  /** Says what a code held without touching the slip (nothing could be added). */
+  showBookingNotice: (notice: BookingNotice) => void;
 
   setMode: (mode: BetSlipMode) => void;
   /** From the keyboard: keeps digits and up to two decimals. */
@@ -152,6 +163,7 @@ export const useBetSlipStore = create<BetSlipState>()((set, get) => ({
     })),
 
   dismissBookingNotice: () => set({ bookingNotice: null }),
+  showBookingNotice: (bookingNotice) => set({ bookingNotice }),
   setBookingIntent: (bookingIntent) => set({ bookingIntent }),
 
   setMode: (mode) => set({ mode }),

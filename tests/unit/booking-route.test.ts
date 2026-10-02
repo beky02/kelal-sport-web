@@ -23,6 +23,8 @@ function upstreamAnswers(status: number, body: unknown) {
       headers: {
         "Content-Type":
           status >= 400 ? "application/problem+json" : "application/json",
+        // The API's clock, which a receipt's lifetime is measured from.
+        Date: "Sat, 03 Oct 2026 09:00:00 GMT",
       },
     });
   });
@@ -156,6 +158,7 @@ describe("POST /api/bookings", () => {
       code: "7KQ2M9X",
       expiresAt: "2026-10-04T13:00:00Z",
       shareUrl: "https://example.et/b/7KQ2M9X",
+      issuedAt: "2026-10-03T09:00:00.000Z",
     });
 
     expect(sent).toHaveLength(1);
@@ -192,6 +195,49 @@ describe("POST /api/bookings", () => {
     const response = await post({ ...request, outcomeIds: [], extra: "x" });
     expect(response.status).toBe(422);
     expect((await response.json()).code).toBe("VALIDATION_FAILED");
+    expect(sent).toHaveLength(0);
+  });
+
+  it("refuses a POST another site's page sent", async () => {
+    upstreamAnswers(201, {});
+    const response = await post(request, {
+      "content-type": "application/json",
+      "idempotency-key": KEY,
+      "sec-fetch-site": "cross-site",
+    });
+    expect(response.status).toBe(403);
+    expect(sent).toHaveLength(0);
+  });
+
+  it("takes a POST from its own pages", async () => {
+    upstreamAnswers(201, responseExample("/v1/bookings", "post", 201));
+    const response = await post(request, {
+      "content-type": "application/json",
+      "idempotency-key": KEY,
+      "sec-fetch-site": "same-origin",
+    });
+    expect(response.status).toBe(201);
+  });
+
+  it("refuses a body far bigger than any slip, before reading it all", async () => {
+    upstreamAnswers(201, {});
+    const response = await post({
+      ...request,
+      outcomeIds: Array.from(
+        { length: 2000 },
+        (_, i) => `oc_${i}_${"x".repeat(20)}`,
+      ),
+    });
+    expect(response.status).toBe(413);
+    expect(sent).toHaveLength(0);
+  });
+
+  it("refuses a zero or negative stake", async () => {
+    upstreamAnswers(201, {});
+    for (const stake of ["0.00", "-5.00"]) {
+      const response = await post({ ...request, stake });
+      expect(response.status).toBe(422);
+    }
     expect(sent).toHaveLength(0);
   });
 

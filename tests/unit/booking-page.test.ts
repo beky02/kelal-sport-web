@@ -33,6 +33,14 @@ describe("the /b/{code} page's metadata", () => {
     expect(meta.robots).toMatchObject({ index: false });
   });
 
+  it("shows nothing of a booking when the tenant has booking codes off", () => {
+    const meta = bookingMetadata(
+      { status: "ok", booking: BOOKING() },
+      { ...page, bookingCodes: false },
+    );
+    expect(meta).toEqual({ robots: { index: false, follow: false } });
+  });
+
   it("writes them in the language it is given", () => {
     const meta = bookingMetadata(
       { status: "ok", booking: BOOKING() },

@@ -15,7 +15,8 @@ import { example, responseExample } from "../contract";
 import { render } from "./render";
 
 vi.mock("next/navigation", () => ({
-  useRouter: () => ({ push: vi.fn(), replace: vi.fn() }),
+  useRouter: () => ({ push: vi.fn(), replace: vi.fn(), refresh: vi.fn() }),
+  usePathname: vi.fn(() => "/"),
 }));
 
 /** What `/api/bookings/7KQ2M9X` answers: the contract's booking, mapped. */
@@ -23,6 +24,13 @@ const BOOKING = () => {
   const raw = example("/v1/bookings/{code}");
   return toBooking({ en: raw, am: raw });
 };
+/**
+ * The contract's 201, issued (by the API's clock) at 09:00 on 3 October: a
+ * code that lasts 28 hours, to 13:00 the next day. Its lifetime is counted
+ * from when it arrives, so these tests pass whatever today's date is.
+ */
+const ISSUED = "2026-10-03T09:00:00.000Z";
+const LIFETIME_MS = Date.parse("2026-10-04T13:00:00Z") - Date.parse(ISSUED);
 const RECEIPT = () =>
   toBookingReceipt(
     responseExample(
@@ -30,6 +38,7 @@ const RECEIPT = () =>
       "post",
       201,
     ) as components["schemas"]["BookingCreated"],
+    ISSUED,
   );
 
 interface Sent {
@@ -106,7 +115,7 @@ describe("loading a booking code in the slip", () => {
     const notice = screen.getByTestId("booking-notice");
     expect(notice).toHaveTextContent("Booking 7KQ2M9X is in your slip.");
     expect(notice).toHaveTextContent(
-      "Saint George v Fasil Kenema · 1: match has started",
+      "Saint George v Fasil Kenema · 1X2 · 1: match has started",
     );
     // The price moved since the code was made: 2.05 → 2.10, to accept. (A
     // guest has no Place button; the odds-changed alert offers the accept.)
@@ -128,6 +137,103 @@ describe("loading a booking code in the slip", () => {
     expect(screen.queryByText("Old pick")).not.toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Dismiss" }));
     expect(screen.queryByTestId("booking-notice")).not.toBeInTheDocument();
+  });
+
+  it("prices the loaded leg at today's 2.10: a 50.00 stake pays 89.25", async () => {
+    api(() => [200, BOOKING()]);
+    render(<BetSlip />);
+    await loadCode("7KQ2M9X");
+    await screen.findByTestId("booking-notice");
+
+    // Stake tax floor(5000 × 0.15) = 7.50; floor(4250 × 2.10) = 89.25, not
+    // the 87.12 the code's 2.05 would give.
+    expect(screen.getByTestId("net-payout")).toHaveTextContent("ETB 89.25");
+    expect(screen.getByText("− ETB 7.50")).toBeInTheDocument();
+  });
+
+  it("starts a loaded slip without standing consent to price moves", async () => {
+    useBetSlipStore.setState({ acceptAnyChange: true });
+    api(() => [200, BOOKING()]);
+    render(<BetSlip />);
+    await loadCode("7KQ2M9X");
+    await screen.findByTestId("booking-notice");
+    expect(useBetSlipStore.getState().acceptAnyChange).toBe(false);
+  });
+
+  it("keeps the slip when nothing in the code can be added, and says so", async () => {
+    const nothing = BOOKING();
+    nothing.legs = nothing.legs.filter((leg) => leg.unavailable !== null);
+    useBetSlipStore.getState().toggleSelection(pick("m9", "1.50", "Old pick"));
+    api(() => [200, nothing]);
+    render(<BetSlip />);
+
+    await loadCode("7KQ2M9X");
+
+    const notice = await screen.findByTestId("booking-notice");
+    expect(notice).toHaveTextContent(
+      "Nothing in booking 7KQ2M9X can be added now.",
+    );
+    expect(notice).toHaveTextContent(
+      "Saint George v Fasil Kenema · 1X2 · 1: match has started",
+    );
+    expect(
+      useBetSlipStore.getState().selections.map((s) => s.outcomeId),
+    ).toEqual(["oc_m9"]);
+    expect(useBetSlipStore.getState().stake).toBe("100");
+  });
+
+  it("names the system the slip prices when it isn't the code's", async () => {
+    const patent = BOOKING();
+    patent.betType = "system";
+    patent.systemSizes = [1, 2, 3];
+    patent.legs = [
+      { ...patent.legs[0], outcomeId: "oc_a", eventId: "fx_a" },
+      { ...patent.legs[0], outcomeId: "oc_b", eventId: "fx_b" },
+      { ...patent.legs[0], outcomeId: "oc_c", eventId: "fx_c" },
+    ];
+    api(() => [200, patent]);
+    render(<BetSlip />);
+    await loadCode("7KQ2M9X");
+
+    expect(await screen.findByTestId("booking-notice")).toHaveTextContent(
+      "This code is a 1, 2, 3 system; the slip prices 2/3.",
+    );
+  });
+
+  it("says when too few selections are left for the code's system", async () => {
+    const system = BOOKING();
+    system.betType = "system";
+    system.systemSizes = [2];
+    system.legs = [
+      { ...system.legs[0], outcomeId: "oc_a", eventId: "fx_a" },
+      { ...system.legs[0], outcomeId: "oc_b", eventId: "fx_b" },
+      system.legs[1],
+    ];
+    api(() => [200, system]);
+    render(<BetSlip />);
+    await loadCode("7KQ2M9X");
+
+    expect(await screen.findByTestId("booking-notice")).toHaveTextContent(
+      "This code is a 2 system; with the selections left, the slip can't price a system.",
+    );
+  });
+
+  it("says nothing about the system when the slip prices the code's own", async () => {
+    const system = BOOKING();
+    system.betType = "system";
+    system.systemSizes = [2];
+    system.legs = ["a", "b", "c"].map((id) => ({
+      ...system.legs[0],
+      outcomeId: `oc_${id}`,
+      eventId: `fx_${id}`,
+    }));
+    api(() => [200, system]);
+    render(<BetSlip />);
+    await loadCode("7KQ2M9X");
+
+    expect(await screen.findByTestId("booking-notice")).not.toHaveTextContent(
+      "system",
+    );
   });
 
   it("says the code has expired on a 410", async () => {
@@ -287,7 +393,9 @@ describe("booking the slip", () => {
     render(<BetSlip />);
 
     expect(screen.getByTestId("booking-code")).toHaveTextContent("7KQ2M9X");
-    expect(screen.getByRole("button", { name: "Book bet" })).toBeDisabled();
+    const booked = screen.getByRole("button", { name: "Booked" });
+    expect(booked).toHaveAttribute("aria-disabled", "true");
+    await userEvent.click(booked);
     expect(sent).toHaveLength(1);
   });
 
@@ -314,21 +422,71 @@ describe("booking the slip", () => {
     expect(sent[1].key).toBe(sent[0].key);
   });
 
-  it("drops the code once it has expired, so the slip can be booked afresh", async () => {
+  it("drops the code once its lifetime has passed, so the slip can be booked afresh", async () => {
+    const bookedAt = Date.now();
     api(() => [201, RECEIPT()]);
     const { unmount } = render(<BetSlip />);
     await userEvent.click(screen.getByRole("button", { name: "Book bet" }));
     await screen.findByTestId("booking-code");
     unmount();
 
-    // The contract's code expires at 2026-10-04T13:00:00Z.
-    vi.spyOn(Date, "now").mockReturnValue(Date.parse("2026-10-04T13:00:01Z"));
+    vi.spyOn(Date, "now").mockReturnValue(bookedAt + LIFETIME_MS + 60_000);
     render(<BetSlip />);
 
     await waitFor(() =>
       expect(screen.queryByTestId("booking-code")).not.toBeInTheDocument(),
     );
-    expect(screen.getByRole("button", { name: "Book bet" })).toBeEnabled();
+    expect(
+      screen.getByRole("button", { name: "Book bet" }),
+    ).not.toHaveAttribute("aria-disabled", "true");
+  });
+
+  it("keeps a fresh code on a phone whose clock is days ahead", async () => {
+    vi.spyOn(Date, "now").mockReturnValue(Date.parse("2031-01-01T00:00:00Z"));
+    api(() => [201, RECEIPT()]);
+    render(<BetSlip />);
+
+    await userEvent.click(screen.getByRole("button", { name: "Book bet" }));
+
+    expect(await screen.findByTestId("booking-code")).toBeInTheDocument();
+    // Still there once effects have run.
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(screen.getByTestId("booking-code")).toBeInTheDocument();
+  });
+
+  it("moves focus to the new code so it is read out, and keeps Book focusable while asking", async () => {
+    api(() => [201, RECEIPT()]);
+    render(<BetSlip />);
+    const book = screen.getByRole("button", { name: "Book bet" });
+
+    await userEvent.click(book);
+
+    const panel = await screen.findByTestId("booking-code");
+    await waitFor(() => expect(panel).toHaveFocus());
+    expect(panel).toHaveAttribute("role", "status");
+    // Announced as done, not removed from the tab order.
+    const booked = screen.getByRole("button", { name: "Booked" });
+    expect(booked).toHaveAttribute("aria-disabled", "true");
+    expect(booked).not.toBeDisabled();
+  });
+
+  it("offers the stake the API will take when it refuses the booking's stake", async () => {
+    api(() => [
+      422,
+      responseExample("/v1/bookings", "post", 422, "stake_too_low"),
+    ]);
+    render(<BetSlip />);
+
+    await userEvent.click(screen.getByRole("button", { name: "Book bet" }));
+
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent(
+      "The smallest stake this slip accepts is ETB 5.00.",
+    );
+    await userEvent.click(
+      within(alert).getByRole("button", { name: "Set 5.00" }),
+    );
+    expect(useBetSlipStore.getState().stake).toBe("5.00");
   });
 
   it("says to try later when rate-limited", async () => {
@@ -342,15 +500,19 @@ describe("booking the slip", () => {
     );
   });
 
-  it("can't book two picks from one match", () => {
+  it("can't book two picks from one match", async () => {
     // Same event as Man City, a different outcome.
     useBetSlipStore.getState().toggleSelection({
       ...pick("m3", "4.10", "Draw again"),
       outcomeId: "oc_m3_x",
     });
     expect(useBetSlipStore.getState().selections).toHaveLength(3);
+    api(() => [201, RECEIPT()]);
     render(<BetSlip />);
-    expect(screen.getByRole("button", { name: "Book bet" })).toBeDisabled();
+    const book = screen.getByRole("button", { name: "Book bet" });
+    expect(book).toHaveAttribute("aria-disabled", "true");
+    await userEvent.click(book);
+    expect(sent).toHaveLength(0);
   });
 
   it("hides booking when the tenant turns booking codes off", () => {
@@ -395,6 +557,33 @@ describe("the /b/[code] page", () => {
     // Loaded fresh: a booking is re-priced every time it is loaded.
     expect(sent[0].path).toBe("/api/bookings/7KQ2M9X");
     expect(useUiStore.getState().asidePanel).toBe("slip");
+    // Loaded: the action now is to look at the slip, not to load it again.
+    expect(
+      screen.getByRole("button", { name: "Open bet slip" }),
+    ).toBeInTheDocument();
+  });
+
+  it("opens the slip's sheet on a phone, where there is no aside", async () => {
+    vi.stubGlobal(
+      "matchMedia",
+      vi.fn(() => ({
+        matches: false,
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+      })),
+    );
+    useUiStore.setState({ mobileSlipOpen: false });
+    api(() => [200, BOOKING()]);
+    render(<BookingView booking={BOOKING()} />);
+
+    await userEvent.click(
+      screen.getByRole("button", { name: "Load into bet slip" }),
+    );
+
+    await waitFor(() =>
+      expect(useUiStore.getState().mobileSlipOpen).toBe(true),
+    );
+    vi.unstubAllGlobals();
   });
 
   it("warns that loading replaces the picks already in the slip", () => {
@@ -405,8 +594,13 @@ describe("the /b/[code] page", () => {
     render(<BookingView booking={BOOKING()} />);
 
     expect(
-      screen.getByText("Replaces the 2 selections in your slip."),
+      screen.getByText("Loading replaces what's in your slip now."),
     ).toBeInTheDocument();
+  });
+
+  it("suggests a stake only when the code has a positive one", () => {
+    render(<BookingView booking={{ ...BOOKING(), stakeHint: "0.00" }} />);
+    expect(screen.queryByText("Suggested stake")).not.toBeInTheDocument();
   });
 
   it("says when the code expired between opening the page and loading it", async () => {
@@ -420,5 +614,29 @@ describe("the /b/[code] page", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "Code 7KQ2M9X has expired.",
     );
+  });
+});
+
+describe("the /b/[code] not-found page", () => {
+  it("repeats a well-formed code, and never text from the address that isn't one", async () => {
+    const { usePathname } = await import("next/navigation");
+    vi.mocked(usePathname).mockReturnValue("/b/7kq2m9x");
+    const { BookingNotFound } =
+      await import("@/features/bookings/components/BookingNotFound");
+
+    const { unmount } = render(<BookingNotFound />);
+    expect(
+      screen.getByText("Check code 7KQ2M9X and try again."),
+    ).toBeInTheDocument();
+    unmount();
+
+    vi.mocked(usePathname).mockReturnValue(
+      "/b/CALL%200911000000%20TO%20CLAIM%20YOUR%20WIN",
+    );
+    render(<BookingNotFound />);
+    expect(
+      screen.getByText("Check the code and try again."),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/0911000000/)).not.toBeInTheDocument();
   });
 });

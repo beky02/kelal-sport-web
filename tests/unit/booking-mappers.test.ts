@@ -68,6 +68,15 @@ describe("toBooking", () => {
     expect(legs[2]).toMatchObject({ odds: null, unavailable: "UNPRICED" });
   });
 
+  it("won't add a leg it can't tie to a match, so same-match picks can't slip through", () => {
+    const raw = bookingEn();
+    raw.legs[0] = { ...raw.legs[0], fixture_id: undefined };
+    expect(toBooking({ en: raw, am: raw }).legs[0]).toMatchObject({
+      odds: null,
+      unavailable: "INCOMPLETE",
+    });
+  });
+
   it("produces what the browser's schema accepts", () => {
     expect(
       bookingSchema.parse(toBooking({ en: bookingEn(), am: bookingAm() })),
@@ -83,11 +92,13 @@ describe("toBookingReceipt", () => {
         "post",
         201,
       ) as components["schemas"]["BookingCreated"],
+      "2026-10-03T09:00:00.000Z",
     );
     expect(receipt).toEqual({
       code: "7KQ2M9X",
       expiresAt: "2026-10-04T13:00:00Z",
       shareUrl: "https://example.et/b/7KQ2M9X",
+      issuedAt: "2026-10-03T09:00:00.000Z",
     });
     expect(bookingReceiptSchema.parse(receipt)).toEqual(receipt);
   });
@@ -98,6 +109,7 @@ describe("toBookingReceipt", () => {
         code: "7KQ2M9X",
         expiresAt: "2026-10-04T13:00:00Z",
         shareUrl: "javascript:alert(1)",
+        issuedAt: "2026-10-03T09:00:00.000Z",
       }),
     ).toThrow();
   });

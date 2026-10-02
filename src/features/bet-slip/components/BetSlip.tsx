@@ -1,8 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { CircleAlert } from "lucide-react";
+import { Check, CircleAlert, Loader2 } from "lucide-react";
 import { useTranslation } from "@/lib/i18n/use-translation";
 import type { MessageKey } from "@/lib/i18n";
 import { Switch } from "@/components/ui/Switch";
@@ -91,6 +91,17 @@ export function BetSlip({ onClose }: { onClose?: () => void }) {
   const bookedCode = signature ? booking.receiptFor(signature) : null;
   const bookError = signature ? booking.errorFor(signature) : null;
   const bookFailure = bookError ? bookingErrorMessage(bookError, "") : null;
+  // Book bet keeps focus while it asks (aria-disabled, not disabled); once the
+  // code arrives, focus moves to it so it is read out and can be copied.
+  const bookedNow = useRef(false);
+  const codePanel = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (bookedCode && bookedNow.current) {
+      bookedNow.current = false;
+      codePanel.current?.focus();
+    }
+  }, [bookedCode]);
+  const bookDisabled = !bookingRequest || booking.isPending || !!bookedCode;
 
   // The engine refused the stake and said what it would take, so the alert
   // can offer to set it rather than just reporting the problem.
@@ -148,7 +159,13 @@ export function BetSlip({ onClose }: { onClose?: () => void }) {
         onRetryRules={retryRules}
       />
 
-      <BookingNotice />
+      <BookingNotice
+        priced={{
+          mode: totals.mode,
+          systemK: totals.systemK,
+          liveCount: totals.liveCount,
+        }}
+      />
 
       {place.isError && (
         <div
@@ -242,8 +259,24 @@ export function BetSlip({ onClose }: { onClose?: () => void }) {
                   sheet is scrolled out of view by now. */}
               {bookFailure && (
                 <div className="px-4 pb-2">
-                  <BookingAlert>
-                    {t.t(bookFailure.key, bookFailure.values)}
+                  <BookingAlert
+                    action={
+                      bookFailure.fixStake
+                        ? {
+                            label: t.t("betSlip.setMax", {
+                              amount: t.number(bookFailure.fixStake),
+                            }),
+                            onClick: () => setStake(bookFailure.fixStake!),
+                          }
+                        : undefined
+                    }
+                  >
+                    {t.t(
+                      bookFailure.key,
+                      bookFailure.fixStake
+                        ? { amount: t.money(bookFailure.fixStake) }
+                        : bookFailure.values,
+                    )}
                   </BookingAlert>
                 </div>
               )}
@@ -258,17 +291,23 @@ export function BetSlip({ onClose }: { onClose?: () => void }) {
                 {bookingCodes && (
                   <button
                     type="button"
-                    onClick={() =>
-                      bookingRequest && booking.book(bookingRequest)
-                    }
+                    onClick={() => {
+                      if (bookDisabled || !bookingRequest) return;
+                      bookedNow.current = true;
+                      booking.book(bookingRequest);
+                    }}
                     // Off while the slip can't be booked, while asking, and
-                    // once this slip has its code.
-                    disabled={
-                      !bookingRequest || booking.isPending || !!bookedCode
-                    }
-                    className="bg-raised text-text font-body h-12 cursor-pointer rounded-md text-sm font-bold disabled:cursor-not-allowed disabled:opacity-45"
+                    // once this slip has its code — announced as off, but
+                    // still focusable, so a keyboard user keeps their place.
+                    aria-disabled={bookDisabled}
+                    aria-busy={booking.isPending}
+                    className="bg-raised text-text font-body flex h-12 cursor-pointer items-center justify-center gap-2 rounded-md text-sm font-bold aria-disabled:cursor-not-allowed aria-disabled:opacity-45"
                   >
-                    {t.t("betSlip.bookBet")}
+                    {booking.isPending && (
+                      <Loader2 size={16} className="animate-spin" aria-hidden />
+                    )}
+                    {bookedCode && <Check size={16} aria-hidden />}
+                    {t.t(bookedCode ? "booking.booked" : "betSlip.bookBet")}
                   </button>
                 )}
                 <button
@@ -280,7 +319,7 @@ export function BetSlip({ onClose }: { onClose?: () => void }) {
                 </button>
               </div>
               {bookingCodes && bookedCode && (
-                <BookingCode receipt={bookedCode} />
+                <BookingCode ref={codePanel} receipt={bookedCode} />
               )}
               <div className="pb-2" />
             </>

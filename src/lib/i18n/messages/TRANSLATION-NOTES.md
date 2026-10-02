@@ -160,3 +160,22 @@ Composed, not from the design. "Booking code" follows the design's own term, `�
 | `booking.og.description`          | ምርጫዎች፦ {picks}                                              |
 | `booking.og.expired`              | ይህ የትኬት ኮድ ጊዜው አልፏል።                                        |
 | `booking.og.notFound`             | በዚህ ኮድ የተቀመጠ ትኬት የለም።                                       |
+
+### F3b verification (2026-10-02)
+
+Added or reworded after review; composed, need native review like the rest of this section.
+
+| Key                          | Amharic                                             |
+| ---------------------------- | --------------------------------------------------- |
+| `booking.nothingAdded`       | ከትኬት ኮድ {code} አሁን ምንም መጨመር አይቻልም።                  |
+| `booking.sizesNote`          | ይህ ኮድ የ{sizes} ሲስተም ነው፤ ትኬቱ {k}/{n} ያሰላል።           |
+| `booking.sizesNoteMultiple`  | ይህ ኮድ የ{sizes} ሲስተም ነው፤ በቀሩት ምርጫዎች ትኬቱ ጥምር ያሰላል።    |
+| `booking.sizesSeparator`     | ፣                                                   |
+| `booking.notFoundBodyNoCode` | ኮዱን ያረጋግጡና እንደገና ይሞክሩ።                              |
+| `booking.replacesSlip`       | መጫን አሁን ትኬትዎ ውስጥ ያለውን ይተካል።                         |
+| `booking.failedBody`         | አሁን መጫን አልተቻለም። እንደገና ይሞክሩ።                         |
+| `booking.notAddedLeg`        | {event} · {market} · {pick}፦ {reason}               |
+| `booking.booked`             | ተቀምጧል                                               |
+| `booking.openSlip`           | ትኬቱን ክፈት                                            |
+| `booking.reason.INCOMPLETE`  | ማረጋገጥ አይቻልም                                         |
+| `booking.errors.expired`     | ኮድ {code} ጊዜው አልፏል። አዲስ ኮድ ይጠይቁ ወይም ትኬቱን እንደገና ይሥሩ። |

@@ -532,11 +532,11 @@
     "shareText": "Bet slip {code}",
     "loaded": "Booking {code} is in your slip.",
     "notAddedTitle": "Not added, no longer available:",
-    "notAddedLeg": "{event} · {pick}: {reason}",
-    "sizesNote": "This code combines system sizes {sizes}. The slip shows {k}.",
+    "notAddedLeg": "{event} · {market} · {pick}: {reason}",
+    "sizesNote": "This code is a {sizes} system; the slip prices {k}/{n}.",
     "dismiss": "Dismiss",
     "loadIntoSlip": "Load into bet slip",
-    "replacesSlip": "Replaces the {n} selections in your slip.",
+    "replacesSlip": "Loading replaces what's in your slip now.",
     "stakeHint": "Suggested stake",
     "pageTitle": "Bet slip {code}",
     "selections": "Selections",
@@ -546,17 +546,18 @@
     "notFoundTitle": "No booking with this code",
     "notFoundBody": "Check code {code} and try again.",
     "failedTitle": "Couldn’t load this booking",
-    "failedBody": "Check your connection and try again.",
+    "failedBody": "It couldn't be loaded just now. Try again.",
     "invalidCode": "A booking code is 7 letters and numbers, like 7KQ2M9X.",
     "reason": {
       "EVENT_STARTED": "match has started",
       "MARKET_SUSPENDED": "betting is paused",
       "MARKET_CLOSED": "market closed",
       "NOT_FOUND": "no longer offered",
-      "UNPRICED": "no price right now"
+      "UNPRICED": "no price right now",
+      "INCOMPLETE": "can't be checked"
     },
     "errors": {
-      "expired": "Code {code} has expired.",
+      "expired": "Code {code} has expired. Ask for a new code, or build the slip again.",
       "notFound": "No booking with code {code}. Check it and try again.",
       "rateLimited": "Too many booking codes for now. Try again later.",
       "cannotBook": "This slip can’t be booked as it is.",
@@ -566,6 +567,12 @@
       "description": "Selections: {picks}",
       "expired": "This booking code has expired.",
       "notFound": "No booking with this code."
-    }
+    },
+    "nothingAdded": "Nothing in booking {code} can be added now.",
+    "sizesNoteMultiple": "This code is a {sizes} system; with the selections left, the slip can't price a system.",
+    "sizesSeparator": ", ",
+    "notFoundBodyNoCode": "Check the code and try again.",
+    "booked": "Booked",
+    "openSlip": "Open bet slip"
   }
 }

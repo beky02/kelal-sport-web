@@ -9,7 +9,9 @@ import { compareOdds } from "@/lib/money";
 import { cn } from "@/lib/utils/cn";
 import { useUiStore } from "@/stores/ui.store";
 import type { Localized } from "@/types/common";
+import { Loader2 } from "lucide-react";
 import { useLoadBooking } from "../hooks/use-bookings";
+import { stakeHintOf } from "../lib/to-slip";
 import { useValidUntil } from "../hooks/use-valid-until";
 import { bookingErrorMessage } from "../lib/errors";
 import type { Booking, BookingLeg } from "../types";
@@ -32,7 +34,7 @@ export function BookingView({ booking: rendered }: { booking: Booking }) {
   const setAsidePanel = useUiStore((s) => s.setAsidePanel);
   const setMobileSlipOpen = useUiStore((s) => s.setMobileSlipOpen);
 
-  const load = useLoadBooking(() => {
+  const openSlip = () => {
     setAsidePanel("slip");
     // On a phone or tablet the slip is a sheet: open it to show what loaded.
     if (
@@ -41,11 +43,16 @@ export function BookingView({ booking: rendered }: { booking: Booking }) {
     ) {
       setMobileSlipOpen(true);
     }
-  });
+  };
+  const load = useLoadBooking(openSlip);
   // After a load the page shows what was fetched then, so it never shows
   // older odds beside the slip than the slip has.
   const booking = load.data ?? rendered;
   const loadable = booking.legs.some((leg) => leg.unavailable === null);
+  const stakeHint = stakeHintOf(booking);
+  // Once it is in the slip, the action is to look at it — not to load it again
+  // over whatever the player has changed since.
+  const loaded = load.isSuccess && loadable;
   const failure = load.isError
     ? bookingErrorMessage(load.error, booking.code)
     : null;
@@ -66,10 +73,10 @@ export function BookingView({ booking: rendered }: { booking: Booking }) {
         ))}
       </ul>
 
-      {booking.stakeHint && (
+      {stakeHint && (
         <div className="border-divider flex items-baseline justify-between gap-2 border-t px-4 py-3">
           <span className="text-muted">{t.t("booking.stakeHint")}</span>
-          <span className="font-bold">{t.money(booking.stakeHint)}</span>
+          <span className="font-bold">{t.money(stakeHint)}</span>
         </div>
       )}
 
@@ -78,9 +85,7 @@ export function BookingView({ booking: rendered }: { booking: Booking }) {
           <BookingAlert>{t.t(failure.key, failure.values)}</BookingAlert>
         )}
         {inSlip > 0 && !load.isSuccess && (
-          <p className="text-muted text-xs">
-            {t.t("booking.replacesSlip", { n: inSlip })}
-          </p>
+          <p className="text-muted text-xs">{t.t("booking.replacesSlip")}</p>
         )}
         {load.isSuccess && (
           <p role="status" className="text-win text-xs font-semibold">
@@ -89,11 +94,20 @@ export function BookingView({ booking: rendered }: { booking: Booking }) {
         )}
         <button
           type="button"
-          disabled={!loadable || load.isPending}
-          onClick={() => load.mutate(booking.code)}
-          className="bg-accent text-on-accent font-body h-12 cursor-pointer rounded-md text-sm font-bold disabled:cursor-not-allowed disabled:opacity-45"
+          disabled={!loadable}
+          // Keeps focus while it asks; a second tap is ignored.
+          aria-disabled={load.isPending}
+          aria-busy={load.isPending}
+          onClick={() => {
+            if (loaded) openSlip();
+            else if (!load.isPending) load.mutate(booking.code);
+          }}
+          className="bg-accent text-on-accent font-body flex h-12 cursor-pointer items-center justify-center gap-2 rounded-md text-sm font-bold disabled:cursor-not-allowed disabled:opacity-45 aria-disabled:opacity-45"
         >
-          {t.t("booking.loadIntoSlip")}
+          {load.isPending && (
+            <Loader2 size={16} className="animate-spin" aria-hidden />
+          )}
+          {t.t(loaded ? "booking.openSlip" : "booking.loadIntoSlip")}
         </button>
       </div>
     </div>

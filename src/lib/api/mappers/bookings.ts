@@ -26,12 +26,17 @@ const localized = (
     : { en: en ?? am ?? "", am: am ?? en ?? "" };
 
 function toLeg(en: ApiPricedLeg, am: ApiPricedLeg | undefined): BookingLeg {
-  const odds = en.available && en.odds && ODDS.test(en.odds) ? en.odds : null;
+  const priced = en.available && en.odds && ODDS.test(en.odds) ? en.odds : null;
+  // `fixture_id` is optional in the contract, but without it the slip can't
+  // tell two picks from one match apart (a multiple the engine would refuse).
+  const odds = priced && en.fixture_id ? priced : null;
   const unavailable: BookingUnavailableReason | null = odds
     ? null
-    : en.available
-      ? "UNPRICED"
-      : (en.reason ?? "NOT_FOUND");
+    : !en.available
+      ? (en.reason ?? "NOT_FOUND")
+      : !priced
+        ? "UNPRICED"
+        : "INCOMPLETE";
 
   return {
     outcomeId: en.outcome_id,
@@ -66,12 +71,15 @@ export function toBooking({ en, am }: Bilingual<ApiBooking>): Booking {
   };
 }
 
+/** `issuedAt` is the server's time when it answered (its `Date` header). */
 export const toBookingReceipt = (
   created: ApiBookingCreated,
+  issuedAt: string,
 ): BookingReceipt => ({
   code: created.code,
   expiresAt: created.expires_at,
   shareUrl: created.share_url,
+  issuedAt,
 });
 
 /** The browser's request → the contract's `BookingCreate`, field by field. */
