@@ -10,7 +10,7 @@ import type { components } from "@/lib/api/schema";
 import { DEVICE_COOKIE, SESSION_COOKIE } from "@/lib/session-cookie";
 import type { Lang } from "@/types/common";
 import { serverConfig } from "./config";
-import { unwrap, upstream } from "./upstream";
+import { UpstreamError, unwrap, upstream } from "./upstream";
 
 export { DEVICE_COOKIE, SESSION_COOKIE };
 
@@ -324,7 +324,11 @@ export async function withSession<T>(
       result = await call(`Bearer ${active.access}`);
       if (result.response.status === 401) throw new SessionGoneError();
     }
-    return unwrap(result);
+    // A 204 has no data; everything else that is not ok is the API's Problem.
+    if (!result.response.ok) {
+      throw new UpstreamError(result.response.status, result.error ?? null);
+    }
+    return result.data as T;
   } catch (error) {
     if (error instanceof SessionGoneError) {
       ctx.setCookie(clearSessionCookie(ctx.request));
