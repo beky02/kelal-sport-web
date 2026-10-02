@@ -47,6 +47,40 @@ export interface BetSelection {
   suspended: boolean;
 }
 
+/** What the browser asks `/api/bets` to place: the slip as the player agreed to it. */
+export interface PlaceBetRequest {
+  betType: BetSlipMode;
+  /** `[k]` for a system bet (k of n); empty for any other. */
+  systemSizes: number[];
+  /** Each live pick, with the odds on screen when Place was tapped. */
+  legs: Array<{ outcomeId: string; odds: string }>;
+  /** The total stake as typed, as a decimal string (`"100.00"`, D1.3). */
+  stake: string;
+  oddsPolicy: OddsPolicy;
+}
+
+/**
+ * The ticket the engine issued (`PlacedBet`), as the slip confirms it. Every
+ * figure is the API's — never the preview's — as decimal strings (FD4).
+ */
+export interface BetReceipt {
+  /** The bet's own id: its page in My bets. */
+  id: string;
+  /** `K7Q2-M9XP-M` (D3): what the player reads out, types in, or has scanned. */
+  ticketId: string;
+  placedAt: string;
+  betType: BetSlipMode;
+  systemSizes: number[];
+  lines: number;
+  legCount: number;
+  stake: string;
+  stakeTax: string;
+  /** Single-line bets only (D1.11); null otherwise. */
+  totalOdds: string | null;
+  accaBonus: string;
+  potentialPayout: string;
+}
+
 /** The price moved since it was agreed — `"2.1"` to `"2.10"` is no move. */
 export const oddsMoved = (s: BetSelection): boolean =>
   compareOdds(s.currentOdds, s.initialOdds) !== 0;
