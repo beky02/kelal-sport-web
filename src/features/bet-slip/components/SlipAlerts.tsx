@@ -61,6 +61,8 @@ function refusalAlert(
 
   switch (refusal.code) {
     case "BET_ODDS_CHANGED":
+      // The odds alert says it when a re-priced pick waits for the player's
+      // yes; otherwise (no pick named, or a rise the policy takes) this does.
       return ctx.pickChanged
         ? null
         : {

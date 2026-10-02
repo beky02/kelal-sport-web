@@ -325,6 +325,26 @@ describe("when the engine refuses", () => {
     expect(sent[1].key).not.toBe(sent[0].key);
   });
 
+  it("still says the bet wasn't placed when the new price is a rise the policy takes without asking", async () => {
+    bets(
+      problem(409, "BET_ODDS_CHANGED", {
+        errors: [
+          { field: "legs[1].odds", code: "ODDS_CHANGED", current: "3.40" },
+        ],
+      }),
+    );
+    render(<BetSlip />);
+
+    await placeBet();
+
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent(
+      "Your bet wasn’t placed: the odds changed. Check the prices and place it again.",
+    );
+    expect(screen.getByText(/▲ 3\.40/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Place bet/ })).toBeEnabled();
+  });
+
   it("marks a started match from a 409 and offers to remove it (AC-7)", async () => {
     bets(
       [

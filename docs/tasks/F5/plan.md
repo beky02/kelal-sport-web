@@ -213,3 +213,21 @@ rows, untouched).
 - [F5a — place a bet](../F5a-place-bet.md): this plan.
 - [F5b — My bets and the ticket check](../F5b-my-bets-ticket-check.md): AC-3 on the ticket in My bets,
   AC-4, AC-5, AC-9; depends on F5a.
+
+## Changes during implementation
+
+- **A 30 s limit on waiting for Place** (`place-bet.ts`): a request that hangs ends as "no answer"
+  (Try again, same request, same key) instead of a spinner that never stops. Asserted in
+  `PlaceBet.test.tsx`.
+- **The stand-in for a 409 with no pick waiting** (decision 11) says "check the prices and place it
+  again", not that new prices will come: Prism's canned `odds_changed` can re-price a pick upwards, which
+  the tenant's `higher` takes without a prompt. Test "still says the bet wasn't placed when the new price
+  is a rise the policy takes without asking"; the `home-slip-odds-changed` screen sets Ask me first so
+  it always shows old → new with Accept.
+- **The API's `detail`** is shown as its own line on a refusal, except where the slip's copy already
+  states the same limit (stake too low / high), following docs/design/05.
+- **Files added beyond the list**: `tests/unit/slip-store.test.ts` (listed above),
+  `src/features/bets/lib/ticket-number.ts` (the contract's `TicketNo` pattern, for the receipt schema;
+  F5b adds normalising there), `src/features/bet-slip/components/BookingCode.tsx` (its barcode lost the
+  fake pattern's props).
+- **Contract request 007** written (question 3): `docs/contract-requests/007-bet-figures-and-refusal-examples.md`.

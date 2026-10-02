@@ -174,7 +174,7 @@
     "placeFailedBody": "Something went wrong placing this bet. Try again.",
     "refused": {
       "oddsChanged": "Your bet wasn’t placed: {n} selection changed price. Accept the new odds to place it.",
-      "oddsUnknown": "Your bet wasn’t placed: the odds changed. The new prices will show in a moment.",
+      "oddsUnknown": "Your bet wasn’t placed: the odds changed. Check the prices and place it again.",
       "startedTitle": "Match started",
       "started": "Your bet wasn’t placed: a match in your slip has started. Remove it to place the rest.",
       "suspended": "Your bet wasn’t placed: betting on a selection is paused. Remove it to place the rest.",

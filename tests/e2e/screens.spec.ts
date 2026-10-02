@@ -262,6 +262,64 @@ const resetTo =
     await dialog.getByRole("status").waitFor();
   };
 
+/**
+ * A signed-in player's slip, placed through `/api/bets`, showing the engine's
+ * answer. `answer` sets it up first — Prism's `Prefer` (next dev forwards it),
+ * an answer this app's route gives in the browser where Prism has no example
+ * (an RG refusal), or no answer at all. `askMe` sets the odds policy to Ask me
+ * first, so a re-priced pick waits for Accept whichever way it moved (Prism's
+ * 409 names a price, not a direction).
+ */
+const placeAnd =
+  (
+    shown: "ticket" | "alert" | "status",
+    {
+      answer,
+      askMe = false,
+    }: { answer?: (page: Page) => Promise<unknown>; askMe?: boolean } = {},
+  ) =>
+  async (page: Page, device: Device, lang: Lang) => {
+    const t = MESSAGES[lang];
+    if (answer) await answer(page);
+    await openSlipWithPicks(page, device, lang);
+    if (askMe) {
+      await page
+        .getByLabel(t.betSlip.oddsPolicy.label)
+        .filter({ visible: true })
+        .selectOption("none");
+    }
+    await page
+      .getByRole("button", { name: new RegExp(escape(t.betSlip.placeBet)) })
+      .filter({ visible: true })
+      .click();
+    const result =
+      shown === "ticket"
+        ? page.getByTestId("ticket-code").filter({ visible: true })
+        : page.getByRole(shown).filter({ visible: true }).first();
+    await result.waitFor();
+    // On a phone the sheet scrolls inside itself: bring the answer into view.
+    // On desktop, back to the top so the sticky header stays where it is.
+    if (device === "phone") await result.scrollIntoViewIfNeeded();
+    else await page.evaluate(() => window.scrollTo(0, 0));
+  };
+
+/** `RG_LIMIT_REACHED` has no Prism example: the contract's Problem, in the browser. */
+const limitReached = (page: Page) =>
+  page.route("**/api/bets", (route) =>
+    route.fulfill({
+      status: 403,
+      contentType: "application/problem+json",
+      json: {
+        type: "https://api.example.et/errors/rg-limit",
+        title: "Limit reached",
+        status: 403,
+        code: "RG_LIMIT_REACHED",
+        detail: "Your daily stake limit resets at 00:00.",
+        request_id: "req_ui",
+      },
+    }),
+  );
+
 /** `/b/7KQ2M9X`, loaded into the slip — the sheet opens on a phone. */
 async function loadBooking(page: Page, _device: Device, lang: Lang) {
   await page
@@ -299,6 +357,49 @@ const SCREENS: Array<{
     path: "/profile",
     before: loginViaApi,
     prepare: bookAsGuest,
+  },
+  {
+    name: "home-slip-placed",
+    path: "/",
+    before: loginViaApi,
+    prepare: placeAnd("ticket"),
+  },
+  {
+    name: "home-slip-odds-changed",
+    path: "/",
+    before: loginViaApi,
+    prepare: placeAnd("status", {
+      answer: (page) => preferOn(page, "/api/bets", "code=409"),
+      askMe: true,
+    }),
+    allowConsole: /status of 409/,
+  },
+  {
+    name: "home-slip-event-started",
+    path: "/",
+    before: loginViaApi,
+    prepare: placeAnd("alert", {
+      answer: (page) =>
+        preferOn(page, "/api/bets", "code=409, example=event_started"),
+    }),
+    allowConsole: /status of 409/,
+  },
+  {
+    name: "home-slip-limit-reached",
+    path: "/",
+    before: loginViaApi,
+    prepare: placeAnd("alert", { answer: limitReached }),
+    allowConsole: /status of 403/,
+  },
+  {
+    name: "home-slip-unconfirmed",
+    path: "/",
+    before: loginViaApi,
+    prepare: placeAnd("alert", {
+      answer: (page) =>
+        page.route("**/api/bets", (route) => route.abort("connectionreset")),
+    }),
+    allowConsole: /ERR_CONNECTION_RESET|Failed to load resource/,
   },
   { name: "home-upcoming", path: "/?filter=upcoming" },
   { name: "event", path: "/event/fx_arsenal_chelsea" },
