@@ -54,7 +54,9 @@ interface Sent {
 let sent: Sent[] = [];
 
 /** Who `/api/me` says is signed in when the slip reads it again. */
-let signedIn: Player = CONTRACT_PLAYER;
+let signedIn: Player | null = CONTRACT_PLAYER;
+/** How many times `/api/me` was read. */
+let meReads = 0;
 
 type Answer =
   | [number, unknown, Record<string, string>?]
@@ -64,12 +66,14 @@ type Answer =
 
 /**
  * Stubs this app's `/api/bets`, one answer per attempt, in order, and
- * `/api/me` (read again after a 401 or an RG refusal) with the same player.
+ * `/api/me` (read again before a Try again, and after a 401 or an RG
+ * refusal) with `signedIn`.
  */
 function bets(...answers: Answer[]) {
   vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
     const url = new URL(String(input));
     if (url.pathname === "/api/me") {
+      meReads += 1;
       return Response.json({ player: signedIn });
     }
     if (url.pathname !== "/api/bets") throw new Error(`unexpected ${url}`);
@@ -136,9 +140,16 @@ function seedReferenceSlip() {
 const placeBet = async () =>
   userEvent.click(await screen.findByRole("button", { name: /Place bet/ }));
 
-/** The slip's main button while a bet is unconfirmed (the alert has its own). */
-const mainTryAgain = () =>
-  screen.getAllByRole("button", { name: "Try again" }).at(-1)!;
+/** The slip's main button: its last, under the payout. */
+const mainButton = () => screen.getAllByRole("button").at(-1)!;
+
+/** The alert for a bet that had no answer, and its own Try again. */
+const unconfirmedAlert = () =>
+  screen
+    .getByText("We couldn’t confirm your bet")
+    .closest("[role=alert]") as HTMLElement;
+const alertTryAgain = () =>
+  within(unconfirmedAlert()).getByRole("button", { name: /^Try again/ });
 
 /** Place, and lose the answer: the bet is unconfirmed. */
 async function placeAndLoseTheAnswer() {
@@ -151,6 +162,7 @@ const slip = () => useBetSlipStore.getState();
 beforeEach(() => {
   sent = [];
   signedIn = CONTRACT_PLAYER;
+  meReads = 0;
   push.mockClear();
   slip().clear();
   slip().forgetPlacement();
@@ -341,16 +353,14 @@ describe("placing the slip", () => {
 });
 
 describe("a bet that had no answer (AC-1; SEC1, M1)", () => {
-  it("sends the same Idempotency-Key again from the alert's Try again", async () => {
+  it("sends the same Idempotency-Key again from the alert's Try again, which shows its amount", async () => {
     bets("drop", [201, TICKET()]);
     render(<BetSlip />);
 
-    const title = await placeAndLoseTheAnswer();
-    const alert = title.closest("[role=alert]") as HTMLElement;
-    expect(alert).toHaveTextContent("you’ll see the same ticket");
-    await userEvent.click(
-      within(alert).getByRole("button", { name: "Try again" }),
-    );
+    await placeAndLoseTheAnswer();
+    expect(unconfirmedAlert()).toHaveTextContent("you’ll see the same ticket");
+    expect(alertTryAgain()).toHaveTextContent(/^Try again · ETB\s100\.00$/);
+    await userEvent.click(alertTryAgain());
     await screen.findByTestId("ticket-code");
 
     expect(sent).toHaveLength(2);
@@ -365,12 +375,12 @@ describe("a bet that had no answer (AC-1; SEC1, M1)", () => {
 
     await placeAndLoseTheAnswer();
     expect(timeout).toHaveBeenCalledWith(30_000);
-    await userEvent.click(mainTryAgain());
+    await userEvent.click(mainButton());
     await screen.findByTestId("ticket-code");
     expect(sent[1].key).toBe(sent[0].key);
   });
 
-  it("turns Place into Try again, which a 5xx keeps owed too", async () => {
+  it("turns Place into Try again with the bet's amount, which a 5xx keeps owed too", async () => {
     bets([503, { code: "SERVICE_UNAVAILABLE" }], [201, TICKET()]);
     render(<BetSlip />);
 
@@ -378,7 +388,8 @@ describe("a bet that had no answer (AC-1; SEC1, M1)", () => {
     expect(
       screen.queryByRole("button", { name: /Place bet/ }),
     ).not.toBeInTheDocument();
-    await userEvent.click(mainTryAgain());
+    expect(mainButton()).toHaveTextContent(/^Try againETB 100\.00$/);
+    await userEvent.click(mainButton());
     await screen.findByTestId("ticket-code");
     expect(sent[1].key).toBe(sent[0].key);
   });
@@ -393,13 +404,58 @@ describe("a bet that had no answer (AC-1; SEC1, M1)", () => {
     act(() => slip().setStake("50"));
     act(() => slip().setStake("100"));
 
-    expect(
-      screen.getByText("We couldn’t confirm your bet"),
-    ).toBeInTheDocument();
-    await userEvent.click(mainTryAgain());
+    expect(unconfirmedAlert()).toBeInTheDocument();
+    expect(mainButton()).toHaveTextContent(/^Try again/);
+    await userEvent.click(mainButton());
     await screen.findByTestId("ticket-code");
     expect(sent[1].key).toBe(sent[0].key);
     expect(sent[1].body).toEqual(sent[0].body);
+  });
+
+  it("keeps Try again under a price that moves without asking, and sends the bet as it was", async () => {
+    bets("drop", [201, TICKET()]);
+    render(<BetSlip />);
+
+    await placeAndLoseTheAnswer();
+    // A rise the tenant's `higher` takes without asking (realtime, R2): the
+    // same bet still, so the main button doesn't turn into a new one.
+    act(() =>
+      slip().applyOddsUpdate(
+        { eventId: "m4", marketType: "1x2", line: null, outcomeCode: "X" },
+        "3.40",
+      ),
+    );
+    expect(mainButton()).toHaveTextContent(/^Try againETB 100\.00$/);
+    await userEvent.click(mainButton());
+    await screen.findByTestId("ticket-code");
+
+    expect(sent[1].key).toBe(sent[0].key);
+    expect(sent[1].body.legs[1]).toEqual({
+      outcomeId: "oc_m4_X",
+      odds: "3.05",
+    });
+  });
+
+  it("names the bet Try again sends once the slip is another, and places the slip only as a new bet (M7)", async () => {
+    bets("drop", [201, TICKET()]);
+    render(<BetSlip />);
+
+    await placeAndLoseTheAnswer();
+    act(() => slip().setStake("50"));
+
+    // The alert holds Try again for that bet, with its own amount; the main
+    // button, under the slip's preview of ETB 50.00, charges what it shows.
+    expect(unconfirmedAlert()).toHaveTextContent(
+      "Try again sends that bet as it was: Multiple · 3 picks. If it went through, placing this slip as well makes two bets.",
+    );
+    expect(alertTryAgain()).toHaveTextContent(/^Try again · ETB\s100\.00$/);
+    expect(mainButton()).toHaveTextContent(/^Place as a new betETB 50\.00$/);
+    await userEvent.click(mainButton());
+    await screen.findByTestId("ticket-code");
+
+    expect(sent[1].key).not.toBe(sent[0].key);
+    expect(sent[1].body.stake).toBe("50.00");
+    expect(slip().placement.unconfirmed).toBeNull();
   });
 
   it("sends the bet as it was sent, not the slip as edited while it was on its way", async () => {
@@ -417,76 +473,140 @@ describe("a bet that had no answer (AC-1; SEC1, M1)", () => {
     act(() => drop());
     await screen.findByText("We couldn’t confirm your bet");
 
-    await userEvent.click(mainTryAgain());
+    expect(mainButton()).toHaveTextContent(/^Place as a new bet/);
+    await userEvent.click(alertTryAgain());
     await screen.findByTestId("ticket-code");
     expect(sent[1].key).toBe(sent[0].key);
     expect(sent[1].body.stake).toBe("100.00");
   });
 
-  it("doesn't let a price that moves meanwhile change what Try again sends", async () => {
-    bets("drop", [201, TICKET()]);
+  it("names the bet without “this slip” once the slip is cleared (U11)", async () => {
+    bets("drop");
     render(<BetSlip />);
 
     await placeAndLoseTheAnswer();
-    // A rise the tenant's `higher` takes without asking (realtime, R2).
-    act(() =>
-      slip().applyOddsUpdate(
-        { eventId: "m4", marketType: "1x2", line: null, outcomeCode: "X" },
-        "3.40",
-      ),
-    );
-    await userEvent.click(mainTryAgain());
-    await screen.findByTestId("ticket-code");
+    act(() => slip().clear());
 
-    expect(sent[1].key).toBe(sent[0].key);
-    expect(sent[1].body.legs[1]).toEqual({
-      outcomeId: "oc_m4_X",
-      odds: "3.05",
-    });
+    expect(unconfirmedAlert()).toHaveTextContent(
+      "Try again sends that bet as it was: Multiple · 3 picks.",
+    );
+    expect(unconfirmedAlert()).not.toHaveTextContent("this slip");
+    expect(alertTryAgain()).toHaveTextContent(/^Try again · ETB\s100\.00$/);
   });
 
-  it("asks before placing a changed slip, and places it as a new bet only when the player chooses", async () => {
-    bets("drop", [201, TICKET()]);
+  it("keeps the first bet when the one placed as new is refused (N4)", async () => {
+    bets("drop", problem(422, "WALLET_INSUFFICIENT_FUNDS"));
     render(<BetSlip />);
 
     await placeAndLoseTheAnswer();
     act(() => slip().setStake("50"));
+    await userEvent.click(mainButton());
 
-    const alert = screen
-      .getByText("We couldn’t confirm your bet")
-      .closest("[role=alert]") as HTMLElement;
-    expect(alert).toHaveTextContent(
-      "Your slip has changed since. If that bet went through, placing this slip as well makes two bets.",
-    );
-    await userEvent.click(
-      within(alert).getByRole("button", { name: "Place as a new bet" }),
-    );
-    await screen.findByTestId("ticket-code");
-
-    expect(sent[1].key).not.toBe(sent[0].key);
-    expect(sent[1].body.stake).toBe("50.00");
-    expect(slip().placement.unconfirmed).toBeNull();
+    // Refused for the balance — likeliest exactly when the first went
+    // through, which its Try again can still find out.
+    expect(
+      await screen.findByText("Your balance is too low for this stake."),
+    ).toBeInTheDocument();
+    expect(alertTryAgain()).toHaveTextContent(/^Try again · ETB\s100\.00$/);
+    expect(slip().placement.unconfirmed?.key).toBe(sent[0].key);
   });
 
-  it("stays unconfirmed when a retry is refused: that says nothing about the first try", async () => {
-    bets("drop", [
-      409,
-      responseExample("/v1/bets", "post", 409, "odds_changed"),
-    ]);
+  it("says a Try again that met new odds didn't go through, and hands the main button to the slip (N2)", async () => {
+    bets(
+      "drop",
+      [409, responseExample("/v1/bets", "post", 409, "odds_changed")],
+      [201, TICKET()],
+    );
     render(<BetSlip />);
 
     await placeAndLoseTheAnswer();
-    await userEvent.click(mainTryAgain());
+    await userEvent.click(mainButton());
 
-    // The new price is shown to accept, but nothing claims the bet wasn't
-    // placed, and the main button still sends the first bet.
-    expect(await screen.findByText(/▼ 1\.55/)).toBeInTheDocument();
-    expect(
-      screen.getByText("We couldn’t confirm your bet"),
-    ).toBeInTheDocument();
+    // Said, and announced — never as "wasn't placed": the first try may
+    // still have gone through.
+    const refused = (await screen.findByText("Try again didn’t go through"))
+      .parentElement!.parentElement!;
+    expect(refused).toHaveAttribute("role", "alert");
+    expect(refused).toHaveTextContent(
+      "The odds on that bet have changed since.",
+    );
     expect(screen.queryByText(/wasn’t placed/)).not.toBeInTheDocument();
-    expect(mainTryAgain()).toBeInTheDocument();
+    expect(screen.queryByText("Bet not accepted")).not.toBeInTheDocument();
+    expect(unconfirmedAlert()).toBeInTheDocument();
     expect(slip().placement.unconfirmed?.key).toBe(sent[0].key);
+
+    // The same Try again would meet the same price: the main button is the
+    // slip's — accept the new price, then place it as a new bet.
+    expect(mainButton()).toHaveTextContent("Accept changes");
+    await userEvent.click(mainButton());
+    expect(mainButton()).toHaveTextContent(/^Place as a new betETB 100\.00$/);
+    expect(alertTryAgain()).toHaveTextContent(/^Try again · ETB\s100\.00$/);
+    await userEvent.click(mainButton());
+    await screen.findByTestId("ticket-code");
+
+    expect(sent[2].key).not.toBe(sent[0].key);
+    expect(sent[2].body.legs[1]).toEqual({
+      outcomeId: "oc_m4_X",
+      odds: "1.55",
+    });
+  });
+
+  it("offers to remove a match a Try again found started, and the rest as a new bet (N2)", async () => {
+    bets(
+      "drop",
+      [409, responseExample("/v1/bets", "post", 409, "event_started")],
+      [201, TICKET()],
+    );
+    render(<BetSlip />);
+
+    await placeAndLoseTheAnswer();
+    await userEvent.click(mainButton());
+
+    expect(
+      await screen.findByText(
+        "A selection in that bet is no longer available.",
+      ),
+    ).toBeInTheDocument();
+    expect(mainButton()).toHaveTextContent("Remove suspended pick");
+    await userEvent.click(mainButton());
+    expect(mainButton()).toHaveTextContent(/^Place as a new bet/);
+    await userEvent.click(mainButton());
+    await screen.findByTestId("ticket-code");
+
+    expect(sent[2].key).not.toBe(sent[0].key);
+    expect(sent[2].body.legs.map((l) => l.outcomeId)).toEqual([
+      "oc_m4_X",
+      "oc_m6_1",
+    ]);
+  });
+
+  it("titles a Try again refused for the rate as one, keeps it, and announces each refusal (M8, N2)", async () => {
+    const rateLimited = [
+      ...problem(429, "RATE_LIMITED"),
+      { "Retry-After": "30" },
+    ] as [number, unknown, Record<string, string>];
+    bets("drop", rateLimited, rateLimited);
+    render(<BetSlip />);
+
+    await placeAndLoseTheAnswer();
+    await userEvent.click(mainButton());
+
+    const first = (await screen.findByText("Try again didn’t go through"))
+      .parentElement!.parentElement!;
+    expect(first).toHaveTextContent(
+      "Too many bets in a short time. Try again in 30 seconds.",
+    );
+    expect(screen.queryByText("Bet not accepted")).not.toBeInTheDocument();
+    // Nothing about the bet's prices: Try again is still the way.
+    expect(mainButton()).toHaveTextContent(/^Try again/);
+
+    await userEvent.click(mainButton());
+    await waitFor(() => expect(sent).toHaveLength(3));
+    const second = (await screen.findByText("Try again didn’t go through"))
+      .parentElement!.parentElement!;
+    // A new alert, so the same refusal is announced again.
+    expect(second).not.toBe(first);
+    expect(new Set(sent.map((s) => s.key)).size).toBe(1);
   });
 
   it("stays unconfirmed when the session ends on a retry, for the same player after", async () => {
@@ -494,16 +614,58 @@ describe("a bet that had no answer (AC-1; SEC1, M1)", () => {
     render(<BetSlip />);
 
     await placeAndLoseTheAnswer();
-    await userEvent.click(mainTryAgain());
+    await userEvent.click(mainButton());
     await waitFor(() => expect(sent).toHaveLength(2));
 
-    await userEvent.click(mainTryAgain());
+    await waitFor(() => expect(mainButton()).toHaveTextContent(/^Try again/));
+    await userEvent.click(mainButton());
     await screen.findByTestId("ticket-code");
     expect(sent.map((s) => s.key)).toEqual([
       sent[0].key,
       sent[0].key,
       sent[0].key,
     ]);
+  });
+
+  it("asks who is signed in before Try again, and sends nothing for someone else (SEC7)", async () => {
+    bets("drop");
+    render(<BetSlip />);
+
+    await placeAndLoseTheAnswer();
+    // Another tab logged out and someone else in: this tab hasn't read
+    // /api/me since.
+    signedIn = OTHER_PLAYER;
+    const reads = meReads;
+    await userEvent.click(alertTryAgain());
+
+    await waitFor(() => expect(slip().placement.unconfirmed).toBeNull());
+    expect(meReads).toBeGreaterThan(reads);
+    expect(sent).toHaveLength(1);
+    expect(
+      screen.queryByText("We couldn’t confirm your bet"),
+    ).not.toBeInTheDocument();
+  });
+
+  it("keeps the picks and asks to log in when the session is gone on a first try (N3)", async () => {
+    bets(problem(401, "AUTH_TOKEN_EXPIRED"));
+    render(<BetSlip />);
+    signedIn = null;
+
+    await placeBet();
+
+    expect(
+      await screen.findByRole("button", { name: "Log in to bet" }),
+    ).toBeInTheDocument();
+    expect(meReads).toBeGreaterThan(0);
+    expect(slip().selections).toHaveLength(3);
+    expect(slip().placement).toMatchObject({
+      sending: null,
+      unconfirmed: null,
+      refused: null,
+    });
+    expect(
+      screen.queryByText("We couldn’t confirm your bet"),
+    ).not.toBeInTheDocument();
   });
 });
 

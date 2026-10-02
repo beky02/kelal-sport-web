@@ -8,7 +8,7 @@ import type { BetReceipt, PlaceBetRequest } from "../types";
  * which sends the same request with the same key, so a slow answer can never
  * turn into a second bet.
  */
-export const PLACE_TIMEOUT_MS = 30_000;
+const PLACE_TIMEOUT_MS = 30_000;
 
 /**
  * Places the slip through `/api/bets` (C08).

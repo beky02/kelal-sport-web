@@ -102,6 +102,8 @@ describe("the slip store: the odds policy (AC-6)", () => {
 
 const ATTEMPT = (key: string, stake = "100.00"): PlaceAttempt => ({
   key,
+  totalStake: stake,
+  lines: 1,
   request: {
     betType: "multiple",
     systemSizes: [],
@@ -154,7 +156,7 @@ describe("the slip store: a bet that had no answer (SEC1, M1)", () => {
     slip().placementRefused("k1", REFUSAL);
     expect(placement()).toMatchObject({
       sending: null,
-      refusal: REFUSAL,
+      refused: { key: "k1", problem: REFUSAL },
       unconfirmed: ATTEMPT("k1"),
     });
 
@@ -177,13 +179,65 @@ describe("the slip store: a bet that had no answer (SEC1, M1)", () => {
     });
   });
 
-  it("lets it go only when the player places a different bet on purpose", () => {
+  it("keeps it while a bet placed as new goes, and when that bet is refused (N4)", () => {
     unanswered();
-    slip().placementSent(ATTEMPT("k2", "50.00"), "p1", { asNew: true });
+    slip().placementSent(ATTEMPT("k2", "50.00"), "p1");
     expect(placement()).toMatchObject({
       sending: ATTEMPT("k2", "50.00"),
-      unconfirmed: null,
+      unconfirmed: ATTEMPT("k1"),
     });
+
+    // Refused for the balance — likeliest exactly when the first went through.
+    slip().placementRefused("k2", {
+      ...REFUSAL,
+      status: 422,
+      code: "WALLET_INSUFFICIENT_FUNDS",
+    });
+    expect(placement()).toMatchObject({
+      sending: null,
+      unconfirmed: ATTEMPT("k1"),
+      refused: { key: "k2" },
+    });
+  });
+
+  it("ends it with a ticket for the bet placed as new; tracks that one if it has no answer", () => {
+    unanswered();
+    slip().placementSent(ATTEMPT("k2", "50.00"), "p1");
+    slip().placementPlaced("k2", RECEIPT);
+    expect(placement()).toMatchObject({ unconfirmed: null, receipt: RECEIPT });
+
+    slip().forgetPlacement();
+    unanswered();
+    slip().placementSent(ATTEMPT("k2", "50.00"), "p1");
+    slip().placementUnanswered("k2");
+    expect(placement().unconfirmed).toEqual(ATTEMPT("k2", "50.00"));
+  });
+
+  it("marks it stale only when a Try again of it is refused for its prices or picks (N2)", () => {
+    const retry = (refusal: PlaceRefusal) => {
+      slip().placementSent(ATTEMPT("k1"), "p1");
+      slip().placementRefused("k1", refusal);
+    };
+    unanswered();
+
+    retry({ ...REFUSAL, status: 429, code: "RATE_LIMITED" });
+    expect(placement().stale).toBe(false);
+    // A different bet's refusal says nothing about this one's prices.
+    slip().placementSent(ATTEMPT("k2", "50.00"), "p1");
+    slip().placementRefused("k2", REFUSAL);
+    expect(placement().stale).toBe(false);
+
+    retry(REFUSAL);
+    expect(placement().stale).toBe(true);
+    // Still it after a later Try again with no answer, and through the slip
+    // changing; a ticket ends it.
+    slip().placementSent(ATTEMPT("k1"), "p1");
+    slip().placementUnanswered("k1");
+    slip().setStake("50");
+    expect(placement()).toMatchObject({ stale: true, refused: null });
+    slip().placementSent(ATTEMPT("k1"), "p1");
+    slip().placementPlaced("k1", RECEIPT);
+    expect(placement().stale).toBe(false);
   });
 });
 
@@ -207,7 +261,8 @@ describe("the slip store: whose placement it is (SEC2, Q1)", () => {
       owner: null,
       sending: null,
       unconfirmed: null,
-      refusal: null,
+      stale: false,
+      refused: null,
       receipt: null,
     });
   });
@@ -218,7 +273,7 @@ describe("the slip store: a refusal", () => {
     slip().placementSent(ATTEMPT("k1"), "p1");
     slip().placementRefused("k1", REFUSAL);
     slip().setStake("50");
-    expect(placement().refusal).toBeNull();
+    expect(placement().refused).toBeNull();
 
     slip().placementSent(ATTEMPT("k2"), "p1");
     slip().placementPlaced("k2", RECEIPT);

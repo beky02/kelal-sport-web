@@ -10,7 +10,8 @@ import { useSession } from "@/features/auth/hooks/use-session";
 import { useAuthStore } from "@/features/auth/stores/auth.store";
 import { useBetSlip } from "../hooks/use-bet-slip";
 import { usePlaceBet } from "../hooks/use-place-bet";
-import { placeRequestFrom, sameRequest } from "../lib/placement";
+import type { CtaAction } from "../lib/calculate";
+import { placeRequestFrom, slipIsThatBet } from "../lib/placement";
 import { ownPlacement, useBetSlipStore } from "../stores/bet-slip.store";
 import { BetModeTabs } from "./BetModeTabs";
 import { BetPlacedConfirmation } from "./BetPlacedConfirmation";
@@ -80,16 +81,38 @@ export function BetSlip({ onClose }: { onClose?: () => void }) {
   const { place, retry, placeAsNew } = usePlaceBet(playerId);
   const placing = placement.sending !== null;
   const unconfirmed = placement.unconfirmed;
-  // The slip as a bet: null while it can't be placed as it stands.
-  const request = useMemo(
-    () => placeRequestFrom({ selections, totals, stake, oddsPolicy }),
-    [selections, totals, stake, oddsPolicy],
-  );
-  // A bet is unconfirmed and the slip is no longer that bet: placing it is a
-  // different bet, which only the player's explicit choice sends.
-  const slipChanged =
+  // The slip as a bet, with what it charges: null while it can't be placed
+  // as it stands.
+  const intent = useMemo(() => {
+    const request = placeRequestFrom({ selections, totals, stake, oddsPolicy });
+    return request && totals.quote
+      ? {
+          request,
+          totalStake: totals.quote.totalStake,
+          lines: totals.quote.lines,
+        }
+      : null;
+  }, [selections, totals, stake, oddsPolicy]);
+  // The main button acts on the slip shown above it. While a bet is
+  // unconfirmed that is Try again only as long as the slip still is that bet;
+  // once it is another, the button places it — as a new bet, the player's
+  // explicit choice — and Try again stays in the alert, which names the bet.
+  const thatBet =
     unconfirmed !== null &&
-    (request === null || !sameRequest(request, unconfirmed.request));
+    slipIsThatBet(intent?.request ?? null, unconfirmed, placement.stale);
+  const action: CtaAction = !unconfirmed
+    ? cta.action
+    : thatBet
+      ? "retry"
+      : cta.action === "place"
+        ? "place-new"
+        : cta.action;
+  const amount =
+    action === "retry"
+      ? (unconfirmed?.totalStake ?? null)
+      : action === "place" || action === "place-new"
+        ? (totals.quote?.totalStake ?? null)
+        : null;
 
   // Booking saves the slip slipcalc priced: its live picks, bet type and
   // system size. Null when it can't be booked (nothing live, a same-match
@@ -161,12 +184,11 @@ export function BetSlip({ onClose }: { onClose?: () => void }) {
         rulesState={rulesState}
         onRetryRules={retryRules}
         placement={placement}
-        slipChanged={slipChanged}
+        slipIsThatBet={thatBet}
         // A refusal the player can act on carries the fix, rather than
         // leaving them to work out what would be accepted.
         fixes={{
           retry,
-          placeAsNew: slipChanged && request ? () => placeAsNew(request) : null,
           deposit: () => router.push(routes.walletAction("deposit")),
           verify: () => openAuth("verify"),
           viewLimits: () => router.push(routes.responsibleGaming),
@@ -291,14 +313,16 @@ export function BetSlip({ onClose }: { onClose?: () => void }) {
             </>
           ) : (
             <PlaceBetButton
-              // While a bet is unconfirmed the button's job is Try again: the
-              // same bet with the same key, whatever the slip shows now.
-              action={unconfirmed ? "retry" : cta.action}
-              disabled={unconfirmed ? false : cta.disabled}
+              action={action}
+              disabled={action === "retry" ? false : cta.disabled}
+              amount={amount}
               totals={totals}
               pending={placing}
               onPlace={() => {
-                if (request) place(request);
+                if (intent) place(intent);
+              }}
+              onPlaceNew={() => {
+                if (intent) placeAsNew(intent);
               }}
               onRetry={retry}
               onDeposit={() => router.push(routes.walletAction("deposit"))}

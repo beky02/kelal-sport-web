@@ -4,6 +4,7 @@ import { normaliseMoney } from "@/lib/money";
 import type {
   BetSelection,
   OddsPolicy,
+  PlaceAttempt,
   PlaceBetRequest,
   PlaceRefusal,
 } from "../types";
@@ -50,9 +51,59 @@ export function placeRequestFrom({
   };
 }
 
-/** The same bet: the same picks at the same odds, type, stake and policy. */
-export const sameRequest = (a: PlaceBetRequest, b: PlaceBetRequest): boolean =>
-  JSON.stringify(a) === JSON.stringify(b);
+/**
+ * The same bet: the same picks — in any order — the same bet type and size,
+ * and the same stake. Prices and the odds policy are not what makes a bet:
+ * the engine prices it when it arrives.
+ */
+export function sameBet(a: PlaceBetRequest, b: PlaceBetRequest): boolean {
+  const picks = (r: PlaceBetRequest) =>
+    r.legs
+      .map((l) => l.outcomeId)
+      .sort()
+      .join();
+  return (
+    a.betType === b.betType &&
+    a.systemSizes.join() === b.systemSizes.join() &&
+    a.stake === b.stake &&
+    picks(a) === picks(b)
+  );
+}
+
+/** The same bet with every pick at the same price. */
+export function samePrices(a: PlaceBetRequest, b: PlaceBetRequest): boolean {
+  if (!sameBet(a, b)) return false;
+  const odds = new Map(b.legs.map((l) => [l.outcomeId, l.odds]));
+  return a.legs.every((l) => odds.get(l.outcomeId) === l.odds);
+}
+
+/**
+ * Refusals about the bet's own prices or picks: a Try again of it would meet
+ * them again, so they are the player's to settle on the slip.
+ */
+export const refusesPicks = (refusal: PlaceRefusal): boolean =>
+  refusal.code === "BET_ODDS_CHANGED" ||
+  refusal.code === "BET_EVENT_STARTED" ||
+  refusal.code === "BET_MARKET_SUSPENDED";
+
+/**
+ * Whether the slip on screen still is the unconfirmed bet, so its main
+ * button is Try again. A price that moved since doesn't make it another bet
+ * — Try again sends it as it was, and the engine prices it under its own
+ * policy — unless the engine has since refused that bet's prices or picks
+ * (`stale`): then only the very same prices are it. Null — a slip that can't
+ * be placed as it stands — is not.
+ */
+export function slipIsThatBet(
+  slip: PlaceBetRequest | null,
+  unconfirmed: PlaceAttempt,
+  stale: boolean,
+): boolean {
+  if (slip === null) return false;
+  return stale
+    ? samePrices(slip, unconfirmed.request)
+    : sameBet(slip, unconfirmed.request);
+}
 
 /**
  * A v4 UUID for an `Idempotency-Key`. `crypto.randomUUID` exists only in a

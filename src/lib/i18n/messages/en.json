@@ -116,6 +116,7 @@
     "suspended": "Suspended",
     "systemLabel": "System {k}/{n} · {c} bets",
     "multipleLabel": "Multiple · {n} picks",
+    "singlesLabel": "Singles · {n} bets",
     "placed": "Bet placed",
     "ticket": "Ticket",
     "shareTelegram": "Share on Telegram",
@@ -133,7 +134,7 @@
     "setMax": "Set {amount}",
     "alerts": {
       "oddsChangedTitle": "Odds changed",
-      "oddsChangedBody": "{n} selection moved. Accept to continue.",
+      "oddsChangedBody": "Accept the new odds to continue.",
       "conflictTitle": "Can’t combine these picks",
       "conflictBody": "Two picks are from the same match. Remove one or switch to Single.",
       "useSingle": "Use Single",
@@ -200,8 +201,13 @@
     "unconfirmed": {
       "title": "We couldn’t confirm your bet",
       "body": "It may have gone through. Try again — if it did, you’ll see the same ticket.",
-      "changed": "Your slip has changed since. If that bet went through, placing this slip as well makes two bets.",
-      "placeNew": "Place as a new bet"
+      "changed": "Try again sends that bet as it was: {bet}. If it went through, placing this slip as well makes two bets.",
+      "cleared": "Try again sends that bet as it was: {bet}.",
+      "retry": "Try again · {amount}",
+      "placeNew": "Place as a new bet",
+      "retryRefused": "Try again didn’t go through",
+      "oddsChanged": "The odds on that bet have changed since.",
+      "closed": "A selection in that bet is no longer available."
     },
     "taxRateStakeOver": "{tax} · {rate} of the whole stake once it’s over {amount}"
   },

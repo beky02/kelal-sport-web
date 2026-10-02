@@ -32,7 +32,7 @@ const CTX: RefusalContext = {
   rules: GOLDEN_RULES.default_2026_10,
   pickChanged: false,
   pickClosed: false,
-  unconfirmed: false,
+  retried: false,
   breakUntil: null,
 };
 
@@ -112,6 +112,30 @@ describe("refusalNotice: the stake (AC-7)", () => {
         }),
       ),
     ).toMatchObject({ body: { key: "betSlip.refused.limit" }, fix: null });
+  });
+
+  it("offers no stake for a limit that isn't an amount, and doesn't fail on one (SEC5)", () => {
+    // The contract types `limit` as any string; a stake is set only from money.
+    const odd = (code: string, limit: string) =>
+      notice(
+        refusal(code, { errors: [{ field: "stake", code: "X", limit }] }),
+        {
+          lines: 3,
+        },
+      );
+
+    expect(odd("BET_STAKE_TOO_LOW", "5.00 ETB")).toMatchObject({
+      body: { key: "betSlip.refused.stakeLow" },
+      fix: null,
+    });
+    expect(odd("BET_STAKE_TOO_HIGH", "50")).toMatchObject({
+      body: { key: "betSlip.refused.stakeHigh" },
+      fix: null,
+    });
+    expect(odd("BET_LIMIT_EXCEEDED", "2,000.00")).toMatchObject({
+      body: { key: "betSlip.refused.limit" },
+      fix: null,
+    });
   });
 });
 
@@ -208,12 +232,26 @@ describe("refusalNotice: the picks", () => {
     );
   });
 
-  it("claims nothing about a retry's bet while the first try is unconfirmed (M1)", () => {
+  it("says a Try again met moved odds or a closed pick, even with the pick showing it (N2)", () => {
+    // The pick alerts can't say it — "wasn't placed" is not for a Try again.
     expect(
       notice(refusal("BET_ODDS_CHANGED", { status: 409 }), {
-        unconfirmed: true,
+        retried: true,
+        pickChanged: true,
       }),
-    ).toBeNull();
+    ).toMatchObject({
+      title: { key: "betSlip.unconfirmed.retryRefused" },
+      body: { key: "betSlip.unconfirmed.oddsChanged" },
+    });
+    expect(
+      notice(refusal("BET_EVENT_STARTED", { status: 409 }), {
+        retried: true,
+        pickClosed: true,
+      }),
+    ).toMatchObject({
+      title: { key: "betSlip.unconfirmed.retryRefused" },
+      body: { key: "betSlip.unconfirmed.closed" },
+    });
   });
 
   it("counts the slip's limits from the rule set when the API gives none", () => {
@@ -224,6 +262,49 @@ describe("refusalNotice: the picks", () => {
     expect(
       notice(refusal("BET_TOO_MANY_LINES"), { rules: null })?.body,
     ).toEqual({ key: "betSlip.placeFailedBody" });
+  });
+});
+
+describe("refusalNotice: a refused Try again (M8, N2)", () => {
+  it("is titled as a Try again that didn't go through, never as a bet not accepted", () => {
+    // A refusal of a retry says nothing about the first try, which may
+    // still have gone through.
+    for (const r of [
+      refusal("RATE_LIMITED", { status: 429, retryAfter: 30 }),
+      refusal("REAL_MONEY_DISABLED", { status: 503 }),
+      refusal("BET_RELATED_SELECTIONS"),
+      refusal("BET_FREE_BET_INVALID", { title: "This free bet has expired" }),
+      refusal("WALLET_INSUFFICIENT_FUNDS"),
+      refusal("RG_LIMIT_REACHED", { status: 403 }),
+    ]) {
+      expect(notice(r, { retried: true })?.title, r.code).toEqual({
+        key: "betSlip.unconfirmed.retryRefused",
+      });
+    }
+  });
+
+  it("keeps the reason and the fix of a first try's refusal", () => {
+    const retried = (r: PlaceRefusal) => notice(r, { retried: true });
+
+    expect(
+      retried(refusal("RATE_LIMITED", { status: 429, retryAfter: 30 }))?.body,
+    ).toEqual({ key: "betSlip.refused.rateLimitedSeconds", seconds: 30 });
+    expect(retried(refusal("WALLET_INSUFFICIENT_FUNDS"))).toMatchObject({
+      body: { key: "betSlip.refused.insufficient" },
+      fix: { kind: "deposit" },
+    });
+    expect(
+      retried(
+        refusal("BET_STAKE_TOO_HIGH", {
+          errors: [{ field: "stake", code: "MAX", limit: "50.00" }],
+        }),
+      ),
+    ).toEqual({
+      title: { key: "betSlip.unconfirmed.retryRefused" },
+      body: { key: "betSlip.errors.stakeTooHighBody", amount: "50.00" },
+      detail: null,
+      fix: { kind: "stake", amount: "50.00" },
+    });
   });
 });
 

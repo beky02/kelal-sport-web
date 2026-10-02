@@ -206,6 +206,7 @@ counts:
   RG refusals are proven in `tests/component/PlaceBet.test.tsx` and `tests/unit/refusals.test.ts` with
   the contract's `Problem` shape; `pnpm ui` shows `home-slip-limit-reached` and
   `home-slip-stake-too-high` from answers given in the browser.
-- A bet with no answer stays unconfirmed through any refusal of a retry; only its ticket, or the player's
-  explicit "Place as a new bet", ends it.
+- A bet with no answer stays unconfirmed through any refusal of a retry, which the slip calls "Try again
+  didn't go through", never a refused bet; only a ticket — its own, or one for a bet the player chose to
+  place as new — ends it.
 - F5b shows the My bets tabs without counts.

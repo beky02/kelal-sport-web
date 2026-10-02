@@ -9,6 +9,7 @@ import { normaliseMoney } from "@/lib/money";
 import { cn } from "@/lib/utils/cn";
 import { useBetSlipStore, type Placement } from "../stores/bet-slip.store";
 import type { BetSlipTotals, SlipProblem } from "../lib/calculate";
+import type { PlaceAttempt } from "../types";
 import {
   refusalNotice,
   type RefusalNotice,
@@ -29,17 +30,22 @@ interface Alert {
    * bet, even when it only needs an Accept.
    */
   urgent?: boolean;
-  action?: { label: string; onClick: () => void };
-  /** A second choice, shown beside the first under the text. */
-  secondary?: { label: string; onClick: () => void };
+  action?: {
+    label: string;
+    onClick: () => void;
+    /** Its own request is on its way: announced as busy, and off meanwhile. */
+    busy?: boolean;
+    /** Off while another request is on its way, still focusable. */
+    off?: boolean;
+  };
+  /** The action goes under the text, full width: its label carries an amount. */
+  below?: boolean;
 }
 
 /** What the slip can do about the engine's answer. */
 export interface PlacementFixes {
   /** Send the unconfirmed bet again: its own request and key. */
   retry: () => void;
-  /** Place the slip as it is now as a new bet; null when there is nothing to choose. */
-  placeAsNew: (() => void) | null;
   deposit: () => void;
   verify: () => void;
   viewLimits: () => void;
@@ -53,6 +59,29 @@ function say(text: RefusalText, t: Translator): string {
     ...(text.seconds !== undefined ? { seconds: text.seconds } : {}),
     ...(text.date !== undefined ? { date: text.date } : {}),
   });
+}
+
+/**
+ * A bet as the slip names it — "Multiple · 3 picks", "System 2/4 · 6 bets" —
+ * for one that is no longer on screen.
+ */
+function kindOf(attempt: PlaceAttempt, t: Translator): string {
+  const { betType, legs, systemSizes } = attempt.request;
+  const n = legs.length;
+  switch (betType) {
+    case "multiple":
+      return t.t("betSlip.multipleLabel", { n });
+    case "system":
+      return t.t("betSlip.systemLabel", {
+        k: systemSizes.join(", "),
+        n,
+        c: attempt.lines,
+      });
+    default:
+      return n === 1
+        ? t.t("betSlip.single")
+        : t.t("betSlip.singlesLabel", { n });
+  }
 }
 
 /** The engine's refusal (`refusalNotice`) as an alert, its fix as a button. */
@@ -153,8 +182,9 @@ function problemAlert(
  * acknowledging; D1's warnings (a stake remainder not charged, a capped bonus or
  * payout) are information. Each alert carries the fix as a button where there
  * is one, so the user never has to work out what number would be accepted.
- * The engine's answer to the last Place — no answer, or a refusal — comes
- * first, and stays until the slip changes or Place is tapped again.
+ * A bet the engine never answered comes first, and stays until a ticket
+ * comes back; a refusal follows it, and stays until the slip changes or
+ * another attempt goes.
  */
 export function SlipAlerts({
   totals,
@@ -162,7 +192,7 @@ export function SlipAlerts({
   rulesState,
   onRetryRules,
   placement,
-  slipChanged,
+  slipIsThatBet,
   fixes,
 }: {
   totals: BetSlipTotals;
@@ -171,8 +201,11 @@ export function SlipAlerts({
   onRetryRules: () => void;
   /** The signed-in player's own placement (`ownPlacement`). */
   placement: Placement;
-  /** A bet is unconfirmed and the slip is no longer that bet. */
-  slipChanged: boolean;
+  /**
+   * The slip on screen still is the unconfirmed bet, so the main button
+   * under it is Try again (`slipIsThatBet`).
+   */
+  slipIsThatBet: boolean;
   fixes: PlacementFixes;
 }) {
   const t = useTranslation();
@@ -196,36 +229,53 @@ export function SlipAlerts({
   }
 
   // No answer: the bet may have gone through. The way on is the same bet with
-  // the same key; a different bet only by the player's explicit choice.
-  const { unconfirmed } = placement;
+  // the same key, its amount on the button; a different bet only by the
+  // player's explicit choice.
+  const { unconfirmed, sending } = placement;
   if (unconfirmed) {
+    const retrying = sending?.key === unconfirmed.key;
     alerts.push({
       id: "unconfirmed",
       tone: "error",
       title: t.t("betSlip.unconfirmed.title"),
       body: t.t("betSlip.unconfirmed.body"),
-      detail: slipChanged ? t.t("betSlip.unconfirmed.changed") : null,
-      action: { label: t.t("common.retry"), onClick: fixes.retry },
-      secondary: fixes.placeAsNew
-        ? {
-            label: t.t("betSlip.unconfirmed.placeNew"),
-            onClick: fixes.placeAsNew,
-          }
-        : undefined,
+      // Once the slip is no longer that bet, its Try again is only here: say
+      // which bet it sends, and that placing this slip as well makes two.
+      detail: slipIsThatBet
+        ? null
+        : t.t(
+            totals.count > 0
+              ? "betSlip.unconfirmed.changed"
+              : "betSlip.unconfirmed.cleared",
+            { bet: kindOf(unconfirmed, t) },
+          ),
+      action: {
+        label: retrying
+          ? t.t("betSlip.placing")
+          : t.t("betSlip.unconfirmed.retry", {
+              amount: t.money(unconfirmed.totalStake),
+            }),
+        onClick: fixes.retry,
+        busy: retrying,
+        off: sending !== null,
+      },
+      below: true,
     });
   }
 
-  // A refusal of the bet. While an earlier bet is unconfirmed this was a
-  // retry, and nothing may say "your bet wasn't placed".
-  const refusal = placement.refusal;
-  const firstTry = refusal !== null && unconfirmed === null;
-  const notice = refusal
-    ? refusalNotice(refusal, {
+  // A refusal. One of a Try again says nothing about the bet's first try, so
+  // nothing may say "your bet wasn't placed"; one of any other attempt — a
+  // first try, or a bet placed as new — spent that attempt's key.
+  const refused = placement.refused;
+  const retried = refused !== null && refused.key === unconfirmed?.key;
+  const firstTry = refused !== null && !retried;
+  const notice = refused
+    ? refusalNotice(refused.problem, {
         lines: totals.lineCount,
         rules,
         pickChanged: totals.pendingOddsChanges.length > 0,
         pickClosed: totals.suspendedSelection !== null,
-        unconfirmed: unconfirmed !== null,
+        retried,
         breakUntil: excludedUntil ? dateTime(excludedUntil) : null,
       })
     : null;
@@ -247,8 +297,8 @@ export function SlipAlerts({
   if (totals.suspendedSelection) {
     const id = totals.suspendedSelection.outcomeId;
     // After the engine refused the bet for it, say so — and which it was.
-    const started = firstTry && refusal?.code === "BET_EVENT_STARTED";
-    const paused = firstTry && refusal?.code === "BET_MARKET_SUSPENDED";
+    const started = firstTry && refused.problem.code === "BET_EVENT_STARTED";
+    const paused = firstTry && refused.problem.code === "BET_MARKET_SUSPENDED";
     alerts.push({
       id: "suspended",
       tone: "error",
@@ -282,17 +332,15 @@ export function SlipAlerts({
 
   if (totals.pendingOddsChanges.length > 0) {
     // The engine's refusal says the bet wasn't placed: announced at once.
-    const refused = firstTry && refusal?.code === "BET_ODDS_CHANGED";
+    const oddsRefused = firstTry && refused.problem.code === "BET_ODDS_CHANGED";
     alerts.push({
       id: "odds",
       tone: "warn",
-      urgent: refused,
+      urgent: oddsRefused,
       title: t.t("betSlip.alerts.oddsChangedTitle"),
-      body: refused
+      body: oddsRefused
         ? t.t("betSlip.refused.oddsChanged")
-        : t.t("betSlip.alerts.oddsChangedBody", {
-            n: totals.pendingOddsChanges.length,
-          }),
+        : t.t("betSlip.alerts.oddsChangedBody"),
       action: {
         label: t.t("betSlip.acceptAll"),
         onClick: acceptAllPending,
@@ -407,37 +455,43 @@ export function SlipAlerts({
               </div>
             )}
           </div>
-          {alert.action && !alert.secondary && (
-            <button
-              type="button"
-              onClick={alert.action.onClick}
-              className="bg-raised text-text font-body min-h-11 shrink-0 cursor-pointer rounded-lg px-3 text-xs font-bold"
-            >
-              {alert.action.label}
-            </button>
+          {alert.action && !alert.below && (
+            <AlertButton action={alert.action} className="shrink-0" />
           )}
-          {/* Two choices go under the text, side by side, so neither squeezes
-              it in the narrow aside. */}
-          {alert.action && alert.secondary && (
-            <div className="grid w-full grid-cols-2 gap-2 pl-[27px]">
-              <button
-                type="button"
-                onClick={alert.action.onClick}
-                className="bg-raised text-text font-body min-h-11 cursor-pointer rounded-lg px-3 text-xs font-bold"
-              >
-                {alert.action.label}
-              </button>
-              <button
-                type="button"
-                onClick={alert.secondary.onClick}
-                className="text-text font-body border-divider min-h-11 cursor-pointer rounded-lg border bg-transparent px-3 text-xs font-bold"
-              >
-                {alert.secondary.label}
-              </button>
+          {/* An amount makes a long label: under the text, so it doesn't
+              squeeze it in the narrow aside. */}
+          {alert.action && alert.below && (
+            <div className="w-full pl-[27px]">
+              <AlertButton action={alert.action} className="w-full" />
             </div>
           )}
         </div>
       ))}
     </>
+  );
+}
+
+function AlertButton({
+  action,
+  className,
+}: {
+  action: NonNullable<Alert["action"]>;
+  className: string;
+}) {
+  // Off by aria-disabled, not disabled: the player keeps their focus here.
+  const off = action.busy || action.off;
+  return (
+    <button
+      type="button"
+      onClick={off ? undefined : action.onClick}
+      aria-disabled={off || undefined}
+      aria-busy={action.busy || undefined}
+      className={cn(
+        "bg-raised text-text font-body min-h-11 cursor-pointer rounded-lg px-3 text-xs font-bold aria-disabled:cursor-not-allowed aria-disabled:opacity-60",
+        className,
+      )}
+    >
+      {action.label}
+    </button>
   );
 }

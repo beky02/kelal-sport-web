@@ -54,14 +54,33 @@ from the stake, void refunds) stay the backend's to answer.
    balance moves, no ticket appears. Place waits, in every mounted slip, until it comes.
 3. **The key belongs to one bet.** A bet sent and never answered in a way that settles it — no response,
    a 5xx, a reply the app could not read, or 30 s without one — is **unconfirmed**: "We couldn't confirm
-   your bet. It may have gone through — try again, and if it did you'll see the same ticket." While it is,
-   the main button is Try again, which sends that very request with its key (not the slip as it is now),
-   and no change to the slip, no price move, no refusal of a retry and no lost session drops it: a
-   refusal of a retry says nothing about the first try, which may still commit (the engine records a key
-   only once a bet commits, C08 §7). It ends only with the ticket for its key, or when the player chooses
-   "Place as a new bet" — offered once the slip differs from the bet ("if that bet went through, placing
-   this slip as well makes two bets"). A ticket or a refusal of a first try spends the key: a second bet
-   on the same slip, or accepting new odds, is a new intent with a new key.
+   your bet. It may have gone through — try again, and if it did you'll see the same ticket." Try again
+   sends that very request with its key, never the slip as it is now, and every Try again shows that
+   bet's own amount (slipcalc's total when it was placed). No change to the slip, no price move, no
+   refusal and no lost session drops it: a refusal of a retry says nothing about the first try, which may
+   still commit (the engine records a key only once a bet commits, C08 §7). It ends only with a ticket —
+   its own, or one for a bet the player chose to place as new; the slip tracks one unconfirmed bet, the
+   latest.
+   - **The main button acts on the slip shown above it.** While the slip still is that bet — the same
+     picks, bet type and stake; a price that moved since doesn't make it another bet — the main button
+     is Try again. Once it is another bet, the main button places it as a new bet ("Place as a new bet",
+     with the slip's amount), or does whatever the slip needs first (Accept changes, Remove); Try again
+     stays in the alert, which names the bet ("Try again sends that bet as it was: Multiple · 3 picks")
+     and, while the slip has picks, warns that placing this slip as well makes two bets. A Try again
+     never asks for the same picks at the same prices under a new key.
+   - **A refused Try again is said as one**: "Try again didn't go through", with the reason (the odds on
+     that bet have changed, a selection in it is no longer available, the rate limit, the balance…) and
+     the fix where there is one — never "Bet not accepted" or "wasn't placed". A refusal of that bet's
+     prices or picks (odds changed, started, suspended) means the same Try again would meet it again, so
+     from then on only the very same prices make the slip that bet: the main button follows the slip
+     (Accept, then Place as a new bet), and the alert keeps Try again to find out whether the first try
+     went through.
+   - Try again first reads `/api/me` afresh and sends nothing if someone else is signed in now (another
+     tab), so a bet is only ever sent for the player who placed it.
+
+   A ticket or a refusal of any other attempt spends its key: a second bet on the same slip, or
+   accepting new odds, is a new intent with a new key.
+
 4. `409 BET_ODDS_CHANGED`: `errors[].field` (`legs[i].odds`) names the leg by its place in the request
    sent; its price sent becomes the agreed one and `errors[].current` its price now, so the slip shows
    old → new, slipcalc re-prices the preview, and the odds alert says the bet wasn't placed. Accept, then

@@ -272,6 +272,8 @@ export type CtaAction =
   | "place"
   /** A bet is unconfirmed: send it again, same key (the slip sets this, not `resolveCta`). */
   | "retry"
+  /** A bet is unconfirmed and the slip is another bet: place it, new key (the slip sets this too). */
+  | "place-new"
   | "accept-changes"
   | "remove-suspended"
   | "deposit"

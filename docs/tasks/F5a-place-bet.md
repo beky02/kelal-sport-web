@@ -86,3 +86,9 @@ Out (do not build here):
 ## Notes
 
 - 2026-10-02: split from F5.
+- 2026-10-03 (review): the key rule as built is stricter than "reused only while that request has had no
+  definitive answer". A bet with no answer stays _unconfirmed_, and Try again resends it with its key,
+  through slip changes, price moves, a lost session and any refusal of a retry: the engine caches a key
+  only once a bet commits (C08 §7), so a refused retry says nothing about the first try. Only a ticket
+  ends it — its own, or one for a bet the player explicitly placed as new. See `F5/plan.md`, "Review
+  round 1" and "Review round 2", and docs/design/04 "Placing a bet".

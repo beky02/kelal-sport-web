@@ -83,11 +83,22 @@ export interface BetReceipt {
 }
 
 /**
+ * The slip as a bet to place: the request, and what slipcalc said it charges
+ * — the total stake its Place button showed, and how many bets that is.
+ * Kept with the request, so a bet no longer on screen can still be named
+ * with its own amount.
+ */
+export interface PlaceIntent {
+  request: PlaceBetRequest;
+  totalStake: string;
+  lines: number;
+}
+
+/**
  * One request to place, and the `Idempotency-Key` it goes with: the same
  * request always goes again with the same key.
  */
-export interface PlaceAttempt {
-  request: PlaceBetRequest;
+export interface PlaceAttempt extends PlaceIntent {
   key: string;
 }
 

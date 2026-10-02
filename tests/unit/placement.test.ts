@@ -9,6 +9,9 @@ import {
   placeRequestFrom,
   placementOutcome,
   refusalOf,
+  sameBet,
+  samePrices,
+  slipIsThatBet,
 } from "@/features/bet-slip/lib/placement";
 import type { BetSelection, PlaceBetRequest } from "@/features/bet-slip/types";
 import { ApiError, ContractError } from "@/lib/api/errors";
@@ -115,6 +118,48 @@ describe("placeRequestFrom", () => {
     expect(requestFor(THREE, { stake: "" })).toBeNull();
     expect(requestFor(THREE, { stake: "2" })).toBeNull();
     expect(requestFor(THREE, { rules: null })).toBeNull();
+  });
+});
+
+describe("slipIsThatBet: is the slip on screen the unconfirmed bet?", () => {
+  const UNCONFIRMED = {
+    request: REQUEST,
+    key: "k1",
+    totalStake: "100.00",
+    lines: 1,
+  };
+  const legs = (...odds: string[]) =>
+    REQUEST.legs.map((l, i) => ({ ...l, odds: odds[i] ?? l.odds }));
+
+  it("is the same bet with the picks in another order, a price moved since or another odds policy", () => {
+    const reordered = { ...REQUEST, legs: [...REQUEST.legs].reverse() };
+    const moved = { ...REQUEST, legs: legs("1.62", "3.40") };
+    const policy = { ...REQUEST, oddsPolicy: "any" as const };
+    for (const slip of [REQUEST, reordered, moved, policy]) {
+      expect(sameBet(slip, REQUEST)).toBe(true);
+      expect(slipIsThatBet(slip, UNCONFIRMED, false)).toBe(true);
+    }
+    expect(samePrices(reordered, REQUEST)).toBe(true);
+    expect(samePrices(moved, REQUEST)).toBe(false);
+  });
+
+  it("is another bet with another stake, pick, type or size, and none while it can't be placed", () => {
+    for (const slip of [
+      { ...REQUEST, stake: "50.00" },
+      { ...REQUEST, legs: REQUEST.legs.slice(1) },
+      { ...REQUEST, betType: "single" as const },
+      { ...REQUEST, betType: "system" as const, systemSizes: [2] },
+    ]) {
+      expect(slipIsThatBet(slip, UNCONFIRMED, false)).toBe(false);
+    }
+    expect(slipIsThatBet(null, UNCONFIRMED, false)).toBe(false);
+  });
+
+  it("once the engine refused that bet's prices, is only that bet at the very same prices", () => {
+    const accepted = { ...REQUEST, legs: legs("1.62", "1.55") };
+    expect(slipIsThatBet(accepted, UNCONFIRMED, true)).toBe(false);
+    // Back at the price it was sent at: that bet, never a new key for it.
+    expect(slipIsThatBet(REQUEST, UNCONFIRMED, true)).toBe(true);
   });
 });
 

@@ -343,6 +343,27 @@ const limitReached = (page: Page) =>
     }),
   );
 
+/** No answer to the first try, then 429 to its Try again: still unconfirmed. */
+const dropThenRateLimited = (page: Page) => {
+  let tries = 0;
+  return page.route("**/api/bets", (route) =>
+    tries++ === 0
+      ? route.abort("connectionreset")
+      : route.fulfill({
+          status: 429,
+          contentType: "application/problem+json",
+          headers: { "Retry-After": "30" },
+          json: {
+            type: "https://api.example.et/errors/rate-limited",
+            title: "Too many requests",
+            status: 429,
+            code: "RATE_LIMITED",
+            request_id: "req_ui",
+          },
+        }),
+  );
+};
+
 /** `/b/7KQ2M9X`, loaded into the slip — the sheet opens on a phone. */
 async function loadBooking(page: Page, _device: Device, lang: Lang) {
   await page
@@ -447,8 +468,9 @@ const SCREENS: Array<{
     allowConsole: /status of 403/,
   },
   {
-    // A bet with no answer and a slip changed since: Try again, or the
-    // player's explicit "Place as a new bet".
+    // A bet with no answer and a slip changed since: the alert names that
+    // bet and holds its Try again, with its amount; the main button places
+    // the slip as shown, as a new bet, with the slip's amount.
     name: "home-slip-unconfirmed-changed",
     path: "/",
     before: loginViaApi,
@@ -472,6 +494,31 @@ const SCREENS: Array<{
         page.route("**/api/bets", (route) => route.abort("connectionreset")),
     }),
     allowConsole: /ERR_CONNECTION_RESET|Failed to load resource/,
+  },
+  {
+    // Its Try again refused: said as a Try again that didn't go through,
+    // never as a bet refused — the first try may still have gone through.
+    name: "home-slip-unconfirmed-refused",
+    path: "/",
+    before: loginViaApi,
+    prepare: placeAnd("alert", {
+      answer: dropThenRateLimited,
+      then: async (page, lang) => {
+        const t = MESSAGES[lang];
+        await page
+          .getByRole("button", {
+            name: new RegExp(`^${escape(t.common.retry)}`),
+          })
+          .filter({ visible: true })
+          .first()
+          .click();
+        await page
+          .getByText(t.betSlip.unconfirmed.retryRefused)
+          .filter({ visible: true })
+          .waitFor();
+      },
+    }),
+    allowConsole: /ERR_CONNECTION_RESET|Failed to load resource|status of 429/,
   },
   { name: "home-upcoming", path: "/?filter=upcoming" },
   { name: "event", path: "/event/fx_arsenal_chelsea" },

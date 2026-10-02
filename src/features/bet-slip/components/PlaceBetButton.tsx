@@ -13,7 +13,9 @@ import type { BetSlipTotals, CtaAction } from "../lib/calculate";
  * next thing that would make it placeable instead of sitting greyed out with no
  * explanation. Only an unresolvable conflict actually disables it, because the
  * user has to choose which pick to drop. While a bet is unconfirmed its job is
- * Try again — the same bet with the same key — never a new bet.
+ * Try again — the same bet with the same key — as long as the slip above it
+ * still is that bet; once it is another, it places that as a new bet. Every
+ * job that charges shows the amount it charges (`amount`).
  *
  * While a bet is on its way it stays focusable and says so (`aria-busy`,
  * "Placing…"): disabling the button the player just pressed would drop their
@@ -22,18 +24,23 @@ import type { BetSlipTotals, CtaAction } from "../lib/calculate";
 export function PlaceBetButton({
   action,
   disabled,
+  amount,
   totals,
   pending,
   onPlace,
+  onPlaceNew,
   onRetry,
   onDeposit,
   onLogin,
 }: {
   action: CtaAction;
   disabled: boolean;
+  /** What the action charges — slipcalc's total stake — or null for none. */
+  amount: string | null;
   totals: BetSlipTotals;
   pending: boolean;
   onPlace: () => void;
+  onPlaceNew: () => void;
   onRetry: () => void;
   onDeposit: () => void;
   onLogin: () => void;
@@ -45,6 +52,7 @@ export function PlaceBetButton({
   const label: Record<CtaAction, string> = {
     place: t.t("betSlip.placeBet"),
     retry: t.t("common.retry"),
+    "place-new": t.t("betSlip.unconfirmed.placeNew"),
     "accept-changes": t.t("betSlip.acceptChanges"),
     "remove-suspended": t.t("betSlip.removeSuspended"),
     deposit: t.t("betSlip.alerts.deposit"),
@@ -59,6 +67,8 @@ export function PlaceBetButton({
         return onPlace();
       case "retry":
         return onRetry();
+      case "place-new":
+        return onPlaceNew();
       case "accept-changes":
         return acceptAllPending();
       case "remove-suspended":
@@ -74,8 +84,7 @@ export function PlaceBetButton({
     }
   };
 
-  const stake = totals.quote?.totalStake;
-  const showAmount = action === "place" && !pending && stake !== undefined;
+  const showAmount = amount !== null && !pending;
 
   return (
     <div className="px-4 pt-1 pb-4.5">
@@ -95,8 +104,8 @@ export function PlaceBetButton({
       >
         {pending && <Loader2 size={18} className="animate-spin" aria-hidden />}
         <span>{pending ? t.t("betSlip.placing") : label[action]}</span>
-        {showAmount && stake && (
-          <span className="numeric">{t.money(stake)}</span>
+        {amount !== null && showAmount && (
+          <span className="numeric">{t.money(amount)}</span>
         )}
       </button>
     </div>

@@ -1,4 +1,5 @@
 import type { RuleSetJson } from "@golden/slipcalc";
+import { MONEY_PATTERN } from "@/lib/api/patterns";
 import type { MessageKey } from "@/lib/i18n";
 import type { PlaceRefusal } from "../types";
 import { smallestStake } from "./calculate";
@@ -40,19 +41,27 @@ export interface RefusalContext {
   /** A pick the refusal closed is marked suspended: that alert says it. */
   pickClosed: boolean;
   /**
-   * An earlier bet is unconfirmed, so this was a retry. Its refusal says
-   * nothing about the first try, which may still have gone through.
+   * This answered a Try again of the unconfirmed bet. Its refusal says
+   * nothing about the first try, which may still have gone through: it is
+   * titled as a Try again that didn't go through, never as a bet refused.
    */
-  unconfirmed: boolean;
+  retried: boolean;
   /** When the player's break ends, already formatted; null when unknown. */
   breakUntil: string | null;
 }
 
 const NOT_PLACED: RefusalText = { key: "betSlip.placeFailed" };
+const RETRY_REFUSED: RefusalText = { key: "betSlip.unconfirmed.retryRefused" };
 
-/** A limit the engine put on the stake — never one on a leg, a payout or a liability. */
-const stakeLimit = (refusal: PlaceRefusal): string | undefined =>
-  refusal.errors.find((e) => e.field === "stake")?.limit;
+/**
+ * A limit the engine put on the stake — never one on a leg, a payout or a
+ * liability — and only when it is an amount: the contract types it as any
+ * string, and a stake is never set from one that isn't.
+ */
+function stakeLimit(refusal: PlaceRefusal): string | undefined {
+  const limit = refusal.errors.find((e) => e.field === "stake")?.limit;
+  return limit !== undefined && MONEY_PATTERN.test(limit) ? limit : undefined;
+}
 
 /**
  * What the slip says about the engine's refusal of a bet, by its Problem
@@ -64,22 +73,34 @@ export function refusalNotice(
   refusal: PlaceRefusal,
   ctx: RefusalContext,
 ): RefusalNotice | null {
+  // A refused Try again is one whatever the reason; the reason is the body.
   const notice = (
     title: RefusalText,
     body: RefusalNotice["body"],
     fix: RefusalFix | null = null,
-  ): RefusalNotice => ({ title, body, detail: refusal.detail, fix });
+  ): RefusalNotice => ({
+    title: ctx.retried ? RETRY_REFUSED : title,
+    body,
+    detail: refusal.detail,
+    fix,
+  });
 
   switch (refusal.code) {
     case "BET_ODDS_CHANGED":
-      // The re-priced pick waits for Accept and the odds alert says the bet
-      // wasn't placed; a retry's refusal is the unconfirmed alert's to tell.
-      if (ctx.pickChanged || ctx.unconfirmed) return null;
+      // A Try again's refusal is said as one. A first try's re-priced pick
+      // waits for Accept, and the odds alert says the bet wasn't placed.
+      if (ctx.retried) {
+        return notice(NOT_PLACED, { key: "betSlip.unconfirmed.oddsChanged" });
+      }
+      if (ctx.pickChanged) return null;
       return notice(NOT_PLACED, { key: "betSlip.refused.oddsUnknown" });
 
     case "BET_EVENT_STARTED":
     case "BET_MARKET_SUSPENDED":
-      if (ctx.pickClosed || ctx.unconfirmed) return null;
+      if (ctx.retried) {
+        return notice(NOT_PLACED, { key: "betSlip.unconfirmed.closed" });
+      }
+      if (ctx.pickClosed) return null;
       return notice(NOT_PLACED, { key: "betSlip.refused.closedUnknown" });
 
     case "BET_STAKE_TOO_LOW":
@@ -99,16 +120,18 @@ export function refusalNotice(
       // A maximum splits under itself; a minimum must clear every line.
       const amount = low ? smallestStake(limit, ctx.lines) : limit;
       return {
-        title,
-        body: {
-          key: low
-            ? "betSlip.errors.stakeTooLowBody"
-            : "betSlip.errors.stakeTooHighBody",
-          amount,
-        },
+        ...notice(
+          title,
+          {
+            key: low
+              ? "betSlip.errors.stakeTooLowBody"
+              : "betSlip.errors.stakeTooHighBody",
+            amount,
+          },
+          { kind: "stake", amount },
+        ),
         // The body states the limit; the API's sentence would repeat it.
         detail: null,
-        fix: { kind: "stake", amount },
       };
     }
 

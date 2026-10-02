@@ -322,10 +322,22 @@ negates `betSlip.placed` (ውርርድ ተይዟል); the rest reuses the slip's
 
 Added in the F5a review round (2026-10-03):
 
-| Key                            | Amharic                                                         | Composed from                                      |
-| ------------------------------ | --------------------------------------------------------------- | -------------------------------------------------- |
-| `betSlip.placing`              | በማስያዝ ላይ…                                                       | `betSlip.placeBet` (አስይዝ), progressive             |
-| `betSlip.refused.stakeLow`     | ይህ የውርርድ መጠን ለዚህ ውርርድ ከተፈቀደው ዝቅተኛ መጠን በታች ነው።                   | `errors.stakeTooLowTitle` (ዝቅተኛ), `refused.limit`  |
-| `betSlip.refused.stakeHigh`    | ይህ የውርርድ መጠን ለዚህ ውርርድ ከተፈቀደው ከፍተኛ መጠን በላይ ነው።                   | `errors.stakeTooHighTitle` (ከፍተኛ), `refused.limit` |
-| `betSlip.unconfirmed.changed`  | ከዚያ በኋላ ትኬትዎ ተቀይሯል። ያ ውርርድ ተይዞ ከሆነ፣ ይህንንም ማስያዝ ሁለት ውርርዶች ያደርጋል። | `unconfirmed.body` (ተይዞ ከሆነ), `betSlip.bets`       |
-| `betSlip.unconfirmed.placeNew` | እንደ አዲስ ውርርድ አስይዝ                                               | `betSlip.placeBet` (ውርርድ አስይዝ) + "as a new"        |
+| Key                            | Amharic                                       | Composed from                                      |
+| ------------------------------ | --------------------------------------------- | -------------------------------------------------- |
+| `betSlip.placing`              | በማስያዝ ላይ…                                     | `betSlip.placeBet` (አስይዝ), progressive             |
+| `betSlip.refused.stakeLow`     | ይህ የውርርድ መጠን ለዚህ ውርርድ ከተፈቀደው ዝቅተኛ መጠን በታች ነው። | `errors.stakeTooLowTitle` (ዝቅተኛ), `refused.limit`  |
+| `betSlip.refused.stakeHigh`    | ይህ የውርርድ መጠን ለዚህ ውርርድ ከተፈቀደው ከፍተኛ መጠን በላይ ነው። | `errors.stakeTooHighTitle` (ከፍተኛ), `refused.limit` |
+| `betSlip.unconfirmed.placeNew` | እንደ አዲስ ውርርድ አስይዝ                             | `betSlip.placeBet` (ውርርድ አስይዝ) + "as a new"        |
+
+Added in the F5a review, round 2 (2026-10-03). `unconfirmed.changed` was reworded here (it now names the bet):
+
+| Key                                | Amharic                                                                             | Composed from                                                         |
+| ---------------------------------- | ----------------------------------------------------------------------------------- | --------------------------------------------------------------------- |
+| `betSlip.singlesLabel`             | ነጠላ · {n} ውርርዶች                                                                     | `betSlip.single` (ነጠላ), `betSlip.betCount`                            |
+| `betSlip.alerts.oddsChangedBody`   | ለመቀጠል አዲሱን ኦድ ይቀበሉ።                                                                 | `refused.oddsChanged` (አዲሱን ኦድ ይቀበሉ); no count, so no plural          |
+| `betSlip.unconfirmed.changed`      | እንደገና መሞከር ያንን ውርርድ እንደነበረ ይልካል፦ {bet}። ያ ውርርድ ተይዞ ከሆነ፣ ይህንንም ማስያዝ ሁለት ውርርዶች ያደርጋል። | `common.retry` (እንደገና), `unconfirmed.body` (ተይዞ ከሆነ), `betSlip.bets`  |
+| `betSlip.unconfirmed.cleared`      | እንደገና መሞከር ያንን ውርርድ እንደነበረ ይልካል፦ {bet}።                                             | as above; `{bet}` is `multipleLabel`, `systemLabel` or `singlesLabel` |
+| `betSlip.unconfirmed.retry`        | እንደገና ይሞክሩ · {amount}                                                               | `common.retry`                                                        |
+| `betSlip.unconfirmed.retryRefused` | እንደገና መሞከሩ አልተሳካም                                                                   | `common.retry`, `placeFailedBody` (አልተሳካም)                            |
+| `betSlip.unconfirmed.oddsChanged`  | ከዚያ በኋላ የዚያ ውርርድ ኦድ ተቀይሯል።                                                          | `alerts.oddsChangedTitle` (ኦድ ተቀይሯል)                                  |
+| `betSlip.unconfirmed.closed`       | በዚያ ውርርድ ውስጥ ያለ አንድ ምርጫ ከእንግዲህ አይገኝም።                                               | `refused.closedUnknown`                                               |
