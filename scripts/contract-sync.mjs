@@ -6,16 +6,19 @@
  *
  *   pnpm contract:sync                 # from CONTRACTS_SOURCE or ../../kelal backend/contracts
  *   pnpm contract:sync --check         # exit 1 if the copy differs from the source
+ *
+ * Only the backend docs the frontend reads are copied (DOCS_KEEP below).
  */
 import { execFileSync } from "node:child_process";
 import {
   cpSync,
   existsSync,
+  mkdirSync,
   readdirSync,
   readFileSync,
   statSync,
 } from "node:fs";
-import { join, relative, resolve } from "node:path";
+import { dirname, join, relative, resolve } from "node:path";
 
 const root = resolve(import.meta.dirname, "..");
 const source = resolve(
@@ -44,25 +47,63 @@ function files(dir) {
 }
 
 /**
+ * The backend docs the frontend reads (CLAUDE.md "Sources of truth" and the
+ * task files' "Read first"): the engineering decisions, the build plan's
+ * frontend track, the API standards, the component pages the screens are
+ * built against, and the product docs. The backend's own task files, its
+ * implementation guide and the infrastructure pages stay in the backend repo.
+ * Paths are relative to the backend's docs/ folder; a trailing slash keeps a
+ * whole folder.
+ */
+const DOCS_KEEP = [
+  "engineering-decisions.md",
+  "build-plan.md",
+  "product/",
+  "design/td-01-api-standards.md",
+  "design/components/c01-identity-auth.md",
+  "design/components/c02-kyc.md",
+  "design/components/c03-wallet-ledger.md",
+  "design/components/c04-payments.md",
+  "design/components/c06-sports-catalogue.md",
+  "design/components/c07-slip-calculator.md",
+  "design/components/c08-bet-placement-risk.md",
+  "design/components/c09-booking-codes.md",
+  "design/components/c11-bonuses.md",
+  "design/components/c12-rg-aml.md",
+  "design/components/c13-reporting-audit.md",
+  "design/components/c14-notifications.md",
+  "design/components/c15-back-office-trading.md",
+  "design/components/c16-config-tenancy.md",
+  "design/components/c18-client-apps.md",
+  "design/components/c19-retail-network.md",
+];
+
+const keepDoc = (rel) =>
+  DOCS_KEEP.some((keep) =>
+    keep.endsWith("/") ? rel.startsWith(keep) : rel === keep,
+  );
+
+/**
  * What is copied from the backend repo, which owns both: the API contract, and
- * the docs that explain it (engineering decisions, design pages, product docs).
- * This repo reads only its own copies.
+ * the docs that explain it. This repo reads only its own copies.
  */
 const pairs = [
-  { from: source, to: target, name: "contracts/" },
+  { from: source, to: target, name: "contracts/", keep: () => true },
   {
     from: join(source, "..", "docs"),
     to: join(root, "docs", "backend"),
     name: "docs/backend/",
+    keep: keepDoc,
   },
 ];
 
 if (check) {
   let behind = false;
-  for (const { from, to, name } of pairs) {
+  for (const { from, to, name, keep } of pairs) {
     if (!existsSync(from)) continue;
     const differ = files(from)
       .map((path) => relative(from, path))
+      .filter(keep)
       .filter((rel) => {
         const mine = join(to, rel);
         return (
@@ -82,12 +123,14 @@ if (check) {
   process.exit(behind ? 1 : 0);
 }
 
-for (const { from, to } of pairs) {
+for (const { from, to, keep } of pairs) {
   if (!existsSync(from)) continue;
-  cpSync(from, to, {
-    recursive: true,
-    filter: (path) => !skip(path.split("/").pop()),
-  });
+  for (const path of files(from)) {
+    const rel = relative(from, path);
+    if (!keep(rel)) continue;
+    mkdirSync(dirname(join(to, rel)), { recursive: true });
+    cpSync(path, join(to, rel));
+  }
 }
 execFileSync("pnpm", ["api:types"], { cwd: root, stdio: "inherit" });
 console.log(

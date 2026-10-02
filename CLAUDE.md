@@ -35,9 +35,11 @@ Arsenal v Chelsea, Real Madrid v Barcelona). Ask for an error or a named example
    choice) → 4. `docs/backend/design/` (C18 is the web client) → 5. the claude.ai design
    project (look and copy) → 6. `docs/backend/product/`.
 
-`docs/backend/` is a copy of the backend repo's `docs/` (engineering decisions, design pages, product docs),
-kept current by `pnpm contract:sync` and checked by `pnpm contract:sync --check`. Read the copy; never read
-files from the backend repo itself, and never edit the copy by hand.
+`docs/backend/` is a copy of the backend docs the frontend reads (engineering decisions, build plan, API
+standards, the component pages the screens are built against, PRD and SRS — the `DOCS_KEEP` list in
+`scripts/contract-sync.mjs`), kept current by `pnpm contract:sync` and checked by
+`pnpm contract:sync --check`. Read the copy; never read files from the backend repo itself, and never edit
+the copy by hand. Need another backend page? Add it to `DOCS_KEEP` and sync.
 
 If they conflict, follow the higher one and note it in the task's plan. If something isn't decided
 anywhere, ask; don't invent product rules (taxes, limits, payouts, regulator behaviour, copy shown to
