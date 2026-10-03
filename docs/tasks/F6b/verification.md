@@ -36,6 +36,22 @@
 - **Docs:** the plan's Files and AC→tests names match the code (updated); 01, 02, 04, 05, 09, the
   translation notes and contract request 009 describe what was built.
 
+## Automated gate
+
+`pnpm verify` at `cf837af`, exit 0 (3.4 min of screens):
+
+| Check                                               | Result        | Command / output                                                                 |
+| --------------------------------------------------- | ------------- | -------------------------------------------------------------------------------- |
+| Typecheck, lint, prettier, unit and component tests | PASS          | `pnpm check` — 54 files, 1,173 tests (1,174 after `a6894ef`, `pnpm check` again) |
+| Generated types                                     | PASS          | `pnpm api:check` — "Generated API types match contracts/openapi.yaml."           |
+| Contract drift                                      | PASS          | `contract-sync --check` — "contracts/ matches the backend."                      |
+| Build                                               | PASS          | `pnpm build` — compiled, 37 pages                                                |
+| UI screens (375 / 1440 px, en / am)                 | PASS, 2 flaky | `pnpm ui` — "336 passed (3.4m)", "2 flaky" (Gaps)                                |
+
+Dev server checked first: `/__nextjs_server_status` 200; `/api/payment-methods` and `/api/deposits/abc`
+401 as a guest, `POST /api/deposits` without a key 400; with a Prism login the three routes answered the
+contract's examples (methods, a 201 redirect, a completed read).
+
 ## Tests proven
 
 Each new acceptance test, once green, was run against the behaviour it guards broken once, and failed.
@@ -65,3 +81,20 @@ Each new acceptance test, once green, was run against the behaviour it guards br
 | `Deposit` "resumes the pending deposit when the player comes back from the provider"; "forgets the deposit it came back for…"                                                                 | `?deposit=return` didn't resume                                                                                                                       |
 | `Deposit` "drops the payment methods and the deposit when another player signs in"                                                                                                            | `forgetPlayer` stopped dropping `paymentKeys.all`                                                                                                     |
 | `Deposit` "starts one deposit however quickly Confirm is pressed twice (AC-8)"                                                                                                                | written red first (two POSTs with two keys), then the in-flight guard in `useDepositAttempt`                                                          |
+
+## Gaps
+
+- **Flaky on the first try, passed on retry (`pnpm ui` at `cf837af`):** `auth.spec.ts` "a wrong password
+  is refused in the API's own terms, not as an outage" — "Test timeout of 60000ms exceeded while setting
+  up "context". Error: browser.newContext: Test ended." (Chrome couldn't open a context; F4a's test,
+  untouched here). `screens · desktop · en · deposit-unconfirmed` — "locator.click: Test timeout of
+  60000ms exceeded … waiting for getByRole('button', { name: /CBE Birr/ })": the snapshot shows the
+  browser itself offline (`navigator.onLine` false, the offline banner) with `/api/me` unanswered, before
+  the deposit flow began; the retry passed in 2.3 s, as did the other three runs of that screen.
+- **Prism can't show** an initiated, failed or expired deposit, an `app_sdk` next action, or any deposit
+  refusal: those screens are answered in the browser with shapes inferred from the contract's schema
+  (contract request 009 asks for named examples). `deposit-completed` and `deposit-web` go through
+  Prism end to end.
+- **A real provider round trip** (leaving for telebirr's page and coming back) can't run locally: the
+  redirect is a component test with `goToProvider` recorded, and the return is `deposit-web` with the
+  `sessionStorage` pointer set by the test.
