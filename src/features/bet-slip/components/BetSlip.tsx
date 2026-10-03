@@ -194,6 +194,7 @@ export function BetSlip({ onClose }: { onClose?: () => void }) {
 
       <SlipAlerts
         totals={totals}
+        balance={balance}
         rules={rules?.calc ?? null}
         rulesState={rulesState}
         onRetryRules={retryRules}

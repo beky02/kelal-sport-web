@@ -64,9 +64,14 @@ export const betKeys = {
  */
 export const transactionKeys = {
   all: ["transactions"] as const,
-  list: (filter: string) => [...transactionKeys.all, "list", filter] as const,
+  /**
+   * The paged history under one filter, in one language: a movement's label
+   * is the API's, read with the UI's `Accept-Language`.
+   */
+  list: (filter: string, lang: string) =>
+    [...transactionKeys.all, "list", filter, lang] as const,
   /** The wallet's recent activity: the latest few, apart from the paged list. */
-  recent: () => [...transactionKeys.all, "recent"] as const,
+  recent: (lang: string) => [...transactionKeys.all, "recent", lang] as const,
 };
 
 /** A break or self-exclusion in force — server state, read like the balance. */

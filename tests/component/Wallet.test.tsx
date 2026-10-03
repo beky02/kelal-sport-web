@@ -264,22 +264,29 @@ describe("the slip's balance check (AC-5)", () => {
     api(answering({ ...CONTRACT_WALLET, cash: "40.00", bonus: "500.00" }));
     const { unmount } = render(<BetSlip />);
 
-    const deposit = await screen.findAllByRole("button", {
-      name: /^Deposit to continue/,
-    });
-    expect(deposit.length).toBeGreaterThan(0);
+    // Nothing is decided until /api/wallet has answered: the slip shows the
+    // cash balance as sent, and only then compares the stake with it.
+    expect(await screen.findByText("Balance ETB 40.00")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /^Deposit to continue/ }),
+    ).toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: /Place bet/ }),
     ).not.toBeInTheDocument();
+    // The alert names the player's balance — the API's cash — not the stake.
+    expect(screen.getByText("Insufficient balance")).toBeInTheDocument();
+    expect(screen.getByText("Your balance is ETB 40.00.")).toBeInTheDocument();
     unmount();
 
     // At exactly the stake, the cash balance covers it.
     api(answering({ ...CONTRACT_WALLET, cash: "50.00", bonus: "0.00" }));
     render(<BetSlip />);
-    const place = await screen.findByRole("button", { name: /Place bet/ });
+    expect(await screen.findByText("Balance ETB 50.00")).toBeInTheDocument();
+    const place = screen.getByRole("button", { name: /Place bet/ });
     expect(within(place).getByText("ETB 50.00")).toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: /^Deposit to continue/ }),
     ).not.toBeInTheDocument();
+    expect(screen.queryByText("Insufficient balance")).not.toBeInTheDocument();
   });
 });

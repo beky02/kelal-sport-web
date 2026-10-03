@@ -1,7 +1,11 @@
-import type {
-  WalletBalances,
-  WalletTxn,
-  WalletTxnPage,
+import {
+  WALLET_TXN_REFERENCE_TYPES,
+  WALLET_TXN_TYPES,
+  type WalletBalances,
+  type WalletTxn,
+  type WalletTxnKind,
+  type WalletTxnPage,
+  type WalletTxnReference,
 } from "@/features/wallet/types";
 import type { components, paths } from "@/lib/api/schema";
 
@@ -24,20 +28,31 @@ export function toWalletBalances(wallet: ApiWallet): WalletBalances {
   };
 }
 
+const isTxnType = (type: string): type is WalletTxnKind =>
+  (WALLET_TXN_TYPES as readonly string[]).includes(type);
+
+const isReferenceType = (type: string): type is WalletTxnReference["type"] =>
+  (WALLET_TXN_REFERENCE_TYPES as readonly string[]).includes(type);
+
 /**
  * One ledger movement. The amount keeps the API's sign. A reference is kept
  * only when it says both what and which — that is what a link needs — while
- * its label names the movement either way.
+ * its label names the movement either way. A kind or a reference type the
+ * contract adds after this build becomes `other` / no link, so one new value
+ * never takes the whole history down (TD-01: additive changes within `/v1`).
  */
 export function toWalletTxn(txn: ApiWalletTxn): WalletTxn {
   const ref = txn.reference;
   return {
     id: txn.id,
-    type: txn.type,
+    type: isTxnType(txn.type) ? txn.type : "other",
     amount: txn.amount,
     balanceAfter: txn.balance_after,
     label: ref?.label ?? null,
-    reference: ref?.type && ref.id ? { type: ref.type, id: ref.id } : null,
+    reference:
+      ref?.type && isReferenceType(ref.type) && ref.id
+        ? { type: ref.type, id: ref.id }
+        : null,
     createdAt: txn.created_at,
   };
 }

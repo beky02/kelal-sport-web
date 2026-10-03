@@ -5,17 +5,30 @@ three parts; F6b and F6c verify on their own.
 
 ## Automated gate
 
-| Check                  | Result  | Command / evidence                                         |
-| ---------------------- | ------- | ---------------------------------------------------------- |
-| Typecheck              | pending | `pnpm typecheck`                                           |
-| Lint                   | pending | `pnpm lint`                                                |
-| Format                 | pending | `pnpm format:check`                                        |
-| Unit + component tests | pending | `pnpm test`                                                |
-| Golden slip rows (D1)  | pending | `tests/unit/golden.test.ts`; `contracts/golden/` untouched |
-| Generated types        | pending | `pnpm api:check`                                           |
-| Contract drift         | pending | `contract-sync --check`                                    |
-| Production build       | pending | `pnpm build`                                               |
-| UI screens + e2e       | pending | `pnpm ui`                                                  |
+| Check                  | Result | Command / evidence                                                                            |
+| ---------------------- | ------ | --------------------------------------------------------------------------------------------- |
+| Typecheck              | PASS   | `pnpm typecheck`                                                                              |
+| Lint                   | PASS   | `pnpm lint`                                                                                   |
+| Format                 | PASS   | `pnpm format:check`                                                                           |
+| Unit + component tests | PASS   | `pnpm test` — 49 files, 1095 tests (41 new for F6a, plus updated header, slip and auth tests) |
+| Golden slip rows (D1)  | PASS   | `tests/unit/golden.test.ts` — all 366 rows; `contracts/golden/` untouched                     |
+| Generated types        | PASS   | `pnpm api:check`                                                                              |
+| Contract drift         | PASS   | `contract-sync --check`: contracts/ and docs/backend/ match the backend                       |
+| Production build       | PASS   | `pnpm build` — `ƒ /api/wallet`, `ƒ /api/wallet/transactions` dynamic; the proxy listed        |
+| UI screens + e2e       | PASS   | `pnpm ui` — 258 passed (screens at 375 / 1440 px, en / am; auth, booking, ticket specs)       |
+
+Final `pnpm verify` on `3d1a82e` (attempt 3; the first two runs failed for the reasons under Gaps, neither in
+the app):
+
+```
+ Test Files  49 passed (49)
+      Tests  1095 passed (1095)
+contracts/ matches the backend.
+docs/backend/ matches the backend.
+Route (app) … ƒ /api/wallet · ƒ /api/wallet/transactions … ƒ Proxy (Middleware)
+  258 passed (1.7m)
+exit 0
+```
 
 ## Acceptance criteria
 

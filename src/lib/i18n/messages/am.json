@@ -560,7 +560,8 @@
       "refund": "ተመላሽ",
       "bonus": "ቦነስ",
       "bonus_converted": "ወደ ቀሪ ሂሳብ የተቀየረ ቦነስ",
-      "adjustment": "ማስተካከያ"
+      "adjustment": "ማስተካከያ",
+      "other": "ሌላ"
     },
     "withLabel": "{kind} · {label}",
     "balanceAfter": "ቀሪ ሂሳብ {amount}",

@@ -209,6 +209,32 @@ describe("GET /api/wallet (AC-5)", () => {
   });
 });
 
+describe("Prefer and the real API", () => {
+  it("never sends Prefer to the real API, even under next dev", async () => {
+    vi.stubEnv("NODE_ENV", "development");
+    vi.stubEnv("API_REAL_URL", "http://real.test");
+    vi.stubEnv("API_REAL_TAGS", "Wallet");
+    const mod = await load();
+    upstreamAnswers((request) => ({
+      status: 200,
+      body:
+        path(request) === "/v1/wallet"
+          ? example("/v1/wallet")
+          : example("/v1/wallet/transactions"),
+    }));
+    const prefer = { prefer: "code=500" };
+
+    await balances(mod, reading(mod, prefer));
+    await history(mod, "?type=bet", reading(mod, prefer));
+
+    expect(sent.map((r) => new URL(r.url).host)).toEqual([
+      "real.test",
+      "real.test",
+    ]);
+    expect(sent.map((r) => r.headers.get("prefer"))).toEqual([null, null]);
+  });
+});
+
 describe("GET /api/wallet/transactions (AC-6)", () => {
   it("forwards type, cursor and limit to /v1/wallet/transactions and answers nextCursor (AC-6)", async () => {
     const mod = await load();

@@ -60,19 +60,39 @@ export const WALLET_TXN_TYPES = [
 ] as const;
 export type WalletTxnType = (typeof WALLET_TXN_TYPES)[number];
 
+/**
+ * A movement's kind as the screens know it: one of the contract's, or `other`
+ * for a kind added to the contract after this build (TD-01 allows additive
+ * values within `/v1`) — shown, rather than failing the whole page.
+ */
+export type WalletTxnKind = WalletTxnType | "other";
+
+/** The contract's `WalletTxn.reference.type`, in its order. */
+export const WALLET_TXN_REFERENCE_TYPES = [
+  "payment",
+  "bet",
+  "bonus",
+  "adjustment",
+  "game_round",
+] as const;
+
 /** What a movement was for, when the API names it: a payment, a bet… */
 export interface WalletTxnReference {
-  type: "payment" | "bet" | "bonus" | "adjustment" | "game_round";
+  type: (typeof WALLET_TXN_REFERENCE_TYPES)[number];
   id: string;
 }
 
 /** One ledger movement — a posted fact, never pending or failed (C03 §2). */
 export interface WalletTxn {
   id: string;
-  type: WalletTxnType;
+  type: WalletTxnKind;
   /** Signed, from the player's side: negative left the wallet. */
   amount: string;
-  /** The cash balance once it was posted. */
+  /**
+   * `balance_after`, as the API sends it. The contract doesn't say which of
+   * the player's accounts it follows; for deposits, bets and wins its own
+   * examples make it the cash balance.
+   */
   balanceAfter: string;
   /** The API's name for what it was for (`telebirr`, a ticket number). */
   label: string | null;

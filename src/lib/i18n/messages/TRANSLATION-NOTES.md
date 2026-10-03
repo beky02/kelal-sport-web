@@ -411,10 +411,12 @@ status is filled from `bets.status.*`, the matches are the API's names.
 | `wallet.recentFailed`                 | የቅርብ ጊዜ እንቅስቃሴዎን መጫን አልተሳካም።             | `wallet.recent` + `bets.loadFailedTitle`                       |
 | `history.filtersLabel`                | በዓይነት ለይ                                 | new ("sort by kind"), the filter row's name for screen readers |
 | `history.filterWins`                  | አሸናፊነት                                   | the design's winnings rows (አሸናፊነት · …)                        |
+| `history.type.bet`                    | ውርርድ                                     | the singular of `bets.filterBets` (ውርርዶች)                      |
 | `history.type.withdrawal_released`    | የተመለሰ ወጪ                                 | ወጪ + የተመለሰ ("returned")                                        |
 | `history.type.refund`                 | ተመላሽ                                     | `betSlip.totalReturn` (…ተመላሽ, "return")                        |
 | `history.type.bonus_converted`        | ወደ ቀሪ ሂሳብ የተቀየረ ቦነስ                      | ቦነስ + `wallet.balance` (ቀሪ ሂሳብ) + የተቀየረ ("converted")          |
 | `history.type.adjustment`             | ማስተካከያ                                   | new ("adjustment")                                             |
+| `history.type.other`                  | ሌላ                                       | new ("other"): a kind the contract added after this build      |
 | `history.balanceAfter`                | ቀሪ ሂሳብ {amount}                          | `wallet.balance`                                               |
 | `history.today` / `history.yesterday` | ዛሬ · {date} / ትናንት · {date}              | the design's mock headings (ዛሬ · …, ትናንት · …)                  |
 | `history.emptyTitle`                  | እስካሁን ግብይት የለም                           | `bets.emptyTitle`, ውርርድ → ግብይት (`bets.viewTransactions`)       |
@@ -427,6 +429,6 @@ status is filled from `bets.status.*`, the matches are the API's names.
 | `history.guestBody`                   | ገቢዎችዎ፣ ውርርዶችዎ፣ አሸናፊነቶችዎና ወጪዎችዎ እዚህ ይታያሉ። | `history.emptyBody`, possessive                                |
 
 The other `history.*` strings reuse existing ones verbatim (`bets.filter*` moved here, `bets.showMore`,
-`board.error.body`, the kinds from the filters). `history.withLabel` (`{kind} · {label}`) and
+`board.error.body`; the deposit, withdrawal, winnings and bonus kinds are the filters' and `wallet.bonus`'s words). `history.withLabel` (`{kind} · {label}`) and
 `history.day` (`{weekday} {date}`) are symbolic in `i18n.test.ts`: the kind, weekday and date are filled in
 Amharic, the label is the API's (`telebirr`, a ticket number).

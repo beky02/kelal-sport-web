@@ -69,8 +69,9 @@ Found while planning F6 (2026-10-03), for this task's plan to settle:
 
 - **BON-07** asks the player to confirm a forfeit when withdrawing with an active bonus
   (`docs/design/05`: "Confirm forfeit, or keep wagering"). The contract has no way to say it: no flag on
-  `WithdrawalRequest`, no forfeit operation. A contract request is needed before a Confirm button can
-  exist.
+  `WithdrawalRequest`, no forfeit operation. [Contract request 008](../contract-requests/008-withdrawal-bonus-forfeit.md)
+  (written in F6a) asks for an optional `forfeit_bonus` on `POST /v1/withdrawals`; a Confirm button
+  waits for it.
 - `apiClient` has no `DELETE` yet (cancel, remove an account).
 - Prism has only `processing`, `review` and `paid` withdrawals: the other statuses are answered in the
   browser for `pnpm ui`.

@@ -53,6 +53,7 @@ import { toE164 } from "@/features/auth/lib/phone";
 import { compareMoney } from "@/lib/money";
 import { MONEY_PATTERN, ODDS_PATTERN, TICKET_NUMBER_PATTERN } from "./patterns";
 import {
+  WALLET_TXN_REFERENCE_TYPES,
   WALLET_TXN_TYPES,
   type PaymentMethod,
   type PaymentResult,
@@ -323,13 +324,13 @@ export const walletBalancesSchema = z.object({
 
 export const walletTxnSchema = z.object({
   id: z.string().min(1),
-  type: z.enum(WALLET_TXN_TYPES),
+  type: z.enum([...WALLET_TXN_TYPES, "other"]),
   amount: z.string().regex(MONEY_PATTERN),
   balanceAfter: z.string().regex(MONEY_PATTERN),
   label: z.string().nullable(),
   reference: z
     .object({
-      type: z.enum(["payment", "bet", "bonus", "adjustment", "game_round"]),
+      type: z.enum(WALLET_TXN_REFERENCE_TYPES),
       id: z.string().min(1),
     })
     .nullable(),

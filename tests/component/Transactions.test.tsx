@@ -1,13 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { screen, waitFor, within } from "@testing-library/react";
+import { act, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { SessionWatcher } from "@/features/auth/hooks/use-session";
 import { TransactionsList } from "@/features/wallet/components/TransactionsList";
 import type { WalletTxn, WalletTxnPage } from "@/features/wallet/types";
 import { toWalletTxnPage } from "@/lib/api/mappers/wallet";
-import { transactionKeys } from "@/lib/query/keys";
+import { sessionKeys, transactionKeys } from "@/lib/query/keys";
 import { useUiStore } from "@/stores/ui.store";
 import { example } from "../contract";
-import { render } from "./render";
+import { CONTRACT_PLAYER, render } from "./render";
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: vi.fn(), replace: vi.fn(), refresh: vi.fn() }),
@@ -95,9 +96,9 @@ describe("the wallet history (AC-6)", () => {
       "Yesterday · 3 Oct",
       "Thu 1 Oct",
     ]);
-    const today = screen.getByRole("region", { name: "Today · 4 Oct" });
+    const today = screen.getByRole("group", { name: "Today · 4 Oct" });
     expect(within(today).getByText("01:30")).toBeInTheDocument();
-    const yesterday = screen.getByRole("region", { name: "Yesterday · 3 Oct" });
+    const yesterday = screen.getByRole("group", { name: "Yesterday · 3 Oct" });
     expect(within(yesterday).getByText("17:05")).toBeInTheDocument();
   });
 
@@ -131,24 +132,39 @@ describe("the wallet history (AC-6)", () => {
 
   it("names every kind the contract has, and a movement with no label by its kind alone", async () => {
     const kinds = [
-      ["withdrawal_released", "Withdrawal returned"],
-      ["refund", "Refund"],
-      ["bonus", "Bonus"],
-      ["bonus_converted", "Bonus converted"],
-      ["adjustment", "Adjustment"],
-      ["withdrawal", "Withdrawal"],
+      ["withdrawal_released", "Withdrawal returned", true],
+      ["refund", "Refund", true],
+      ["adjustment", "Adjustment", true],
+      ["withdrawal", "Withdrawal", true],
+      // Which balance `balance_after` follows here the contract doesn't
+      // say (a bonus grant posts only to the bonus account): no line.
+      ["bonus", "Bonus", false],
+      ["bonus_converted", "Bonus converted", false],
+      // A kind the contract added after this build.
+      ["other", "Other", false],
     ] as const;
     history(() =>
       page(
         kinds.map(([type], i) =>
-          txn({ id: `k${i}`, type, label: null, reference: null }),
+          txn({
+            id: `k${i}`,
+            type,
+            label: null,
+            reference: null,
+            balanceAfter: "1000.00",
+          }),
         ),
       ),
     );
     render(<TransactionsList />);
 
-    for (const [, name] of kinds) {
-      expect(await screen.findByText(name)).toBeInTheDocument();
+    for (const [, name, balance] of kinds) {
+      const row = (await screen.findByText(name)).closest("li")!;
+      if (balance) {
+        expect(row).toHaveTextContent("Balance ETB 1,000.00");
+      } else {
+        expect(row).not.toHaveTextContent("Balance");
+      }
     }
   });
 
@@ -195,7 +211,7 @@ describe("the wallet history (AC-6)", () => {
     await screen.findByText("Yesterday · 3 Oct");
     await userEvent.click(screen.getByRole("button", { name: "Show more" }));
 
-    const day = await screen.findByRole("region", {
+    const day = await screen.findByRole("group", {
       name: "Yesterday · 3 Oct",
     });
     await within(day).findByText("+ ETB 40.00", { exact: false });
@@ -219,6 +235,11 @@ describe("the wallet history (AC-6)", () => {
     expect(
       await screen.findByRole("heading", { name: "No transactions yet" }),
     ).toBeInTheDocument();
+    // The next thing to do: a first deposit.
+    expect(screen.getByRole("link", { name: "Deposit" })).toHaveAttribute(
+      "href",
+      "/wallet?action=deposit",
+    );
     await userEvent.click(screen.getByRole("button", { name: "Deposits" }));
     expect(
       await screen.findByRole("heading", { name: "Nothing here yet" }),
@@ -272,11 +293,49 @@ describe("the wallet history (AC-6)", () => {
     expect(asked).toEqual([]);
   });
 
-  it("keeps the history under keys the session watcher drops", () => {
-    // `transactionKeys.all` is what changes hands clears (03-session).
-    expect(transactionKeys.list("all").slice(0, 1)).toEqual(
-      transactionKeys.all,
+  it("drops the previous player's history when the session changes, so the next player never sees it", async () => {
+    let reads = 0;
+    history(() => {
+      reads += 1;
+      // The first player's movement, then the next player's.
+      const label =
+        reads === 1 ? "first player's telebirr" : "next player's CBE Birr";
+      return page([txn({ id: `t${reads}`, label })]);
+    });
+    const { queryClient } = render(
+      <>
+        <SessionWatcher />
+        <TransactionsList />
+      </>,
     );
-    expect(transactionKeys.recent().slice(0, 1)).toEqual(transactionKeys.all);
+    await screen.findByText("Deposit · first player's telebirr");
+
+    // Someone else signs in (another tab): the first player's rows go and
+    // the next player's history is read afresh.
+    act(() => {
+      queryClient.setQueryData(sessionKeys.me(), {
+        player: { ...CONTRACT_PLAYER, id: "p2", fullName: "Birtukan Tadesse" },
+      });
+    });
+    expect(
+      await screen.findByText("Deposit · next player's CBE Birr"),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText("Deposit · first player's telebirr"),
+    ).not.toBeInTheDocument();
+    expect(reads).toBe(2);
+
+    // A guest: nothing of anyone's history is kept.
+    act(() => {
+      queryClient.setQueryData(sessionKeys.me(), { player: null });
+    });
+    await waitFor(() =>
+      expect(
+        queryClient.getQueryCache().findAll({ queryKey: transactionKeys.all }),
+      ).toEqual([]),
+    );
+    expect(
+      screen.getByRole("heading", { name: "Log in to see your transactions" }),
+    ).toBeInTheDocument();
   });
 });

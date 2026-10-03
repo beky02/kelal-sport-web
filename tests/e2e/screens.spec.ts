@@ -479,7 +479,9 @@ const showSettled = async (page: Page, _device: Device, lang: Lang) => {
 
 /**
  * The wallet holding something back: a pending withdrawal and an amount owed,
- * answered in the browser (Prism's player has neither).
+ * answered in the browser (Prism's player has neither) — with the withdrawal
+ * that locked the 300.00 as its recent activity, so the page agrees with
+ * itself.
  */
 const walletHeld = async (page: Page) => {
   await loginViaApi(page);
@@ -494,6 +496,52 @@ const walletHeld = async (page: Page) => {
       },
     }),
   );
+  await page.route(/\/api\/wallet\/transactions/, (route) =>
+    route.fulfill({
+      json: {
+        items: [
+          {
+            id: "01J9A7U0000000000000000009",
+            type: "withdrawal",
+            amount: "-300.00",
+            balanceAfter: "0.00",
+            label: "telebirr",
+            reference: { type: "payment", id: "01J9A7Y0000000000000000001" },
+            createdAt: "2026-10-03T09:00:00Z",
+          },
+        ],
+        nextCursor: null,
+      },
+    }),
+  );
+};
+
+/** The wallet failing to load: Prism has no failure for it. */
+const walletFails = async (page: Page) => {
+  await loginViaApi(page);
+  await page.route("**/api/wallet", (route) =>
+    route.fulfill({
+      status: 503,
+      contentType: "application/problem+json",
+      json: {
+        type: "about:blank",
+        title: "The sportsbook API could not be reached",
+        status: 503,
+        code: "SERVICE_UNAVAILABLE",
+      },
+    }),
+  );
+};
+
+/** A failed read is retried twice (the app's default) before it says so. */
+const waitForWalletFailure = async (
+  page: Page,
+  _device: Device,
+  lang: Lang,
+) => {
+  await page
+    .getByRole("heading", { name: MESSAGES[lang].wallet.loadFailedTitle })
+    .waitFor();
 };
 
 /** The history answered by the browser: nothing yet, or a failure. */
@@ -520,6 +568,34 @@ const historyMore = async (page: Page) => {
     }
     await route.fulfill({ response, json: body });
   });
+};
+
+/** The history with a next page that fails to load. */
+const historyMoreFails = async (page: Page) => {
+  await historyMore(page);
+  await page.route(/\/api\/wallet\/transactions\?.*cursor=/, (route) =>
+    route.fulfill({
+      status: 503,
+      contentType: "application/problem+json",
+      json: {
+        type: "about:blank",
+        title: "The sportsbook API could not be reached",
+        status: 503,
+        code: "SERVICE_UNAVAILABLE",
+      },
+    }),
+  );
+};
+
+const historyShowMoreFails = async (
+  page: Page,
+  _device: Device,
+  lang: Lang,
+) => {
+  const t = MESSAGES[lang];
+  await page.getByRole("button", { name: t.history.showMore }).click();
+  // Retried twice, as every read is, before it says so.
+  await page.getByText(t.history.moreFailed).waitFor();
 };
 
 /** A failed read is retried twice (the app's default) before it says so. */
@@ -791,8 +867,23 @@ const SCREENS: Array<{
     prepare: waitForHistoryFailure,
     allowConsole: /503/,
   },
+  {
+    name: "transactions-more-failed",
+    path: "/transactions",
+    before: historyMoreFails,
+    prepare: historyShowMoreFails,
+    allowConsole: /503/,
+  },
+  { name: "transactions-guest", path: "/transactions", before: staleSession },
   { name: "wallet", path: "/wallet", before: loginViaApi },
   { name: "wallet-held", path: "/wallet", before: walletHeld },
+  {
+    name: "wallet-error",
+    path: "/wallet",
+    before: walletFails,
+    prepare: waitForWalletFailure,
+    allowConsole: /503/,
+  },
   { name: "wallet-guest", path: "/wallet", before: staleSession },
   { name: "profile", path: "/profile", before: loginViaApi },
   { name: "profile-guest", path: "/profile" },

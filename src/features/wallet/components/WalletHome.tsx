@@ -129,7 +129,8 @@ export function WalletHome({
             </h3>
             <Link
               href={routes.transactions}
-              className="text-accent text-xs font-semibold"
+              // A 44 px target that doesn't push the heading row apart.
+              className="text-accent -my-3 inline-flex min-h-11 items-center px-1 text-xs font-semibold"
             >
               {t.t("wallet.seeAll")}
             </Link>

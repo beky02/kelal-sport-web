@@ -77,6 +77,28 @@ describe("toWalletTxnPage (AC-6)", () => {
     expect(toWalletTxnPage(page).nextCursor).toBe("c2");
   });
 
+  it("shows a kind or a reference the contract adds later as other, rather than failing the page", () => {
+    const [first] = example("/v1/wallet/transactions").items;
+    // Values a later contract could add within /v1 (TD-01: additive).
+    const later = {
+      ...first,
+      type: "cashout",
+      reference: { type: "cashout_quote", id: "q1", label: "K7Q2-M9XP-M" },
+    } as unknown as ApiWalletTxn;
+
+    const txn = toWalletTxn(later);
+    expect(txn).toMatchObject({
+      type: "other",
+      label: "K7Q2-M9XP-M",
+      reference: null,
+      amount: "289.17",
+    });
+    expect(
+      walletTxnPageSchema.parse({ items: [txn], nextCursor: null }).items[0]
+        .type,
+    ).toBe("other");
+  });
+
   it("keeps a movement with no reference, or half of one, without inventing the rest", () => {
     const [first] = example("/v1/wallet/transactions").items;
     const bare: ApiWalletTxn = { ...first, type: "adjustment" };

@@ -14,6 +14,7 @@ import {
 import { formatKickoff } from "@/lib/i18n/format";
 import { StateMessage } from "@/components/feedback/StateMessage";
 import { Skeleton } from "@/components/ui/Skeleton";
+import { routes } from "@/config/routes";
 import { cn } from "@/lib/utils/cn";
 import { useUiStore } from "@/stores/ui.store";
 import { useSession } from "@/features/auth/hooks/use-session";
@@ -163,6 +164,10 @@ function HistoryList({
         icon={<Receipt size={24} strokeWidth={1.5} />}
         title={t.t("history.emptyTitle")}
         body={t.t("history.emptyBody")}
+        action={{
+          label: t.t("wallet.deposit"),
+          href: routes.walletAction("deposit"),
+        }}
       />
     ) : (
       <StateMessage
@@ -193,14 +198,16 @@ function HistoryList({
   };
 
   return (
-    <div ref={list} className="flex flex-col pb-6">
+    // Each day is a group, not a landmark: its heading already lets a screen
+    // reader jump from day to day.
+    <div ref={list} className="flex flex-col">
       {groupByDay(items).map((day) => {
         const id = `${ids}-${day.date}`;
         return (
-          <section key={day.date} aria-labelledby={id}>
+          <div key={day.date} role="group" aria-labelledby={id}>
             <h3
               id={id}
-              className="bg-surface border-divider text-muted border-t border-b px-4 pt-2.5 pb-1.5 text-[11px] font-semibold"
+              className="bg-surface border-divider text-muted font-body border-t border-b px-4 pt-2.5 pb-1.5 text-xs font-semibold"
             >
               {heading(day.date)}
             </h3>
@@ -223,14 +230,14 @@ function HistoryList({
                 </li>
               ))}
             </ul>
-          </section>
+          </div>
         );
       })}
 
       {history.isFetchNextPageError && (
         <div
           role="alert"
-          className="bg-loss-bg mx-4 mt-3 flex items-center gap-2.5 rounded-md p-3"
+          className="bg-loss-bg mx-4 mt-3 mb-5 flex items-center gap-2.5 rounded-md p-3"
         >
           <CircleAlert
             size={17}
@@ -260,7 +267,7 @@ function HistoryList({
           // the focus it holds while the next page loads.
           aria-busy={history.isFetchingNextPage}
           aria-disabled={history.isFetchingNextPage}
-          className="bg-raised text-text font-body mx-4 mt-3 flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-md text-[13px] font-bold aria-disabled:opacity-60"
+          className="bg-raised text-text font-body mx-4 mt-3 mb-5 flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-md text-[13px] font-bold aria-disabled:opacity-60"
         >
           {history.isFetchingNextPage && (
             <Loader2 size={15} className="animate-spin" aria-hidden />

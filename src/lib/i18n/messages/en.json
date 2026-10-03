@@ -560,7 +560,8 @@
       "refund": "Refund",
       "bonus": "Bonus",
       "bonus_converted": "Bonus converted",
-      "adjustment": "Adjustment"
+      "adjustment": "Adjustment",
+      "other": "Other"
     },
     "withLabel": "{kind} · {label}",
     "balanceAfter": "Balance {amount}",

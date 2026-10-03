@@ -32,7 +32,7 @@ export function StateMessage({
         {icon}
       </div>
       <Heading className="font-display mt-2 text-lg">{title}</Heading>
-      <p className="text-muted max-w-[280px]">{body}</p>
+      <p className="text-muted max-w-[280px] text-pretty">{body}</p>
       {action &&
         ("href" in action ? (
           <Link href={action.href} className={ACTION}>

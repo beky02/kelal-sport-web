@@ -12,6 +12,7 @@ import { useAuthStore } from "@/features/auth/stores/auth.store";
 import {
   useCreatePayment,
   usePaymentStatus,
+  useRecentTransactions,
   useWallet,
 } from "../hooks/use-wallet";
 import {
@@ -60,7 +61,11 @@ export function WalletView() {
   const openAuth = useAuthStore((s) => s.open);
 
   // Until /api/me answers, nobody is a guest and nothing is read.
-  const wallet = useWallet(!isLoading && !isGuest);
+  const signedIn = !isLoading && !isGuest;
+  const wallet = useWallet(signedIn);
+  // Asked for alongside the balance rather than once it has landed: the home
+  // reads the same query, so recent activity doesn't wait a round trip.
+  useRecentTransactions(signedIn);
   const balances = wallet.data;
   const createPayment = useCreatePayment();
 
