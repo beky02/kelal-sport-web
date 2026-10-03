@@ -72,10 +72,23 @@ For each step of the plan:
    right reason.
 2. Implement until they pass. Follow CLAUDE.md non-negotiables, AGENTS.md conventions and the
    `frontend-patterns` skill.
-3. Run `pnpm check` (the Stop hook also runs it). Fix the root cause of failures; never weaken a test, add
+3. **Prove each new acceptance test.** Once it is green, break the behaviour it guards once — flip a
+   comparison, drop an invalidation, return early — see the test fail, and restore. A test that stays
+   green is rewritten (the usual cause: it asserts before the data it checks has arrived). List each under
+   "Tests proven" in `docs/tasks/$0/verification.md`: test name — what you broke.
+4. **Look at the screens the step changed.** Add or adjust them in `tests/e2e/screens.spec.ts`, run
+   `pnpm ui --grep "<screens>"` and open the four PNGs of each (en/am × phone/desktop). Check:
+   - every state is there and has a screenshot: loading, empty with a next step, error with Try again,
+     guest;
+   - Amharic is translated and readable: labels at least 12 px in the body font, no `uppercase` or
+     `tracking-*`;
+   - anything that acts or links looks like it (a chevron, a button);
+   - money, dates and times follow 06-language;
+   - nothing overflows or truncates at 375 px.
+5. Run `pnpm check` (the Stop hook also runs it). Fix the root cause of failures; never weaken a test, add
    `// @ts-expect-error`, `eslint-disable`, `.skip` or `.only`, or loosen a Zod schema to get green
    without saying so in the plan.
-4. Commit: `$0: <what this step did>`.
+6. Commit: `$0: <what this step did>`.
 
 Rules while implementing:
 
@@ -88,39 +101,80 @@ Rules while implementing:
 
 Set `status: verifying`.
 
-### 3a. Automated gate
+### 3a. Self-review
 
-Run `pnpm verify` (check, generated types, contract drift, build, UI screens). All must pass. Fix and
-re-run until green (max 5 attempts; then stop and report what fails and why). If Prism is down, record
-it as a gap rather than skipping silently.
+About five minutes, before the gate and the reviewers: the checks below catch what reviewers kept finding
+(F5b, F6a). Fix what fails, then record one line per item under "Self-review" in verification.md.
 
-### 3b. Independent reviews
+- **Money moves:** every action that moves money or places a bet invalidates every affected query root
+  (balance, history, bets) and nothing is patched in the browser.
+- **New values:** for each value the task introduces or rewires, grep where it is shown or compared; each
+  place uses it, not a neighbour (the slip's alert once showed the stake as the balance).
+- **Async tests:** every test waits for the data it asserts on, not for something already on screen.
+- **Personal data:** everything only a player may see sits under a query key the session watcher drops,
+  with a behavioural test that switches the player.
+- **Route handlers:** session checked on every call, inputs validated before they reach an upstream URL,
+  `no-store`, Prism's `Prefer` only under `next dev` and never to the real API — each with a test.
+- **Screens:** every state has a screenshot (Phase 2, step 4).
+- **Docs:** the plan's Files list and AC→tests names match the code; design pages, translation notes and
+  the README status are current.
 
-Launch these subagents **in parallel in one message**. Give each: the task id, the task file path,
-`docs/tasks/$0/plan.md`, and the diff command `git diff main...HEAD`. They review; they don't edit.
+### 3b. Automated gate
+
+1. **Dev server.** `pnpm ui` reuses the running `next dev`, which may be the user's. Check it first:
+   `curl -s http://localhost:3000/__nextjs_server_status` answers, and one request to a route this task
+   changed returns what its tests expect. If a route answers 5xx while its unit tests pass — typically
+   after a server module gained a new export — read `.next/dev/logs/next-development.log`, then restart it
+   in place: `curl -X POST 'http://localhost:3000/__nextjs_restart_dev?invalidateFileSystemCache'` (the
+   `next dev` process keeps running; never kill the user's server).
+2. Run `pnpm verify` (check, generated types, contract drift, build, UI screens). All must pass. Fix and
+   re-run until green (max 5 attempts; then stop and report what fails and why). Playwright retries a
+   failed test once: a test that passed only on retry is listed under Gaps as flaky, with its first error.
+   If Prism is down, record it as a gap rather than skipping silently.
+
+### 3c. Review brief and panel
+
+Write a **Review brief** at the top of verification.md, at most 12 lines: what changed, grouped by concern,
+with the files; where the risk is; which decisions were the user's (plan gate answers); what is
+deliberately not done. Reviewers start from it.
+
+Choose the panel from the diff (`git diff --name-only main...HEAD` and `git diff main...HEAD`):
 
 - `spec-verifier` — always.
-- `security-reviewer` — always.
 - `quality-reviewer` — always.
 - `money-reviewer` — when the task file has `touches_money: true` or the diff touches the slip, odds,
-  stakes, taxes, payouts, balances, deposits, withdrawals or tickets.
+  stakes, taxes, payouts, balances, deposits, withdrawals, tickets or `src/lib/money.ts`.
+- `security-reviewer` — when the diff touches `src/app/api/**`, `src/lib/server/**`, `src/proxy.ts`,
+  `src/lib/session-cookie.ts`, `src/config/env.ts`, `next.config.*`, `instrumentation.ts`, `package.json`,
+  `pnpm-lock.yaml` or `.env.example`, or adds `dangerouslySetInnerHTML`, `window.location`, `target="_blank"`
+  or an `href` that is not a `routes.*` value.
 - `ui-checker` — when the task changes anything a player sees; name the screens.
 
-### 3c. Triage and fix
+Launch the chosen reviewers **in parallel in one message**. Give each: the task id, the task file,
+`docs/tasks/$0/plan.md`, `docs/tasks/$0/verification.md` (the brief) and the diff command
+`git diff main...HEAD`, and tell it: the gate has passed (don't re-run `pnpm check`, `pnpm build`,
+`pnpm ui` or `pnpm verify`; single tests are fine); stay in your lane; aim to finish in about 25 tool
+calls. They review; they don't edit.
 
-Write `docs/tasks/$0/verification.md`:
+### 3d. Triage and fix
+
+In `docs/tasks/$0/verification.md`, under the brief:
 
 - **Automated gate** — each check with PASS/FAIL/WARN and the command; paste the final `pnpm verify`
   summary.
 - **Acceptance criteria** — AC | status | evidence (test name + result, or command + output excerpt, or
   screenshot file).
-- **Review findings** — every finding from every reviewer: id | reviewer | severity | summary | decision
-  (fixed in <commit> / rejected because … / follow-up).
-- **Gaps** — anything not verified (e.g. Prism down, behaviour Prism cannot simulate) and the risk it leaves.
+- **Tests proven** — from Phase 2: test name — what was broken to see it fail.
+- **Review findings** — BLOCKER, MAJOR and MINOR findings: id | reviewer | severity | summary | decision
+  (fixed in <commit> / rejected because … / follow-up). A finding several reviewers raised gets one row,
+  with the others named in it. Notes go below the table, one line each, with no decision needed.
+- **Gaps** — anything not verified (e.g. Prism down, behaviour Prism cannot simulate, a flaky test) and the
+  risk it leaves.
 
 Fix every BLOCKER and MAJOR finding (a test first where it's a behaviour bug). Reject a finding only with a
-concrete reason (it contradicts a higher source, or it's out of scope) written in the table. MINOR findings:
-fix if trivial, otherwise list as follow-ups.
+concrete reason (it contradicts a higher source, or it's out of scope) written in the table. A MINOR
+finding is fixed only if it takes under about five minutes in a file the task already touches; otherwise it
+is a one-line follow-up.
 
 After fixes there is no full re-review:
 
@@ -129,7 +183,6 @@ After fixes there is no full re-review:
   against the bug it now guards.)
 - Re-run a reviewer only for a BLOCKER it raised, and only on that finding: give it the finding id, the
   fix commit and the test, and ask it to confirm that finding alone — it does not review the diff again.
-- A finding several reviewers raised is confirmed once.
 - MINOR findings and notes never trigger a re-review.
 - Run `pnpm check` and `pnpm ui --grep "<screens the fixes touched>"` after fixes; the full `pnpm verify`
   runs once, before Phase 4.

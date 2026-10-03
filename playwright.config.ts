@@ -13,6 +13,10 @@ export default defineConfig({
   testDir: "tests/e2e",
   outputDir: "test-results/playwright",
   fullyParallel: true,
+  // One retry absorbs a browser that fails to start under load. A test that
+  // passes only on its retry is reported as flaky, and the task's verification
+  // lists it — a retry never hides a failure silently.
+  retries: 1,
   reporter: [["list"]],
   timeout: 60_000,
   use: { baseURL, channel: "chrome", trace: "off" },
