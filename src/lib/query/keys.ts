@@ -58,9 +58,15 @@ export const betKeys = {
   detail: (id: string) => [...betKeys.all, "detail", id] as const,
 };
 
+/**
+ * The wallet history — personal data, under one root the session watcher
+ * drops when the player changes.
+ */
 export const transactionKeys = {
   all: ["transactions"] as const,
-  list: (kind: string) => [...transactionKeys.all, kind] as const,
+  list: (filter: string) => [...transactionKeys.all, "list", filter] as const,
+  /** The wallet's recent activity: the latest few, apart from the paged list. */
+  recent: () => [...transactionKeys.all, "recent"] as const,
 };
 
 /** A break or self-exclusion in force — server state, read like the balance. */

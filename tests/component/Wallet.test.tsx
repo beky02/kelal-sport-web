@@ -25,23 +25,30 @@ const CONTRACT_WALLET = toWalletBalances(example("/v1/wallet"));
 /** Every `/api/…` path and query asked for, in order. */
 let asked: string[] = [];
 
-function api(wallet: () => [number, unknown]) {
+const json = ([status, body]: [number, unknown]) =>
+  Response.json(body, {
+    status,
+    headers: {
+      "Content-Type":
+        status >= 400 ? "application/problem+json" : "application/json",
+    },
+  });
+
+/** The contract's history page, as `/api/wallet/transactions` answers it. */
+const CONTRACT_HISTORY = (): [number, unknown] => [
+  200,
+  toWalletTxnPage(example("/v1/wallet/transactions")),
+];
+
+function api(
+  wallet: () => [number, unknown],
+  history: () => [number, unknown] = CONTRACT_HISTORY,
+) {
   vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
     const url = new URL(String(input));
     asked.push(`${url.pathname}${url.search}`);
-    if (url.pathname === "/api/wallet") {
-      const [status, body] = wallet();
-      return Response.json(body, {
-        status,
-        headers: {
-          "Content-Type":
-            status >= 400 ? "application/problem+json" : "application/json",
-        },
-      });
-    }
-    if (url.pathname === "/api/wallet/transactions") {
-      return Response.json(toWalletTxnPage(example("/v1/wallet/transactions")));
-    }
+    if (url.pathname === "/api/wallet") return json(wallet());
+    if (url.pathname === "/api/wallet/transactions") return json(history());
     throw new Error(`unexpected ${url}`);
   });
 }
@@ -148,6 +155,52 @@ describe("the wallet's balances (AC-5)", () => {
       "ETB 1,208.95",
     );
     expect(asked.filter((path) => path === "/api/wallet")).toHaveLength(2);
+  });
+});
+
+describe("the wallet's recent activity (AC-6)", () => {
+  it("lists the latest movements under Recent activity, with date and time", async () => {
+    api(answering(CONTRACT_WALLET));
+    render(<WalletView />);
+
+    const recent = await screen.findByRole("region", {
+      name: "Recent activity",
+    });
+    const rows = await within(recent).findAllByRole("listitem");
+    expect(rows).toHaveLength(3);
+    expect(rows[0]).toHaveTextContent("Winnings · K7Q2-M9XP-M");
+    // No day headings here, so each row says its date as well (EAT).
+    expect(rows[0]).toHaveTextContent("05/10 · 00:02");
+    expect(rows[2]).toHaveTextContent("Deposit · telebirr");
+    expect(rows[2]).toHaveTextContent("03/10 · 16:58");
+    // Its own small read, never the history's pages.
+    expect(asked).toContain("/api/wallet/transactions?limit=5");
+    expect(
+      within(recent).getByRole("link", { name: "See all" }),
+    ).toHaveAttribute("href", "/transactions");
+  });
+
+  it("says when there is no activity yet, and when it couldn't load", async () => {
+    let answer: [number, unknown] = [200, { items: [], nextCursor: null }];
+    api(answering(CONTRACT_WALLET), () => answer);
+    const { unmount } = render(<WalletView />);
+
+    expect(
+      await screen.findByText("Nothing yet. Deposits and bets show up here."),
+    ).toBeInTheDocument();
+    unmount();
+
+    answer = [503, UNAVAILABLE];
+    render(<WalletView />);
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent("Couldn’t load your recent activity.");
+    answer = CONTRACT_HISTORY();
+    await userEvent.click(
+      within(alert).getByRole("button", { name: "Try again" }),
+    );
+    expect(
+      await screen.findByText("Winnings · K7Q2-M9XP-M"),
+    ).toBeInTheDocument();
   });
 });
 

@@ -22,7 +22,7 @@ import type {
 import type { Market, MarketGroup, Outcome } from "@/features/markets/types";
 import type { SearchResults } from "@/features/search/types";
 import type { Sport } from "@/features/sports/types";
-import type { Bet, BetLeg, BetPage, Transaction } from "@/features/bets/types";
+import type { Bet, BetLeg, BetPage } from "@/features/bets/types";
 import type { BetReceipt, PlaceBetRequest } from "@/features/bet-slip/types";
 import type { BettingRules, PublicConfigView } from "@/features/config/types";
 import type {
@@ -311,24 +311,6 @@ export const sessionActivitySchema = z.object({
   won: z.number(),
   net: z.number(),
 });
-
-export const transactionSchema = z.object({
-  id: z.string(),
-  kind: z.enum(["deposit", "withdrawal", "bet", "winnings"]),
-  status: z.enum(["success", "pending", "failed"]),
-  name: localizedSchema,
-  meta: localizedSchema,
-  amount: moneySchema,
-  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-}) satisfies z.ZodType<Transaction>;
-
-export const transactionDaysSchema = z.array(
-  z.object({
-    date: z.string(),
-    label: localizedSchema,
-    items: z.array(transactionSchema),
-  }),
-);
 
 /** `/api/wallet`: the API's balances, each the contract's `Money` string. */
 export const walletBalancesSchema = z.object({

@@ -3,10 +3,10 @@
  *
  * The catalogue, auth, bookings and bets no longer come from here: they go
  * through the route handlers to the API, and Prism serves the contract's own
- * examples locally, as do the wallet's balances. What is left — payment
- * methods and payments (F6b, F6c), transactions (F6a), responsible gaming and
- * session activity (F7) — moves to the contract task by task, after which this
- * folder is deleted.
+ * examples locally, as do the wallet's balances and history. What is left —
+ * payment methods and payments (F6b, F6c), responsible gaming and session
+ * activity (F7) — moves to the contract task by task, after which this folder
+ * is deleted.
  *
  * `listBoard` and `listMarkets` remain only as fixtures for the realtime tests,
  * which need live fixtures, scores and many lines per market — shapes the
@@ -33,8 +33,6 @@ import type {
   PaymentResult,
   WalletMode,
 } from "@/features/wallet/types";
-import type { Transaction, TransactionKind } from "@/features/bets/types";
-import { TRANSACTIONS, TRANSACTION_DAYS } from "./transactions";
 import { PAYMENT_METHODS } from "./wallet";
 import {
   CLUB_COLOUR,
@@ -290,12 +288,6 @@ function boardMarkets(event: SportEvent, raw: RawMatch): BoardMarkets {
 
 // ── queries ─────────────────────────────────────────────────────────────────
 
-export interface TransactionDay {
-  date: string;
-  label: Localized;
-  items: Transaction[];
-}
-
 export interface ResponsibleGamingStatus {
   /** Human-readable end of an active break, or null if there is none. */
   coolOffUntil: string | null;
@@ -460,25 +452,6 @@ export const mockRepository = {
   async getSessionActivity(): Promise<SessionActivity> {
     await delay(100);
     return { staked: 350, won: 120, net: -230 };
-  },
-
-  async listTransactions(
-    kind?: TransactionKind | "all",
-  ): Promise<TransactionDay[]> {
-    await delay(160);
-
-    const matches = (transaction: Transaction) => {
-      if (!kind || kind === "all") return true;
-      // "Bets" covers both the stake going out and the winnings coming back.
-      if (kind === "bet")
-        return transaction.kind === "bet" || transaction.kind === "winnings";
-      return transaction.kind === kind;
-    };
-
-    return TRANSACTION_DAYS.map((day) => ({
-      ...day,
-      items: TRANSACTIONS.filter((x) => x.date === day.date && matches(x)),
-    })).filter((day) => day.items.length > 0);
   },
 
   async getResponsibleGamingStatus(): Promise<ResponsibleGamingStatus> {

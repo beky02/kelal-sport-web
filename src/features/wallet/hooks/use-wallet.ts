@@ -1,6 +1,11 @@
 "use client";
 
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  useInfiniteQuery,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 import { STALE_TIME } from "@/config/constants";
 import { transactionKeys, walletKeys } from "@/lib/query/keys";
 import {
@@ -8,8 +13,12 @@ import {
   getPaymentMethods,
   getPaymentStatus,
   getWallet,
+  getWalletHistory,
 } from "../api/get-wallet";
-import type { WalletMode } from "../types";
+import type { HistoryFilter, WalletMode } from "../types";
+
+/** How many movements the wallet's recent activity shows. */
+const RECENT_COUNT = 5;
 
 /**
  * The player's balances, as the API states them. Server-owned: the header,
@@ -22,6 +31,50 @@ export function useWallet(enabled: boolean) {
   return useQuery({
     queryKey: walletKeys.balance(),
     queryFn: ({ signal }) => getWallet(signal),
+    staleTime: STALE_TIME.wallet,
+    enabled,
+  });
+}
+
+/**
+ * The wallet history under one filter, a page at a time (`next_cursor`).
+ *
+ * Fresh as long as the balance is, so a row's "balance after" and the balance
+ * on screen tell the same story; anything that moves money invalidates both.
+ * A signed-in player's only (`enabled`). A refetch re-reads the loaded pages
+ * in order from the first, each with the cursor the page before it gave.
+ */
+export function useWalletHistory(filter: HistoryFilter, enabled: boolean) {
+  return useInfiniteQuery({
+    queryKey: transactionKeys.list(filter),
+    queryFn: ({ pageParam, signal }) =>
+      getWalletHistory(
+        {
+          type: filter === "all" ? null : filter,
+          cursor: pageParam,
+          limit: null,
+        },
+        signal,
+      ),
+    initialPageParam: null as string | null,
+    getNextPageParam: (page) => page.nextCursor,
+    staleTime: STALE_TIME.wallet,
+    enabled,
+  });
+}
+
+/**
+ * The wallet's recent activity: the latest few movements, its own small read,
+ * never the history's pages — refetching those re-reads every page loaded.
+ */
+export function useRecentTransactions(enabled: boolean) {
+  return useQuery({
+    queryKey: transactionKeys.recent(),
+    queryFn: ({ signal }) =>
+      getWalletHistory(
+        { type: null, cursor: null, limit: RECENT_COUNT },
+        signal,
+      ),
     staleTime: STALE_TIME.wallet,
     enabled,
   });

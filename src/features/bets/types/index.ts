@@ -73,19 +73,3 @@ export interface BetPage {
 
 /** The contract's filter on My bets (`status`). */
 export type BetsTab = "open" | "settled";
-
-export type TransactionKind = "deposit" | "withdrawal" | "bet" | "winnings";
-export type TransactionStatus = "success" | "pending" | "failed";
-
-export interface Transaction {
-  id: string;
-  kind: TransactionKind;
-  status: TransactionStatus;
-  name: Localized;
-  /** Time and reference, already formatted. */
-  meta: Localized;
-  /** Signed decimal string: negative leaves the wallet. */
-  amount: string;
-  /** ISO date, for grouping into days. */
-  date: string;
-}

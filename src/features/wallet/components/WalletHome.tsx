@@ -1,13 +1,16 @@
 "use client";
 
+import { useId } from "react";
 import Link from "next/link";
+import { CircleAlert } from "lucide-react";
 import { useTranslation } from "@/lib/i18n/use-translation";
+import { useDateTimeText } from "@/lib/i18n/use-date-time-text";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { routes } from "@/config/routes";
-import { TransactionRow } from "@/features/bets/components/TransactionRow";
-import { useTransactions } from "@/features/bets/hooks/use-bets";
 import { compareMoney } from "@/lib/money";
+import { useRecentTransactions } from "../hooks/use-wallet";
 import type { WalletBalances } from "../types";
+import { TransactionRow } from "./TransactionRow";
 
 const aboveZero = (amount: string | null): amount is string =>
   amount !== null && compareMoney(amount, "0.00") > 0;
@@ -32,9 +35,11 @@ export function WalletHome({
   onWithdraw: () => void;
 }) {
   const t = useTranslation();
-  const { data: days } = useTransactions("all");
+  const dateTime = useDateTimeText();
+  // The wallet is only shown to a signed-in player.
+  const recent = useRecentTransactions(true);
+  const recentId = useId();
 
-  const recent = (days ?? []).flatMap((day) => day.items).slice(0, 5);
   const lines = [
     aboveZero(balances.bonus) && {
       key: "bonus",
@@ -117,11 +122,11 @@ export function WalletHome({
           </div>
         </div>
 
-        <div className="min-w-0">
+        <section aria-labelledby={recentId} className="min-w-0">
           <div className="flex items-baseline justify-between px-4 pt-5.5 pb-2">
-            <span className="font-display text-[15px]">
+            <h3 id={recentId} className="font-display text-[15px]">
               {t.t("wallet.recent")}
-            </span>
+            </h3>
             <Link
               href={routes.transactions}
               className="text-accent text-xs font-semibold"
@@ -131,24 +136,54 @@ export function WalletHome({
           </div>
 
           <div className="border-divider border-t">
-            {recent.length === 0
-              ? Array.from({ length: 3 }, (_, i) => (
-                  <div key={i} className="flex items-center gap-3 px-4 py-2.5">
-                    <Skeleton className="size-9 rounded-md" />
-                    <div className="flex flex-1 flex-col gap-1.5">
-                      <Skeleton className="h-3 w-40" />
-                      <Skeleton className="h-2.5 w-24" />
-                    </div>
+            {recent.isPending ? (
+              Array.from({ length: 3 }, (_, i) => (
+                <div key={i} className="flex items-center gap-3 px-4 py-2.5">
+                  <Skeleton className="size-9 rounded-md" />
+                  <div className="flex flex-1 flex-col gap-1.5">
+                    <Skeleton className="h-3 w-40" />
+                    <Skeleton className="h-2.5 w-24" />
                   </div>
-                ))
-              : recent.map((transaction) => (
-                  <TransactionRow
-                    key={transaction.id}
-                    transaction={transaction}
-                  />
+                </div>
+              ))
+            ) : !recent.data ? (
+              <div
+                role="alert"
+                className="bg-loss-bg mx-4 mt-3 flex items-center gap-2.5 rounded-md p-3"
+              >
+                <CircleAlert
+                  size={17}
+                  strokeWidth={1.5}
+                  aria-hidden
+                  className="text-loss shrink-0"
+                />
+                <span className="min-w-0 flex-1 text-xs font-semibold">
+                  {t.t("wallet.recentFailed")}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => void recent.refetch()}
+                  className="bg-raised text-text font-body min-h-11 shrink-0 cursor-pointer rounded-lg px-3 text-xs font-bold"
+                >
+                  {t.t("common.retry")}
+                </button>
+              </div>
+            ) : recent.data.items.length === 0 ? (
+              <p className="text-muted px-4 py-6 text-center text-xs">
+                {t.t("wallet.recentEmpty")}
+              </p>
+            ) : (
+              <ul>
+                {recent.data.items.map((txn) => (
+                  <li key={txn.id}>
+                    {/* No day headings here: each row says its date too. */}
+                    <TransactionRow txn={txn} when={dateTime(txn.createdAt)} />
+                  </li>
                 ))}
+              </ul>
+            )}
           </div>
-        </div>
+        </section>
       </div>
     </>
   );
