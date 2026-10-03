@@ -1397,6 +1397,13 @@ for (const [device, viewport] of Object.entries(DEVICES)) {
     test.describe(`${device} · ${lang}`, () => {
       test.use({ viewport });
 
+      // A screen that answers through `route.fetch()` can still have one in
+      // flight when it is done (a deposit read, a re-read of /api/me): let
+      // those go quietly instead of failing the run after the test.
+      test.afterEach(async ({ page }) => {
+        await page.unrouteAll({ behavior: "ignoreErrors" });
+      });
+
       for (const screen of SCREENS) {
         test(screen.name, async ({ page }) => {
           const errors: string[] = [];
