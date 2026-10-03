@@ -52,10 +52,14 @@ import { isIsoDate } from "@/features/auth/lib/birth-date";
 import { toE164 } from "@/features/auth/lib/phone";
 import { compareMoney } from "@/lib/money";
 import { MONEY_PATTERN, ODDS_PATTERN, TICKET_NUMBER_PATTERN } from "./patterns";
-import type {
-  PaymentMethod,
-  PaymentResult,
-  WalletOverview,
+import {
+  WALLET_TXN_TYPES,
+  type PaymentMethod,
+  type PaymentResult,
+  type WalletBalances,
+  type WalletTxn,
+  type WalletTxnPage,
+  type WalletOverview,
 } from "@/features/wallet/types";
 
 export const localizedSchema = z.object({
@@ -298,6 +302,17 @@ export const ticketCheckSchema = z.object({
     .min(1),
 }) satisfies z.ZodType<TicketCheck>;
 
+export const responsibleGamingStatusSchema = z.object({
+  coolOffUntil: z.string().nullable(),
+  selfExcludedUntil: z.string().nullable(),
+});
+
+export const sessionActivitySchema = z.object({
+  staked: z.number(),
+  won: z.number(),
+  net: z.number(),
+});
+
 export const transactionSchema = z.object({
   id: z.string(),
   kind: z.enum(["deposit", "withdrawal", "bet", "winnings"]),
@@ -316,17 +331,6 @@ export const transactionDaysSchema = z.array(
   }),
 );
 
-export const responsibleGamingStatusSchema = z.object({
-  coolOffUntil: z.string().nullable(),
-  selfExcludedUntil: z.string().nullable(),
-});
-
-export const sessionActivitySchema = z.object({
-  staked: z.number(),
-  won: z.number(),
-  net: z.number(),
-});
-
 export const walletSchema = z.object({
   balance: z.number(),
   withdrawable: z.number(),
@@ -334,6 +338,36 @@ export const walletSchema = z.object({
   dailyDepositLimit: z.number(),
   depositedToday: z.number(),
 }) satisfies z.ZodType<WalletOverview>;
+
+/** `/api/wallet`: the API's balances, each the contract's `Money` string. */
+export const walletBalancesSchema = z.object({
+  cash: z.string().regex(MONEY_PATTERN),
+  bonus: z.string().regex(MONEY_PATTERN),
+  locked: z.string().regex(MONEY_PATTERN),
+  debt: z.string().regex(MONEY_PATTERN).nullable(),
+  currency: z.literal("ETB"),
+}) satisfies z.ZodType<WalletBalances>;
+
+export const walletTxnSchema = z.object({
+  id: z.string().min(1),
+  type: z.enum(WALLET_TXN_TYPES),
+  amount: z.string().regex(MONEY_PATTERN),
+  balanceAfter: z.string().regex(MONEY_PATTERN),
+  label: z.string().nullable(),
+  reference: z
+    .object({
+      type: z.enum(["payment", "bet", "bonus", "adjustment", "game_round"]),
+      id: z.string().min(1),
+    })
+    .nullable(),
+  createdAt: z.iso.datetime({ offset: true }),
+}) satisfies z.ZodType<WalletTxn>;
+
+/** `/api/wallet/transactions`: one page of the ledger, newest first. */
+export const walletTxnPageSchema = z.object({
+  items: z.array(walletTxnSchema),
+  nextCursor: z.string().nullable(),
+}) satisfies z.ZodType<WalletTxnPage>;
 
 export const paymentMethodSchema = z.object({
   id: z.string(),

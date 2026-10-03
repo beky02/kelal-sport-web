@@ -1,0 +1,50 @@
+import type {
+  WalletBalances,
+  WalletTxn,
+  WalletTxnPage,
+} from "@/features/wallet/types";
+import type { components, paths } from "@/lib/api/schema";
+
+type ApiWallet = components["schemas"]["Wallet"];
+type ApiWalletTxn = components["schemas"]["WalletTxn"];
+type ApiWalletTxnPage =
+  paths["/v1/wallet/transactions"]["get"]["responses"][200]["content"]["application/json"];
+
+/**
+ * `/v1/wallet` → the balances the screens show. Every amount is the API's
+ * string, untouched; an absent `debt` stays absent rather than becoming zero.
+ */
+export function toWalletBalances(wallet: ApiWallet): WalletBalances {
+  return {
+    cash: wallet.cash,
+    bonus: wallet.bonus,
+    locked: wallet.locked,
+    debt: wallet.debt ?? null,
+    currency: wallet.currency,
+  };
+}
+
+/**
+ * One ledger movement. The amount keeps the API's sign. A reference is kept
+ * only when it says both what and which — that is what a link needs — while
+ * its label names the movement either way.
+ */
+export function toWalletTxn(txn: ApiWalletTxn): WalletTxn {
+  const ref = txn.reference;
+  return {
+    id: txn.id,
+    type: txn.type,
+    amount: txn.amount,
+    balanceAfter: txn.balance_after,
+    label: ref?.label ?? null,
+    reference: ref?.type && ref.id ? { type: ref.type, id: ref.id } : null,
+    createdAt: txn.created_at,
+  };
+}
+
+export function toWalletTxnPage(page: ApiWalletTxnPage): WalletTxnPage {
+  return {
+    items: page.items.map(toWalletTxn),
+    nextCursor: page.next_cursor ?? null,
+  };
+}
