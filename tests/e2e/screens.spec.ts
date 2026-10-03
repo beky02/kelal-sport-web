@@ -1,5 +1,5 @@
 import { mkdirSync } from "node:fs";
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Page, type Route } from "@playwright/test";
 import en from "../../src/lib/i18n/messages/en.json";
 import am from "../../src/lib/i18n/messages/am.json";
 
@@ -743,6 +743,124 @@ const methodsFail = async (page: Page) => {
   );
 };
 
+// ── withdrawals (F6c) ───────────────────────────────────────────────────────
+
+/**
+ * A withdrawal as `/api/withdrawals` answers it: the contract's processing
+ * one (telebirr, to the saved +2519••••567), for the 500.00 the flow asks,
+ * in the state a screen needs. Prism has only processing, review and paid
+ * withdrawals and no cancel worth showing, so the rest are answered here.
+ */
+const withdrawal = (changes: Record<string, unknown> = {}) => ({
+  id: "01J9A7Y0000000000000000001",
+  method: "telebirr",
+  amount: "500.00",
+  status: "processing",
+  accountMasked: "+2519••••567",
+  reviewReason: null,
+  rejectionReason: null,
+  createdAt: "2026-10-04T09:00:00Z",
+  paidAt: null,
+  ...changes,
+});
+
+const WITHDRAWAL_PATH = "/wallet?withdrawal=01J9A7Y0000000000000000001";
+
+const fulfil = (route: Route, [status, json]: [number, unknown]) =>
+  route.fulfill({
+    status,
+    contentType:
+      status >= 400 ? "application/problem+json" : "application/json",
+    json,
+  });
+
+/**
+ * Logged in, with requesting a withdrawal answered in the browser — `"abort"`
+ * for no answer at all — and, when given, every read of one and every cancel.
+ */
+const withdrawalAnswers =
+  ({
+    request,
+    read,
+    cancel,
+  }: {
+    request?: [number, unknown] | "abort";
+    /** Every read, told whether a cancel has been answered yet. */
+    read?: (cancelled: boolean) => [number, unknown];
+    cancel?: [number, unknown] | "abort";
+  }) =>
+  async (page: Page) => {
+    await loginViaApi(page);
+    if (request) {
+      await page.route("**/api/withdrawals", (route) =>
+        request === "abort" ? route.abort("failed") : fulfil(route, request),
+      );
+    }
+    let cancelled = false;
+    await page.route(/\/api\/withdrawals\/[^/?]+$/, (route) => {
+      if (route.request().method() === "DELETE") {
+        if (!cancel) return route.fallback();
+        if (cancel === "abort") return route.abort("failed");
+        cancelled = true;
+        return fulfil(route, cancel);
+      }
+      if (!read) return route.fallback();
+      return fulfil(route, read(cancelled));
+    });
+  };
+
+/** The withdraw flow on `/wallet?action=withdraw` with telebirr's saved account, as far as `stop`. */
+const withdrawTo =
+  (stop: "accounts" | "amount" | "confirm" | "confirmed") =>
+  async (page: Page, _device: Device, lang: Lang) => {
+    const t = MESSAGES[lang];
+    const next = () =>
+      page.getByRole("button", { name: t.wallet.continue, exact: true });
+    await page.getByRole("button", { name: /telebirr/ }).click();
+    await next().click();
+    await page.getByRole("radio", { name: /\+2519/ }).click();
+    if (stop === "accounts") return;
+    await next().click();
+    if (stop === "amount") return;
+    await next().click();
+    if (stop === "confirm") return;
+    await page
+      .getByRole("button", { name: t.wallet.confirmWithdraw, exact: true })
+      .click();
+  };
+
+/** Confirmed, then waits for `text` — a status's title or a refusal's. */
+const withdrawShows =
+  (text: (t: (typeof MESSAGES)[Lang]) => string) =>
+  async (page: Page, device: Device, lang: Lang) => {
+    await withdrawTo("confirmed")(page, device, lang);
+    await page
+      .getByText(text(MESSAGES[lang]), { exact: true })
+      .first()
+      .waitFor();
+  };
+
+/** A withdrawal's own screen, waiting for its title. */
+const withdrawalShows =
+  (text: (t: (typeof MESSAGES)[Lang]) => string) =>
+  async (page: Page, _device: Device, lang: Lang) => {
+    await page
+      .getByText(text(MESSAGES[lang]), { exact: true })
+      .first()
+      .waitFor();
+  };
+
+/** Cancel withdrawal pressed, then waits for `text`. */
+const cancelShows =
+  (text: (t: (typeof MESSAGES)[Lang]) => string) =>
+  async (page: Page, _device: Device, lang: Lang) => {
+    const t = MESSAGES[lang];
+    await page
+      .getByRole("button", { name: t.withdraw.cancel, exact: true })
+      .click();
+    await page.getByText(text(t), { exact: true }).first().waitFor();
+  };
+
 /** `/b/7KQ2M9X`, loaded into the slip — the sheet opens on a phone. */
 async function loadBooking(page: Page, _device: Device, lang: Lang) {
   await page
@@ -1309,6 +1427,297 @@ const SCREENS: Array<{
         .getByRole("heading", { name: MESSAGES[lang].deposit.checkFailedTitle })
         .waitFor();
     },
+    allowConsole: /503/,
+  },
+  // ── withdrawals (F6c) ──
+  {
+    name: "withdraw-methods",
+    path: "/wallet?action=withdraw",
+    before: loginViaApi,
+  },
+  {
+    name: "withdraw-accounts",
+    path: "/wallet?action=withdraw",
+    before: loginViaApi,
+    prepare: withdrawTo("accounts"),
+  },
+  {
+    // Nothing saved for CBE Birr: the number is the way on.
+    name: "withdraw-accounts-empty",
+    path: "/wallet?action=withdraw",
+    before: loginViaApi,
+    prepare: async (page, _device, lang) => {
+      const t = MESSAGES[lang];
+      await page.getByRole("button", { name: /CBE Birr/ }).click();
+      await page
+        .getByRole("button", { name: t.wallet.continue, exact: true })
+        .click();
+      await page
+        .getByLabel(t.withdraw.numberLabel.replace("{method}", "CBE Birr"))
+        .waitFor();
+    },
+  },
+  {
+    name: "withdraw-accounts-failed",
+    path: "/wallet?action=withdraw",
+    before: async (page) => {
+      await loginViaApi(page);
+      await page.route("**/api/payout-accounts", (route) =>
+        fulfil(route, [503, problemJson(503, "SERVICE_UNAVAILABLE")]),
+      );
+    },
+    // Retried twice, as every read is, before it says so.
+    prepare: async (page, _device, lang) => {
+      const t = MESSAGES[lang];
+      await page.getByRole("button", { name: /telebirr/ }).click();
+      await page
+        .getByRole("button", { name: t.wallet.continue, exact: true })
+        .click();
+      await page
+        .getByText(t.withdraw.accountsFailed, { exact: true })
+        .waitFor();
+    },
+    allowConsole: /503/,
+  },
+  {
+    name: "withdraw-number",
+    path: "/wallet?action=withdraw",
+    before: loginViaApi,
+    prepare: async (page, device, lang) => {
+      const t = MESSAGES[lang];
+      await withdrawTo("accounts")(page, device, lang);
+      await page
+        .getByRole("radio", { name: t.withdraw.anotherNumber, exact: true })
+        .click();
+      await page
+        .getByLabel(t.withdraw.numberLabel.replace("{method}", "telebirr"))
+        .fill("922334890");
+    },
+  },
+  {
+    name: "withdraw-remove",
+    path: "/wallet?action=withdraw",
+    before: loginViaApi,
+    prepare: async (page, device, lang) => {
+      const t = MESSAGES[lang];
+      await withdrawTo("accounts")(page, device, lang);
+      await page
+        .getByRole("button", {
+          name: t.withdraw.removeLabel.replace("{account}", "+2519••••567"),
+          exact: true,
+        })
+        .click();
+    },
+  },
+  {
+    name: "withdraw-amount",
+    path: "/wallet?action=withdraw",
+    before: loginViaApi,
+    prepare: withdrawTo("amount"),
+  },
+  {
+    name: "withdraw-confirm",
+    path: "/wallet?action=withdraw",
+    before: loginViaApi,
+    prepare: withdrawTo("confirm"),
+  },
+  {
+    name: "withdraw-unconfirmed",
+    path: "/wallet?action=withdraw",
+    before: withdrawalAnswers({ request: "abort" }),
+    prepare: withdrawShows((t) => t.withdraw.unconfirmedTitle),
+    allowConsole: /ERR_FAILED/,
+  },
+  {
+    name: "withdraw-kyc",
+    path: "/wallet?action=withdraw",
+    before: withdrawalAnswers({
+      request: [403, problemJson(403, "KYC_REQUIRED")],
+    }),
+    prepare: withdrawShows((t) => t.withdraw.refused.kycTitle),
+    allowConsole: /403/,
+  },
+  {
+    name: "withdraw-bonus",
+    path: "/wallet?action=withdraw",
+    before: withdrawalAnswers({
+      request: [
+        422,
+        problemJson(422, "PAY_ACTIVE_BONUS_WAGERING", {
+          title: "Your bonus is still being wagered",
+          detail: "Withdrawing now forfeits your bonus of 50.00 ETB.",
+        }),
+      ],
+    }),
+    prepare: withdrawShows((t) => t.withdraw.refused.bonusTitle),
+    allowConsole: /422/,
+  },
+  {
+    name: "withdraw-out-of-range",
+    path: "/wallet?action=withdraw",
+    before: withdrawalAnswers({
+      request: [
+        422,
+        problemJson(422, "PAY_AMOUNT_OUT_OF_RANGE", {
+          title: "You can’t withdraw this much today",
+          detail: "Your withdrawals today can’t go over 300.00 ETB.",
+          errors: [{ field: "amount", code: "DAILY_MAX", limit: "300.00" }],
+        }),
+      ],
+    }),
+    prepare: withdrawShows((t) => t.withdraw.refused.amountTitle),
+    allowConsole: /422/,
+  },
+  {
+    name: "withdraw-insufficient",
+    path: "/wallet?action=withdraw",
+    before: withdrawalAnswers({
+      request: [
+        422,
+        problemJson(422, "WALLET_INSUFFICIENT_FUNDS", {
+          title: "Balance too low",
+        }),
+      ],
+    }),
+    prepare: withdrawShows((t) => t.withdraw.refused.fundsTitle),
+    allowConsole: /422/,
+  },
+  {
+    name: "withdraw-break",
+    path: "/wallet?action=withdraw",
+    before: withdrawalAnswers({
+      request: [403, problemJson(403, "RG_SELF_EXCLUDED")],
+    }),
+    prepare: withdrawShows((t) => t.withdraw.refused.breakTitle),
+    allowConsole: /403/,
+  },
+  {
+    name: "withdraw-real-money",
+    path: "/wallet?action=withdraw",
+    before: withdrawalAnswers({
+      request: [503, problemJson(503, "REAL_MONEY_DISABLED")],
+    }),
+    prepare: withdrawShows((t) => t.withdraw.refused.realMoneyTitle),
+    allowConsole: /503/,
+  },
+  {
+    // End to end through Prism: its default answer is processing.
+    name: "withdrawal-processing",
+    path: "/wallet?action=withdraw",
+    before: loginViaApi,
+    prepare: withdrawShows((t) => t.withdraw.processingTitle),
+  },
+  {
+    // Prism's review: a first withdrawal of 20,000.00.
+    name: "withdrawal-review",
+    path: "/wallet?action=withdraw",
+    before: async (page) => {
+      await loginViaApi(page);
+      await preferOn(page, "/api/withdrawals", "example=review");
+    },
+    prepare: withdrawShows((t) => t.withdraw.reviewTitle),
+  },
+  {
+    // Prism's paid withdrawal, opened from its row in the history.
+    name: "withdrawal-paid",
+    path: WITHDRAWAL_PATH,
+    before: loginViaApi,
+    prepare: withdrawalShows((t) => t.withdraw.paidTitle),
+  },
+  {
+    name: "withdrawal-requested",
+    path: WITHDRAWAL_PATH,
+    before: withdrawalAnswers({
+      read: () => [200, withdrawal({ status: "requested" })],
+    }),
+    prepare: withdrawalShows((t) => t.withdraw.requestedTitle),
+  },
+  {
+    name: "withdrawal-approved",
+    path: WITHDRAWAL_PATH,
+    before: withdrawalAnswers({
+      read: () => [200, withdrawal({ status: "approved" })],
+    }),
+    prepare: withdrawalShows((t) => t.withdraw.approvedTitle),
+  },
+  {
+    name: "withdrawal-failed",
+    path: WITHDRAWAL_PATH,
+    before: withdrawalAnswers({
+      read: () => [200, withdrawal({ status: "failed" })],
+    }),
+    prepare: withdrawalShows((t) => t.withdraw.failedTitle),
+  },
+  {
+    name: "withdrawal-rejected",
+    path: WITHDRAWAL_PATH,
+    before: withdrawalAnswers({
+      read: () => [
+        200,
+        withdrawal({
+          status: "rejected",
+          rejectionReason:
+            "The account holder’s name does not match the name on your account.",
+        }),
+      ],
+    }),
+    prepare: withdrawalShows((t) => t.withdraw.rejectedTitle),
+  },
+  {
+    name: "withdrawal-cancelled",
+    path: WITHDRAWAL_PATH,
+    before: withdrawalAnswers({
+      read: () => [200, withdrawal({ status: "requested" })],
+      cancel: [200, withdrawal({ status: "cancelled" })],
+    }),
+    prepare: cancelShows((t) => t.withdraw.cancelledTitle),
+  },
+  {
+    // Cancel pressed just as it moved on: the API's 409, then its status.
+    name: "withdrawal-not-cancellable",
+    path: WITHDRAWAL_PATH,
+    before: withdrawalAnswers({
+      read: (cancelled) => [
+        200,
+        withdrawal({ status: cancelled ? "processing" : "requested" }),
+      ],
+      cancel: [409, problemJson(409, "PAY_WITHDRAWAL_NOT_CANCELLABLE")],
+    }),
+    prepare: async (page, device, lang) => {
+      await cancelShows((t) => t.withdraw.tooLateTitle)(page, device, lang);
+      await page
+        .getByText(MESSAGES[lang].withdraw.processingTitle, { exact: true })
+        .waitFor();
+    },
+    allowConsole: /409/,
+  },
+  {
+    name: "withdrawal-cancel-unconfirmed",
+    path: WITHDRAWAL_PATH,
+    before: withdrawalAnswers({
+      read: () => [200, withdrawal({ status: "requested" })],
+      cancel: "abort",
+    }),
+    prepare: cancelShows((t) => t.withdraw.cancelUnconfirmedTitle),
+    allowConsole: /ERR_FAILED/,
+  },
+  {
+    name: "withdrawal-not-found",
+    path: "/wallet?withdrawal=01J9A7Y0000000000000000009",
+    before: withdrawalAnswers({
+      read: () => [404, problemJson(404, "NOT_FOUND")],
+    }),
+    prepare: withdrawalShows((t) => t.withdraw.notFoundTitle),
+    allowConsole: /404/,
+  },
+  {
+    name: "withdrawal-check-failed",
+    path: WITHDRAWAL_PATH,
+    before: withdrawalAnswers({
+      read: () => [503, problemJson(503, "SERVICE_UNAVAILABLE")],
+    }),
+    // Retried twice, as every read is, before it says so.
+    prepare: withdrawalShows((t) => t.withdraw.checkFailedTitle),
     allowConsole: /503/,
   },
   { name: "profile", path: "/profile", before: loginViaApi },

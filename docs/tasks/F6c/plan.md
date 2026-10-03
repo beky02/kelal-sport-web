@@ -257,3 +257,22 @@ None (decision 1).
 5. Confirm, the attempt, refusals and Try again (AC-8, AC-9).
 6. The status screen, Cancel, `?withdrawal=` and the history link (AC-1, AC-4, AC-10).
 7. Strings in both languages, the mock removed, docs, contract request, `pnpm ui` screens.
+
+## Changes during implementation
+
+- **Steps 4–6 landed as one commit** (`28a265e`): the account step, the confirm step's attempt and the
+  status screen are one flow (`WithdrawFlow`), which compiles only whole, as F6b's steps 1–6. The
+  strings landed with step 3, whose lib names their keys.
+- **Files beyond the list**: `src/features/auth/lib/phone.ts` (`formatPhone`, the new number in full on
+  the amount and confirm steps, beside the existing `maskPhone`). `src/lib/api/patterns.ts` also holds
+  `API_ID_PATTERN`, the id check the four route files and the withdrawal body's `payoutAccountId` share.
+- **The status screen reads the method names itself** (`usePaymentMethods`) rather than taking a lookup:
+  it is used from the flow and from `?withdrawal=`.
+- **The stored attempt keeps the account as the confirm step showed it** (`accountLabel`), so a
+  withdrawal reopened on Try again names its account; the request itself carries only the id or number.
+- **A withdrawal to a new number marks the accounts stale** rather than reading them at once: the list is
+  not on screen after a 201, so it is read again the next time it is shown, however fresh it was.
+- **Cancel's "too late" is by code**: only `PAY_WITHDRAWAL_NOT_CANCELLABLE` reads as too late; another
+  409 shows the API's title. Every refused or unanswered cancel reads the withdrawal again.
+- **`pnpm ui`**: 27 withdrawal screens (the plan's list plus `withdraw-methods`, `withdrawal-cancelled`
+  and `withdrawal-cancel-unconfirmed`); `wallet-held` re-taken for the withdrawal row's chevron.
