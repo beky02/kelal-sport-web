@@ -277,6 +277,8 @@ describe("POST /api/bets", () => {
       { ...BET, extra: "x" },
       { ...BET, stake: "0.00" },
       { ...BET, stake: "-5.00" },
+      // Not an amount at all: a 422, never a check that throws (F6b M6).
+      { ...BET, stake: "abc" },
       { ...BET, stake: "100" },
       { ...BET, legs: [{ outcomeId: "oc_ac_1", odds: "2.1" }] },
       { ...BET, legs: [] },

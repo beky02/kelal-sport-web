@@ -206,3 +206,92 @@ describe("the tenant and its public address (AC-7: forwarded headers only behind
     );
   });
 });
+
+describe("the payment redirect allow-list (AC-3)", () => {
+  it("follows a provider page only on an allow-listed https host (AC-3)", async () => {
+    vi.stubEnv(
+      "PAYMENT_REDIRECT_HOSTS",
+      "checkout.chapa.co, App.Ethiotelecom.et",
+    );
+    const { isAllowedProviderUrl } = await load();
+
+    expect(
+      isAllowedProviderUrl("https://checkout.chapa.co/checkout/payment/abc123"),
+    ).toBe(true);
+    expect(
+      isAllowedProviderUrl("https://app.ethiotelecom.et/pay/abc?x=1#y"),
+    ).toBe(true);
+    // Host names are case-blind, and 443 is the default port.
+    expect(isAllowedProviderUrl("https://CHECKOUT.chapa.co:443/x")).toBe(true);
+
+    for (const url of [
+      "http://checkout.chapa.co/x", // not https
+      "https://evil.example/x", // another host
+      "https://pay.checkout.chapa.co/x", // a subdomain of a listed host
+      "https://checkout.chapa.co.evil.et/x", // a listed host as a prefix
+      "https://checkout.chapa.co./x", // a trailing dot
+      "https://checkout.chapa.co@evil.et/x", // the host is evil.et
+      "https://player:secret@checkout.chapa.co/x", // credentials in the URL
+      "https://checkout.chapa.co:8443/x", // another port
+      "https:\\\\evil.et\\x", // backslashes are slashes to a browser
+      "javascript:alert(1)",
+      "data:text/html,<script>alert(1)</script>",
+      "//checkout.chapa.co/x", // no scheme
+      "checkout.chapa.co/x",
+      "https://",
+      "",
+    ]) {
+      expect(isAllowedProviderUrl(url), url).toBe(false);
+    }
+  });
+
+  it("returns the page as it was read, so what is followed is what was checked (SEC3)", async () => {
+    vi.stubEnv("PAYMENT_REDIRECT_HOSTS", "checkout.chapa.co");
+    const { allowedProviderUrl } = await load();
+
+    expect(allowedProviderUrl(" https://CHECKOUT.chapa.co:443/x?y=1#z")).toBe(
+      "https://checkout.chapa.co/x?y=1#z",
+    );
+    expect(allowedProviderUrl("https://checkout.chapa.co\\@evil.com/")).toBe(
+      "https://checkout.chapa.co/@evil.com/",
+    );
+    expect(allowedProviderUrl("https://evil.example/x")).toBeNull();
+  });
+
+  it("allows no host in production unless one is listed, and the contract's example hosts in development", async () => {
+    vi.stubEnv("PAYMENT_REDIRECT_HOSTS", "");
+    vi.stubEnv("NODE_ENV", "production");
+    const production = await load();
+    expect(production.serverConfig.paymentRedirectHosts).toEqual([]);
+    expect(
+      production.isAllowedProviderUrl(
+        "https://checkout.chapa.co/checkout/payment/abc123",
+      ),
+    ).toBe(false);
+
+    vi.stubEnv("NODE_ENV", "development");
+    const development = await load();
+    expect(development.serverConfig.paymentRedirectHosts).toEqual([
+      "checkout.chapa.co",
+      "app.ethiotelecom.et",
+    ]);
+
+    // A list, when given, is the list — in development too.
+    vi.stubEnv("PAYMENT_REDIRECT_HOSTS", "pay.santimpay.com");
+    const listed = await load();
+    expect(listed.serverConfig.paymentRedirectHosts).toEqual([
+      "pay.santimpay.com",
+    ]);
+    expect(listed.isAllowedProviderUrl("https://checkout.chapa.co/x")).toBe(
+      false,
+    );
+  });
+
+  it("refuses to start with an entry that is not a host name", async () => {
+    vi.stubEnv("PAYMENT_REDIRECT_HOSTS", "checkout.chapa.co,https://evil.et");
+    await expect(load()).rejects.toThrow(/PAYMENT_REDIRECT_HOSTS/);
+
+    vi.stubEnv("PAYMENT_REDIRECT_HOSTS", "*.chapa.co");
+    await expect(load()).rejects.toThrow(/PAYMENT_REDIRECT_HOSTS/);
+  });
+});

@@ -1,7 +1,7 @@
 ---
 id: F6b
 title: Split from F6 — methods and limits, deposits driven by next_action, every deposit status
-status: todo
+status: done
 depends_on: [F6a]
 contract_tags: [Payments]
 touches_money: true
@@ -59,15 +59,15 @@ Out: card payments; withdrawals (F6c); the deposit-limit card (F7).
 
 From F6:
 
-- [ ] **AC-1** (deposits) Each `DepositStatus` has a screen state (`pnpm ui` screenshots).
-- [ ] **AC-2** `ussd_push` polls until `completed` and then refreshes the balance (hook test).
-- [ ] **AC-3** A `redirect` to a host not on the allow-list is refused (unit test).
-- [ ] **AC-4** (deposits) No balance changes before the server confirms (component test).
-- [ ] **AC-7** (deposits) Methods and limits from `/v1/payment-methods`; an amount outside `min`–`max`
+- [x] **AC-1** (deposits) Each `DepositStatus` has a screen state (`pnpm ui` screenshots).
+- [x] **AC-2** `ussd_push` polls until `completed` and then refreshes the balance (hook test).
+- [x] **AC-3** A `redirect` to a host not on the allow-list is refused (unit test).
+- [x] **AC-4** (deposits) No balance changes before the server confirms (component test).
+- [x] **AC-7** (deposits) Methods and limits from `/v1/payment-methods`; an amount outside `min`–`max`
       or an unavailable method cannot be submitted.
-- [ ] **AC-8** (deposits) One `Idempotency-Key` per deposit intent: the same key on a retry after no
+- [x] **AC-8** (deposits) One `Idempotency-Key` per deposit intent: the same key on a retry after no
       answer, a new one after a final answer.
-- [ ] **AC-9** (deposits) Each deposit refusal in scope says what happened and offers its fix.
+- [x] **AC-9** (deposits) Each deposit refusal in scope says what happened and offers its fix.
 
 ## Notes
 

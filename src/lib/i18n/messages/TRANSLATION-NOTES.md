@@ -432,3 +432,62 @@ The other `history.*` strings reuse existing ones verbatim (`bets.filter*` moved
 `board.error.body`; the deposit, withdrawal, winnings and bonus kinds are the filters' and `wallet.bonus`'s words). `history.withLabel` (`{kind} · {label}`) and
 `history.day` (`{weekday} {date}`) are symbolic in `i18n.test.ts`: the kind, weekday and date are filled in
 Amharic, the label is the API's (`telebirr`, a ticket number).
+
+## Deposits (F6b, 2026-10-03)
+
+| Key                                          | Amharic                                                                            | Composed from                                                                         |
+| -------------------------------------------- | ---------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| `deposit.flowPhone`                          | በስልክዎ ያጽድቁ                                                                         | `wallet.pendingBody` (…ያጽድቁ), ስልክ (`auth.phone`)                                      |
+| `deposit.flowWeb`                            | በድረ-ገጻቸው ይክፈሉ                                                                      | new: ድረ-ገጽ ("website"); ክፈል (`wallet.confirmDeposit`)                                 |
+| `deposit.unavailable`                        | አሁን አይገኝም                                                                          | `auth.errors.KYC_PROVIDER_UNAVAILABLE` (…አሁን አይገኝም)                                   |
+| `deposit.methodsFailed`                      | የክፍያ ዘዴዎችን መጫን አልተሳካም።                                                             | ክፍያ + ዘዴ (`wallet.method`) + `bets.loadFailedTitle` (…መጫን አልተሳካም)                     |
+| `deposit.methodsEmpty`                       | አሁን የሚገኝ የክፍያ ዘዴ የለም። ቆይተው እንደገና ይሞክሩ።                                             | as above + `betSlip.errors.cannotPriceBody` (ቆይተው … ይሞክሩ)                             |
+| `deposit.promptWeb`                          | ለመክፈል ወደ {method} ገጽ ይቀጥላሉ።                                                        | ክፈል, ገጽ, ቀጥል (`wallet.continue`)                                                      |
+| `deposit.unconfirmedTitle` / `Body`          | ገቢዎን ማረጋገጥ አልቻልንም / ገቢው ተጀምሮ ሊሆን ይችላል። …                                           | `betSlip.unconfirmed.title` / `.body`, ውርርድ → ገቢ, ተይዞ → ተጀምሮ ("started")              |
+| `deposit.retry`                              | እንደገና ይሞክሩ · {amount}                                                              | `betSlip.unconfirmed.retry`                                                           |
+| `deposit.refused.methodTitle` / `method`     | ዘዴው አይገኝም / {method} አሁን አይገኝም። ሌላ ዘዴ ይምረጡ።                                        | `wallet.method`, `deposit.unavailable`, `wallet.otherMethod` (ሌላ ዘዴ)                  |
+| `deposit.refused.amountTitle` / `amount`     | መጠኑ አይፈቀድም / {method} በአንድ ገቢ ከ{min} እስከ {max} ይቀበላል።                              | `wallet.amount` (መጠን), new: አይፈቀድም ("not allowed"), ይቀበላል ("takes")                   |
+| `deposit.refused.providerTitle` / `provider` | የክፍያ አቅራቢው ምላሽ አልሰጠም / {method} ምላሽ ስላልሰጠ ገቢዎ አልተጀመረም። …                           | new: አቅራቢ ("provider"), ምላሽ ("answer")                                                |
+| `deposit.refused.limitTitle` / `limit`       | ገደብ ደርሷል / ያስቀመጡት ገደብ ላይ ደርሰዋል፤ ይህ ገቢ ሊፈጸም አይችልም።                                  | `betSlip.refused.rgLimitTitle` / `.rgLimit`, ውርርድ → ገቢ                                |
+| `deposit.refused.break*`                     | ዕረፍት ላይ ነዎት / በዕረፍትዎ ጊዜ ገቢ ማድረግ ቆሟል። / ገቢ ማድረግ እስከ {date} ቆሟል።                     | `betSlip.refused.break*`, ውርርድ → ገቢ ማድረግ                                              |
+| `deposit.refused.kyc*`                       | ማንነትዎን ያረጋግጡ / ገቢ ለማድረግ መታወቂያዎን በፋይዳ ያረጋግጡ።                                        | `betSlip.refused.kyc*`, ውርርድ ለማስያዝ → ገቢ ለማድረግ                                         |
+| `deposit.refused.realMoney*`                 | ገና አልተጀመረም / ገቢ ማድረግ ገና አልተጀመረም።                                                   | `betSlip.refused.realMoney` (…ገና አልተጀመረም)                                             |
+| `deposit.refused.otherTitle`                 | ገቢዎ አልተጀመረም                                                                        | as above                                                                              |
+| `deposit.depositAmount` / `changeAmount`     | {amount} ገቢ አድርግ / መጠኑን ቀይር                                                        | `wallet.deposit` (ገቢ አድርግ); `wallet.amount` + ቀይር ("change")                          |
+| `deposit.statusStarting` / `statusExpired`   | በመጀመር ላይ / ጊዜው አልፏል                                                                | `wallet.statusPending` (…ላይ); `bets.status.expired`                                   |
+| `deposit.startingTitle`                      | ክፍያዎ እየተጀመረ ነው                                                                     | ክፍያ + `header.accountLoading` (እየ…ነው)                                                 |
+| `deposit.updates`                            | ይህ ገጽ በራሱ ይታደሳል።                                                                   | `wallet.pendingBody` (its second sentence)                                            |
+| `deposit.phoneTitle`                         | ስልክዎን ይመልከቱ                                                                        | ስልክ + ይመልከቱ ("look at")                                                               |
+| `deposit.webTitle` / `webBody`               | ክፍያውን በ{method} ይጨርሱ / ክፍያውን በ{method} ገጽ ላይ ያጠናቅቁ።                                | ክፍያ, ገጽ; new: ይጨርሱ, ያጠናቅቁ ("finish", "complete")                                      |
+| `deposit.continueTo`                         | ወደ {method} ቀጥል                                                                    | `wallet.backToSports` (ወደ …), `wallet.continue`                                       |
+| `deposit.unsupportedTitle` / `Body`          | ይህ ክፍያ እዚህ ሊቀጥል አይችልም / {method} የራሱን መተግበሪያ ወይም ይህ ድረ-ገጽ የማይከፍተውን ገጽ ይፈልጋል። …     | new: መተግበሪያ ("app"), ድረ-ገጽ                                                            |
+| `deposit.completedTitle` / `Body`            | ገንዘቡ ገብቷል / ከ{method} ያስገቡት {amount} ደርሷል።                                         | `wallet.successTitle`; `rg.deposited` (ያስገቡት), ደርሷል ("arrived")                       |
+| `deposit.failedTitle` / `Body`               | ክፍያው አልተሳካም / ወደ ቀሪ ሂሳብዎ ምንም አልገባም።                                                | `wallet.failedTitle`; `wallet.balance` (ቀሪ ሂሳብ), `wallet.successTitle` (ገብቷል → አልገባም) |
+| `deposit.expiredTitle` / `Body`              | የክፍያው ጊዜ አልፏል / በጊዜው ስላልጸደቀ ወደ ቀሪ ሂሳብዎ ምንም አልገባም። አሁን ካጸደቁት {method} ሲያረጋግጥ ይደርሳል። | as above + ጸደቀ (`wallet.pendingBody`'s ያጽድቁ), ያረጋግጥ (`wallet.confirmTitle`)           |
+| `deposit.checkFailedTitle` / `Body`          | ይህን ገቢ ማረጋገጥ አልተቻለም / ግንኙነትዎን ያረጋግጡ እና እንደገና ይሞክሩ።                                 | `bets.ticketFailedTitle` pattern; `board.error.body`                                  |
+| `deposit.notFoundTitle` / `Body`             | ይህን ገቢ ማግኘት አልቻልንም / በመለያዎ ላይ የለም።                                                 | `auth.needsInfoTitle` (…አልቻልንም); `bets.notFoundBody` (…በመለያዎ ላይ የለም)                  |
+| `deposit.backToWallet`                       | ወደ ቦርሳ ተመለስ                                                                        | `wallet.backToSports`, ስፖርት → ቦርሳ (`wallet.title`)                                    |
+| `wallet.aboveMaximum`                        | የ{method} ከፍተኛ መጠን {amount} ነው።                                                    | `wallet.belowMinimum`, ዝቅተኛ → ከፍተኛ (`betSlip.maxWin`)                                 |
+
+The status words Pending, Success and Failed, the fix labels Choose another method, Try again, View
+limits and Verify, and Done and Back to sports reuse `wallet.*` and `system.viewLimits` verbatim. A
+method's name, the push's `message` and a failure's reason are the API's text, shown as sent.
+`wallet.mobileMoney` and `wallet.gateway` are gone: the contract says how a method is paid, not what
+kind it is.
+
+### Deposits, review round 1 (2026-10-03)
+
+| Key                          | Amharic                                        | Composed from                                                               |
+| ---------------------------- | ---------------------------------------------- | --------------------------------------------------------------------------- |
+| `deposit.refused.retryTitle` | እንደገና መሞከሩ አልተሳካም                              | `betSlip.unconfirmed.retryRefused`, verbatim                                |
+| `deposit.refused.provider`   | {method} ምላሽ አልሰጠም። እንደገና ይሞክሩ ወይም ሌላ ዘዴ ይምረጡ። | the earlier line without its claim (…ስላልሰጠ ገቢዎ አልተጀመረም → ምላሽ አልሰጠም)         |
+| `deposit.refused.limit`      | የገቢ ገደብ ላይ ደርሰዋል፤ ይህ ገቢ ሊፈጸም አይችልም።            | `rg.depositLimit` (የገቢ ገደብ) in place of ያስቀመጡት ገደብ ("a limit you set")      |
+| `deposit.youDeposit`         | የሚያስገቡት                                        | `rg.deposited` (ያስገቡት), relative form                                       |
+| `deposit.provider`           | የክፍያ አቅራቢዎ                                     | `deposit.refused.providerTitle` (የክፍያ አቅራቢ) + possessive                    |
+| `deposit.retry` (changed)    | እንደገና ሞክር · {amount}                           | `wallet.tryAgain` (ሞክር): one Try again in the flow's buttons (UI review U8) |
+
+The flow's other Try again buttons (methods failed or empty, a deposit that couldn't be checked) now use
+`wallet.tryAgain` too. Failed and expired deposits end with `deposit.backToWallet` (ወደ ቦርሳ ተመለስ), not
+`wallet.done` (ተጠናቀቀ, which under a failure reads as "completed"). Removed: `wallet.youPay` (a deposit
+shows what it puts in, not what is paid), `wallet.successTitle` and `wallet.successBody` (the withdrawal
+mock's deposit branch).

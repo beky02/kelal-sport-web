@@ -2,6 +2,7 @@
 
 import { create } from "zustand";
 import { BETTING } from "@/config/constants";
+import { sanitiseAmount } from "@/lib/money";
 import type { OutcomeRef } from "@/features/markets/types";
 import type {
   BookingNotice,
@@ -193,15 +194,6 @@ interface BetSlipState {
 const reindex = (selections: BetSelection[]): Record<string, true> =>
   Object.fromEntries(selections.map((s) => [s.outcomeId, true as const]));
 
-/** `"0012.345x"` → `"12.34"`: digits, one point, two decimals at most. */
-export function sanitiseStake(raw: string): string {
-  const [whole = "", ...rest] = raw.replace(/[^\d.]/g, "").split(".");
-  const integer = whole.replace(/^0+(?=\d)/, "");
-  return rest.length
-    ? `${integer || "0"}.${rest.join("").slice(0, 2)}`
-    : integer;
-}
-
 /**
  * The slip changed: a refusal describes a slip that no longer exists, so it
  * goes. A bet on its way and an unconfirmed one stay — they are bets, not
@@ -294,7 +286,7 @@ export const useBetSlipStore = create<BetSlipState>()((set, get) => ({
 
   setMode: (mode) => set({ mode, placement: changed(get().placement) }),
   setStake: (raw) =>
-    set({ stake: sanitiseStake(raw), placement: changed(get().placement) }),
+    set({ stake: sanitiseAmount(raw), placement: changed(get().placement) }),
   setSystemK: (systemK) =>
     set({ systemK, placement: changed(get().placement) }),
 

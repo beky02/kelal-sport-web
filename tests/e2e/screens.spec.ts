@@ -609,6 +609,140 @@ const waitForHistoryFailure = async (
     .waitFor();
 };
 
+// ── deposits (F6b) ──────────────────────────────────────────────────────────
+
+/**
+ * A deposit as `/api/deposits` answers it: the contract's phone deposit
+ * (CBE Birr, 500.00), mapped, in the state a screen needs. Prism has no
+ * initiated, failed or expired deposit, so those are answered in the browser.
+ */
+const deposit = (changes: Record<string, unknown> = {}) => ({
+  id: "01J9A7W0000000000000000003",
+  method: "cbebirr",
+  amount: "500.00",
+  status: "pending",
+  nextAction: {
+    type: "ussd_push",
+    message: "Approve the payment on your phone",
+  },
+  failureReason: null,
+  expiresAt: "2026-10-03T14:13:10Z",
+  createdAt: "2026-10-03T13:58:10Z",
+  completedAt: null,
+  ...changes,
+});
+
+const problemJson = (status: number, code: string, extra = {}) => ({
+  type: "about:blank",
+  title: code,
+  status,
+  code,
+  ...extra,
+});
+
+/**
+ * Logged in, with starting a deposit answered in the browser — `"abort"` for
+ * no answer at all — and, when given, every read of it.
+ */
+const depositAnswers =
+  (start: [number, unknown] | "abort", read?: [number, unknown]) =>
+  async (page: Page) => {
+    await loginViaApi(page);
+    await page.route("**/api/deposits", (route) =>
+      start === "abort"
+        ? route.abort("failed")
+        : route.fulfill({
+            status: start[0],
+            contentType:
+              start[0] >= 400 ? "application/problem+json" : "application/json",
+            json: start[1],
+          }),
+    );
+    if (read) {
+      await page.route(/\/api\/deposits\/[^/?]+$/, (route) =>
+        route.fulfill({
+          status: read[0],
+          contentType:
+            read[0] >= 400 ? "application/problem+json" : "application/json",
+          json: read[1],
+        }),
+      );
+    }
+  };
+
+/** Logged in, with Prism asked for a named deposit on this app's routes. */
+const depositPrism = async (page: Page) => {
+  await loginViaApi(page);
+  await preferOn(page, "/api/deposits", "example=ussd_push");
+};
+
+/** The deposit flow on `/wallet?action=deposit`, as far as `stop`. */
+const depositTo =
+  (stop: "amount" | "confirm" | "confirmed", amount?: string) =>
+  async (page: Page, _device: Device, lang: Lang) => {
+    const t = MESSAGES[lang];
+    await page.getByRole("button", { name: /CBE Birr/ }).click();
+    await page
+      .getByRole("button", { name: t.wallet.continue, exact: true })
+      .click();
+    if (amount !== undefined) {
+      await page.getByLabel(t.wallet.amount, { exact: true }).fill(amount);
+    }
+    if (stop === "amount") return;
+    await page
+      .getByRole("button", { name: t.wallet.continue, exact: true })
+      .click();
+    if (stop === "confirm") return;
+    await page
+      .getByRole("button", { name: t.wallet.confirmDeposit, exact: true })
+      .click();
+  };
+
+/** Confirmed, then waits for `text` — a status's title or a refusal's. */
+const depositShows =
+  (text: (t: (typeof MESSAGES)[Lang]) => string) =>
+  async (page: Page, device: Device, lang: Lang) => {
+    await depositTo("confirmed")(page, device, lang);
+    await page
+      .getByText(text(MESSAGES[lang]), { exact: true })
+      .first()
+      .waitFor();
+  };
+
+/**
+ * Back from a provider's page: this tab remembered the deposit it left to pay
+ * (Prism's player's), and Prism says it is still pending, on telebirr's page.
+ */
+const depositReturn = async (page: Page) => {
+  await loginViaApi(page);
+  await page.addInitScript(() => {
+    sessionStorage.setItem(
+      "kelal.deposit",
+      JSON.stringify({
+        id: "01J9A7W0000000000000000002",
+        player: "01J9A7R0000000000000000001",
+      }),
+    );
+  });
+  await page.route(/\/api\/deposits\/[^/?]+$/, (route) =>
+    route.continue({
+      headers: { ...route.request().headers(), prefer: "example=pending" },
+    }),
+  );
+};
+
+/** The methods failing to load: Prism has no failure for them. */
+const methodsFail = async (page: Page) => {
+  await loginViaApi(page);
+  await page.route("**/api/payment-methods", (route) =>
+    route.fulfill({
+      status: 503,
+      contentType: "application/problem+json",
+      json: problemJson(503, "SERVICE_UNAVAILABLE"),
+    }),
+  );
+};
+
 /** `/b/7KQ2M9X`, loaded into the slip — the sheet opens on a phone. */
 async function loadBooking(page: Page, _device: Device, lang: Lang) {
   await page
@@ -885,6 +1019,298 @@ const SCREENS: Array<{
     allowConsole: /503/,
   },
   { name: "wallet-guest", path: "/wallet", before: staleSession },
+  {
+    name: "deposit-methods",
+    path: "/wallet?action=deposit",
+    before: loginViaApi,
+  },
+  {
+    name: "deposit-methods-failed",
+    path: "/wallet?action=deposit",
+    before: methodsFail,
+    // Retried twice, as every read is, before it says so.
+    prepare: async (page, _device, lang) => {
+      await page.getByText(MESSAGES[lang].deposit.methodsFailed).waitFor();
+    },
+    allowConsole: /503/,
+  },
+  {
+    name: "deposit-methods-empty",
+    path: "/wallet?action=deposit",
+    before: async (page) => {
+      await loginViaApi(page);
+      await page.route("**/api/payment-methods", (route) =>
+        route.fulfill({ json: [] }),
+      );
+    },
+  },
+  {
+    name: "deposit-amount-invalid",
+    path: "/wallet?action=deposit",
+    before: loginViaApi,
+    prepare: depositTo("amount", "19.99"),
+  },
+  {
+    name: "deposit-confirm",
+    path: "/wallet?action=deposit",
+    before: loginViaApi,
+    prepare: depositTo("confirm"),
+  },
+  {
+    name: "deposit-unconfirmed",
+    path: "/wallet?action=deposit",
+    before: depositAnswers("abort"),
+    prepare: depositShows((t) => t.deposit.unconfirmedTitle),
+    allowConsole: /ERR_FAILED/,
+  },
+  {
+    name: "deposit-out-of-range",
+    path: "/wallet?action=deposit",
+    before: depositAnswers([
+      422,
+      problemJson(422, "PAY_AMOUNT_OUT_OF_RANGE", {
+        // The API's own (translated) title: 500.00 is inside the method's
+        // range, so these words, not the range, say why.
+        title: "You can’t deposit this much today",
+        detail: "Your daily deposits can’t go over 300.00 ETB.",
+        errors: [{ field: "amount", code: "MAX", limit: "300.00" }],
+      }),
+    ]),
+    prepare: depositShows((t) => t.deposit.refused.amountTitle),
+    allowConsole: /422/,
+  },
+  {
+    name: "deposit-limit",
+    path: "/wallet?action=deposit",
+    before: depositAnswers([
+      403,
+      problemJson(403, "RG_LIMIT_REACHED", {
+        detail: "Your daily deposit limit of 1,000.00 ETB resets at midnight.",
+      }),
+    ]),
+    prepare: depositShows((t) => t.deposit.refused.limitTitle),
+    allowConsole: /403/,
+  },
+  {
+    name: "deposit-unavailable",
+    path: "/wallet?action=deposit",
+    before: async (page) => {
+      await loginViaApi(page);
+      // Refused as unavailable — and from then on, the methods say so.
+      let refused = false;
+      await page.route("**/api/deposits", (route) => {
+        refused = true;
+        return route.fulfill({
+          status: 422,
+          contentType: "application/problem+json",
+          json: problemJson(422, "PAY_METHOD_UNAVAILABLE"),
+        });
+      });
+      await page.route("**/api/payment-methods", async (route) => {
+        const response = await route.fetch();
+        const methods = (await response.json()) as {
+          code: string;
+          available: boolean;
+        }[];
+        await route.fulfill({
+          response,
+          json: refused
+            ? methods.map((m) =>
+                m.code === "cbebirr" ? { ...m, available: false } : m,
+              )
+            : methods,
+        });
+      });
+    },
+    prepare: depositShows((t) => t.deposit.refused.methodTitle),
+    allowConsole: /422/,
+  },
+  {
+    name: "deposit-provider-error",
+    path: "/wallet?action=deposit",
+    before: depositAnswers([502, problemJson(502, "PAY_PROVIDER_ERROR")]),
+    prepare: depositShows((t) => t.deposit.refused.providerTitle),
+    allowConsole: /502/,
+  },
+  {
+    name: "deposit-break",
+    path: "/wallet?action=deposit",
+    before: async (page) => {
+      await depositAnswers([403, problemJson(403, "RG_COOLING_OFF")])(page);
+      // On a break until 10 Oct, 18:00 EAT: the date the refusal names.
+      await page.route("**/api/me", async (route) => {
+        const response = await route.fetch();
+        const body = (await response.json()) as {
+          player: { flags: Record<string, unknown> } | null;
+        };
+        if (body.player) {
+          body.player.flags.excludedUntil = "2026-10-10T15:00:00Z";
+        }
+        await route.fulfill({ response, json: body });
+      });
+    },
+    prepare: depositShows((t) => t.deposit.refused.breakTitle),
+    allowConsole: /403/,
+  },
+  {
+    name: "deposit-kyc",
+    path: "/wallet?action=deposit",
+    before: depositAnswers([403, problemJson(403, "KYC_REQUIRED")]),
+    prepare: depositShows((t) => t.deposit.refused.kycTitle),
+    allowConsole: /403/,
+  },
+  {
+    name: "deposit-real-money",
+    path: "/wallet?action=deposit",
+    before: depositAnswers([503, problemJson(503, "REAL_MONEY_DISABLED")]),
+    prepare: depositShows((t) => t.deposit.refused.realMoneyTitle),
+    allowConsole: /503/,
+  },
+  {
+    // No answer, then a Try again the API refused: still that deposit's key.
+    name: "deposit-retry-refused",
+    path: "/wallet?action=deposit",
+    before: async (page) => {
+      await loginViaApi(page);
+      let posts = 0;
+      await page.route("**/api/deposits", (route) => {
+        posts += 1;
+        return posts === 1
+          ? route.abort("failed")
+          : route.fulfill({
+              status: 403,
+              contentType: "application/problem+json",
+              json: problemJson(403, "RG_LIMIT_REACHED", {
+                detail:
+                  "Your daily deposit limit of 1,000.00 ETB resets at midnight.",
+              }),
+            });
+      });
+    },
+    prepare: async (page, device, lang) => {
+      const t = MESSAGES[lang];
+      await depositShows((m) => m.deposit.unconfirmedTitle)(page, device, lang);
+      await page
+        .getByRole("button", {
+          name: new RegExp(`^${escape(t.deposit.retry.split(" ·")[0])}`),
+        })
+        .click();
+      await page
+        .getByText(t.deposit.refused.retryTitle, { exact: true })
+        .waitFor();
+    },
+    allowConsole: /ERR_FAILED|403/,
+  },
+  {
+    name: "deposit-starting",
+    path: "/wallet?action=deposit",
+    before: depositAnswers(
+      [201, deposit({ status: "initiated", nextAction: null })],
+      [200, deposit({ status: "initiated", nextAction: null })],
+    ),
+    prepare: depositShows((t) => t.deposit.startingTitle),
+  },
+  {
+    name: "deposit-phone",
+    path: "/wallet?action=deposit",
+    before: depositAnswers([201, deposit()], [200, deposit()]),
+    prepare: depositShows((t) => t.deposit.phoneTitle),
+  },
+  {
+    name: "deposit-web",
+    path: "/wallet?deposit=return",
+    before: depositReturn,
+  },
+  {
+    name: "deposit-unsupported",
+    path: "/wallet?action=deposit",
+    // Read as it started: Prism's default read is a completed deposit (U1).
+    before: depositAnswers(
+      [
+        201,
+        deposit({ nextAction: { type: "unsupported", reason: "app_sdk" } }),
+      ],
+      [
+        200,
+        deposit({ nextAction: { type: "unsupported", reason: "app_sdk" } }),
+      ],
+    ),
+    prepare: depositShows((t) => t.deposit.unsupportedTitle),
+  },
+  {
+    // End to end through Prism: a push to the phone, then its completed read.
+    name: "deposit-completed",
+    path: "/wallet?action=deposit",
+    before: depositPrism,
+    prepare: depositShows((t) => t.deposit.completedTitle),
+  },
+  {
+    name: "deposit-failed",
+    path: "/wallet?action=deposit",
+    before: depositAnswers(
+      [201, deposit()],
+      [
+        200,
+        deposit({
+          status: "failed",
+          nextAction: null,
+          failureReason: "Declined by the wallet",
+        }),
+      ],
+    ),
+    prepare: depositShows((t) => t.deposit.failedTitle),
+  },
+  {
+    name: "deposit-expired",
+    path: "/wallet?action=deposit",
+    before: depositAnswers(
+      [201, deposit()],
+      [200, deposit({ status: "expired", nextAction: null })],
+    ),
+    prepare: depositShows((t) => t.deposit.expiredTitle),
+  },
+  {
+    // Back from a provider with a deposit the API doesn't know for this player.
+    name: "deposit-not-found",
+    path: "/wallet?deposit=return",
+    before: async (page) => {
+      await depositReturn(page);
+      await page.route(/\/api\/deposits\/[^/?]+$/, (route) =>
+        route.fulfill({
+          status: 404,
+          contentType: "application/problem+json",
+          json: problemJson(404, "NOT_FOUND"),
+        }),
+      );
+    },
+    prepare: async (page, _device, lang) => {
+      await page
+        .getByRole("heading", { name: MESSAGES[lang].deposit.notFoundTitle })
+        .waitFor();
+    },
+    allowConsole: /404/,
+  },
+  {
+    name: "deposit-check-failed",
+    path: "/wallet?deposit=return",
+    before: async (page) => {
+      await depositReturn(page);
+      await page.route(/\/api\/deposits\/[^/?]+$/, (route) =>
+        route.fulfill({
+          status: 503,
+          contentType: "application/problem+json",
+          json: problemJson(503, "SERVICE_UNAVAILABLE"),
+        }),
+      );
+    },
+    // Retried twice, as every read is, before it says so.
+    prepare: async (page, _device, lang) => {
+      await page
+        .getByRole("heading", { name: MESSAGES[lang].deposit.checkFailedTitle })
+        .waitFor();
+    },
+    allowConsole: /503/,
+  },
   { name: "profile", path: "/profile", before: loginViaApi },
   { name: "profile-guest", path: "/profile" },
   { name: "responsible-gaming", path: "/responsible-gaming" },
@@ -970,6 +1396,13 @@ for (const [device, viewport] of Object.entries(DEVICES)) {
   for (const lang of LANGS) {
     test.describe(`${device} · ${lang}`, () => {
       test.use({ viewport });
+
+      // A screen that answers through `route.fetch()` can still have one in
+      // flight when it is done (a deposit read, a re-read of /api/me): let
+      // those go quietly instead of failing the run after the test.
+      test.afterEach(async ({ page }) => {
+        await page.unrouteAll({ behavior: "ignoreErrors" });
+      });
 
       for (const screen of SCREENS) {
         test(screen.name, async ({ page }) => {

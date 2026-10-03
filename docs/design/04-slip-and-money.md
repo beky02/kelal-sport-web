@@ -121,7 +121,28 @@ booked, marks started or suspended legs, and loads what it can.
 
 The only comparison anywhere near a balance is `lib/money.ts`'s, on strings: which lines show (above
 `"0.00"`), the slip's warning when the stake exceeds the balance (it offers Deposit; the API is what
-refuses), and amounts the player types against the method's `min`/`max` before anything is sent (F6b).
+refuses), and amounts the player types against the method's `min`/`max` before anything is sent (F6b, below).
+
+## Deposits (F6b built; C04)
+
+| Shown                | Source                                                 | Rule                                                                                                                                                                                                                                                   |
+| -------------------- | ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| A method's limits    | `/v1/payment-methods` `deposit` (`withdrawal` for F6c) | The API's strings on the tile and the amount step; a typed amount is compared with `min` and `max` through `lib/money.ts` before anything is sent; the API checks again (`PAY_AMOUNT_OUT_OF_RANGE`)                                                    |
+| The amount sent      | What the player typed                                  | Digits, one point, two decimals at most, sent in the contract's form (`"500"` → `"500.00"`); a refused amount's fix offers the API's own `errors[].limit` when it gives one, else the method's limit on that side                                      |
+| Fee, account         | — (the contract has neither for a deposit)             | Not shown: the provider's own prompt or page says what it charges                                                                                                                                                                                      |
+| The deposit's status | `/v1/deposits/{id}`, every 3 s while going             | Shown as the API says it; `completed` invalidates the balance and the history, which are read again — the only way a deposit shows in the balance. Nothing is added up in the browser: with an amount owed, the balance rises by less than the deposit |
+| The reference        | The deposit's `id`                                     | The contract has no provider reference yet (DEP-08, contract request 009)                                                                                                                                                                              |
+
+One `Idempotency-Key` per deposit intent, made when the player confirms: with no answer (no response,
+30 s, a 5xx without a deciding code, a rate limit, an unreadable reply) Try again sends the same request
+with the same key — also after the player left and came back, since the intent is kept outside the flow
+(`stores/deposit.store.ts`, per player, memory only). A Try again the API refuses keeps it too: its no
+says nothing about the first try. A first try's answer — a 201, a 4xx, `PAY_PROVIDER_ERROR`,
+`REAL_MONEY_DISABLED` — ends the intent, and the next Confirm, a fix, or another method or amount is a new
+one. A deposit that started is read until the API decides, wherever the player goes
+(`DepositFollower`), so the balance moves when the money arrives and only then. The confirm step says
+"You deposit {amount}": what goes into the wallet, not what the provider charges, which its own prompt
+or page says.
 
 ## Tickets and settlement (F5b; C10)
 

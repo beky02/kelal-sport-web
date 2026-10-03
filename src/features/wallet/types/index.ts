@@ -1,30 +1,95 @@
-/** Where a payment goes. Mobile money dominates here; gateways cover cards. */
-export type PaymentMethodKind = "mobile" | "gateway";
+/** The contract's `PaymentMethodCode`, in its order: what a deposit is sent with. */
+export const PAYMENT_METHOD_CODES = [
+  "telebirr",
+  "cbebirr",
+  "mpesa_et",
+  "chapa",
+  "arifpay",
+  "santimpay",
+  "mock",
+] as const;
+export type PaymentMethodCode = (typeof PAYMENT_METHOD_CODES)[number];
 
+/** A method's limits per transaction, as the API states them: decimal strings. */
+export interface AmountRange {
+  min: string;
+  max: string;
+}
+
+/**
+ * How the player pays (`PaymentMethod.flow`): approve a push on their phone, or
+ * pay on the provider's page or app. `other` for a flow the contract adds
+ * after this build — the tile then says nothing about it. What actually
+ * happens is the deposit's `next_action`, not this.
+ */
+export type PaymentFlow = "app_or_web" | "redirect" | "ussd_push" | "other";
+
+/** A way to pay, as `/v1/payment-methods` offers it to this player. */
 export interface PaymentMethod {
-  id: string;
-  /** Brand name, not translated. */
+  code: PaymentMethodCode;
+  /** The API's name for it (a brand, not translated here). */
   name: string;
-  /** Two or three characters for the tile. */
-  mono: string;
-  kind: PaymentMethodKind;
-  minAmount: number;
-  maxAmount: number;
-  /** Whether money can be sent back out through it. */
-  supportsWithdrawal: boolean;
+  flow: PaymentFlow;
+  /** False while the provider is down: it can't be chosen. */
+  available: boolean;
+  deposit: AmountRange;
+  /** Null when money can't be sent back out through it. */
+  withdrawal: AmountRange | null;
 }
 
 export type WalletMode = "deposit" | "withdraw";
 
-export type WalletStep =
-  "home" | "method" | "amount" | "confirm" | "pending" | "success" | "failed";
+/** Where a deposit or withdrawal flow is: its three questions, then the outcome. */
+export type FlowStep = "method" | "amount" | "confirm" | "result";
 
-/** The steps with a progress bar. The results are outcomes, not steps. */
-export const WALLET_FLOW: readonly WalletStep[] = [
-  "method",
-  "amount",
-  "confirm",
-];
+/** The steps with a progress bar. The outcome is not a step. */
+export const WALLET_FLOW: readonly FlowStep[] = ["method", "amount", "confirm"];
+
+/** The contract's `DepositStatus`, in its order. */
+export const DEPOSIT_STATUSES = [
+  "initiated",
+  "pending",
+  "completed",
+  "failed",
+  "expired",
+] as const;
+export type DepositStatus = (typeof DEPOSIT_STATUSES)[number];
+
+/**
+ * What the API says the player does next (`next_action`), as this site can
+ * follow it: leave for the provider's page — only one the server's allow-list
+ * names, over https — or approve the push on their phone. Anything else —
+ * an app-only payment (`app_sdk`), a page the allow-list doesn't name, a type
+ * the contract adds later — can't be finished on the website.
+ */
+export type DepositNextAction =
+  | { type: "redirect"; url: string }
+  | { type: "ussd_push"; message: string | null }
+  | {
+      type: "unsupported";
+      reason: "app_sdk" | "redirect_refused" | "unknown";
+    };
+
+/** A deposit as `/v1/deposits` states it. Nothing here is worked out in the browser. */
+export interface Deposit {
+  /** Ours, not the provider's: shown as the reference. */
+  id: string;
+  method: PaymentMethodCode;
+  amount: string;
+  status: DepositStatus;
+  nextAction: DepositNextAction | null;
+  /** The API's own words on why it failed, when it gave them. */
+  failureReason: string | null;
+  expiresAt: string | null;
+  createdAt: string;
+  completedAt: string | null;
+}
+
+/** What the player asks for: a method and an amount in the contract's form. */
+export interface DepositRequest {
+  method: PaymentMethodCode;
+  amount: string;
+}
 
 /**
  * The player's balances as `/v1/wallet` states them (C03 §4), decimal strings
@@ -115,9 +180,9 @@ export const HISTORY_FILTERS = [
 ] as const satisfies readonly ("all" | WalletTxnType)[];
 export type HistoryFilter = (typeof HISTORY_FILTERS)[number];
 
-/** What the payment provider said. */
+/** What the mock said about a withdrawal, until F6c moves it to `/v1/withdrawals`. */
 export interface PaymentResult {
   reference: string;
   status: "pending" | "success" | "failed";
-  amount: number;
+  amount: string;
 }

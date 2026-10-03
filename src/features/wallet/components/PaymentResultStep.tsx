@@ -3,7 +3,7 @@
 import { CircleCheck, CircleX, Clock } from "lucide-react";
 import { useTranslation } from "@/lib/i18n/use-translation";
 import { cn } from "@/lib/utils/cn";
-import type { PaymentMethod, PaymentResult, WalletMode } from "../types";
+import type { PaymentMethod, PaymentResult } from "../types";
 
 const STATUS_BADGE: Record<PaymentResult["status"], string> = {
   pending: "border-divider text-muted",
@@ -12,14 +12,12 @@ const STATUS_BADGE: Record<PaymentResult["status"], string> = {
 };
 
 /**
- * How it went.
+ * How a withdrawal went (the mock, until F6c moves it to `/v1/withdrawals`).
  *
  * Three outcomes with genuinely different next steps: keep waiting, carry on, or
- * pick another method. A failure says no money was taken, because that is the
- * first thing anyone wants to know.
+ * pick another method. Deposits have their own screen (`DepositStatus`).
  */
 export function PaymentResultStep({
-  mode,
   method,
   result,
   onDone,
@@ -28,7 +26,6 @@ export function PaymentResultStep({
   onChooseAnother,
   onCancel,
 }: {
-  mode: WalletMode;
   method: PaymentMethod;
   result: PaymentResult;
   onDone: () => void;
@@ -38,7 +35,6 @@ export function PaymentResultStep({
   onCancel: () => void;
 }) {
   const t = useTranslation();
-  const withdrawing = mode === "withdraw";
 
   const view = {
     pending: {
@@ -59,15 +55,11 @@ export function PaymentResultStep({
     success: {
       icon: <CircleCheck size={30} strokeWidth={1.5} aria-hidden />,
       tint: "text-accent",
-      title: t.t(
-        withdrawing ? "wallet.successTitleWithdraw" : "wallet.successTitle",
-      ),
-      body: withdrawing
-        ? t.t("wallet.successBodyWithdraw", {
-            amount: t.money(result.amount),
-            method: method.name,
-          })
-        : t.t("wallet.successBody", { amount: t.money(result.amount) }),
+      title: t.t("wallet.successTitleWithdraw"),
+      body: t.t("wallet.successBodyWithdraw", {
+        amount: t.money(result.amount),
+        method: method.name,
+      }),
       actions: [
         { label: t.t("wallet.done"), onClick: onDone, primary: true },
         {

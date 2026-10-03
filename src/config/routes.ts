@@ -21,6 +21,11 @@ export const routes = {
   wallet: "/wallet",
   /** Opens the wallet straight into a deposit or withdrawal. */
   walletAction: (action: "deposit" | "withdraw") => `/wallet?action=${action}`,
+  /**
+   * Where a payment provider sends the player back after a deposit
+   * (`return_url`); the wallet resumes the deposit this tab started.
+   */
+  depositReturn: "/wallet?deposit=return",
   transactions: "/transactions",
   profile: "/profile",
 

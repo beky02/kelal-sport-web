@@ -2,6 +2,20 @@ import "server-only";
 import { isIP } from "node:net";
 import { z } from "zod";
 
+/** A public host name: dot-separated labels, at least two. */
+const HOST_NAME =
+  /^(?=.{1,253}$)([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$/;
+
+/**
+ * The provider pages in the contract's own deposit examples, so a deposit
+ * against Prism can be followed in `next dev` and in the tests. Never a
+ * production default: there the list is whatever is configured, or nothing.
+ */
+const CONTRACT_EXAMPLE_PROVIDER_HOSTS = [
+  "checkout.chapa.co",
+  "app.ethiotelecom.et",
+];
+
 /**
  * Server-only configuration. Nothing here reaches the browser: the browser
  * never calls the API (D3), so it never needs to know where it is.
@@ -37,6 +51,19 @@ const schema = z.object({
    * one the trusted edge appended, never the first.
    */
   trustedProxyHops: z.number().int().nonnegative(),
+  /**
+   * The payment providers' pages a deposit may send the player to
+   * (`next_action.redirect`), as exact host names: `checkout.chapa.co`. No
+   * wildcards, no schemes, no ports — see `isAllowedProviderUrl`.
+   */
+  paymentRedirectHosts: z.array(
+    z
+      .string()
+      .regex(
+        HOST_NAME,
+        "PAYMENT_REDIRECT_HOSTS takes host names, like checkout.chapa.co",
+      ),
+  ),
 });
 
 /**
@@ -98,6 +125,22 @@ function parseHostMap(raw: string | undefined): Record<string, string> {
   );
 }
 
+/**
+ * `PAYMENT_REDIRECT_HOSTS`, comma-separated. Unset or blank: none in
+ * production — every redirect is refused until hosts are listed (fail
+ * closed) — and the contract's example hosts anywhere else.
+ */
+function paymentRedirectHosts(raw: string | undefined): string[] {
+  const listed = (raw ?? "")
+    .split(",")
+    .map((host) => host.trim().toLowerCase())
+    .filter(Boolean);
+  if (listed.length > 0) return listed;
+  return process.env.NODE_ENV === "production"
+    ? []
+    : CONTRACT_EXAMPLE_PROVIDER_HOSTS;
+}
+
 const parsed = schema.safeParse({
   apiBaseUrl: process.env.API_BASE_URL ?? "http://localhost:4010",
   apiRealUrl: process.env.API_REAL_URL || undefined,
@@ -108,6 +151,9 @@ const parsed = schema.safeParse({
   defaultTenant: process.env.DEFAULT_TENANT ?? "demo",
   tenantHostMap: parseHostMap(process.env.TENANT_HOST_MAP),
   trustedProxyHops: Number(process.env.TRUSTED_PROXY_HOPS?.trim() || "0"),
+  paymentRedirectHosts: paymentRedirectHosts(
+    process.env.PAYMENT_REDIRECT_HOSTS,
+  ),
 });
 
 if (!parsed.success) {
@@ -229,4 +275,48 @@ export function publicOrigin(headers: Headers, tenant: string): string {
         ? "http"
         : "https";
   return `${scheme}://${host}`;
+}
+
+/**
+ * The provider page a deposit may send the player to — `url` as the parser
+ * read it, so what reaches the browser is exactly what was checked — or null
+ * (09-security, Redirects). Only `https:`, on the default port, with no user
+ * name or password, and a host on the list exactly: a subdomain, a longer
+ * name ending in a listed one, or one with a trailing dot is another host.
+ * Anything that doesn't parse is refused.
+ */
+export function allowedProviderUrl(
+  url: string,
+  hosts: readonly string[] = serverConfig.paymentRedirectHosts,
+): string | null {
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return null;
+  }
+  return parsed.protocol === "https:" &&
+    parsed.username === "" &&
+    parsed.password === "" &&
+    parsed.port === "" &&
+    hosts.includes(parsed.hostname)
+    ? parsed.href
+    : null;
+}
+
+/** Whether a deposit may send the player to `url` (`allowedProviderUrl`). */
+export const isAllowedProviderUrl = (
+  url: string,
+  hosts?: readonly string[],
+): boolean => allowedProviderUrl(url, hosts) !== null;
+
+/**
+ * This site's origin for `tenant`, only when the tenant owns a host in
+ * `TENANT_HOST_MAP` — never a host a request merely arrived on. Null when it
+ * owns none: nothing built from it may point anywhere a client chose.
+ */
+export function ownedOrigin(headers: Headers, tenant: string): string | null {
+  return Object.values(serverConfig.tenantHostMap).includes(tenant)
+    ? publicOrigin(headers, tenant)
+    : null;
 }
