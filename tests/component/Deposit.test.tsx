@@ -1,10 +1,19 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { act, screen, waitFor, within } from "@testing-library/react";
+import {
+  act,
+  renderHook,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import type { ReactNode } from "react";
 import { SessionWatcher } from "@/features/auth/hooks/use-session";
 import { useAuthStore } from "@/features/auth/stores/auth.store";
 import type { Player } from "@/features/auth/types";
 import { WalletView } from "@/features/wallet/components/WalletView";
+import { useDepositAttempt } from "@/features/wallet/hooks/use-payments";
 import { useWallet } from "@/features/wallet/hooks/use-wallet";
 import { goToProvider } from "@/features/wallet/lib/provider-redirect";
 import type { Deposit } from "@/features/wallet/types";
@@ -360,6 +369,42 @@ describe("one Idempotency-Key per deposit (AC-8)", () => {
       { method: "cbebirr", amount: "600.00" },
     ]);
     expect(new Set(posted.map((p) => p.key)).size).toBe(3);
+  });
+
+  it("starts one deposit however quickly Confirm is pressed twice (AC-8)", async () => {
+    starts = [
+      [201, PHONE],
+      [201, PHONE],
+    ];
+    api();
+    const queryClient = new QueryClient({
+      defaultOptions: {
+        queries: { retry: false },
+        mutations: { retry: false },
+      },
+    });
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+    );
+    const { result } = renderHook(() => useDepositAttempt(CONTRACT_PLAYER.id), {
+      wrapper,
+    });
+    const started = vi.fn();
+    const request = { method: "cbebirr" as const, amount: "500.00" };
+
+    // Two presses in the same moment: the second sees what the first saw.
+    act(() => {
+      result.current.confirm(request, started);
+      result.current.confirm(request, started);
+    });
+
+    await waitFor(() => expect(started).toHaveBeenCalledTimes(1));
+    expect(posted).toHaveLength(1);
+    // Done with that one, the next press is a deposit of its own.
+    act(() => result.current.confirm(request, started));
+    await waitFor(() => expect(started).toHaveBeenCalledTimes(2));
+    expect(posted).toHaveLength(2);
+    expect(posted[1].key).not.toBe(posted[0].key);
   });
 
   it("asks who is signed in before Try again, and sends nothing for someone else (AC-8)", async () => {

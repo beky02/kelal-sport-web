@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import {
   useMutation,
   useQuery,
@@ -134,6 +134,9 @@ class NotTheirSession extends Error {}
 export function useDepositAttempt(owner: string | null) {
   const queryClient = useQueryClient();
   const [state, setState] = useState<AttemptState>({ phase: "idle" });
+  // One attempt on its way at a time, whatever the render says: two presses
+  // in the same moment both see `idle` until it re-renders.
+  const sending = useRef(false);
 
   const { mutate } = useMutation({
     mutationFn: async ({
@@ -159,10 +162,15 @@ export function useDepositAttempt(owner: string | null) {
       again: boolean,
       onStarted: (deposit: Deposit) => void,
     ) => {
+      if (sending.current) return;
+      sending.current = true;
       setState({ phase: "sending", attempt });
       mutate(
         { attempt, again },
         {
+          onSettled: () => {
+            sending.current = false;
+          },
           onSuccess: (deposit) => {
             // The API's own answer, kept for the status screen to start from.
             queryClient.setQueryData(paymentKeys.deposit(deposit.id), deposit);

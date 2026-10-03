@@ -1,5 +1,15 @@
 # F6b — verification
 
+## Review brief
+
+- **Server** (`src/lib/server/config.ts`, `payments.ts`, `src/app/api/payment-methods`, `deposits`, `deposits/[id]`, `lib/api/mappers/payments.ts`, `schemas.ts`): three route handlers on the F4 session; `POST /api/deposits` has `/api/bets`' gates (origin, CSRF header, JSON, 4 KiB strict body, UUID key forwarded, session) and builds `return_url` itself; a provider redirect reaches the browser only for an https host on `PAYMENT_REDIRECT_HOSTS` (exact names; none in production unless set).
+- **Browser** (`features/wallet/api/payments.ts`, `hooks/use-payments.ts`, `lib/deposit.ts`, `lib/provider-redirect.ts`): one key per intent (`useDepositAttempt`; the same on Try again after no answer, `/api/me` asked first), polling every 3 s until final, wallet and history invalidated only on `completed`; `paymentKeys` dropped with the player; the resume pointer in `sessionStorage` (id + player id).
+- **Screens** (`components/DepositFlow`, `DepositStatus`, `DepositAlert`, `MethodStep`, `AmountStep`, `ConfirmStep`, `WalletView`, `WithdrawFlow`): contract methods for both directions, every status, each refusal with its fix; withdrawals moved out unchanged on the mock (F6c).
+- **Shared** (`lib/idempotency.ts`, `lib/money.ts` `sanitiseAmount`): moved from the slip, which now imports them.
+- **Risk**: the redirect allow-list and `return_url` (open redirect); the key's lifecycle (a second deposit after no answer); the money copy on the status screens.
+- **User's decisions (plan gate)**: the status copy as proposed, DEP-09 line included; a new key after `PAY_PROVIDER_ERROR`; contract request 009 written now (provider reference, examples, the 502's key).
+- **Not done**: card payments; paying from another phone; withdrawals and payout accounts (F6c); the deposit-limit card and dialog figures (F7); brand logos (not in the contract).
+
 ## Self-review
 
 - **Money moves:** a deposit moves money only when the API says `completed` — the step to it (a poll, a
@@ -22,6 +32,7 @@
 - **Screens:** every state has a screenshot, including the two added in this review —
   `deposit-methods-empty` and `deposit-not-found`. Loading is a skeleton that keeps the layout, as on
   every screen; guest is `wallet-guest`.
+- **Double press:** two Confirms in the same moment both saw `idle` and could start two deposits with two keys; `useDepositAttempt` now holds one attempt at a time behind a ref (test above, red first).
 - **Docs:** the plan's Files and AC→tests names match the code (updated); 01, 02, 04, 05, 09, the
   translation notes and contract request 009 describe what was built.
 
@@ -53,3 +64,4 @@ Each new acceptance test, once green, was run against the behaviour it guards br
 | `Deposit` "marks a method the API says is unavailable and asks for another (AC-9)"                                                                                                            | the methods not read again after `PAY_METHOD_UNAVAILABLE`                                                                                             |
 | `Deposit` "resumes the pending deposit when the player comes back from the provider"; "forgets the deposit it came back for…"                                                                 | `?deposit=return` didn't resume                                                                                                                       |
 | `Deposit` "drops the payment methods and the deposit when another player signs in"                                                                                                            | `forgetPlayer` stopped dropping `paymentKeys.all`                                                                                                     |
+| `Deposit` "starts one deposit however quickly Confirm is pressed twice (AC-8)"                                                                                                                | written red first (two POSTs with two keys), then the in-flight guard in `useDepositAttempt`                                                          |
