@@ -1,7 +1,7 @@
 ---
 id: F5b
 title: My bets and ticket detail from the contract with cursor paging; public ticket check /t/[ticket]
-status: verifying
+status: done
 depends_on: [F5a]
 contract_tags: [Bets, Bookings]
 touches_money: true
@@ -48,11 +48,11 @@ Out: cash out (Release 2: the panel stays behind its flag, with no quote to show
 
 ## Acceptance criteria
 
-- [ ] **AC-3** The ticket in My bets shows the API's `potential_payout` / `payout` and taxes, not a
+- [x] **AC-3** The ticket in My bets shows the API's `potential_payout` / `payout` and taxes, not a
       recomputation.
-- [ ] **AC-4** `/t/R7K2-M9XP-K` renders the ticket status with JavaScript disabled.
-- [ ] **AC-5** My bets pages with `next_cursor`.
-- [ ] **AC-9** `/t/[ticket]` puts its Open Graph tags in `<head>` for Telegram's preview bot, answers 404
+- [x] **AC-4** `/t/R7K2-M9XP-K` renders the ticket status with JavaScript disabled.
+- [x] **AC-5** My bets pages with `next_cursor`.
+- [x] **AC-9** `/t/[ticket]` puts its Open Graph tags in `<head>` for Telegram's preview bot, answers 404
       in the ticket's own words for an unknown number, and redirects a typed number to its canonical path.
 
 ## Verification
@@ -63,3 +63,8 @@ Out: cash out (Release 2: the panel stays behind its flag, with no quote to show
 ## Notes
 
 - 2026-10-02: split from F5. Starts when F5a is `done` on main.
+- 2026-10-03: plan approved with the public page showing `payout` for every status and a link preview
+  without amounts. In review, the 404 for a ticket number the API doesn't know was found blank without
+  JavaScript (Next 16 renders a thrown `notFound()` in the browser); the user chose to keep the real 404.
+  Addresses with no ticket number get a 404 rendered whole by the proxy. Two review rounds; **done** —
+  evidence in `F5b/verification.md`.

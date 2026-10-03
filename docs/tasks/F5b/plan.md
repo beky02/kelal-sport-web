@@ -288,3 +288,12 @@ links to in the other, and both read the same domain `Bet` legs, results and tic
   `BookingCode.tsx`, `BookingView.tsx`, `SlipAlerts.tsx` (import), `use-session.ts`, `upstream.ts`,
   `keys.ts`, design pages 03 and 09; deleted: `RulesUnavailable.tsx` and its test.
 - **Follow-ups**: SEC3, M3, M5, U8, U10, security headers, and `/b` without JavaScript (a task chip).
+
+### Review round 2 (2026-10-03) — what changed
+
+- Focus after Show more moves only for the list's own tap; one list per tab (R1). The ticket-number
+  normaliser forgives typographic dashes (R4). The card's dash is under test (M2-r). `useMediaQuery`'s
+  subscription is stable (R3). The public 404's screenshot is `ticket-check-not-found`.
+- **Outside the file list**: `tests/component/OddsButton.test.tsx` — its break tests raced the on-mount
+  status read (2 of 15 full runs); the read is now cancelled before the break is set.
+- **Follow-ups**: the duplicate first-page read on desktop (R2), F4a's flaky wallet-redirect e2e test.
