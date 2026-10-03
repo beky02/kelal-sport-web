@@ -263,3 +263,28 @@ links to in the other, and both read the same domain `Bet` legs, results and tic
 - **Outside the file list**: `tests/unit/session.test.ts` (F4a) — "opens a tampered cookie to nothing"
   failed about 1 run in 64, when the character it "flipped" already was its replacement. It now changes
   the character for certain and asserts it did (40 runs green). It failed once in this task's gate.
+
+### Review round 1 (2026-10-03) — what changed in the design
+
+- **The ticket's 404s** (S1, Q1; plan gate 2 with the user). Next 16 renders a `notFound()` thrown by a
+  page as an empty document. An address with no ticket number in it is now answered by `src/proxy.ts`
+  before render — `NextResponse.rewrite("/t?missing=1", { status: 404 })` — so its 404 is rendered whole
+  and reads without JavaScript. A number the API doesn't know keeps `notFound()` (a real 404); its title
+  and card come from `src/app/t/not-found.tsx` (moved up from `[ticket]`, so it also gives the
+  rewritten 404 its head). Decision 12's "anything else is a 404" now has these two paths.
+- **The aside's count** (Q2, Q3, Q8) is its own first-page read (`betKeys.openCount()`), made only when
+  the aside shows (`useMediaQuery(ASIDE_QUERY)`, shared with `BookingView`), with no figure until it is in.
+  Decision 2 holds; the count no longer shares the paged list.
+- **Sessions changing hands** (SEC1, SEC2): the caches go on any change of player; `both()` waits for both
+  reads so a refreshed session's cookie always goes out.
+- **Smaller**: total odds unbounded (M1); payout states under test (M2); only `NOT_FOUND` means "not on
+  your account" (Q7); focus after Show more (Q4); `<h1>` on the public 404s (Q5); memoised cards (Q6);
+  one leg row and kind label (Q9); wrapping on cards (U2); the cash-out preview's bet type (M4).
+- **Files added**: `src/lib/utils/use-media-query.ts`, `src/features/bets/components/TicketLeg.tsx`,
+  `src/features/tickets/lib/figures.ts`, `tests/unit/bets-figures.test.ts` (new content),
+  `tests/component/TicketCheck.test.tsx`; moved: `use-date-time-text.ts` to `lib/i18n`,
+  `t/[ticket]/not-found.tsx` to `t/not-found.tsx`; changed beyond the list: `src/proxy.ts`,
+  `tests/unit/proxy.test.ts`, `src/components/feedback/StateMessage.tsx`, `MobileTabBar.tsx`,
+  `BookingCode.tsx`, `BookingView.tsx`, `SlipAlerts.tsx` (import), `use-session.ts`, `upstream.ts`,
+  `keys.ts`, design pages 03 and 09; deleted: `RulesUnavailable.tsx` and its test.
+- **Follow-ups**: SEC3, M3, M5, U8, U10, security headers, and `/b` without JavaScript (a task chip).
