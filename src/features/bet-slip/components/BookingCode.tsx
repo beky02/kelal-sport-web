@@ -77,7 +77,7 @@ export function BookingCode({
           )}
           target="_blank"
           rel="noopener noreferrer"
-          className="bg-telegram font-body flex h-11 items-center justify-center gap-2 rounded-md text-[13px] font-bold text-white"
+          className="bg-telegram font-body flex h-11 items-center justify-center gap-2 rounded-md px-2 text-center text-[13px] leading-tight font-bold text-white"
         >
           <Send size={15} strokeWidth={1.5} aria-hidden />
           {t.t("betSlip.shareTelegram")}

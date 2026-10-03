@@ -468,7 +468,6 @@
       "open": "ክፍት",
       "win": "አሸንፏል",
       "lose": "ተሸንፏል",
-      "void": "ተሰርዟል",
       "half_win": "ግማሽ አሸንፏል",
       "half_lose": "ግማሽ ተሸንፏል"
     },
@@ -695,7 +694,7 @@
     "numberLabel": "የትኬት ቁጥር",
     "numberPlaceholder": "ለምሳሌ K7Q2-M9XP-M",
     "check": "አረጋግጥ",
-    "invalid": "የትኬት ቁጥር 9 ፊደላትና ቁጥሮች ነው፤ ለምሳሌ K7Q2-M9XP-M። ያረጋግጡና እንደገና ይሞክሩ።",
+    "invalid": "የትኬት ቁጥር 9 ፊደላትና ቁጥሮች ነው፤ ለምሳሌ K7Q2‑M9XP‑M። ያረጋግጡና እንደገና ይሞክሩ።",
     "pageTitle": "ትኬት {ticket}",
     "notFoundTitle": "በዚህ ቁጥር የተመዘገበ ትኬት የለም",
     "notFoundBody": "ቁጥር {ticket}ን ያረጋግጡና እንደገና ይሞክሩ።",

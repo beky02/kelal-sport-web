@@ -402,6 +402,67 @@ const myBetsAnswer = (status: number, json: unknown) => async (page: Page) => {
   );
 };
 
+/**
+ * A guest on My bets: a session cookie the proxy lets through (it only looks
+ * for one) but the API doesn't honour, so `/api/me` says nobody — as when a
+ * session ends with the page open.
+ */
+const staleSession = async (page: Page) => {
+  await page.context().addCookies([
+    {
+      name: "kelal.session",
+      value: "v1.stale",
+      url: "http://localhost:3000",
+    },
+  ]);
+};
+
+/** My bets, with the next page failing. */
+const myBetsMoreFails = async (page: Page) => {
+  await myBets({ more: true })(page);
+  await page.route(/\/api\/bets\?.*cursor=/, (route) =>
+    route.fulfill({
+      status: 503,
+      contentType: "application/problem+json",
+      json: {
+        type: "about:blank",
+        title: "The sportsbook API could not be reached",
+        status: 503,
+        code: "SERVICE_UNAVAILABLE",
+      },
+    }),
+  );
+};
+
+const showMoreFails = async (page: Page, _device: Device, lang: Lang) => {
+  const t = MESSAGES[lang];
+  await page.getByRole("button", { name: t.bets.showMore }).first().click();
+  // Retried twice, as every read is, before it says so.
+  await page.getByText(t.bets.moreFailed).first().waitFor();
+};
+
+/** The ticket detail, answered by the browser: not on this account, or failing. */
+const ticketAnswer = (status: number, code: string) => async (page: Page) => {
+  await loginViaApi(page);
+  await page.route(/\/api\/bets\/01J9A7V0000000000000000001/, (route) =>
+    route.fulfill({
+      status,
+      contentType: "application/problem+json",
+      json: { type: "about:blank", title: code, status, code },
+    }),
+  );
+};
+
+const waitForTicketFailure = async (
+  page: Page,
+  _device: Device,
+  lang: Lang,
+) => {
+  await page
+    .getByRole("heading", { name: MESSAGES[lang].bets.ticketFailedTitle })
+    .waitFor();
+};
+
 /** A failed read is retried twice (the app's default) before it says so. */
 const waitForBetsFailure = async (page: Page, _device: Device, lang: Lang) => {
   await page
@@ -608,13 +669,44 @@ const SCREENS: Array<{
     allowConsole: /503/,
   },
   {
+    name: "my-bets-guest",
+    path: "/my-bets",
+    before: staleSession,
+  },
+  {
+    name: "my-bets-more-failed",
+    path: "/my-bets",
+    before: myBetsMoreFails,
+    prepare: showMoreFails,
+    allowConsole: /503/,
+  },
+  {
     name: "ticket",
     path: "/my-bets/01J9A7V0000000000000000001",
     before: loginViaApi,
   },
+  {
+    name: "ticket-not-found",
+    path: "/my-bets/01J9A7V0000000000000000001",
+    before: ticketAnswer(404, "NOT_FOUND"),
+    allowConsole: /404/,
+  },
+  {
+    name: "ticket-failed",
+    path: "/my-bets/01J9A7V0000000000000000001",
+    before: ticketAnswer(503, "SERVICE_UNAVAILABLE"),
+    prepare: waitForTicketFailure,
+    allowConsole: /503/,
+  },
   { name: "ticket-check", path: "/t/K7Q2-M9XP-M" },
   { name: "ticket-check-form", path: "/t" },
   { name: "ticket-check-invalid", path: "/t?ticket=K7Q2-M9XP-X" },
+  {
+    // No ticket number in the address: the proxy's 404, rendered whole.
+    name: "ticket-check-not-a-number",
+    path: "/t/K7Q2-M9XP-X",
+    allowConsole: /status of 404/,
+  },
   {
     name: "ticket-check-failed",
     path: "/t/K7Q2-M9XP-M",

@@ -129,8 +129,10 @@ as built in F5b, nothing on a ticket is recomputed: no net stake, no gross, no r
 contract's `Bet` doesn't carry. A figure the API didn't send shows "—", never 0.00. "Payout", not "net
 payout": the contract doesn't say whether payout taxes are out of it (contract request 007, which also
 asks for `rules_version`). Void legs read "counted at odds 1.00" (D1.5); all void refunds the net stake
-(SET-02, D1.9) — the API's `payout` says so. Cash out is Release 2: the panel waits for the server's
-quote, never slipcalc on the remaining stake.
+(SET-02, D1.9) — the API's `payout` says so. Cash out is Release 2: the panel shows nothing until the
+server quotes a value (the contract has no quote yet); its preview of what stays on the bet is still
+slipcalc on the remaining stake, as the ticket's own type, until the server quotes that too (F3a review
+M4).
 
 ## Formats (06-language)
 

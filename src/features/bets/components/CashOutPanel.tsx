@@ -70,15 +70,18 @@ export function CashOutPanel({
   const amount = share(quote.amount, part.numerator, part.denominator);
   // What stays on the bet is the remaining stake priced by slipcalc, not a
   // share of today's payout: the win-tax threshold is all-or-nothing (D1.8).
-  // To be replaced by the server's own quote for the rest (F3a review, M4).
-  const remaining = rules
-    ? settleBet(
-        bet.legs.length === 1 ? "single" : "multiple",
-        bet.legs.map((leg) => ({ odds: leg.odds, result: leg.result })),
-        share(bet.stake, part.denominator - part.numerator, part.denominator),
-        rules,
-      )
-    : null;
+  // Priced as the ticket's own type; a system bet's sizes it can't price, so
+  // nothing is shown for one. To be replaced by the server's own quote for
+  // the rest when cash out is built (F3a review, M4).
+  const remaining =
+    rules && bet.betType !== "system"
+      ? settleBet(
+          bet.betType,
+          bet.legs.map((leg) => ({ odds: leg.odds, result: leg.result })),
+          share(bet.stake, part.denominator - part.numerator, part.denominator),
+          rules,
+        )
+      : null;
   const rest = remaining?.ok ? remaining.quote.netPayout : null;
   const buttonHeight = size === "ticket" ? "h-12" : "h-11";
 

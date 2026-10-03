@@ -4,6 +4,46 @@ import { translate } from "@/lib/i18n";
 import { pickLocale, type Lang } from "@/types/common";
 import type { TicketLookup } from "../types";
 
+interface PageLocale {
+  lang: Lang;
+  /** The tenant's brand; null when config could not be read — no other brand stands in. */
+  siteName: string | null;
+  /** The canonical link, absolute; left out where there is none to give. */
+  url?: string;
+}
+
+// Tickets are passed hand to hand; they are not pages to find by searching.
+const robots = { index: false, follow: false };
+
+const titled = (title: string, siteName: string | null) =>
+  siteName ? `${title} · ${siteName}` : title;
+
+/**
+ * The 404's title and card — for a number no ticket has, and for an address
+ * with no ticket number in it. Both are rendered on the server, so a link
+ * preview says so in the tenant's language rather than showing the site's
+ * generic card.
+ */
+export function ticketNotFoundMetadata({
+  lang,
+  siteName,
+  url,
+}: PageLocale): Metadata {
+  const title = translate(lang, "ticket.og.notFound");
+  return {
+    title: titled(title, siteName),
+    description: title,
+    robots,
+    openGraph: {
+      title,
+      description: title,
+      type: "website",
+      ...(url ? { url } : {}),
+      ...(siteName ? { siteName } : {}),
+    },
+  };
+}
+
 /**
  * The `/t/{ticket}` page's title and Open Graph tags — what Telegram shows when
  * a ticket is shared. In one language: the page's (the tenant's default until
@@ -12,22 +52,9 @@ import type { TicketLookup } from "../types";
  */
 export function ticketMetadata(
   lookup: TicketLookup,
-  {
-    lang,
-    siteName,
-    url,
-  }: {
-    lang: Lang;
-    /** The tenant's brand; null when config could not be read — no other brand stands in. */
-    siteName: string | null;
-    /** The canonical link, absolute. */
-    url: string;
-  },
+  page: PageLocale,
 ): Metadata {
-  // Tickets are passed hand to hand; they are not pages to find by searching.
-  const robots = { index: false, follow: false };
-  const titled = (title: string) =>
-    siteName ? `${title} · ${siteName}` : title;
+  const { lang, siteName, url } = page;
   const site = siteName ? { siteName } : {};
 
   switch (lookup.status) {
@@ -37,18 +64,12 @@ export function ticketMetadata(
       return {
         title: titled(
           translate(lang, "ticket.pageTitle", { ticket: lookup.ticketId }),
+          siteName,
         ),
         robots,
       };
-    case "not_found": {
-      const title = translate(lang, "ticket.og.notFound");
-      return {
-        title: titled(title),
-        description: title,
-        robots,
-        openGraph: { title, description: title, url, type: "website", ...site },
-      };
-    }
+    case "not_found":
+      return ticketNotFoundMetadata(page);
     case "ok": {
       const { ticket } = lookup;
       const matches = [
@@ -62,10 +83,16 @@ export function ticketMetadata(
         matches: matches.join(" · "),
       });
       return {
-        title: titled(title),
+        title: titled(title, siteName),
         description,
         robots,
-        openGraph: { title, description, url, type: "website", ...site },
+        openGraph: {
+          title,
+          description,
+          type: "website",
+          ...(url ? { url } : {}),
+          ...site,
+        },
       };
     }
   }

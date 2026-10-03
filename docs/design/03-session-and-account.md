@@ -43,7 +43,9 @@ placeholder, the slip's button waits, My bets does not send a player to log in. 
 
 The proxy (`src/proxy.ts`) only redirects a visitor with no session cookie away from `/my-bets`,
 `/wallet` and `/transactions` to `/login?next=…`; it opens nothing and decides nothing. Every route
-handler reads the session itself and the API checks every token (C18 §4.4, CVE-2025-29927).
+handler reads the session itself and the API checks every token (C18 §4.4, CVE-2025-29927). Its one
+other job is public: `/t/{x}` with no ticket number in it gets a 404 rendered whole (08-performance,
+"Without JavaScript").
 
 ## Caches and identity
 

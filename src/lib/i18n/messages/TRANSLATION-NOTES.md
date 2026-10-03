@@ -379,7 +379,7 @@ cancelled took `ተቋርጧል` ("discontinued") — please check both read rig
 | `ticket.numberLabel`          | የትኬት ቁጥር                                                       | `bets.ticketId` (design)                              |
 | `ticket.numberPlaceholder`    | ለምሳሌ K7Q2-M9XP-M                                               | `booking.invalidCode` (ለምሳሌ)                          |
 | `ticket.check`                | አረጋግጥ                                                          | imperative, as the slip's buttons                     |
-| `ticket.invalid`              | የትኬት ቁጥር 9 ፊደላትና ቁጥሮች ነው፤ ለምሳሌ K7Q2-M9XP-M። ያረጋግጡና እንደገና ይሞክሩ። | `booking.invalidCode`, `booking.notFoundBodyNoCode`   |
+| `ticket.invalid`              | የትኬት ቁጥር 9 ፊደላትና ቁጥሮች ነው፤ ለምሳሌ K7Q2‑M9XP‑M። ያረጋግጡና እንደገና ይሞክሩ። | `booking.invalidCode`, `booking.notFoundBodyNoCode`   |
 | `ticket.pageTitle`            | ትኬት {ticket}                                                   | `betSlip.ticket`                                      |
 | `ticket.notFoundTitle`        | በዚህ ቁጥር የተመዘገበ ትኬት የለም                                         | `booking.notFoundTitle`, ኮድ → ቁጥር                     |
 | `ticket.notFoundBody`         | ቁጥር {ticket}ን ያረጋግጡና እንደገና ይሞክሩ።                               | `booking.notFoundBody`                                |
@@ -390,5 +390,6 @@ cancelled took `ተቋርጧል` ("discontinued") — please check both read rig
 | `ticket.shareText`            | ትኬት {ticket}                                                   | `booking.shareText`'s shape                           |
 | `ticket.og.notFound`          | በዚህ ቁጥር የተመዘገበ ትኬት የለም።                                        | `ticket.notFoundTitle`                                |
 
-`ticket.og.description` is `{status} · {matches}` in both languages (symbolic in `i18n.test.ts`): the
+The example number in `ticket.invalid` uses non-breaking hyphens (U+2011) in both languages, so it never
+breaks across lines. `ticket.og.description` is `{status} · {matches}` in both languages (symbolic in `i18n.test.ts`): the
 status is filled from `bets.status.*`, the matches are the API's names.

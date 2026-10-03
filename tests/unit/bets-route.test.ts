@@ -554,6 +554,36 @@ describe("GET /api/bets", () => {
   });
 });
 
+describe("Prefer on the reads (Q12)", () => {
+  it("forwards Prism's Prefer on both reads under next dev only", async () => {
+    const mod = await load();
+    upstreamAnswers((request) => ({
+      status: 200,
+      body: path(request).startsWith("/v1/bets/")
+        ? example("/v1/bets/{id}")
+        : example("/v1/bets"),
+    }));
+    const prefer = { prefer: "code=401" };
+
+    vi.stubEnv("NODE_ENV", "development");
+    await list(mod, "?status=open", reading(mod, prefer));
+    await one(mod, "01J9A7V0000000000000000001", reading(mod, prefer));
+    expect(sent).toHaveLength(4);
+    expect(sent.map((r) => r.headers.get("prefer"))).toEqual(
+      Array(4).fill("code=401"),
+    );
+
+    // Any other build forwards nothing.
+    vi.stubEnv("NODE_ENV", "test");
+    sent = [];
+    await list(mod, "?status=open", reading(mod, prefer));
+    await one(mod, "01J9A7V0000000000000000001", reading(mod, prefer));
+    expect(sent.map((r) => r.headers.get("prefer"))).toEqual(
+      Array(4).fill(null),
+    );
+  });
+});
+
 describe("GET /api/bets/[id]", () => {
   it("reads one bet in both languages with the player's token", async () => {
     const mod = await load();

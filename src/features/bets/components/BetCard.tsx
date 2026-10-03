@@ -1,5 +1,6 @@
 "use client";
 
+import { memo } from "react";
 import Link from "next/link";
 import { useTranslation } from "@/lib/i18n/use-translation";
 import { routes } from "@/config/routes";
@@ -17,9 +18,11 @@ import { CashOutPanel } from "./CashOutPanel";
  *
  * Reads top to bottom as a person would ask it: what state is it in, what did I
  * pick, what did it cost and what is it worth — every figure the API's own.
- * Tax is spelled out on a bet that won, once the API has decided it.
+ * Tax is spelled out on a bet that won, once the API has decided it. Memoised:
+ * a page of My bets arriving, or a refetch, leaves cards whose bet is the same
+ * object alone.
  */
-export function BetCard({ bet }: { bet: Bet }) {
+export const BetCard = memo(function BetCard({ bet }: { bet: Bet }) {
   const t = useTranslation();
   const when = useDateTimeText();
   const payout = payoutView(bet);
@@ -32,7 +35,7 @@ export function BetCard({ bet }: { bet: Bet }) {
       >
         <span className="flex w-full items-center gap-2">
           <BetStatusBadge status={bet.status} />
-          <span className="min-w-0 flex-1 truncate text-xs font-semibold">
+          <span className="min-w-0 flex-1 text-xs font-semibold">
             {betKindLabel(kindOf(bet), t)}
           </span>
           <span className="text-muted numeric text-[11px] whitespace-nowrap">
@@ -55,7 +58,8 @@ export function BetCard({ bet }: { bet: Bet }) {
                     {t.pick(leg.market)}
                   </span>
                 </span>
-                <span className="text-muted truncate text-[11px]">
+                {/* Wraps rather than cuts: "counted at odds 1.00" is the point. */}
+                <span className="text-muted text-[11px] break-words">
                   {t.pick(leg.match)} ·{" "}
                   {leg.result === "open"
                     ? when(leg.startTime)
@@ -114,4 +118,4 @@ export function BetCard({ bet }: { bet: Bet }) {
       )}
     </div>
   );
-}
+});

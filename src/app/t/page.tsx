@@ -5,6 +5,8 @@ import { SportsbookShell } from "@/components/layout/SportsbookShell";
 import { Card } from "@/components/ui/Card";
 import { routes } from "@/config/routes";
 import { TicketCheckForm } from "@/features/tickets/components/TicketCheckForm";
+import { TicketUnavailable } from "@/features/tickets/components/TicketUnavailable";
+import { ticketNotFoundMetadata } from "@/features/tickets/lib/metadata";
 import { normaliseTicketNumber } from "@/features/tickets/lib/number";
 import { translate } from "@/lib/i18n";
 import { tenantFromHeaders } from "@/lib/server/config";
@@ -13,12 +15,15 @@ import { loadPageLocale } from "@/lib/server/public-config";
 /** Longer than any number typed with spaces and hyphens; longer is not one. */
 const MAX_TYPED = 32;
 
-export async function generateMetadata(): Promise<Metadata> {
-  const { lang, siteName } = await loadPageLocale(
-    tenantFromHeaders(await headers()),
-  );
-  const title = translate(lang, "ticket.checkTitle");
-  return { title: siteName ? `${title} · ${siteName}` : title };
+export async function generateMetadata({
+  searchParams,
+}: PageProps<"/t">): Promise<Metadata> {
+  const locale = await loadPageLocale(tenantFromHeaders(await headers()));
+  if ((await searchParams).missing !== undefined) {
+    return ticketNotFoundMetadata(locale);
+  }
+  const title = translate(locale.lang, "ticket.checkTitle");
+  return { title: locale.siteName ? `${title} · ${locale.siteName}` : title };
 }
 
 /**
@@ -31,7 +36,22 @@ export async function generateMetadata(): Promise<Metadata> {
 export default async function TicketCheckPage({
   searchParams,
 }: PageProps<"/t">) {
-  const value = (await searchParams).ticket;
+  const query = await searchParams;
+
+  // `/t/{x}` with no ticket number in it, rewritten here by the proxy with
+  // its 404 status (`src/proxy.ts`): the ticket's own 404, rendered whole.
+  if (query.missing !== undefined) {
+    return (
+      <SportsbookShell>
+        <Card className="divide-divider flex flex-col divide-y overflow-hidden">
+          <TicketUnavailable status="not_found" ticketId={null} />
+          <TicketCheckForm variant="another" />
+        </Card>
+      </SportsbookShell>
+    );
+  }
+
+  const value = query.ticket;
   const typed = Array.isArray(value) ? value[0] : value;
   const entered = typed !== undefined && typed.trim() !== "";
   if (entered) {

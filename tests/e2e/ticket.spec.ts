@@ -1,4 +1,6 @@
 import { expect, test } from "@playwright/test";
+import en from "../../src/lib/i18n/messages/en.json";
+import am from "../../src/lib/i18n/messages/am.json";
 
 /**
  * The public ticket check `/t/{ticket}` against the dev server and Prism (AC-4,
@@ -9,6 +11,11 @@ import { expect, test } from "@playwright/test";
 const TELEGRAM = "TelegramBot (like TwitterBot)";
 
 const head = (html: string) => html.split("</head>")[0];
+
+/** The 404's preview title, in whichever language the tenant defaults to. */
+const NOT_FOUND_OG = new RegExp(
+  `<meta property="og:title" content="(${en.ticket.og.notFound}|${am.ticket.og.notFound})"`,
+);
 
 test("serves /t/K7Q2-M9XP-M with Open Graph tags in the head for Telegram's preview bot (AC-9)", async ({
   request,
@@ -36,8 +43,9 @@ test.describe("without JavaScript", () => {
   }) => {
     const response = await page.goto("/t/R7K2-M9XP-K");
     expect(response?.status()).toBe(200);
+    // Prism answers every number with its one example (plan decision 14).
     await expect(page.getByRole("heading", { level: 1 })).toHaveText(
-      /^Ticket [0-9A-Z]{4}-[0-9A-Z]{4}-[0-9A-Z]$/,
+      "Ticket K7Q2-M9XP-M",
     );
     await expect(page.getByTestId("ticket-status")).toHaveText("Won");
     await expect(page.getByText("Arsenal v Chelsea")).toBeVisible();
@@ -69,6 +77,60 @@ test.describe("without JavaScript", () => {
     // What was typed is not repeated: a crafted link could carry anything.
     await expect(page.getByText("K7Q2-M9XP-X")).toHaveCount(0);
   });
+
+  test("answers 404 in the ticket's words for a number whose check character is wrong, without looking it up (AC-9)", async ({
+    page,
+  }) => {
+    // Prism would answer any number it was asked about with its example: a
+    // 404 here means nothing was asked.
+    const response = await page.goto("/t/K7Q2-M9XP-X");
+    expect(response?.status()).toBe(404);
+    await expect(
+      page.getByRole("heading", {
+        level: 1,
+        name: "No ticket with this number",
+      }),
+    ).toBeVisible();
+    await expect(
+      page.getByText("Check the number and try again."),
+    ).toBeVisible();
+    // The way on works without JavaScript too: the plain form.
+    await expect(page.getByLabel("Ticket number")).toBeVisible();
+    await expect(page.getByText("K7Q2-M9XP-X")).toHaveCount(0);
+  });
+
+  test("never repeats text from the address that isn't a ticket number", async ({
+    page,
+  }) => {
+    const response = await page.goto(
+      "/t/CALL%200911000000%20TO%20CLAIM%20YOUR%20WIN",
+    );
+    expect(response?.status()).toBe(404);
+    await expect(
+      page.getByText("Check the number and try again."),
+    ).toBeVisible();
+    await expect(page.getByText(/0911000000/)).toHaveCount(0);
+  });
+});
+
+test("gives Telegram's preview bot the 404's own title for an address that isn't a ticket number (AC-9)", async ({
+  request,
+}) => {
+  const response = await request.get("/t/K7Q2-M9XP-X", {
+    headers: { "User-Agent": TELEGRAM },
+  });
+  expect(response.status()).toBe(404);
+  expect(head(await response.text())).toMatch(NOT_FOUND_OG);
+});
+
+test("gives Telegram's preview bot the 404's own title for a number no ticket has (AC-9)", async ({
+  request,
+}) => {
+  const response = await request.get("/t/K7Q2-M9XP-M", {
+    headers: { "User-Agent": TELEGRAM, prefer: "code=404" },
+  });
+  expect(response.status()).toBe(404);
+  expect(head(await response.text())).toMatch(NOT_FOUND_OG);
 });
 
 test("answers 404 for an unknown number, in the ticket's words (AC-9)", async ({
@@ -103,31 +165,14 @@ test("answers 404 for an unknown number, in the ticket's words (AC-9)", async ({
   });
 });
 
-test("answers 404 for a number whose check character is wrong, without looking it up", async ({
-  page,
-}) => {
-  // Prism would answer any number it was asked about with its example: a
-  // 404 here means nothing was asked.
-  const response = await page.goto("/t/K7Q2-M9XP-X");
-  expect(response?.status()).toBe(404);
-  await expect(page.getByText("Check the number and try again.")).toBeVisible();
-  await expect(page.getByText("K7Q2-M9XP-X")).toHaveCount(0);
-});
-
-test("never repeats text from the address that isn't a ticket number", async ({
-  page,
-}) => {
-  const response = await page.goto(
-    "/t/CALL%200911000000%20TO%20CLAIM%20YOUR%20WIN",
-  );
-  expect(response?.status()).toBe(404);
-  await expect(page.getByText("Check the number and try again.")).toBeVisible();
-  await expect(page.getByText(/0911000000/)).toHaveCount(0);
-});
-
 test("redirects a typed number to its canonical path (AC-9)", async ({
   page,
+  request,
 }) => {
+  const answer = await request.get("/t/k7q2m9xpm", { maxRedirects: 0 });
+  expect(answer.status()).toBe(307);
+  expect(answer.headers().location).toMatch(/\/t\/K7Q2-M9XP-M$/);
+
   await page.goto("/t/k7q2m9xpm");
   await expect(page).toHaveURL(/\/t\/K7Q2-M9XP-M$/);
 

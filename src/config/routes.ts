@@ -12,6 +12,8 @@ export const routes = {
   ticket: (ticketId: string) => `/t/${encodeURIComponent(ticketId)}`,
   /** The ticket check's form; `?ticket=` sends a typed number to `ticket()`. */
   ticketCheck: "/t",
+  /** Where the proxy renders `/t/{x}`'s 404 when x is no ticket number. */
+  ticketMissing: "/t?missing=1",
 
   myBets: "/my-bets",
   bet: (id: string) => `/my-bets/${id}`,

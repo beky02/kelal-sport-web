@@ -7,8 +7,8 @@ import { useTranslation } from "@/lib/i18n/use-translation";
 
 /**
  * `/t/{ticket}` when there is no ticket to show: no ticket has the number, or
- * the check failed. A failure's Try again is a link to the same address, so
- * it works without JavaScript too.
+ * the check failed — the page's own heading. A failure's Try again is a link
+ * to the same address, so it works without JavaScript too.
  */
 export function TicketUnavailable({
   status,
@@ -23,6 +23,7 @@ export function TicketUnavailable({
   if (status === "not_found") {
     return (
       <StateMessage
+        level={1}
         icon={<SearchX size={24} strokeWidth={1.5} />}
         title={t.t("ticket.notFoundTitle")}
         body={
@@ -35,6 +36,7 @@ export function TicketUnavailable({
   }
   return (
     <StateMessage
+      level={1}
       icon={<TriangleAlert size={24} strokeWidth={1.5} />}
       title={t.t("ticket.failedTitle")}
       body={t.t("ticket.failedBody")}

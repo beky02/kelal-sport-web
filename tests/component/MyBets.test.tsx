@@ -39,7 +39,7 @@ const page = (items: ApiBet[], nextCursor: string | null = null) => {
 };
 const bet = (raw: ApiBet) => toBet({ en: raw, am: raw });
 
-type Answer = [number, unknown] | "drop";
+type Answer = [number, unknown] | "drop" | Promise<[number, unknown]>;
 
 /** Every request to this app's `/api/bets…`, in order — the request log. */
 let requests: URL[] = [];
@@ -60,7 +60,7 @@ function answers(routes: Record<string, Answer[]>) {
     if (!queue) throw new Error(`no answer for ${url.pathname}${url.search}`);
     const answer = queue.length > 1 ? queue.shift()! : queue[0];
     if (answer === "drop") throw new TypeError("Failed to fetch");
-    const [status, body] = answer;
+    const [status, body] = await answer;
     return Response.json(body, {
       status,
       headers: {
@@ -175,6 +175,63 @@ describe("My bets", () => {
     ]);
   });
 
+  it("moves focus to the first new ticket once Show more has brought it (Q4)", async () => {
+    answers({
+      [OPEN_LIST]: [[200, page([OPEN()], "c2")]],
+      [`${OPEN_LIST}&cursor=c2`]: [
+        [
+          200,
+          page([
+            OPEN({
+              id: "01J9A7V0000000000000000003",
+              ticket_id: "R7K2-M9XP-K",
+            }),
+          ]),
+        ],
+      ],
+    });
+    render(<MyBetsView />);
+
+    await userEvent.click(
+      await screen.findByRole("button", { name: "Show more" }),
+    );
+
+    await waitFor(() => expect(cards()).toHaveLength(2));
+    // The button is gone with the last page; focus isn't left on <body>.
+    await waitFor(() =>
+      expect(within(cards()[1]).getByRole("link")).toHaveFocus(),
+    );
+  });
+
+  it("asks for the next page once, however often Show more is tapped while it loads (Q12)", async () => {
+    let deliver: (answer: [number, unknown]) => void = () => {};
+    answers({
+      [OPEN_LIST]: [[200, page([OPEN()], "c2")]],
+      [`${OPEN_LIST}&cursor=c2`]: [
+        new Promise((resolve) => {
+          deliver = resolve;
+        }),
+      ],
+    });
+    render(<MyBetsView />);
+    const more = await screen.findByRole("button", { name: "Show more" });
+
+    await userEvent.click(more);
+    await userEvent.click(more);
+    await userEvent.click(more);
+    deliver([
+      200,
+      page([
+        OPEN({ id: "01J9A7V0000000000000000003", ticket_id: "R7K2-M9XP-K" }),
+      ]),
+    ]);
+
+    await waitFor(() => expect(cards()).toHaveLength(2));
+    expect(
+      requests.filter((url) => url.searchParams.has("cursor")),
+    ).toHaveLength(1);
+  });
+
   it("says when the next page didn't load, and tries it again", async () => {
     answers({
       [OPEN_LIST]: [[200, page([OPEN()], "c2")]],
@@ -199,6 +256,12 @@ describe("My bets", () => {
 
     const alert = await screen.findByRole("alert");
     expect(alert).toHaveTextContent("Couldn’t load more bets.");
+    // Show more is gone: focus goes to the way on, not to <body> (Q4).
+    await waitFor(() =>
+      expect(
+        within(alert).getByRole("button", { name: "Try again" }),
+      ).toHaveFocus(),
+    );
     // The page already shown stays.
     expect(cards()).toHaveLength(1);
     await userEvent.click(

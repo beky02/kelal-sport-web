@@ -468,7 +468,6 @@
       "open": "Open",
       "win": "Won",
       "lose": "Lost",
-      "void": "Void",
       "half_win": "Half won",
       "half_lose": "Half lost"
     },
@@ -695,7 +694,7 @@
     "numberLabel": "Ticket number",
     "numberPlaceholder": "e.g. K7Q2-M9XP-M",
     "check": "Check",
-    "invalid": "A ticket number has 9 letters and numbers, like K7Q2-M9XP-M. Check it and try again.",
+    "invalid": "A ticket number has 9 letters and numbers, like K7Q2‑M9XP‑M. Check it and try again.",
     "pageTitle": "Ticket {ticket}",
     "notFoundTitle": "No ticket with this number",
     "notFoundBody": "Check number {ticket} and try again.",

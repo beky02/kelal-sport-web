@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { CircleAlert, Loader2, Ticket, TriangleAlert } from "lucide-react";
 import { useTranslation } from "@/lib/i18n/use-translation";
 import { StateMessage } from "@/components/feedback/StateMessage";
@@ -84,10 +84,40 @@ function BetList({
   const t = useTranslation();
   const bets = useBets(tab, enabled);
   const items = bets.data?.pages.flatMap((page) => page.items) ?? [];
+  const list = useRef<HTMLUListElement>(null);
+  const retry = useRef<HTMLButtonElement>(null);
+  /** Where the page Show more asked for begins, until it is on screen. */
+  const firstNew = useRef<number | null>(null);
+
+  // Show more goes away with the last page, or gives way to "couldn't load
+  // more": either way the focus it held must land somewhere useful, not on
+  // <body> — the first new ticket, or the way to try again.
+  useEffect(() => {
+    const at = firstNew.current;
+    if (at === null || items.length <= at) return;
+    firstNew.current = null;
+    list.current?.querySelectorAll<HTMLElement>(":scope > li a")[at]?.focus();
+  }, [items.length]);
+  useEffect(() => {
+    if (bets.isFetchNextPageError) retry.current?.focus();
+  }, [bets.isFetchNextPageError]);
+
+  // Laid out as the tickets will be, so nothing jumps when they land.
+  const layout = compact
+    ? "flex flex-col"
+    : // Two across where there is room: a ticket is tall, and a single
+      // column of them scrolls forever on a desktop.
+      "grid items-start xl:grid-cols-2";
 
   if (bets.isPending) {
     return (
-      <div className="flex flex-col gap-3 p-3.5">
+      <div
+        className={cn(
+          "gap-3",
+          layout,
+          compact ? "p-3 pb-6" : "px-4 pt-3.5 pb-6",
+        )}
+      >
         {Array.from({ length: 2 }, (_, i) => (
           <Skeleton key={i} className="h-44 rounded-lg" />
         ))}
@@ -128,7 +158,9 @@ function BetList({
 
   const more = () => {
     // A second tap while the page loads asks for nothing more.
-    if (!bets.isFetchingNextPage) void bets.fetchNextPage();
+    if (bets.isFetchingNextPage) return;
+    firstNew.current = items.length;
+    void bets.fetchNextPage();
   };
 
   return (
@@ -138,16 +170,7 @@ function BetList({
         compact ? "p-3 pb-6" : "px-4 pt-3.5 pb-6",
       )}
     >
-      <ul
-        className={cn(
-          "gap-3",
-          compact
-            ? "flex flex-col"
-            : // Two across where there is room: a ticket is tall, and a
-              // single column of them scrolls forever on a desktop.
-              "grid items-start xl:grid-cols-2",
-        )}
-      >
+      <ul ref={list} className={cn("gap-3", layout)}>
         {items.map((bet) => (
           <li key={bet.id}>
             <BetCard bet={bet} />
@@ -170,6 +193,7 @@ function BetList({
             {t.t("bets.moreFailed")}
           </span>
           <button
+            ref={retry}
             type="button"
             onClick={more}
             className="bg-raised text-text font-body min-h-11 shrink-0 cursor-pointer rounded-lg px-3 text-xs font-bold"

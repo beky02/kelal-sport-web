@@ -29,9 +29,17 @@ type Tab = "sports" | "live" | "bets" | "menu";
 
 /**
  * Which tab a page belongs to. The wallet belongs to none: it is reached from
- * the balance in the app bar, and lighting up a tab for it would be a lie.
+ * the balance in the app bar, and lighting up a tab for it would be a lie. Nor
+ * do the pages shared links open — a booking (`/b/…`) or the ticket check
+ * (`/t`, `/t/…`).
  */
 function tabFor(pathname: string): Tab | null {
+  if (
+    pathname === routes.ticketCheck ||
+    pathname.startsWith(`${routes.ticketCheck}/`) ||
+    pathname.startsWith(routes.booking(""))
+  )
+    return null;
   if (pathname.startsWith(routes.live)) return "live";
   if (
     pathname.startsWith(routes.myBets) ||

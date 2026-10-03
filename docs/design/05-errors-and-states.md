@@ -60,15 +60,15 @@ where the slip's copy already states the same limit.
 
 ### My bets and the ticket check (F5b)
 
-| Where            | Code / status                                       | Shown                                                                                 | Fix offered                  |
-| ---------------- | --------------------------------------------------- | ------------------------------------------------------------------------------------- | ---------------------------- |
-| My bets, ticket  | 401 `AUTH_TOKEN_EXPIRED`                            | `/api/me` is re-read; the session-ended dialog, then "Log in to see your bets"        | Log in                       |
-| Ticket (My bets) | 404 `NOT_FOUND`                                     | "Ticket not found — This ticket isn't on your account."                               | Back to My bets              |
-| My bets, ticket  | network, 5xx, an unreadable reply (after 2 retries) | "Couldn't load your bets" / "Couldn't load this ticket"; a failed Show more inline    | Try again                    |
-| `/t/[ticket]`    | 404 `NOT_FOUND`, `RETAIL_TICKET_NOT_FOUND`          | 404: "No ticket with this number — Check number {number} and try again."              | Check another ticket (form)  |
-| `/t/[ticket]`    | not a ticket number (pattern or check character)    | 404: "Check the number and try again." — nothing from the address is repeated         | The form                     |
-| `/t/[ticket]`    | anything else (5xx, unreachable, malformed answer)  | "Couldn't check this ticket" (status 200; the preview gets a neutral title, no card)  | Try again (a link), the form |
-| `/t?ticket=`     | not a ticket number                                 | The form: "A ticket number has 9 letters and numbers, like K7Q2-M9XP-M." (not echoed) | Fix and check again          |
+| Where            | Code / status                                       | Shown                                                                                                                                                             | Fix offered                  |
+| ---------------- | --------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------- |
+| My bets, ticket  | 401 `AUTH_TOKEN_EXPIRED`                            | `/api/me` is re-read; the session-ended dialog, then "Log in to see your bets"                                                                                    | Log in                       |
+| Ticket (My bets) | 404 `NOT_FOUND`                                     | "Ticket not found — This ticket isn't on your account."                                                                                                           | Back to My bets              |
+| My bets, ticket  | network, 5xx, an unreadable reply (after 2 retries) | "Couldn't load your bets" / "Couldn't load this ticket"; a failed Show more inline                                                                                | Try again                    |
+| `/t/[ticket]`    | 404 `NOT_FOUND`, `RETAIL_TICKET_NOT_FOUND`          | 404: "No ticket with this number — Check number {number} and try again." Drawn by the browser (Next 16); without JavaScript only the title, which a preview shows | Check another ticket (form)  |
+| `/t/[ticket]`    | not a ticket number (pattern or check character)    | The proxy's 404, rendered whole: "Check the number and try again." — nothing from the address is repeated                                                         | The form                     |
+| `/t/[ticket]`    | anything else (5xx, unreachable, malformed answer)  | "Couldn't check this ticket" (status 200; the preview gets a neutral title, no card)                                                                              | Try again (a link), the form |
+| `/t?ticket=`     | not a ticket number                                 | The form: "A ticket number has 9 letters and numbers, like K7Q2-M9XP-M." (not echoed)                                                                             | Fix and check again          |
 
 ### Wallet (F6)
 
