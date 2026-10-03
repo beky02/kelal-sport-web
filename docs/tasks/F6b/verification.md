@@ -38,19 +38,37 @@
 
 ## Automated gate
 
-`pnpm verify` at `cf837af`, exit 0 (3.4 min of screens):
+Final `pnpm verify` at `a7c64c9` (after review round 1), exit 0:
 
-| Check                                               | Result        | Command / output                                                                 |
-| --------------------------------------------------- | ------------- | -------------------------------------------------------------------------------- |
-| Typecheck, lint, prettier, unit and component tests | PASS          | `pnpm check` — 54 files, 1,173 tests (1,174 after `a6894ef`, `pnpm check` again) |
-| Generated types                                     | PASS          | `pnpm api:check` — "Generated API types match contracts/openapi.yaml."           |
-| Contract drift                                      | PASS          | `contract-sync --check` — "contracts/ matches the backend."                      |
-| Build                                               | PASS          | `pnpm build` — compiled, 37 pages                                                |
-| UI screens (375 / 1440 px, en / am)                 | PASS, 2 flaky | `pnpm ui` — "336 passed (3.4m)", "2 flaky" (Gaps)                                |
+| Check                                               | Result        | Command / output                                                       |
+| --------------------------------------------------- | ------------- | ---------------------------------------------------------------------- |
+| Typecheck, lint, prettier, unit and component tests | PASS          | `pnpm check` — "Test Files 54 passed (54)", "Tests 1194 passed (1194)" |
+| Generated types                                     | PASS          | `pnpm api:check` — "Generated API types match contracts/openapi.yaml." |
+| Contract drift                                      | PASS          | `contract-sync --check` — "contracts/ matches the backend."            |
+| Build                                               | PASS          | `pnpm build` — compiled, 37 pages                                      |
+| UI screens (375 / 1440 px, en / am) and e2e         | PASS, 1 flaky | `pnpm ui` — "361 passed (2.7m)", "1 flaky" (Gaps)                      |
 
-Dev server checked first: `/__nextjs_server_status` 200; `/api/payment-methods` and `/api/deposits/abc`
-401 as a guest, `POST /api/deposits` without a key 400; with a Prism login the three routes answered the
-contract's examples (methods, a 201 redirect, a completed read).
+The first gate (at `cf837af`, before review) passed too: 1,173 tests, "336 passed (3.4m)", 2 flaky. A
+run between them failed outside any test — the `deposit-break` screen's `route.fetch()` of `/api/me`
+was still in flight when the test ended ("route.fetch: Test ended") — fixed in `a7c64c9` by dropping
+every screen's routes after it (`page.unrouteAll({ behavior: "ignoreErrors" })`); the 92 deposit shots
+then passed with no stray error.
+
+Dev server checked before each gate: `/__nextjs_server_status` 200; with a Prism login, `GET
+/api/payment-methods` 200, `POST /api/deposits` 201 (and 422 for `"amount": "abc"` after the M6 fix),
+`GET /api/deposits/{id}` 200.
+
+## Acceptance criteria
+
+| AC   | Status | Evidence                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| ---- | ------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| AC-1 | Met    | `Deposit.test.tsx` "shows each deposit status in words, with what to do next (AC-1)": 7 cases pass (initiated, pending on the phone, on the provider's page, app-only, completed, failed, expired); `pnpm ui` `deposit-starting`, `-phone`, `-web`, `-unsupported`, `-completed`, `-failed`, `-expired` at both widths and languages, looked at                                                                                                                                                                                                                                                                                                             |
+| AC-2 | Met    | `DepositPolling.test.tsx` "polls a phone deposit every 3 s until it completes, then reads the balance and the history again (AC-2)": reads at 0, 3 and 6 s, none after; wallet and history read again once. Also "keeps following a pending deposit after the player leaves its screen…" (Q1)                                                                                                                                                                                                                                                                                                                                                               |
+| AC-3 | Met    | `server-config` "follows a provider page only on an allow-listed https host (AC-3)" and its production / canonical tests; `payments-route` "never hands the browser a redirect to a host not on the allow-list (AC-3)", "keeps the allow-list on a read too…"; `payments-mappers` "turns a redirect it may not follow…"; `Deposit.test` "leaves for the provider's page only when the server allowed it (AC-3)"                                                                                                                                                                                                                                             |
+| AC-4 | Met    | `Deposit.test` "changes no balance until the server says the deposit is complete (AC-4)": 1,208.95 through three pending reads with `/api/wallet` read once; then the API's 1,588.95, never 1,708.95. Also "reads the balance again for a deposit that completed after the player left (Q2)"                                                                                                                                                                                                                                                                                                                                                                |
+| AC-7 | Met    | `Deposit.test` "lists the API's methods with their deposit limits; an unavailable one can't be chosen (AC-7)", "won't continue with an amount outside the method's min–max (AC-7)"; `deposit.test` "compares a typed amount with the method's range as strings (AC-7)"; `payments-mappers` and `payments-route` AC-7 rows                                                                                                                                                                                                                                                                                                                                   |
+| AC-8 | Met    | `Deposit.test`: "sends the same Idempotency-Key on Try again after no answer, and a new one after an answer (AC-8)", "makes a new key when the amount changes after no answer, and after a refusal (AC-8)", "starts one deposit however quickly Confirm is pressed twice (AC-8)", "asks who is signed in before Try again…", "keeps the key when the player leaves after no answer and comes back to the same deposit", "keeps the deposit unanswered when Try again is rate limited…", "says a refused Try again didn't go through, and keeps its key"; `payments-route` key-forwarding tests; `deposit.test` "tells no answer from a final answer (AC-8)" |
+| AC-9 | Met    | `deposit.test` "says what each deposit refusal means and offers its fix (AC-9)" and its limit tests; `Deposit.test`: the seven refusal tests, each fix doing what it says; `payments-route` "passes the API's refusals through…: 403, 422, 502, 503 (AC-9)"; `pnpm ui` `deposit-unconfirmed`, `-out-of-range`, `-limit`, `-unavailable`, `-provider-error`, `-break`, `-kyc`, `-real-money`, `-retry-refused`                                                                                                                                                                                                                                               |
 
 ## Tests proven
 
@@ -138,6 +156,11 @@ en · deposit-unconfirmed` — "locator.click: Test timeout … waiting for getB
   Birr/ })", the browser offline (`navigator.onLine` false) with `/api/me` unanswered. The machine
   reported itself offline for the whole en-desktop run that minute (U10): 15 of its deposit shots carried
   the offline banner. Every deposit screen was re-taken after the fixes.
+- **Flaky on the first try at `a7c64c9`, passed on retry:** `auth.spec.ts` "logging out clears the
+  session and the account pages close again (AC-8)" — "expect(locator).toBeVisible() failed … getByRole
+  ('link', { name: /balance/i }) … element(s) not found": the snapshot shows the header still offering
+  Log in after the dialog's login, i.e. the session not yet read back within 5 s. F4a's login path, which
+  this task doesn't touch; the retry passed in 3.2 s.
 - **Prism can't show** an initiated, failed or expired deposit, an `app_sdk` next action, or any deposit
   refusal: those screens are answered in the browser with shapes inferred from the contract's schema
   (contract request 009 asks for named examples). `deposit-completed` and `deposit-web` go through
