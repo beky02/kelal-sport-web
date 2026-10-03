@@ -120,9 +120,21 @@ Write `docs/tasks/$0/verification.md`:
 
 Fix every BLOCKER and MAJOR finding (a test first where it's a behaviour bug). Reject a finding only with a
 concrete reason (it contradicts a higher source, or it's out of scope) written in the table. MINOR findings:
-fix if trivial, otherwise list as follow-ups. After fixes: `pnpm verify` again, then re-run only the
-reviewers that reported BLOCKER/MAJOR findings, asking them to confirm the fixes. Max 3 review rounds; if
-blockers remain, set `status: blocked` with the reason and stop.
+fix if trivial, otherwise list as follow-ups.
+
+After fixes there is no full re-review:
+
+- Each fix needs a test that fails without it and passes with it; record both runs in verification.md.
+  That confirms the fix. (For a finding about a weak test, the proof is the strengthened test failing
+  against the bug it now guards.)
+- Re-run a reviewer only for a BLOCKER it raised, and only on that finding: give it the finding id, the
+  fix commit and the test, and ask it to confirm that finding alone — it does not review the diff again.
+- A finding several reviewers raised is confirmed once.
+- MINOR findings and notes never trigger a re-review.
+- Run `pnpm check` and `pnpm ui --grep "<screens the fixes touched>"` after fixes; the full `pnpm verify`
+  runs once, before Phase 4.
+
+Max 3 rounds; if a BLOCKER is still open after them, set `status: blocked` with the reason and stop.
 
 ## Phase 4 — Finish
 
