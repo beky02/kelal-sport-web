@@ -70,17 +70,27 @@ where the slip's copy already states the same limit.
 | `/t/[ticket]`    | anything else (5xx, unreachable, malformed answer)  | "Couldn't check this ticket" (status 200; the preview gets a neutral title, no card)                                                                              | Try again (a link), the form |
 | `/t?ticket=`     | not a ticket number                                 | The form: "A ticket number has 9 letters and numbers, like K7Q2-M9XP-M." (not echoed)                                                                             | Fix and check again          |
 
-### Wallet (F6)
+### Wallet balances and history (F6a)
 
-| Code                             | HTTP | Shown                                               | Fix offered                       |
-| -------------------------------- | ---- | --------------------------------------------------- | --------------------------------- |
-| `PAY_METHOD_UNAVAILABLE`         | 422  | The method is marked unavailable on its tile        | Choose another                    |
-| `PAY_AMOUNT_OUT_OF_RANGE`        | 422  | The method's min–max                                | The nearest allowed amount        |
-| `PAY_PROVIDER_ERROR`             | 502  | "Payment provider did not respond"                  | Retry; choose another             |
-| `PAY_WITHDRAWAL_NOT_CANCELLABLE` | 409  | "This withdrawal is already being paid"             | None                              |
-| `PAY_ACTIVE_BONUS_WAGERING`      | 422  | What withdrawing now forfeits (BON-07)              | Confirm forfeit, or keep wagering |
-| `KYC_REQUIRED`                   | 403  | Verify your Fayda ID to unlock withdrawals          | Verify                            |
-| Deposit `failed` / `expired`     | —    | Status screens with the provider reference (DEP-08) | Retry; choose another; Done       |
+| Where                      | Code / status                                       | Shown                                                                                                         | Fix offered |
+| -------------------------- | --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- | ----------- |
+| Wallet, history            | 401 `AUTH_TOKEN_EXPIRED`                            | `/api/me` is re-read; the session-ended dialog, then "Log in to see your wallet" / "…your transactions"       | Log in      |
+| Wallet                     | network, 5xx, an unreadable reply (after 2 retries) | "Couldn't load your wallet" (balances already on screen stay)                                                 | Try again   |
+| History                    | as above                                            | "Couldn't load your transactions"; a failed Show more inline: "Couldn't load more transactions."              | Try again   |
+| Wallet's recent activity   | as above                                            | Inline: "Couldn't load your recent activity."                                                                 | Try again   |
+| `/api/wallet/transactions` | 422 `VALIDATION_FAILED` (ours)                      | Never from this UI: a `type`, `cursor` or `limit` the contract doesn't allow is refused before going upstream | —           |
+
+### Wallet payments (F6b, F6c)
+
+| Code                             | HTTP | Shown                                               | Fix offered                                                    |
+| -------------------------------- | ---- | --------------------------------------------------- | -------------------------------------------------------------- |
+| `PAY_METHOD_UNAVAILABLE`         | 422  | The method is marked unavailable on its tile        | Choose another                                                 |
+| `PAY_AMOUNT_OUT_OF_RANGE`        | 422  | The method's min–max                                | The nearest allowed amount                                     |
+| `PAY_PROVIDER_ERROR`             | 502  | "Payment provider did not respond"                  | Retry; choose another                                          |
+| `PAY_WITHDRAWAL_NOT_CANCELLABLE` | 409  | "This withdrawal is already being paid"             | None                                                           |
+| `PAY_ACTIVE_BONUS_WAGERING`      | 422  | What withdrawing now forfeits (BON-07)              | Confirm forfeit (needs contract request 008), or keep wagering |
+| `KYC_REQUIRED`                   | 403  | Verify your Fayda ID to unlock withdrawals          | Verify                                                         |
+| Deposit `failed` / `expired`     | —    | Status screens with the provider reference (DEP-08) | Retry; choose another; Done                                    |
 
 ### Account, promotions, inbox (F7)
 
@@ -89,12 +99,12 @@ limits that cannot be lowered below usage; `RG_*` as above.
 
 ### Route-handler refusals (ours, same shape)
 
-| Code                  | HTTP                      | When                                                                                                                                       |
-| --------------------- | ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
-| `PERMISSION_DENIED`   | 403                       | A POST from another origin, without the CSRF header (09-security)                                                                          |
-| `VALIDATION_FAILED`   | 400 / 413 / 415 / 422     | Missing `Idempotency-Key`; body too large; not JSON; a body that is not the request; a My bets `status` or `cursor` the route doesn't take |
-| `NOT_FOUND`           | 404                       | `/api/bets/{id}` with an id that can't be one: nothing is sent upstream                                                                    |
-| `SERVICE_UNAVAILABLE` | 503 (or the API's status) | The API could not be reached, or answered with something that is not a Problem                                                             |
+| Code                  | HTTP                      | When                                                                                                                                                                                  |
+| --------------------- | ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `PERMISSION_DENIED`   | 403                       | A POST from another origin, without the CSRF header (09-security)                                                                                                                     |
+| `VALIDATION_FAILED`   | 400 / 413 / 415 / 422     | Missing `Idempotency-Key`; body too large; not JSON; a body that is not the request; a My bets `status` or `cursor`, or a history `type`, `cursor` or `limit`, the route doesn't take |
+| `NOT_FOUND`           | 404                       | `/api/bets/{id}` with an id that can't be one: nothing is sent upstream                                                                                                               |
+| `SERVICE_UNAVAILABLE` | 503 (or the API's status) | The API could not be reached, or answered with something that is not a Problem                                                                                                        |
 
 ## System states
 

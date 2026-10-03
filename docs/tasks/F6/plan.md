@@ -186,3 +186,16 @@ label, reference, createdAt }`; `WalletTxnPage`; `HistoryFilter`. `WalletOvervie
 4. The wallet: states, balance card, recent activity; the mock flow's minimal changes.
 5. The history: moved components on the contract, filters, days, paging, states.
 6. Mocks removed, strings in both languages, docs, `pnpm ui` screens.
+
+## Changes during implementation
+
+- **Files beyond the list**: `src/features/wallet/lib/history.ts` (the day grouping, apart from the
+  component); `src/features/bet-slip/hooks/use-place-bet.ts` and `src/lib/api/mappers/bets.ts` (comments
+  that said the wallet waits for F6); `tests/unit/i18n.test.ts` (`history.withLabel` and `history.day`
+  are symbolic templates, as `ticket.og.description` is).
+- **Steps 3 and 4 of the plan were one commit**: removing the old balance shape forces the wallet card
+  and the mock flow's amount step to move with it. Recent activity moved with the history (step 5).
+- **The filter chips are 44 px tall** (were 38 px), the touch-target minimum; they scroll sideways on a
+  phone like the board's strips (five no longer fit at 375 px).
+- **`wallet.locked` in Amharic** uses `wallet.statusPending`'s word (በሂደት ላይ), the catalogue's own
+  "pending".

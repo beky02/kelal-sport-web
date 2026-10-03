@@ -62,11 +62,11 @@ Numbers are formatted for display only; nothing is computed from a formatted str
 | Calendar          | Gregorian (4 Oct, Mon 28 Sep, 12 Apr 1998)                              | Ethiopian calendar (መስ 24), labelled; the profile shows an example     |
 | Kick-off on a row | `04/10 · 17:00`                                                         | Follows both preferences                                               |
 | Date strip        | Weekday and day-month                                                   | Follows the calendar                                                   |
+| History headings  | "Today · 3 Oct", "Yesterday · 2 Oct", "Thu 1 Oct" (the EAT date)        | Follows the calendar; a row's time follows the clock                   |
 | Long dates        | `formatLongDate`: 12 Apr 1998 / ኤፕሪ 12 1998, or the Ethiopian long form | Follows the calendar                                                   |
 | Durations         | "Starts in 12 min", "Valid until Sat 3 Oct, 16:39"                      | Follows both                                                           |
 
-The Ethiopian calendar and clock are preferences in Release 1, never the default (D7). Fixture strings
-in the mock data that carry Ethiopian-calendar headings are a known gap until real data lands (F6).
+The Ethiopian calendar and clock are preferences in Release 1, never the default (D7).
 
 ## Typography and layout tokens
 

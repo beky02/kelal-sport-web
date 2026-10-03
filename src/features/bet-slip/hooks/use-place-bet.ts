@@ -77,9 +77,9 @@ export function usePlaceBet(owner: string | null) {
       const outcome = placementOutcome(error);
       switch (outcome.kind) {
         case "unanswered":
-          // The bet may exist. The wallet and bets are read again; until My
-          // bets (F5b) and the wallet (F6) come from the API, they cannot
-          // settle it — Try again with the same key can.
+          // The bet may exist. The wallet and bets are read again, so a stake
+          // that did go shows in the balance and My bets; only Try again with
+          // the same key settles it.
           slip.placementUnanswered(key);
           void queryClient.invalidateQueries({ queryKey: walletKeys.all });
           void queryClient.invalidateQueries({ queryKey: betKeys.all });

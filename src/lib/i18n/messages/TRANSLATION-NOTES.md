@@ -393,3 +393,40 @@ cancelled took `ተቋርጧል` ("discontinued") — please check both read rig
 The example number in `ticket.invalid` uses non-breaking hyphens (U+2011) in both languages, so it never
 breaks across lines. `ticket.og.description` is `{status} · {matches}` in both languages (symbolic in `i18n.test.ts`): the
 status is filled from `bets.status.*`, the matches are the API's names.
+
+## Wallet balances and history (F6a, 2026-10-03)
+
+| Key                                   | Amharic                                  | Composed from                                                  |
+| ------------------------------------- | ---------------------------------------- | -------------------------------------------------------------- |
+| `wallet.bonus`                        | ቦነስ                                      | `betSlip.accaBonus` (ቦነስ)                                      |
+| `wallet.bonusNote`                    | ለውርርድ ብቻ — ወጪ ማድረግ አይቻልም                 | ውርርድ + ብቻ ("only"); `wallet.withdraw` (ወጪ አድርግ)                |
+| `wallet.locked`                       | በሂደት ላይ ያሉ ወጪዎች                          | `wallet.statusPending` (በሂደት ላይ) + ወጪ                          |
+| `wallet.debt`                         | ዕዳ                                       | new ("debt")                                                   |
+| `wallet.debtNote`                     | ከሚቀጥሉት ገቢዎችና አሸናፊነቶች መጀመሪያ ይከፈላል         | ገቢ (`wallet.deposit`), አሸናፊነት (the design's winnings rows)     |
+| `wallet.guestTitle`                   | ቦርሳዎን ለማየት ይግቡ                           | `bets.guestTitle`, ውርርዶች → ቦርሳ (`wallet.title`)                |
+| `wallet.guestBody`                    | ቀሪ ሂሳብዎና ክፍያዎችዎ እዚህ ይታያሉ።                | `wallet.balance` + `bets.guestBody` (…እዚህ ይታያሉ)                |
+| `wallet.loadFailedTitle`              | ቦርሳዎን መጫን አልተሳካም                         | `bets.loadFailedTitle`, ውርርዶች → ቦርሳ                            |
+| `wallet.loadFailedBody`               | ግንኙነትዎን ያረጋግጡ እና እንደገና ይሞክሩ።             | `board.error.body`                                             |
+| `wallet.recentEmpty`                  | እስካሁን ምንም የለም። ገቢዎችና ውርርዶች እዚህ ይታያሉ።     | `bets.emptyTitle` (እስካሁን…የለም) + `bets.emptyBody`               |
+| `wallet.recentFailed`                 | የቅርብ ጊዜ እንቅስቃሴዎን መጫን አልተሳካም።             | `wallet.recent` + `bets.loadFailedTitle`                       |
+| `history.filtersLabel`                | በዓይነት ለይ                                 | new ("sort by kind"), the filter row's name for screen readers |
+| `history.filterWins`                  | አሸናፊነት                                   | the design's winnings rows (አሸናፊነት · …)                        |
+| `history.type.withdrawal_released`    | የተመለሰ ወጪ                                 | ወጪ + የተመለሰ ("returned")                                        |
+| `history.type.refund`                 | ተመላሽ                                     | `betSlip.totalReturn` (…ተመላሽ, "return")                        |
+| `history.type.bonus_converted`        | ወደ ቀሪ ሂሳብ የተቀየረ ቦነስ                      | ቦነስ + `wallet.balance` (ቀሪ ሂሳብ) + የተቀየረ ("converted")          |
+| `history.type.adjustment`             | ማስተካከያ                                   | new ("adjustment")                                             |
+| `history.balanceAfter`                | ቀሪ ሂሳብ {amount}                          | `wallet.balance`                                               |
+| `history.today` / `history.yesterday` | ዛሬ · {date} / ትናንት · {date}              | the design's mock headings (ዛሬ · …, ትናንት · …)                  |
+| `history.emptyTitle`                  | እስካሁን ግብይት የለም                           | `bets.emptyTitle`, ውርርድ → ግብይት (`bets.viewTransactions`)       |
+| `history.emptyBody`                   | ገቢዎች፣ ውርርዶች፣ አሸናፊነቶችና ወጪዎች እዚህ ይታያሉ።     | the filters + `bets.emptyBody`                                 |
+| `history.emptyFilteredTitle`          | እዚህ እስካሁን ምንም የለም                        | `bets.emptyTitle`                                              |
+| `history.emptyFilteredBody`           | ሁሉንም ለማየት «ሁሉም»ን ይምረጡ።                   | `history.filterAll` (ሁሉም), `wallet.seeAll` (ሁሉንም)              |
+| `history.loadFailedTitle`             | ግብይቶችዎን መጫን አልተሳካም                       | `bets.loadFailedTitle`, ውርርዶች → ግብይቶች                          |
+| `history.moreFailed`                  | ተጨማሪ ግብይቶችን መጫን አልተሳካም።                  | `bets.moreFailed`, as above                                    |
+| `history.guestTitle`                  | ግብይቶችዎን ለማየት ይግቡ                         | `bets.guestTitle`, as above                                    |
+| `history.guestBody`                   | ገቢዎችዎ፣ ውርርዶችዎ፣ አሸናፊነቶችዎና ወጪዎችዎ እዚህ ይታያሉ። | `history.emptyBody`, possessive                                |
+
+The other `history.*` strings reuse existing ones verbatim (`bets.filter*` moved here, `bets.showMore`,
+`board.error.body`, the kinds from the filters). `history.withLabel` (`{kind} · {label}`) and
+`history.day` (`{weekday} {date}`) are symbolic in `i18n.test.ts`: the kind, weekday and date are filled in
+Amharic, the label is the API's (`telebirr`, a ticket number).
