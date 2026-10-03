@@ -1,4 +1,5 @@
 import type { RuleSetJson } from "@golden/slipcalc";
+import type { OddsPolicy } from "@/features/bet-slip/types";
 
 /**
  * The tenant's betting rules (D1.12), as the slip needs them.
@@ -12,6 +13,8 @@ export interface BettingRules {
   version: number;
   /** Amounts that set the total stake in one tap (D7). */
   quickStakes: string[];
+  /** Where the slip's odds-change setting starts (`default_odds_policy`, C08 §9). */
+  defaultOddsPolicy: OddsPolicy;
   calc: RuleSetJson;
 }
 

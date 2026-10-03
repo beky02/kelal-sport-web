@@ -31,6 +31,14 @@ describe("toBettingRules", () => {
     expect(rules.quickStakes).toEqual(["20.00", "50.00", "100.00", "500.00"]);
   });
 
+  it("reads the tenant's default odds policy (AC-6)", () => {
+    expect(toBettingRules(config.betting).defaultOddsPolicy).toBe("higher");
+    expect(
+      toBettingRules({ ...config.betting, default_odds_policy: "none" })
+        .defaultOddsPolicy,
+    ).toBe("none");
+  });
+
   it("has no quick stakes when the tenant sets none", () => {
     const betting = { ...config.betting, quick_stakes: undefined };
     expect(toBettingRules(betting).quickStakes).toEqual([]);

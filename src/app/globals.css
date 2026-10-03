@@ -48,6 +48,10 @@
      its white label reads at 4.7:1 (WCAG AA for small bold text). */
   --color-telegram: #177ba8;
   --color-warn-bg: rgb(245 184 61 / 0.12);
+  /* Barcodes are black on white in every theme: a scanner needs the contrast,
+     not the palette. The light theme inherits these. */
+  --color-barcode-ink: #000000;
+  --color-barcode-paper: #ffffff;
 }
 
 :root[data-theme="light"] {
@@ -138,6 +142,8 @@
   --color-warn: var(--color-warn);
   --color-telegram: var(--color-telegram);
   --color-warn-bg: var(--color-warn-bg);
+  --color-barcode-ink: var(--color-barcode-ink);
+  --color-barcode-paper: var(--color-barcode-paper);
 
   /* The design specifies two desktop layouts: 1280 narrows the sidebars and
      the market columns, 1440 is the reference. 1440 falls inside Tailwind's

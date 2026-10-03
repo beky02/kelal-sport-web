@@ -11,8 +11,9 @@ const schema = z.object({
   appEnv: z.enum(["development", "staging", "production"]),
   /**
    * Serve the in-repo mock repository for the features not yet rewired to the
-   * contract (bets, wallet, auth, responsible gaming). The catalogue always
-   * goes through the route handlers — point API_BASE_URL at Prism to mock it.
+   * contract (My bets, wallet, responsible gaming). The catalogue, auth,
+   * bookings and placing a bet always go through the route handlers — point
+   * API_BASE_URL at Prism to mock them.
    */
   useMocks: z.boolean(),
   /**

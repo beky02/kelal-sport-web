@@ -262,6 +262,108 @@ const resetTo =
     await dialog.getByRole("status").waitFor();
   };
 
+/**
+ * A signed-in player's slip, placed through `/api/bets`, showing the engine's
+ * answer. `answer` sets it up first — Prism's `Prefer` (next dev forwards it),
+ * an answer this app's route gives in the browser where Prism has no example
+ * (an RG refusal), or no answer at all. `askMe` sets the odds policy to Ask me
+ * first, so a re-priced pick waits for Accept whichever way it moved (Prism's
+ * 409 names a price, not a direction).
+ */
+const placeAnd =
+  (
+    shown: "ticket" | "alert" | "status",
+    {
+      answer,
+      askMe = false,
+      then,
+    }: {
+      answer?: (page: Page) => Promise<unknown>;
+      askMe?: boolean;
+      /** A step after the answer, e.g. changing the slip. */
+      then?: (page: Page, lang: Lang) => Promise<unknown>;
+    } = {},
+  ) =>
+  async (page: Page, device: Device, lang: Lang) => {
+    const t = MESSAGES[lang];
+    if (answer) await answer(page);
+    await openSlipWithPicks(page, device, lang);
+    if (askMe) {
+      await page
+        .getByLabel(t.betSlip.oddsPolicy.label)
+        .filter({ visible: true })
+        .selectOption("none");
+    }
+    await page
+      .getByRole("button", { name: new RegExp(escape(t.betSlip.placeBet)) })
+      .filter({ visible: true })
+      .click();
+    const result =
+      shown === "ticket"
+        ? page.getByTestId("ticket-code").filter({ visible: true })
+        : page.getByRole(shown).filter({ visible: true }).first();
+    await result.waitFor();
+    if (then) await then(page, lang);
+    // On a phone the sheet scrolls inside itself: bring the answer into view.
+    // On desktop, back to the top so the sticky header stays where it is.
+    if (device === "phone") await result.scrollIntoViewIfNeeded();
+    else await page.evaluate(() => window.scrollTo(0, 0));
+  };
+
+/** A refusal Prism has no example of: the contract's Problem, in the browser. */
+const refuse =
+  (status: number, problem: Record<string, unknown>) => (page: Page) =>
+    page.route("**/api/bets", (route) =>
+      route.fulfill({
+        status,
+        contentType: "application/problem+json",
+        json: {
+          type: "https://api.example.et/errors/x",
+          status,
+          request_id: "req_ui",
+          ...problem,
+        },
+      }),
+    );
+
+/** `RG_LIMIT_REACHED` has no Prism example: the contract's Problem, in the browser. */
+const limitReached = (page: Page) =>
+  page.route("**/api/bets", (route) =>
+    route.fulfill({
+      status: 403,
+      contentType: "application/problem+json",
+      json: {
+        type: "https://api.example.et/errors/rg-limit",
+        title: "Limit reached",
+        status: 403,
+        code: "RG_LIMIT_REACHED",
+        detail: "Your daily stake limit resets at 00:00.",
+        request_id: "req_ui",
+      },
+    }),
+  );
+
+/** No answer to the first try, then 429 to its Try again: still unconfirmed. */
+const dropThenRateLimited = (page: Page) => {
+  let tries = 0;
+  return page.route("**/api/bets", (route) =>
+    tries++ === 0
+      ? route.abort("connectionreset")
+      : route.fulfill({
+          status: 429,
+          contentType: "application/problem+json",
+          headers: { "Retry-After": "30" },
+          json: {
+            type: "https://api.example.et/errors/rate-limited",
+            title: "Too many requests",
+            status: 429,
+            code: "RATE_LIMITED",
+            request_id: "req_ui",
+          },
+        }),
+  );
+};
+
 /** `/b/7KQ2M9X`, loaded into the slip — the sheet opens on a phone. */
 async function loadBooking(page: Page, _device: Device, lang: Lang) {
   await page
@@ -299,6 +401,124 @@ const SCREENS: Array<{
     path: "/profile",
     before: loginViaApi,
     prepare: bookAsGuest,
+  },
+  {
+    name: "home-slip-placed",
+    path: "/",
+    before: loginViaApi,
+    prepare: placeAnd("ticket"),
+  },
+  {
+    name: "home-slip-odds-changed",
+    path: "/",
+    before: loginViaApi,
+    prepare: placeAnd("alert", {
+      answer: (page) => preferOn(page, "/api/bets", "code=409"),
+      askMe: true,
+    }),
+    allowConsole: /status of 409/,
+  },
+  {
+    name: "home-slip-event-started",
+    path: "/",
+    before: loginViaApi,
+    prepare: placeAnd("alert", {
+      answer: (page) =>
+        preferOn(page, "/api/bets", "code=409, example=event_started"),
+    }),
+    allowConsole: /status of 409/,
+  },
+  {
+    name: "home-slip-limit-reached",
+    path: "/",
+    before: loginViaApi,
+    prepare: placeAnd("alert", { answer: limitReached }),
+    allowConsole: /status of 403/,
+  },
+  {
+    name: "home-slip-insufficient",
+    path: "/",
+    before: loginViaApi,
+    prepare: placeAnd("alert", {
+      answer: (page) =>
+        preferOn(page, "/api/bets", "code=422, example=insufficient_funds"),
+    }),
+    allowConsole: /status of 422/,
+  },
+  {
+    name: "home-slip-stake-too-high",
+    path: "/",
+    before: loginViaApi,
+    prepare: placeAnd("alert", {
+      answer: refuse(422, {
+        title: "Stake is above the maximum",
+        code: "BET_STAKE_TOO_HIGH",
+        errors: [{ field: "stake", code: "MAX", limit: "50.00" }],
+      }),
+    }),
+    allowConsole: /status of 422/,
+  },
+  {
+    name: "home-slip-verify",
+    path: "/",
+    before: loginViaApi,
+    prepare: placeAnd("alert", {
+      answer: (page) => preferOn(page, "/api/bets", "code=403"),
+    }),
+    allowConsole: /status of 403/,
+  },
+  {
+    // A bet with no answer and a slip changed since: the alert names that
+    // bet and holds its Try again, with its amount; the main button places
+    // the slip as shown, as a new bet, with the slip's amount.
+    name: "home-slip-unconfirmed-changed",
+    path: "/",
+    before: loginViaApi,
+    prepare: placeAnd("alert", {
+      answer: (page) =>
+        page.route("**/api/bets", (route) => route.abort("connectionreset")),
+      then: (page) =>
+        page
+          .getByRole("button", { name: "50", exact: true })
+          .filter({ visible: true })
+          .click(),
+    }),
+    allowConsole: /ERR_CONNECTION_RESET|Failed to load resource/,
+  },
+  {
+    name: "home-slip-unconfirmed",
+    path: "/",
+    before: loginViaApi,
+    prepare: placeAnd("alert", {
+      answer: (page) =>
+        page.route("**/api/bets", (route) => route.abort("connectionreset")),
+    }),
+    allowConsole: /ERR_CONNECTION_RESET|Failed to load resource/,
+  },
+  {
+    // Its Try again refused: said as a Try again that didn't go through,
+    // never as a bet refused — the first try may still have gone through.
+    name: "home-slip-unconfirmed-refused",
+    path: "/",
+    before: loginViaApi,
+    prepare: placeAnd("alert", {
+      answer: dropThenRateLimited,
+      then: async (page, lang) => {
+        const t = MESSAGES[lang];
+        await page
+          .getByRole("button", {
+            name: new RegExp(`^${escape(t.common.retry)}`),
+          })
+          .filter({ visible: true })
+          .first()
+          .click();
+        await page
+          .getByText(t.betSlip.unconfirmed.retryRefused)
+          .filter({ visible: true })
+          .waitFor();
+      },
+    }),
+    allowConsole: /ERR_CONNECTION_RESET|Failed to load resource|status of 429/,
   },
   { name: "home-upcoming", path: "/?filter=upcoming" },
   { name: "event", path: "/event/fx_arsenal_chelsea" },
@@ -430,6 +650,10 @@ for (const [device, viewport] of Object.entries(DEVICES)) {
             await screen.prepare(page, device as Device, lang);
             await settle(page);
           }
+          // The dev server's badge would cover whatever sits in the corner.
+          await page.addStyleTag({
+            content: "nextjs-portal { display: none !important; }",
+          });
           await page.screenshot({
             path: `${SHOTS}/${screen.name}-${lang}-${device}.png`,
             fullPage: true,

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { screen, waitFor, within } from "@testing-library/react";
+import { screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { BetSlip } from "@/features/bet-slip/components/BetSlip";
 import {
@@ -119,6 +119,7 @@ describe("BetSlip", () => {
     const noTax: BettingRules = {
       version: GOLDEN_RULES.no_tax.rules_version,
       quickStakes: [],
+      defaultOddsPolicy: "higher",
       calc: GOLDEN_RULES.no_tax,
     };
     seedReferenceSlip();
@@ -263,16 +264,19 @@ describe("BetSlip", () => {
   /**
    * The journey the architecture calls out as the most important to guard: a
    * price moves while the pick is already in the slip, and the bet must not go
-   * through at a price the user never agreed to.
+   * through at a price the user never agreed to. The slip asks exactly where
+   * the engine would refuse: under the tenant's `higher` (the contract's
+   * config) about a drop; under Ask me about every move; under Accept any
+   * about none (AC-6).
    */
   describe("odds change while a selection is in the slip", () => {
     beforeEach(seedReferenceSlip);
 
-    it("blocks placing until the move is acknowledged", async () => {
+    it("blocks placing until a drop is acknowledged", async () => {
       render(<BetSlip />);
       expect(screen.getByRole("button", { name: /Place bet/ })).toBeVisible();
 
-      useBetSlipStore.getState().applyOddsUpdate(ref("m4", "X"), "3.40");
+      useBetSlipStore.getState().applyOddsUpdate(ref("m4", "X"), "2.80");
 
       // An odds move is a status update, not an error — errors are the ones that
       // stop the bet (conflict, suspension, insufficient balance).
@@ -287,6 +291,47 @@ describe("BetSlip", () => {
       ).not.toBeInTheDocument();
     });
 
+    it("shows a rise but takes it without asking under the tenant's Accept higher", async () => {
+      render(<BetSlip />);
+      expect(screen.getByLabelText("When odds change")).toHaveValue("higher");
+
+      useBetSlipStore.getState().applyOddsUpdate(ref("m4", "X"), "3.40");
+
+      expect(await screen.findByText(/▲ 3\.40/)).toBeInTheDocument();
+      expect(screen.getByText("3.05")).toBeInTheDocument();
+      expect(screen.queryByText("Odds changed")).not.toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /Place bet/ })).toBeEnabled();
+    });
+
+    it("asks about a rise too under Ask me", async () => {
+      render(<BetSlip />);
+      await userEvent.selectOptions(
+        screen.getByLabelText("When odds change"),
+        "Ask me",
+      );
+
+      useBetSlipStore.getState().applyOddsUpdate(ref("m4", "X"), "3.40");
+
+      expect(
+        await screen.findByRole("button", { name: "Accept changes" }),
+      ).toBeInTheDocument();
+    });
+
+    it("asks about nothing under Accept any", async () => {
+      render(<BetSlip />);
+      await userEvent.selectOptions(
+        screen.getByLabelText("When odds change"),
+        "Accept any",
+      );
+
+      useBetSlipStore.getState().applyOddsUpdate(ref("m4", "X"), "2.80");
+
+      expect(
+        await screen.findByRole("button", { name: /Place bet/ }),
+      ).toBeEnabled();
+      expect(screen.queryByText("Odds changed")).not.toBeInTheDocument();
+    });
+
     it("does not treat a respelled price as a move", async () => {
       render(<BetSlip />);
       useBetSlipStore.getState().applyOddsUpdate(ref("m4", "X"), "3.050");
@@ -299,10 +344,10 @@ describe("BetSlip", () => {
 
     it("shows the old price struck through beside the new one", async () => {
       render(<BetSlip />);
-      useBetSlipStore.getState().applyOddsUpdate(ref("m4", "X"), "3.40");
+      useBetSlipStore.getState().applyOddsUpdate(ref("m4", "X"), "2.80");
 
       expect(await screen.findByText("3.05")).toBeInTheDocument();
-      expect(screen.getByText(/3\.40/)).toBeInTheDocument();
+      expect(screen.getByText(/▼ 2\.80/)).toBeInTheDocument();
     });
 
     it("prices at the new odds, not the old", async () => {
@@ -315,7 +360,7 @@ describe("BetSlip", () => {
 
     it("re-enables placing once accepted", async () => {
       render(<BetSlip />);
-      useBetSlipStore.getState().applyOddsUpdate(ref("m4", "X"), "3.40");
+      useBetSlipStore.getState().applyOddsUpdate(ref("m4", "X"), "2.80");
 
       await userEvent.click(
         await screen.findByRole("button", { name: "Accept changes" }),
@@ -329,7 +374,7 @@ describe("BetSlip", () => {
 
     it("accepts one selection at a time from its own row", async () => {
       render(<BetSlip />);
-      useBetSlipStore.getState().applyOddsUpdate(ref("m4", "X"), "3.40");
+      useBetSlipStore.getState().applyOddsUpdate(ref("m4", "X"), "2.80");
 
       await userEvent.click(
         await screen.findByRole("button", { name: "Accept" }),
@@ -372,39 +417,8 @@ describe("BetSlip", () => {
     ).toBeEnabled();
   });
 
-  it("places the bet and shows the engine's ticket", async () => {
-    seedReferenceSlip();
-    render(<BetSlip />);
-
-    await userEvent.click(
-      await screen.findByRole("button", { name: /Place bet/ }),
-    );
-
-    expect(await screen.findByText("Bet placed")).toBeInTheDocument();
-    await waitFor(() =>
-      expect(screen.getByText(/^KS-\d{6}-\d{4}$/)).toBeInTheDocument(),
-    );
-    expect(screen.getByText("Multiple · 3 picks")).toBeInTheDocument();
-    expect(screen.getByText("ETB 594.40")).toBeInTheDocument();
-  });
-
-  it("shows the ticket number large with its barcode, ready to copy", async () => {
-    seedReferenceSlip();
-    render(<BetSlip />);
-
-    await userEvent.click(
-      await screen.findByRole("button", { name: /Place bet/ }),
-    );
-
-    const card = await screen.findByTestId("ticket-code");
-    const ticket = within(card).getByText(/^KS-\d{6}-\d{4}$/).textContent!;
-    expect(
-      within(card).getByRole("img", { name: `Ticket: ${ticket}` }),
-    ).toBeInTheDocument();
-    expect(
-      within(card).getByRole("button", { name: "Copy code" }),
-    ).toBeInTheDocument();
-  });
+  // Placing — the request, the engine's ticket, its barcode and every refusal —
+  // is tested against `/api/bets` in PlaceBet.test.tsx.
 
   it("keeps the place button idle until /api/me has answered, instead of calling a player a guest", () => {
     seedReferenceSlip();

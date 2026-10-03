@@ -23,6 +23,7 @@ import type { Market, MarketGroup, Outcome } from "@/features/markets/types";
 import type { SearchResults } from "@/features/search/types";
 import type { Sport } from "@/features/sports/types";
 import type { Bet, Transaction } from "@/features/bets/types";
+import type { BetReceipt, PlaceBetRequest } from "@/features/bet-slip/types";
 import type { BettingRules, PublicConfigView } from "@/features/config/types";
 import type {
   Booking,
@@ -49,6 +50,7 @@ import type {
 import { isIsoDate } from "@/features/auth/lib/birth-date";
 import { toE164 } from "@/features/auth/lib/phone";
 import { compareMoney } from "@/lib/money";
+import { MONEY_PATTERN, ODDS_PATTERN, TICKET_NUMBER_PATTERN } from "./patterns";
 import type {
   PaymentMethod,
   PaymentResult,
@@ -300,9 +302,12 @@ export type BoardSectionDto = z.infer<typeof boardSectionSchema>;
 /** A plain decimal string: a rate (`"0.15"`) or a percentage (`"8"`). */
 const decimalSchema = z.string().regex(/^\d+(\.\d+)?$/);
 
+export const oddsPolicySchema = z.enum(["none", "higher", "any"]);
+
 export const bettingRulesSchema = z.object({
   version: z.number().int(),
   quickStakes: z.array(moneySchema),
+  defaultOddsPolicy: oddsPolicySchema,
   calc: z.object({
     min_stake: moneySchema,
     max_stake: moneySchema,
@@ -398,6 +403,61 @@ export const bookingRequestSchema = z.strictObject({
     .refine((stake) => compareMoney(stake, "0.00") > 0, "Not a stake")
     .nullable(),
 }) satisfies z.ZodType<BookingRequest>;
+
+// ── placing a bet (F5a) ─────────────────────────────────────────────────────
+
+/** The contract's `Odds` and `Money` patterns: what may be sent upstream. */
+const contractOddsSchema = z.string().regex(ODDS_PATTERN);
+const contractMoneySchema = z.string().regex(MONEY_PATTERN);
+
+/**
+ * What `/api/bets` accepts from the browser — strict, within the contract's
+ * bounds, checked before anything is sent on. Amounts and odds must already be
+ * in the contract's form: nothing is reformatted on the way to the engine.
+ */
+export const placeBetRequestSchema = z
+  .strictObject({
+    betType: betTypeSchema,
+    systemSizes: z.array(z.number().int().min(1).max(30)).max(30),
+    legs: z
+      .array(
+        z.strictObject({
+          outcomeId: z.string().min(1).max(64),
+          odds: contractOddsSchema,
+        }),
+      )
+      .min(1)
+      .max(30),
+    stake: contractMoneySchema.refine(
+      (stake) => compareMoney(stake, "0.00") > 0,
+      "Not a stake",
+    ),
+    oddsPolicy: oddsPolicySchema,
+  })
+  .refine(
+    (r) => new Set(r.legs.map((leg) => leg.outcomeId)).size === r.legs.length,
+    "The same pick twice",
+  )
+  .refine(
+    (r) => (r.betType === "system") === r.systemSizes.length > 0,
+    "Sizes are for a system bet",
+  ) satisfies z.ZodType<PlaceBetRequest>;
+
+/** `/api/bets`'s answer: the engine's ticket. No balance, no token. */
+export const betReceiptSchema = z.object({
+  id: z.string().min(1),
+  ticketId: z.string().regex(TICKET_NUMBER_PATTERN),
+  placedAt: z.string(),
+  betType: betTypeSchema,
+  systemSizes: z.array(z.number().int().positive()),
+  lines: z.number().int().positive(),
+  legCount: z.number().int().positive(),
+  stake: moneySchema,
+  stakeTax: moneySchema,
+  totalOdds: oddsSchema.nullable(),
+  accaBonus: moneySchema,
+  potentialPayout: moneySchema,
+}) satisfies z.ZodType<BetReceipt>;
 
 // ── session (F4a) ───────────────────────────────────────────────────────────
 

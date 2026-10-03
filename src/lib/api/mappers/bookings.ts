@@ -8,14 +8,12 @@ import type {
   BookingUnavailableReason,
 } from "@/features/bookings/types";
 import type { Bilingual } from "./catalogue";
+import { ODDS_PATTERN as ODDS } from "../patterns";
 
 type ApiBooking = components["schemas"]["Booking"];
 type ApiPricedLeg = components["schemas"]["PricedLeg"];
 type ApiBookingCreated = components["schemas"]["BookingCreated"];
 type ApiBookingCreate = components["schemas"]["BookingCreate"];
-
-/** The contract's `Odds` pattern: a price the slip can be given. */
-const ODDS = /^\d{1,6}\.\d{2,3}$/;
 
 const localized = (
   en: string | undefined,

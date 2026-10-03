@@ -38,15 +38,17 @@ const FORM_MAX_BYTES = 4 * 1024;
 
 /**
  * The request's JSON body checked against `schema`, or the Problem to answer
- * instead: 413 when it is too large, 422 when it is not what `schema` accepts.
- * Nothing is sent upstream before this has passed.
+ * instead: 413 when it is over `maxBytes` (a form's 4 KiB unless the route
+ * says more), 422 when it is not what `schema` accepts. Nothing is sent
+ * upstream before this has passed.
  */
 export async function readForm<T>(
   request: Request,
   schema: z.ZodType<T>,
   refusal: string,
+  maxBytes: number = FORM_MAX_BYTES,
 ): Promise<T | Response> {
-  const json = await readJson(request, FORM_MAX_BYTES);
+  const json = await readJson(request, maxBytes);
   if (json === "too_large") {
     return problemResponse(413, "VALIDATION_FAILED", "Too large");
   }

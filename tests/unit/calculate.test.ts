@@ -49,8 +49,7 @@ const run = (
     systemK: 2,
     rules,
     balance: "1250.00",
-    acceptedIds: new Set<string>(),
-    acceptAllOddsChanges: false,
+    oddsPolicy: "none",
     ...overrides,
   });
 
@@ -292,13 +291,21 @@ describe("calculateBetSlip — same-match conflicts", () => {
 describe("calculateBetSlip — odds movement", () => {
   const moved = [
     sel("a", "m1", "1.62"),
+    // Agreed at 3.05, now 3.40: a rise.
     sel("b", "m2", "3.40", { initialOdds: "3.05" }),
+    // Agreed at 1.38, now 1.30: a drop.
+    sel("c", "m3", "1.30", { initialOdds: "1.38" }),
   ];
+  const pending = (policy: "none" | "higher" | "any") =>
+    run(moved, { oddsPolicy: policy }).pendingOddsChanges.map(
+      (s) => s.outcomeId,
+    );
 
-  it("reports unaccepted moves", () => {
-    expect(run(moved).pendingOddsChanges.map((s) => s.outcomeId)).toEqual([
-      "b",
-    ]);
+  it("asks about every move under none, only drops under higher and nothing under any (AC-6)", () => {
+    // The slip asks exactly where the engine would refuse (C08 §7).
+    expect(pending("none")).toEqual(["b", "c"]);
+    expect(pending("higher")).toEqual(["c"]);
+    expect(pending("any")).toEqual([]);
   });
 
   it("does not count a respelled price as a move", () => {
@@ -306,21 +313,9 @@ describe("calculateBetSlip — odds movement", () => {
     expect(run(respelled).pendingOddsChanges).toEqual([]);
   });
 
-  it("clears a move the user accepted individually", () => {
-    expect(
-      run(moved, { acceptedIds: new Set(["b"]) }).pendingOddsChanges,
-    ).toEqual([]);
-  });
-
-  it("clears every move when accept-all is on", () => {
-    expect(
-      run(moved, { acceptAllOddsChanges: true }).pendingOddsChanges,
-    ).toEqual([]);
-  });
-
   it("always prices at the current odds", () => {
-    // 1.62 × 3.40 = 5.508
-    expect(run(moved).quote?.totalOdds).toBe("5.50");
+    // 1.62 × 3.40 × 1.30 = 7.1604, whatever was agreed before.
+    expect(run(moved).quote?.totalOdds).toBe("7.16");
   });
 });
 

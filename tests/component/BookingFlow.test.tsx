@@ -121,10 +121,21 @@ describe("loading a booking code in the slip", () => {
     expect(notice).toHaveTextContent(
       "Saint George v Fasil Kenema · 1X2 · 1: match has started",
     );
-    // The price moved since the code was made: 2.05 → 2.10, to accept. (A
-    // guest has no Place button; the odds-changed alert offers the accept.)
+    // The price moved since the code was made: 2.05 → 2.10 is shown. A rise
+    // is what the tenant's `higher` policy takes without asking, so there is
+    // nothing to accept…
     expect(screen.getByText("2.05")).toBeInTheDocument();
     expect(screen.getByText(/▲ 2\.10/)).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Accept all" }),
+    ).not.toBeInTheDocument();
+
+    // …until the player asks to be asked. (A guest has no Place button; the
+    // odds-changed alert offers the accept.)
+    await userEvent.selectOptions(
+      screen.getByLabelText("When odds change"),
+      "Ask me",
+    );
     expect(
       screen.getByRole("button", { name: "Accept all" }),
     ).toBeInTheDocument();
@@ -156,12 +167,14 @@ describe("loading a booking code in the slip", () => {
   });
 
   it("starts a loaded slip without standing consent to price moves", async () => {
-    useBetSlipStore.setState({ acceptAnyChange: true });
+    useBetSlipStore.getState().setOddsPolicy("any");
     api(() => [200, BOOKING()]);
     render(<BetSlip />);
     await loadCode("7KQ2M9X");
     await screen.findByTestId("booking-notice");
-    expect(useBetSlipStore.getState().acceptAnyChange).toBe(false);
+    // Back to the tenant's own policy (`higher`), not "accept any".
+    expect(useBetSlipStore.getState().oddsPolicy).toBeNull();
+    expect(screen.getByLabelText("When odds change")).toHaveValue("higher");
   });
 
   it("keeps the slip when nothing in the code can be added, and says so", async () => {

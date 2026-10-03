@@ -1,19 +1,18 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { Check, CircleAlert, Loader2 } from "lucide-react";
+import { Check, Loader2 } from "lucide-react";
 import { useTranslation } from "@/lib/i18n/use-translation";
-import type { MessageKey } from "@/lib/i18n";
-import { Switch } from "@/components/ui/Switch";
 import { routes } from "@/config/routes";
-import { ApiError } from "@/lib/api/errors";
 import { cn } from "@/lib/utils/cn";
+import { useSession } from "@/features/auth/hooks/use-session";
 import { useAuthStore } from "@/features/auth/stores/auth.store";
 import { useBetSlip } from "../hooks/use-bet-slip";
 import { usePlaceBet } from "../hooks/use-place-bet";
-import { useBetSlipStore } from "../stores/bet-slip.store";
-import type { BetReceipt } from "../api/place-bet";
+import type { CtaAction } from "../lib/calculate";
+import { placeRequestFrom, samePrices, slipIsThatBet } from "../lib/placement";
+import { ownPlacement, useBetSlipStore } from "../stores/bet-slip.store";
 import { BetModeTabs } from "./BetModeTabs";
 import { BetPlacedConfirmation } from "./BetPlacedConfirmation";
 import { BetSelectionRow } from "./BetSelectionRow";
@@ -27,6 +26,7 @@ import { bookingErrorMessage } from "@/features/bookings/lib/errors";
 import { bookingRequestFrom } from "@/features/bookings/lib/request";
 import { BookingAlert, BookingCode, LoadBookingCode } from "./BookingCode";
 import { EmptySlip } from "./EmptySlip";
+import { OddsPolicySetting } from "./OddsPolicySetting";
 import { PayoutSummary } from "./PayoutSummary";
 import { PlaceBetButton } from "./PlaceBetButton";
 import { SlipAlerts } from "./SlipAlerts";
@@ -34,23 +34,15 @@ import { StakeInput } from "./StakeInput";
 import { TaxBreakdown } from "./TaxBreakdown";
 
 /**
- * What a refusal from the engine means, by its Problem `code` — never by its
- * title, which is display text in whatever language the API chose.
- */
-const PLACE_ERROR_BODY: Record<string, MessageKey> = {
-  BET_RELATED_SELECTIONS: "betSlip.alerts.conflictBody",
-  BET_MARKET_SUSPENDED: "betSlip.alerts.suspendedBody",
-  BET_EVENT_STARTED: "betSlip.alerts.suspendedBody",
-  VALIDATION_FAILED: "betSlip.errors.cannotPriceBody",
-  RULES_UNAVAILABLE: "betSlip.rulesFailed",
-};
-
-/**
  * The bet slip.
  *
  * Same component in the desktop aside and the mobile sheet — only `onClose`
  * differs, because only the sheet can be dismissed. Every number on screen comes
- * from `useBetSlip`, and the confirmation comes from the engine's receipt.
+ * from `useBetSlip`, and the confirmation is the engine's ticket. Placing —
+ * the bet on its way, an unconfirmed one, a refusal, the ticket — lives in the
+ * slip store, so both mounted slips show the same state and a closed sheet
+ * loses none of it. It is the signed-in player's alone: a guest sees none of
+ * it, and it is dropped when someone else signs in.
  */
 export function BetSlip({ onClose }: { onClose?: () => void }) {
   const t = useTranslation();
@@ -63,19 +55,78 @@ export function BetSlip({ onClose }: { onClose?: () => void }) {
     isGuest,
     balance,
     rules,
+    oddsPolicy,
     rulesState,
     retryRules,
     bookingCodes,
   } = useBetSlip();
   const selections = useBetSlipStore((s) => s.selections);
   const clear = useBetSlipStore((s) => s.clear);
-  const acceptAnyChange = useBetSlipStore((s) => s.acceptAnyChange);
-  const setAcceptAnyChange = useBetSlipStore((s) => s.setAcceptAnyChange);
+  const setOddsPolicy = useBetSlipStore((s) => s.setOddsPolicy);
   const setStake = useBetSlipStore((s) => s.setStake);
   const stake = useBetSlipStore((s) => s.stake);
 
-  const [receipt, setReceipt] = useState<BetReceipt | null>(null);
-  const place = usePlaceBet(setReceipt);
+  const playerId = useSession().player?.id ?? null;
+  const stored = useBetSlipStore((s) => s.placement);
+  const forgetPlacement = useBetSlipStore((s) => s.forgetPlacement);
+  const dismissReceipt = useBetSlipStore((s) => s.dismissReceipt);
+  // Another player signed in on this device: nothing of the last one's
+  // ticket, refusal or unconfirmed bet stays (docs/design/09).
+  useEffect(() => {
+    if (playerId && stored.owner && stored.owner !== playerId) {
+      forgetPlacement();
+    }
+  }, [playerId, stored.owner, forgetPlacement]);
+  const placement = ownPlacement(stored, playerId);
+  const { place, retry, placeAsNew } = usePlaceBet(playerId);
+  const placing = placement.sending !== null;
+  const unconfirmed = placement.unconfirmed;
+  // The slip as a bet, with what it charges: null while it can't be placed
+  // as it stands.
+  const intent = useMemo(() => {
+    const request = placeRequestFrom({ selections, totals, stake, oddsPolicy });
+    return request && totals.quote
+      ? {
+          request,
+          totalStake: totals.quote.totalStake,
+          lines: totals.quote.lines,
+        }
+      : null;
+  }, [selections, totals, stake, oddsPolicy]);
+  // The main button acts on the slip shown above it. While a bet is
+  // unconfirmed that is Try again only as long as the slip still is that bet;
+  // once it is another, the button places it — as a new bet, the player's
+  // explicit choice — and Try again stays in the alert, which names the bet.
+  const thatBet =
+    unconfirmed !== null &&
+    slipIsThatBet(intent?.request ?? null, unconfirmed, placement.stale);
+  const action: CtaAction = !unconfirmed
+    ? cta.action
+    : thatBet
+      ? "retry"
+      : cta.action === "place"
+        ? "place-new"
+        : cta.action;
+  const amount =
+    action === "retry"
+      ? (unconfirmed?.totalStake ?? null)
+      : action === "place" || action === "place-new"
+        ? (totals.quote?.totalStake ?? null)
+        : null;
+  // The alert says which bet Try again sends whenever the slip doesn't show
+  // exactly it — its prices and its odds setting too — and warns of two
+  // bets once the main button would place the slip as another.
+  const exactly =
+    intent !== null &&
+    unconfirmed !== null &&
+    samePrices(intent.request, unconfirmed.request) &&
+    intent.request.oddsPolicy === unconfirmed.request.oddsPolicy;
+  const unconfirmedNote =
+    unconfirmed === null || exactly
+      ? null
+      : !thatBet && totals.count > 0
+        ? "changed"
+        : "asItWas";
 
   // Booking saves the slip slipcalc priced: its live picks, bet type and
   // system size. Null when it can't be booked (nothing live, a same-match
@@ -103,16 +154,6 @@ export function BetSlip({ onClose }: { onClose?: () => void }) {
   }, [bookedCode]);
   const bookDisabled = !bookingRequest || booking.isPending || !!bookedCode;
 
-  // The engine refused the stake and said what it would take, so the alert
-  // can offer to set it rather than just reporting the problem.
-  const rejection = place.error instanceof ApiError ? place.error : null;
-  const stakeFix =
-    rejection &&
-    (rejection.code === "BET_STAKE_TOO_HIGH" ||
-      rejection.code === "BET_STAKE_TOO_LOW")
-      ? (rejection.errors.find((e) => e.field === "stake")?.limit ?? null)
-      : null;
-
   const conflicts = useMemo(
     () => new Set(totals.conflictEventIds),
     [totals.conflictEventIds],
@@ -122,15 +163,14 @@ export function BetSlip({ onClose }: { onClose?: () => void }) {
     [totals.pendingOddsChanges],
   );
 
-  if (receipt) {
+  if (placement.receipt) {
     return (
       <div className="bg-ground flex w-full flex-col">
         <BetSlipHeader count={totals.count} onClose={onClose} />
         <BetPlacedConfirmation
-          receipt={receipt}
-          onKeepSelections={() => setReceipt(null)}
+          receipt={placement.receipt}
+          onKeepSelections={dismissReceipt}
           onDone={() => {
-            setReceipt(null);
             clear();
             onClose?.();
           }}
@@ -157,6 +197,16 @@ export function BetSlip({ onClose }: { onClose?: () => void }) {
         rules={rules?.calc ?? null}
         rulesState={rulesState}
         onRetryRules={retryRules}
+        placement={placement}
+        unconfirmedNote={unconfirmedNote}
+        // A refusal the player can act on carries the fix, rather than
+        // leaving them to work out what would be accepted.
+        fixes={{
+          retry,
+          deposit: () => router.push(routes.walletAction("deposit")),
+          verify: () => openAuth("verify"),
+          viewLimits: () => router.push(routes.responsibleGaming),
+        }}
       />
 
       <BookingNotice
@@ -166,50 +216,6 @@ export function BetSlip({ onClose }: { onClose?: () => void }) {
           liveCount: totals.liveCount,
         }}
       />
-
-      {place.isError && (
-        <div
-          role="alert"
-          className="bg-loss-bg mx-3 mb-2.5 flex items-center gap-2.5 rounded-md p-3"
-        >
-          <CircleAlert
-            size={17}
-            strokeWidth={1.5}
-            aria-hidden
-            className="text-loss shrink-0"
-          />
-          <div className="min-w-0 flex-1">
-            <div className="font-bold">{t.t("betSlip.placeFailed")}</div>
-            <div className="text-muted text-xs">
-              {stakeFix
-                ? t.t(
-                    rejection?.code === "BET_STAKE_TOO_LOW"
-                      ? "betSlip.errors.stakeTooLowBody"
-                      : "betSlip.errors.stakeTooHighBody",
-                    { amount: t.money(stakeFix) },
-                  )
-                : t.t(
-                    PLACE_ERROR_BODY[rejection?.code ?? ""] ??
-                      "betSlip.placeFailedBody",
-                  )}
-            </div>
-          </div>
-          {/* A rejection the user can act on carries the fix, rather than
-              leaving them to work out what number would be accepted. */}
-          {stakeFix && (
-            <button
-              type="button"
-              onClick={() => {
-                setStake(stakeFix);
-                place.reset();
-              }}
-              className="bg-raised text-text font-body min-h-11 shrink-0 cursor-pointer rounded-lg px-3 text-xs font-bold"
-            >
-              {t.t("betSlip.setMax", { amount: t.number(stakeFix) })}
-            </button>
-          )}
-        </div>
-      )}
 
       {totals.count === 0 ? (
         <EmptySlip />
@@ -245,12 +251,8 @@ export function BetSlip({ onClose }: { onClose?: () => void }) {
             )
           )}
 
-          <div className="px-4">
-            <Switch
-              checked={acceptAnyChange}
-              onChange={setAcceptAnyChange}
-              label={t.t("betSlip.acceptAnyChange")}
-            />
+          <div className="mt-2 px-4">
+            <OddsPolicySetting value={oddsPolicy} onChange={setOddsPolicy} />
           </div>
 
           {isGuest ? (
@@ -325,11 +327,18 @@ export function BetSlip({ onClose }: { onClose?: () => void }) {
             </>
           ) : (
             <PlaceBetButton
-              action={cta.action}
-              disabled={cta.disabled}
+              action={action}
+              disabled={action === "retry" ? false : cta.disabled}
+              amount={amount}
               totals={totals}
-              pending={place.isPending}
-              onPlace={() => place.mutate()}
+              pending={placing}
+              onPlace={() => {
+                if (intent) place(intent);
+              }}
+              onPlaceNew={() => {
+                if (intent) placeAsNew(intent);
+              }}
+              onRetry={retry}
               onDeposit={() => router.push(routes.walletAction("deposit"))}
               // A dialog, not a navigation: the slip they just built is the
               // reason they are logging in.

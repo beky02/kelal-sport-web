@@ -24,13 +24,17 @@ export interface RequestContext {
 
 /**
  * The browser's `Prefer` header, if it is one of Prism's forms and this is
- * `next dev`. Fails closed: any other build (production, staging, test)
+ * `next dev`: `code=409`, `example=needs_info`, or both — `code=409,
+ * example=event_started`, which Prism needs to find a named example under an
+ * error status. Fails closed: any other build (production, staging, test)
  * forwards nothing, and `upstream()` sends it only to the mock, never to the
  * real API.
  */
 export function mockPreference(header: string | null): string | undefined {
   if (process.env.NODE_ENV !== "development" || !header) return undefined;
-  return /^(code=\d{3}|example=[\w-]+)$/.test(header) ? header : undefined;
+  return /^(code=\d{3}(, ?example=[\w-]+)?|example=[\w-]+)$/.test(header)
+    ? header
+    : undefined;
 }
 
 const LANGS: readonly Lang[] = ["en", "am"];

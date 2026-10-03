@@ -278,3 +278,66 @@ The UI review found two Amharic strings that read wrongly: `auth.resetTitle` sai
 | `auth.fullNamePlaceholder` | አበበ ከበደ ተስፋዬ                             | the English example, in Ethiopic           |
 | `auth.ruleMet`             | (ተሟልቷል)                                  | new (screen readers only)                  |
 | `auth.ruleNotMet`          | (ገና አልተሟላም)                              | new (screen readers only)                  |
+
+## Placing a bet (F5a, 2026-10-02)
+
+Composed, not from the design, for review. The odds-change setting replaces the switch
+`betSlip.acceptAnyChange` ("ማንኛውንም የኦድ ለውጥ ተቀበል"), whose words it reuses.
+
+| Key                         | Amharic      | Composed from                                     |
+| --------------------------- | ------------ | ------------------------------------------------- |
+| `betSlip.oddsPolicy.label`  | ኦድ ሲቀየር      | `ኦድ` (design) + `ሲቀየር` ("when it changes")        |
+| `betSlip.oddsPolicy.none`   | ጠይቀኝ         | new: "ask me", imperative like the slip's buttons |
+| `betSlip.oddsPolicy.higher` | ከፍ ያለውን ተቀበል | `ተቀበል` (`betSlip.accept`) + "the higher one"      |
+| `betSlip.oddsPolicy.any`    | ማንኛውንም ተቀበል  | `betSlip.acceptAnyChange` without "odds change"   |
+
+The engine's refusals of a bet and the no-answer notice. "ውርርዱ አልተያዘም" ("the bet was not placed")
+negates `betSlip.placed` (ውርርድ ተይዟል); the rest reuses the slip's alerts and the auth errors.
+
+| Key                                  | Amharic                                                   | Composed from                                                                                  |
+| ------------------------------------ | --------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| `betSlip.betCount`                   | {n} ውርርዶች                                                 | `betSlip.bets`                                                                                 |
+| `betSlip.refused.oddsChanged`        | ውርርዱ አልተያዘም፦ ኦድ ተቀይሯል። ለማስያዝ አዲሱን ኦድ ይቀበሉ።                | `alerts.oddsChangedTitle`, `placeFailedBody` (ማስያዝ); no count, as `translate()` has no plurals |
+| `betSlip.refused.oddsUnknown`        | ውርርዱ አልተያዘም፦ ኦድ ተቀይሯል። ኦዶቹን አይተው እንደገና ያስይዙ።              | `alerts.oddsChangedTitle`, `betSlip.placeBet` (አስይዝ)                                           |
+| `betSlip.refused.startedTitle`       | ጨዋታው ተጀምሯል                                                | `booking.reason.EVENT_STARTED`                                                                 |
+| `betSlip.refused.started`            | ውርርዱ አልተያዘም፦ በትኬትዎ ያለ ጨዋታ ተጀምሯል። የቀሩትን ለማስያዝ ያስወግዱት።      | as above + `alerts.suspendedBody` (ያስወግዱት)                                                     |
+| `betSlip.refused.suspended`          | ውርርዱ አልተያዘም፦ በአንድ ምርጫ ላይ ውርርድ ቆሟል። የቀሩትን ለማስያዝ ያስወግዱት።    | `alerts.suspendedBody`                                                                         |
+| `betSlip.refused.closedUnknown`      | ውርርዱ አልተያዘም፦ አንድ ምርጫ ከእንግዲህ አይገኝም።                        | new                                                                                            |
+| `betSlip.refused.limitTitle`         | ከገደቡ በላይ                                                  | `ገደብ` (`system.limitTitle`)                                                                    |
+| `betSlip.refused.limit`              | ይህ የውርርድ መጠን ለዚህ ውርርድ ከተፈቀደው በላይ ነው። ያነሰ መጠን ይሞክሩ።        | `betSlip.stake` (የውርርድ መጠን)                                                                    |
+| `betSlip.refused.limitWith`          | ይህ ውርርድ የሚቀበለው ከፍተኛ መጠን {amount} ነው።                      | `errors.stakeTooHighBody`                                                                      |
+| `betSlip.refused.insufficient`       | ቀሪ ሂሳብዎ ለዚህ የውርርድ መጠን በቂ አይደለም።                           | `alerts.insufficientBody`                                                                      |
+| `betSlip.refused.kycTitle`           | ማንነትዎን ያረጋግጡ                                              | `auth.kycTitle`                                                                                |
+| `betSlip.refused.kyc`                | ውርርድ ለማስያዝ መታወቂያዎን በፋይዳ ያረጋግጡ።                            | `auth.verifyWithFayda`                                                                         |
+| `betSlip.refused.rgLimitTitle`       | ገደብ ደርሷል                                                  | `system.limitTitle`                                                                            |
+| `betSlip.refused.rgLimit`            | ያስቀመጡት ገደብ ላይ ደርሰዋል፤ ይህ ውርርድ መያዝ አይችልም።                   | as above                                                                                       |
+| `betSlip.refused.breakTitle`         | ዕረፍት ላይ ነዎት                                               | `rg.takeBreak` (ዕረፍት)                                                                          |
+| `betSlip.refused.break`              | በዕረፍትዎ ጊዜ ውርርድ ቆሟል።                                       | `system.coolOffBody` (ቆመዋል)                                                                    |
+| `betSlip.refused.breakUntil`         | ውርርድ እስከ {date} ቆሟል።                                      | as above                                                                                       |
+| `betSlip.refused.realMoney`          | በእውነተኛ ገንዘብ መወራረድ ገና አልተጀመረም።                             | new                                                                                            |
+| `betSlip.refused.rateLimited`        | በአጭር ጊዜ ውስጥ በጣም ብዙ ውርርዶች። ትንሽ ቆይተው እንደገና ይሞክሩ።            | `auth.errors.RATE_LIMITED`                                                                     |
+| `betSlip.refused.rateLimitedSeconds` | በአጭር ጊዜ ውስጥ በጣም ብዙ ውርርዶች። ከ{seconds} ሰከንድ በኋላ እንደገና ይሞክሩ። | `auth.errors.rateLimitedSeconds`                                                               |
+| `betSlip.unconfirmed.title`          | ውርርድዎን ማረጋገጥ አልቻልንም                                       | new                                                                                            |
+| `betSlip.unconfirmed.body`           | ውርርዱ ተይዞ ሊሆን ይችላል። እንደገና ይሞክሩ፤ ተይዞ ከሆነ ያንኑ ትኬት ያያሉ።       | `betSlip.placed` (ተይዟል), `betSlip.ticket`                                                      |
+
+Added in the F5a review round (2026-10-03):
+
+| Key                            | Amharic                                       | Composed from                                      |
+| ------------------------------ | --------------------------------------------- | -------------------------------------------------- |
+| `betSlip.placing`              | በማስያዝ ላይ…                                     | `betSlip.placeBet` (አስይዝ), progressive             |
+| `betSlip.refused.stakeLow`     | ይህ የውርርድ መጠን ለዚህ ውርርድ ከተፈቀደው ዝቅተኛ መጠን በታች ነው። | `errors.stakeTooLowTitle` (ዝቅተኛ), `refused.limit`  |
+| `betSlip.refused.stakeHigh`    | ይህ የውርርድ መጠን ለዚህ ውርርድ ከተፈቀደው ከፍተኛ መጠን በላይ ነው። | `errors.stakeTooHighTitle` (ከፍተኛ), `refused.limit` |
+| `betSlip.unconfirmed.placeNew` | እንደ አዲስ ውርርድ አስይዝ                             | `betSlip.placeBet` (ውርርድ አስይዝ) + "as a new"        |
+
+Added in the F5a review, round 2 (2026-10-03). `unconfirmed.changed` was reworded here (it now names the bet):
+
+| Key                                | Amharic                                                                             | Composed from                                                         |
+| ---------------------------------- | ----------------------------------------------------------------------------------- | --------------------------------------------------------------------- |
+| `betSlip.singlesLabel`             | ነጠላ · {n} ውርርዶች                                                                     | `betSlip.single` (ነጠላ), `betSlip.betCount`                            |
+| `betSlip.alerts.oddsChangedBody`   | ለመቀጠል አዲሱን ኦድ ይቀበሉ።                                                                 | `refused.oddsChanged` (አዲሱን ኦድ ይቀበሉ); no count, so no plural          |
+| `betSlip.unconfirmed.changed`      | እንደገና መሞከር ያንን ውርርድ እንደነበረ ይልካል፦ {bet}። ያ ውርርድ ተይዞ ከሆነ፣ ይህንንም ማስያዝ ሁለት ውርርዶች ያደርጋል። | `common.retry` (እንደገና), `unconfirmed.body` (ተይዞ ከሆነ), `betSlip.bets`  |
+| `betSlip.unconfirmed.asItWas`      | እንደገና መሞከር ያንን ውርርድ እንደነበረ ይልካል፦ {bet}።                                             | as above; `{bet}` is `multipleLabel`, `systemLabel` or `singlesLabel` |
+| `betSlip.unconfirmed.retry`        | እንደገና ይሞክሩ · {amount}                                                               | `common.retry`                                                        |
+| `betSlip.unconfirmed.retryRefused` | እንደገና መሞከሩ አልተሳካም                                                                   | `common.retry`, `placeFailedBody` (አልተሳካም)                            |
+| `betSlip.unconfirmed.oddsChanged`  | ከዚያ በኋላ የዚያ ውርርድ ኦድ ተቀይሯል።                                                          | `alerts.oddsChangedTitle` (ኦድ ተቀይሯል)                                  |
+| `betSlip.unconfirmed.closed`       | በዚያ ውርርድ ውስጥ ያለ አንድ ምርጫ ከእንግዲህ አይገኝም።                                               | `refused.closedUnknown`                                               |
