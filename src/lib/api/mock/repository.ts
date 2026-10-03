@@ -3,10 +3,10 @@
  *
  * The catalogue, auth, bookings and bets no longer come from here: they go
  * through the route handlers to the API, and Prism serves the contract's own
- * examples locally, as do the wallet's balances and history. What is left —
- * payment methods and payments (F6b, F6c), responsible gaming and session
- * activity (F7) — moves to the contract task by task, after which this folder
- * is deleted.
+ * examples locally, as do the wallet's balances and history, payment methods
+ * and deposits. What is left — withdrawals (F6c), responsible gaming and
+ * session activity (F7) — moves to the contract task by task, after which
+ * this folder is deleted.
  *
  * `listBoard` and `listMarkets` remain only as fixtures for the realtime tests,
  * which need live fixtures, scores and many lines per market — shapes the
@@ -28,12 +28,7 @@ import type {
   MarketType,
   Outcome,
 } from "@/features/markets/types";
-import type {
-  PaymentMethod,
-  PaymentResult,
-  WalletMode,
-} from "@/features/wallet/types";
-import { PAYMENT_METHODS } from "./wallet";
+import type { PaymentMethodCode, PaymentResult } from "@/features/wallet/types";
 import {
   CLUB_COLOUR,
   COUNTRIES,
@@ -475,41 +470,17 @@ export const mockRepository = {
     return { ...responsibleGaming };
   },
 
-  async listPaymentMethods(mode: WalletMode): Promise<PaymentMethod[]> {
-    await delay(100);
-    return mode === "withdraw"
-      ? PAYMENT_METHODS.filter((method) => method.supportsWithdrawal)
-      : PAYMENT_METHODS;
-  },
-
   /**
-   * Starts a deposit or a withdrawal, until F6b and F6c send them to the API.
-   *
-   * The method's limits are re-checked here, not just in the form: a
-   * client-side maximum is a hint to the user, never a control. Deposits come
-   * back `pending` because mobile money needs the customer to approve a prompt
-   * on their handset — the money has not moved when this returns. Balances are
-   * the API's (`/v1/wallet`): nothing here knows or changes one.
+   * Starts a withdrawal, until F6c sends it to `/v1/withdrawals`. The method
+   * and its limits are the API's (`/v1/payment-methods`); balances are the
+   * API's too (`/v1/wallet`): nothing here knows or changes one.
    */
-  async createPayment(
-    mode: WalletMode,
-    methodId: string,
-    amount: number,
+  async createWithdrawal(
+    method: PaymentMethodCode,
+    amount: string,
   ): Promise<PaymentResult> {
     await delay(700);
-
-    const method = PAYMENT_METHODS.find((m) => m.id === methodId);
     if (!method) throw new ApiError("Unknown method", 422, "unknown_method");
-    if (mode === "withdraw" && !method.supportsWithdrawal)
-      throw new ApiError(
-        "Method cannot pay out",
-        422,
-        "withdrawal_unsupported",
-      );
-
-    if (amount < method.minAmount || amount > method.maxAmount)
-      throw new ApiError("Amount outside limits", 422, "amount_out_of_range");
-
     return {
       reference: `TX-${Math.floor(1000 + Math.random() * 9000)}-${Math.floor(1000 + Math.random() * 9000)}`,
       status: "pending",

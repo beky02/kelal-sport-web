@@ -3,9 +3,9 @@ import {
   calculateBetSlip,
   type BetSlipInput,
 } from "@/features/bet-slip/lib/calculate";
+import { newIdempotencyKey } from "@/lib/idempotency";
 import {
   legUpdates,
-  newIdempotencyKey,
   placeRequestFrom,
   placementOutcome,
   refusalOf,

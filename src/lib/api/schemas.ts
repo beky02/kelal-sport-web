@@ -53,8 +53,12 @@ import { toE164 } from "@/features/auth/lib/phone";
 import { compareMoney } from "@/lib/money";
 import { MONEY_PATTERN, ODDS_PATTERN, TICKET_NUMBER_PATTERN } from "./patterns";
 import {
+  DEPOSIT_STATUSES,
+  PAYMENT_METHOD_CODES,
   WALLET_TXN_REFERENCE_TYPES,
   WALLET_TXN_TYPES,
+  type Deposit,
+  type DepositRequest,
   type PaymentMethod,
   type PaymentResult,
   type WalletBalances,
@@ -343,20 +347,79 @@ export const walletTxnPageSchema = z.object({
   nextCursor: z.string().nullable(),
 }) satisfies z.ZodType<WalletTxnPage>;
 
+// ── payments (F6b) ──────────────────────────────────────────────────────────
+
+/** A method's limits: the contract's `Money` strings. */
+const amountRangeSchema = z.object({
+  min: z.string().regex(MONEY_PATTERN),
+  max: z.string().regex(MONEY_PATTERN),
+});
+
+const paymentMethodCodeSchema = z.enum(PAYMENT_METHOD_CODES);
+
 export const paymentMethodSchema = z.object({
-  id: z.string(),
-  name: z.string(),
-  mono: z.string(),
-  kind: z.enum(["mobile", "gateway"]),
-  minAmount: z.number().nonnegative(),
-  maxAmount: z.number().positive(),
-  supportsWithdrawal: z.boolean(),
+  code: paymentMethodCodeSchema,
+  name: z.string().min(1),
+  flow: z.enum(["app_or_web", "redirect", "ussd_push", "other"]),
+  available: z.boolean(),
+  deposit: amountRangeSchema,
+  withdrawal: amountRangeSchema.nullable(),
 }) satisfies z.ZodType<PaymentMethod>;
 
+/** `/api/payment-methods`: the methods offered to this player. */
+export const paymentMethodsSchema = z.array(paymentMethodSchema);
+
+/**
+ * `/api/deposits` and `/api/deposits/{id}`: a deposit. A redirect is only
+ * ever to an https page — the server has already checked its host against
+ * the allow-list; this refuses anything else before it can be followed.
+ */
+export const depositSchema = z.object({
+  id: z.string().min(1),
+  method: paymentMethodCodeSchema,
+  amount: z.string().regex(MONEY_PATTERN),
+  status: z.enum(DEPOSIT_STATUSES),
+  nextAction: z
+    .discriminatedUnion("type", [
+      z.object({
+        type: z.literal("redirect"),
+        url: z.url({ protocol: /^https$/ }),
+      }),
+      z.object({
+        type: z.literal("ussd_push"),
+        message: z.string().nullable(),
+      }),
+      z.object({
+        type: z.literal("unsupported"),
+        reason: z.enum(["app_sdk", "redirect_refused", "unknown"]),
+      }),
+    ])
+    .nullable(),
+  failureReason: z.string().nullable(),
+  expiresAt: z.iso.datetime({ offset: true }).nullable(),
+  createdAt: z.iso.datetime({ offset: true }),
+  completedAt: z.iso.datetime({ offset: true }).nullable(),
+}) satisfies z.ZodType<Deposit>;
+
+/**
+ * What `/api/deposits` accepts from the browser: a method and an amount in
+ * the contract's form, above zero — strict, so nothing else rides along (a
+ * `return_url` is the server's to set). Whether the amount is within the
+ * method's limits is the API's to say.
+ */
+export const depositRequestSchema = z.strictObject({
+  method: paymentMethodCodeSchema,
+  amount: z
+    .string()
+    .regex(MONEY_PATTERN)
+    .refine((amount) => compareMoney(amount, "0.00") > 0, "Not an amount"),
+}) satisfies z.ZodType<DepositRequest>;
+
+/** The withdrawal mock's answer, until F6c moves it to `/v1/withdrawals`. */
 export const paymentResultSchema = z.object({
   reference: z.string(),
   status: z.enum(["pending", "success", "failed"]),
-  amount: z.number(),
+  amount: z.string().regex(MONEY_PATTERN),
 }) satisfies z.ZodType<PaymentResult>;
 
 export type BoardSectionDto = z.infer<typeof boardSectionSchema>;

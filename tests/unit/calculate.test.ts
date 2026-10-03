@@ -7,10 +7,8 @@ import {
   type BetSlipInput,
 } from "@/features/bet-slip/lib/calculate";
 import { binomial } from "@/features/bet-slip/lib/combinations";
-import {
-  sanitiseStake,
-  useBetSlipStore,
-} from "@/features/bet-slip/stores/bet-slip.store";
+import { useBetSlipStore } from "@/features/bet-slip/stores/bet-slip.store";
+import { sanitiseAmount } from "@/lib/money";
 import type { BetSelection } from "@/features/bet-slip/types";
 import { GOLDEN_RULES } from "../golden";
 
@@ -390,12 +388,12 @@ describe("resolveCta", () => {
   });
 });
 
-describe("sanitiseStake", () => {
+describe("sanitiseAmount", () => {
   it("keeps digits and up to two decimals", () => {
-    expect(sanitiseStake("0012.345x")).toBe("12.34");
-    expect(sanitiseStake("1,000")).toBe("1000");
-    expect(sanitiseStake(".5")).toBe("0.5");
-    expect(sanitiseStake("")).toBe("");
+    expect(sanitiseAmount("0012.345x")).toBe("12.34");
+    expect(sanitiseAmount("1,000")).toBe("1000");
+    expect(sanitiseAmount(".5")).toBe("0.5");
+    expect(sanitiseAmount("")).toBe("");
   });
 });
 

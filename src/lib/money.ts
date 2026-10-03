@@ -29,6 +29,18 @@ export function toSantim(amount: string): bigint {
 /** `1234n` → `"12.34"` — slipcalc's own formatter. */
 export const fromSantim = (santim: bigint): string => money(santim);
 
+/**
+ * An amount as a player types it: digits, one point, two decimals at most —
+ * `"0012.345x"` → `"12.34"`. A stake on the slip, a deposit in the wallet.
+ */
+export function sanitiseAmount(raw: string): string {
+  const [whole = "", ...rest] = raw.replace(/[^\d.]/g, "").split(".");
+  const integer = whole.replace(/^0+(?=\d)/, "");
+  return rest.length
+    ? `${integer || "0"}.${rest.join("").slice(0, 2)}`
+    : integer;
+}
+
 /** `"100"` → `"100.00"`. */
 export const normaliseMoney = (amount: string): string =>
   fromSantim(toSantim(amount));

@@ -10,13 +10,12 @@ import { STALE_TIME } from "@/config/constants";
 import { transactionKeys, walletKeys } from "@/lib/query/keys";
 import { useUiStore } from "@/stores/ui.store";
 import {
-  createPayment,
-  getPaymentMethods,
+  createWithdrawal,
   getPaymentStatus,
   getWallet,
   getWalletHistory,
 } from "../api/get-wallet";
-import type { HistoryFilter, WalletMode } from "../types";
+import type { HistoryFilter, PaymentMethodCode } from "../types";
 
 /** How many movements the wallet's recent activity shows. */
 const RECENT_COUNT = 5;
@@ -92,31 +91,21 @@ export function useRecentTransactions(enabled: boolean) {
   });
 }
 
-export function usePaymentMethods(mode: WalletMode) {
-  return useQuery({
-    queryKey: [...walletKeys.all, "methods", mode],
-    queryFn: ({ signal }) => getPaymentMethods(mode, signal),
-    staleTime: 10 * 60_000,
-  });
-}
-
-/** Starts a payment. Never optimistic — this moves money. */
-export function useCreatePayment() {
+/** Starts a withdrawal (the mock, until F6c). Never optimistic — this moves money. */
+export function useCreateWithdrawal() {
   return useMutation({
     mutationFn: ({
-      mode,
-      methodId,
+      method,
       amount,
     }: {
-      mode: WalletMode;
-      methodId: string;
-      amount: number;
-    }) => createPayment(mode, methodId, amount),
+      method: PaymentMethodCode;
+      amount: string;
+    }) => createWithdrawal(method, amount),
   });
 }
 
 /**
- * Polls a pending payment until the provider decides.
+ * Polls a pending withdrawal until the mock decides (until F6c).
  *
  * The user is looking at a "waiting for approval" screen while they authorise it
  * on their handset, so this keeps asking rather than making them press a button

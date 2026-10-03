@@ -83,3 +83,17 @@ export const walletKeys = {
   all: ["wallet"] as const,
   balance: () => [...walletKeys.all, "balance"] as const,
 };
+
+/**
+ * Payment methods and deposits — the player's own (`playerAuth`), under one
+ * root the session watcher drops when the player changes. Apart from the
+ * wallet's, so placing a bet (which re-reads the balance) doesn't re-read
+ * the methods.
+ */
+export const paymentKeys = {
+  all: ["payments"] as const,
+  /** The methods offered to this player, in one language: names are the API's. */
+  methods: (lang: string) => [...paymentKeys.all, "methods", lang] as const,
+  /** One deposit, polled while it is pending. */
+  deposit: (id: string) => [...paymentKeys.all, "deposit", id] as const,
+};

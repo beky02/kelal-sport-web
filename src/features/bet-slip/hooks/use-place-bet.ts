@@ -11,9 +11,9 @@ import {
   walletKeys,
 } from "@/lib/query/keys";
 import { placeBet, placementDeadline } from "../api/place-bet";
+import { newIdempotencyKey } from "@/lib/idempotency";
 import {
   legUpdates,
-  newIdempotencyKey,
   placementOutcome,
   refusalOf,
   samePrices,

@@ -3,16 +3,14 @@ import { env } from "@/config/env";
 import { apiClient, assertContract } from "@/lib/api/client";
 import { mockRepository } from "@/lib/api/mock/repository";
 import {
-  paymentMethodSchema,
   paymentResultSchema,
   walletBalancesSchema,
   walletTxnPageSchema,
 } from "@/lib/api/schemas";
 import type {
-  PaymentMethod,
+  PaymentMethodCode,
   PaymentResult,
   WalletBalances,
-  WalletMode,
   WalletTxnPage,
   WalletTxnType,
 } from "../types";
@@ -43,50 +41,27 @@ export const getWalletHistory = (
     signal,
   });
 
-// Methods and payments stay on the mock until F6b (deposits) and F6c
-// (withdrawals) move them to `/v1/payment-methods`, `/v1/deposits` and
-// `/v1/withdrawals`.
-
-const methodsSchema = z.array(paymentMethodSchema);
-
-export async function getPaymentMethods(
-  mode: WalletMode,
-  signal?: AbortSignal,
-): Promise<PaymentMethod[]> {
-  if (env.useMocks) {
-    return assertContract(
-      "/wallet/methods",
-      methodsSchema,
-      await mockRepository.listPaymentMethods(mode),
-    );
-  }
-  return apiClient.get("/wallet/methods", methodsSchema, {
-    params: { mode },
-    signal,
-  });
-}
+// Withdrawals stay on the mock until F6c moves them to `/v1/withdrawals`.
 
 /**
- * Starts a payment.
+ * Starts a withdrawal.
  *
- * Returns pending: a mobile-money deposit is not money until the customer
- * approves the prompt on their handset. Nothing here may assume it succeeded.
+ * Returns pending: nothing here may assume it succeeded.
  */
-export async function createPayment(
-  mode: WalletMode,
-  methodId: string,
-  amount: number,
+export async function createWithdrawal(
+  method: PaymentMethodCode,
+  amount: string,
 ): Promise<PaymentResult> {
   if (env.useMocks) {
     return assertContract(
-      "/wallet/payments",
+      "/wallet/withdrawals",
       paymentResultSchema,
-      await mockRepository.createPayment(mode, methodId, amount),
+      await mockRepository.createWithdrawal(method, amount),
     );
   }
   return apiClient.post("/wallet/payments", paymentResultSchema, {
-    mode,
-    methodId,
+    mode: "withdraw",
+    method,
     amount,
   });
 }

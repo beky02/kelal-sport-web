@@ -9,8 +9,8 @@ import {
 import { AmountStep } from "@/features/wallet/components/AmountStep";
 import { WalletView } from "@/features/wallet/components/WalletView";
 import type { WalletBalances } from "@/features/wallet/types";
+import { toPaymentMethods } from "@/lib/api/mappers/payments";
 import { toWalletBalances, toWalletTxnPage } from "@/lib/api/mappers/wallet";
-import { PAYMENT_METHODS } from "@/lib/api/mock/wallet";
 import { useUiStore } from "@/stores/ui.store";
 import { example } from "../contract";
 import { render } from "./render";
@@ -207,11 +207,13 @@ describe("the wallet's recent activity (AC-6)", () => {
 });
 
 describe("the withdraw amount step's ceiling (AC-5)", () => {
-  const step = (amount: number) =>
+  /** The contract's telebirr: withdrawals of 50.00 to 50,000.00. */
+  const TELEBIRR = toPaymentMethods(example("/v1/payment-methods").items)[0];
+  const step = (amount: string) =>
     render(
       <AmountStep
         mode="withdraw"
-        method={PAYMENT_METHODS[0]}
+        method={TELEBIRR}
         available="1208.95"
         amount={amount}
         onAmountChange={() => undefined}
@@ -220,13 +222,15 @@ describe("the withdraw amount step's ceiling (AC-5)", () => {
     );
 
   it("compares the typed amount with the cash balance as strings", () => {
-    const { unmount } = step(1208);
+    const { unmount } = step("1208.95");
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Continue" })).toBeEnabled();
     expect(screen.getByText("ETB 1,208.95")).toBeInTheDocument();
+    // The method's withdrawal limits, not its deposit ones.
+    expect(screen.getByText("ETB 50.00 – ETB 50,000.00")).toBeInTheDocument();
     unmount();
 
-    step(1209);
+    step("1208.96");
     expect(screen.getByRole("alert")).toHaveTextContent(
       "This is more than your withdrawable balance.",
     );
@@ -234,8 +238,8 @@ describe("the withdraw amount step's ceiling (AC-5)", () => {
   });
 
   it("says a number too long to be an amount is over the balance, rather than failing", () => {
-    // 22 digits: `String()` of it is "1e+22", which is no amount at all.
-    step(Number("9".repeat(22)));
+    // 22 digits: as a float it would be "1e+22"; as a string it is an amount.
+    step("9".repeat(22));
     expect(screen.getByRole("alert")).toHaveTextContent(
       "This is more than your withdrawable balance.",
     );

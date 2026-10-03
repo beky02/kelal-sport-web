@@ -2,7 +2,7 @@
 
 import { ChevronLeft } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
-import { WALLET_FLOW, type WalletStep } from "../types";
+import { WALLET_FLOW, type FlowStep } from "../types";
 
 /** Back, what we're doing, and how far through it we are. */
 export function FlowHeader({
@@ -12,7 +12,7 @@ export function FlowHeader({
   backLabel,
 }: {
   title: string;
-  step: WalletStep;
+  step: FlowStep;
   onBack: () => void;
   backLabel: string;
 }) {

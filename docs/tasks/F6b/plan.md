@@ -223,3 +223,25 @@ None (decision 1).
 5. Confirm, the attempt, refusals and Try again (AC-8, AC-9).
 6. Status screens, the redirect and the resume (AC-1, AC-3, AC-4).
 7. Strings in both languages, docs, contract request, `pnpm ui` screens.
+
+## Changes during implementation
+
+- **Steps 1–6 landed as one commit.** The contract's `PaymentMethod` replaces the mock's in the
+  domain types, which every step of the shared method → amount → confirm flow reads, so no earlier
+  step compiles on its own (as F6a's steps 3 and 4).
+- **Files beyond the list**: `src/features/wallet/components/DepositAlert.tsx` (the no-answer alert
+  and a refusal with its fixes, apart from the flow); `tests/component/DepositPolling.test.tsx` (the
+  AC-2 hook test on the real 3 s interval and a fake clock — `Deposit.test.tsx` polls every 25 ms
+  through a module mock so its flows don't wait); `tests/unit/calculate.test.ts` (the moved
+  `sanitiseAmount`); `src/lib/i18n/format.ts` (a comment that named F6b). The hooks are
+  `hooks/use-payments.ts`, not `use-deposit.ts`: withdrawals read the methods from it too.
+- **Fix labels reuse existing strings**: Choose another method (`wallet.otherMethod`), Try again
+  (`wallet.tryAgain`), View limits (`system.viewLimits`), Verify (`wallet.verifyNow`); new are
+  `deposit.depositAmount` and `deposit.changeAmount`. `wallet.failedBody` and `wallet.cancelPayment`
+  stay for the withdrawal mock until F6c; only `wallet.mobileMoney` and `wallet.gateway` go.
+- **Deposit {amount} starts that deposit** (a new intent with a new key), as its label says, rather
+  than only setting the amount; Change amount goes back to the amount step.
+- **A method the API marks unavailable stays on the confirm step with its refusal**, Confirm
+  disabled, rather than jumping to the method step and hiding why; Choose another method moves on.
+- **`.env.example`**: `PAYMENT_REDIRECT_HOSTS`, and the `NEXT_PUBLIC_USE_MOCKS` comment brought up
+  to date (withdrawals and responsible gaming are what it still serves).
