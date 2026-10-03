@@ -1,7 +1,7 @@
 ---
 id: F5b
 title: My bets and ticket detail from the contract with cursor paging; public ticket check /t/[ticket]
-status: todo
+status: planned
 depends_on: [F5a]
 contract_tags: [Bets, Bookings]
 touches_money: true
