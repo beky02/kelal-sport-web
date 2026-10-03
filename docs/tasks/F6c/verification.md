@@ -20,3 +20,18 @@ Each new acceptance test was seen failing against the behaviour it guards, then 
   a withdrawal…" — the `Phone` check removed from the schemas.
 - `withdrawals-route` "answers 404 and sends nothing for a withdrawal id that can't be one" — the id
   check removed from the cancel.
+- `withdrawal` "tells no answer from a final answer (AC-8)" — a 502 `PAY_PROVIDER_ERROR` treated as
+  final (the deposit rule).
+- `withdrawal` "names a review reason it knows, and never shows one it doesn't (AC-1)" — any reason
+  passed through as a key.
+- `withdrawal` "offers only an amount the method takes and the balance covers (AC-9)" — the cash
+  ceiling dropped from `nearestAllowedAmount`.
+- `withdrawal` "tells a cancel's answers apart…" — every 409 read as too late, whatever its code.
+- `withdrawal` "knows which statuses are final and which can still be cancelled" — `approved` made
+  cancellable.
+- `WithdrawalPolling` "reads a withdrawal every 10 s until it is paid, and reads the balance again only
+  when its status changes (AC-4)" — no re-read on a status change; and a re-read on every read.
+- `WithdrawalPolling` "reads one in review once a minute, not every 10 s" — review on the 10 s beat.
+- `WithdrawalPolling` "stops reading a withdrawal the API says isn't this player's" — a 404 that keeps
+  polling.
+- `WithdrawalPolling` "reads nothing while the tab is hidden…" — `refetchIntervalInBackground: true`.

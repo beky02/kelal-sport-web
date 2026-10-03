@@ -30,7 +30,7 @@ function buildUrl(path: string, params?: Params): string {
  * clear message instead of rendering `NaN` inside an odds button.
  */
 async function request<T>(
-  method: "GET" | "POST",
+  method: "GET" | "POST" | "DELETE",
   path: string,
   schema: z.ZodType<T>,
   options: {
@@ -46,16 +46,17 @@ async function request<T>(
       method,
       signal: options.signal,
       // Same origin, so the session's HttpOnly cookie goes along by default.
-      // It never reaches JavaScript — this is a financial product. Every POST
-      // carries the CSRF header the route handlers insist on (C18 §4.4), and
-      // the UI's language so the API's titles come back in the right script.
+      // It never reaches JavaScript — this is a financial product. Every
+      // request that changes something carries the CSRF header the route
+      // handlers insist on (C18 §4.4), and every request the UI's language so
+      // the API's titles come back in the right script.
       headers: {
         Accept: "application/json",
         "Accept-Language": useUiStore.getState().lang,
         ...(options.body !== undefined
           ? { "Content-Type": "application/json" }
           : {}),
-        ...(method === "POST" ? { [CSRF_HEADER]: CSRF_VALUE } : {}),
+        ...(method !== "GET" ? { [CSRF_HEADER]: CSRF_VALUE } : {}),
         ...options.headers,
       },
       body:
@@ -111,6 +112,13 @@ export const apiClient = {
     body: unknown,
     options?: { signal?: AbortSignal; headers?: Record<string, string> },
   ) => request("POST", path, schema, { ...options, body }),
+
+  /** Removes or cancels something; a 204 parses with `z.undefined()`. */
+  delete: <T>(
+    path: string,
+    schema: z.ZodType<T>,
+    options?: { signal?: AbortSignal },
+  ) => request("DELETE", path, schema, options),
 };
 
 /**

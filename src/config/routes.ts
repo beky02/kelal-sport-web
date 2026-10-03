@@ -26,6 +26,11 @@ export const routes = {
    * (`return_url`); the wallet resumes the deposit this tab started.
    */
   depositReturn: "/wallet?deposit=return",
+  /**
+   * One withdrawal's screen, reached from its row in the history; the id is
+   * the API's, opaque, so it is encoded.
+   */
+  withdrawal: (id: string) => `/wallet?withdrawal=${encodeURIComponent(id)}`,
   transactions: "/transactions",
   profile: "/profile",
 

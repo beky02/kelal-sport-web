@@ -1,14 +1,13 @@
 import { ApiError } from "@/lib/api/errors";
-import { MONEY_PATTERN } from "@/lib/api/patterns";
 import type { MessageKey } from "@/lib/i18n";
-import { compareMoney, toSantim } from "@/lib/money";
+import { compareMoney } from "@/lib/money";
 import type {
   Deposit,
   DepositRequest,
   DepositStatus,
   PaymentMethod,
 } from "../types";
-import { amountProblem } from "./amount";
+import { amountProblem, nearestAllowedAmount } from "./amount";
 
 /** How often a deposit that is still going is read again (the contract: 3 s). */
 export const DEPOSIT_POLL_MS = 3_000;
@@ -97,43 +96,6 @@ export interface DepositNotice {
   fixes: DepositFix[];
 }
 
-const distance = (a: string, b: string): bigint => {
-  const d = toSantim(a) - toSantim(b);
-  return d < 0n ? -d : d;
-};
-
-/**
- * The amount to offer when the API refuses one as out of range: of the
- * limits it gives for the amount, the one nearest the refused amount — the
- * side it fell on — and only one this method takes; else the method's own
- * limit on that side. Null when neither applies.
- */
-function nearestAmount(
-  error: ApiError,
-  method: PaymentMethod,
-  amount: string,
-): string | null {
-  const limits = error.errors
-    .filter((e) => e.field === "amount")
-    .map((e) => e.limit)
-    .filter(
-      (limit): limit is string =>
-        limit !== undefined &&
-        MONEY_PATTERN.test(limit) &&
-        compareMoney(limit, amount) !== 0 &&
-        amountProblem(limit, method.deposit) === null,
-    )
-    .sort((a, b) => {
-      const da = distance(a, amount);
-      const db = distance(b, amount);
-      return da < db ? -1 : da > db ? 1 : 0;
-    });
-  if (limits.length > 0) return limits[0];
-  if (compareMoney(amount, method.deposit.min) < 0) return method.deposit.min;
-  if (compareMoney(amount, method.deposit.max) > 0) return method.deposit.max;
-  return null;
-}
-
 /**
  * What the wallet says about a refused deposit, by its Problem `code` — never
  * by its title, which is display text in whatever language the API chose —
@@ -178,7 +140,11 @@ export function depositRefusal(
       );
 
     case "PAY_AMOUNT_OUT_OF_RANGE": {
-      const nearest = nearestAmount(error, ctx.method, ctx.amount);
+      const nearest = nearestAllowedAmount(
+        error,
+        ctx.method.deposit,
+        ctx.amount,
+      );
       // The method's range explains it only when the amount is outside it;
       // otherwise another limit applied, and the API's words say which.
       const outside = amountProblem(ctx.amount, ctx.method.deposit) !== null;

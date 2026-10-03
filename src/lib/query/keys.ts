@@ -85,10 +85,10 @@ export const walletKeys = {
 };
 
 /**
- * Payment methods and deposits — the player's own (`playerAuth`), under one
- * root the session watcher drops when the player changes. Apart from the
- * wallet's, so placing a bet (which re-reads the balance) doesn't re-read
- * the methods.
+ * Payment methods, deposits, payout accounts and withdrawals — the player's
+ * own (`playerAuth`), under one root the session watcher drops when the
+ * player changes. Apart from the wallet's, so placing a bet (which re-reads
+ * the balance) doesn't re-read the methods.
  */
 export const paymentKeys = {
   all: ["payments"] as const,
@@ -102,4 +102,11 @@ export const paymentKeys = {
    */
   deposit: (id: string, lang: string) =>
     [...paymentKeys.all, "deposit", id, lang] as const,
+  /** The player's saved payout accounts: nothing in them is translated. */
+  payoutAccounts: () => [...paymentKeys.all, "payout-accounts"] as const,
+  /** Every language's copy of one withdrawal: read again after a cancel. */
+  withdrawals: (id: string) => [...paymentKeys.all, "withdrawal", id] as const,
+  /** One withdrawal in one language: its rejection reason is the API's text. */
+  withdrawal: (id: string, lang: string) =>
+    [...paymentKeys.withdrawals(id), lang] as const,
 };
