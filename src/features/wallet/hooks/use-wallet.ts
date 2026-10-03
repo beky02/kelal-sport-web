@@ -1,21 +1,11 @@
 "use client";
 
-import {
-  useInfiniteQuery,
-  useMutation,
-  useQuery,
-  useQueryClient,
-} from "@tanstack/react-query";
+import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { STALE_TIME } from "@/config/constants";
 import { transactionKeys, walletKeys } from "@/lib/query/keys";
 import { useUiStore } from "@/stores/ui.store";
-import {
-  createWithdrawal,
-  getPaymentStatus,
-  getWallet,
-  getWalletHistory,
-} from "../api/get-wallet";
-import type { HistoryFilter, PaymentMethodCode } from "../types";
+import { getWallet, getWalletHistory } from "../api/get-wallet";
+import type { HistoryFilter } from "../types";
 
 /** How many movements the wallet's recent activity shows. */
 const RECENT_COUNT = 5;
@@ -88,47 +78,5 @@ export function useRecentTransactions(enabled: boolean) {
       ),
     staleTime: STALE_TIME.wallet,
     enabled,
-  });
-}
-
-/** Starts a withdrawal (the mock, until F6c). Never optimistic — this moves money. */
-export function useCreateWithdrawal() {
-  return useMutation({
-    mutationFn: ({
-      method,
-      amount,
-    }: {
-      method: PaymentMethodCode;
-      amount: string;
-    }) => createWithdrawal(method, amount),
-  });
-}
-
-/**
- * Polls a pending withdrawal until the mock decides (until F6c).
- *
- * The user is looking at a "waiting for approval" screen while they authorise it
- * on their handset, so this keeps asking rather than making them press a button
- * to find out. Stops the moment it is no longer pending, and invalidates the
- * balance and the transaction list so both come from the server afterwards.
- */
-export function usePaymentStatus(reference: string | null, enabled: boolean) {
-  const queryClient = useQueryClient();
-
-  return useQuery({
-    queryKey: [...walletKeys.all, "payment", reference],
-    queryFn: async ({ signal }) => {
-      const status = await getPaymentStatus(reference!, signal);
-      if (status !== "pending") {
-        void queryClient.invalidateQueries({ queryKey: walletKeys.balance() });
-        void queryClient.invalidateQueries({ queryKey: transactionKeys.all });
-      }
-      return status;
-    },
-    enabled: enabled && reference !== null,
-    refetchInterval: (query) =>
-      query.state.data === "pending" || query.state.data === undefined
-        ? 2000
-        : false,
   });
 }

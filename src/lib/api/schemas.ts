@@ -67,7 +67,6 @@ import {
   type Deposit,
   type DepositRequest,
   type PaymentMethod,
-  type PaymentResult,
   type PayoutAccount,
   type PayoutAccountRequest,
   type WalletBalances,
@@ -495,13 +494,6 @@ export const withdrawalRequestSchema = z.strictObject({
     z.strictObject({ kind: z.literal("new"), account: phoneSchema }),
   ]),
 }) satisfies z.ZodType<WithdrawalRequest>;
-
-/** The withdrawal mock's answer, until F6c moves it to `/v1/withdrawals`. */
-export const paymentResultSchema = z.object({
-  reference: z.string(),
-  status: z.enum(["pending", "success", "failed"]),
-  amount: z.string().regex(MONEY_PATTERN),
-}) satisfies z.ZodType<PaymentResult>;
 
 export type BoardSectionDto = z.infer<typeof boardSectionSchema>;
 

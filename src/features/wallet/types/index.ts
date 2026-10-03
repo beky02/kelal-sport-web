@@ -259,10 +259,3 @@ export const HISTORY_FILTERS = [
   "win",
 ] as const satisfies readonly ("all" | WalletTxnType)[];
 export type HistoryFilter = (typeof HISTORY_FILTERS)[number];
-
-/** What the mock said about a withdrawal, until F6c moves it to `/v1/withdrawals`. */
-export interface PaymentResult {
-  reference: string;
-  status: "pending" | "success" | "failed";
-  amount: string;
-}

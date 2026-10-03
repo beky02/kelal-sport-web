@@ -3,16 +3,15 @@
  *
  * The catalogue, auth, bookings and bets no longer come from here: they go
  * through the route handlers to the API, and Prism serves the contract's own
- * examples locally, as do the wallet's balances and history, payment methods
- * and deposits. What is left — withdrawals (F6c), responsible gaming and
- * session activity (F7) — moves to the contract task by task, after which
- * this folder is deleted.
+ * examples locally, as do the wallet's balances and history, payment methods,
+ * deposits, payout accounts and withdrawals. What is left — responsible
+ * gaming and session activity (F7) — moves to the contract task by task,
+ * after which this folder is deleted.
  *
  * `listBoard` and `listMarkets` remain only as fixtures for the realtime tests,
  * which need live fixtures, scores and many lines per market — shapes the
  * Release 1 contract examples do not have.
  */
-import { ApiError } from "@/lib/api/errors";
 import type { Crest, Localized } from "@/types/common";
 import type { Competition } from "@/features/competitions/types";
 import type {
@@ -28,7 +27,6 @@ import type {
   MarketType,
   Outcome,
 } from "@/features/markets/types";
-import type { PaymentMethodCode, PaymentResult } from "@/features/wallet/types";
 import {
   CLUB_COLOUR,
   COUNTRIES,
@@ -468,32 +466,5 @@ export const mockRepository = {
     if (kind === "cool-off") responsibleGaming.coolOffUntil = until;
     else responsibleGaming.selfExcludedUntil = until;
     return { ...responsibleGaming };
-  },
-
-  /**
-   * Starts a withdrawal, until F6c sends it to `/v1/withdrawals`. The method
-   * and its limits are the API's (`/v1/payment-methods`); balances are the
-   * API's too (`/v1/wallet`): nothing here knows or changes one.
-   */
-  async createWithdrawal(
-    method: PaymentMethodCode,
-    amount: string,
-  ): Promise<PaymentResult> {
-    await delay(700);
-    if (!method) throw new ApiError("Unknown method", 422, "unknown_method");
-    return {
-      reference: `TX-${Math.floor(1000 + Math.random() * 9000)}-${Math.floor(1000 + Math.random() * 9000)}`,
-      status: "pending",
-      amount,
-    };
-  },
-
-  /** Polls a payment the provider is still processing. */
-  async getPaymentStatus(reference: string): Promise<PaymentResult["status"]> {
-    await delay(900);
-    // Deterministic from the reference so a given payment always resolves the
-    // same way while testing: roughly one in five declines.
-    const digits = reference.replace(/\D/g, "");
-    return Number(digits.slice(-1)) % 5 === 0 ? "failed" : "success";
   },
 };
