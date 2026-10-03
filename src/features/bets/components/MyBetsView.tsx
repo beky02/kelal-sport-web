@@ -64,7 +64,14 @@ export function MyBetsView({
           <div className={compact ? "" : "mt-3"}>
             <BetTabs value={tab} onChange={setTab} />
           </div>
-          <BetList tab={tab} enabled={!session.isLoading} compact={compact} />
+          <BetList
+            // A list per tab: a page asked for under one never lands, or
+            // moves focus, under the other.
+            key={tab}
+            tab={tab}
+            enabled={!session.isLoading}
+            compact={compact}
+          />
         </>
       )}
     </div>
@@ -86,7 +93,11 @@ function BetList({
   const items = bets.data?.pages.flatMap((page) => page.items) ?? [];
   const list = useRef<HTMLUListElement>(null);
   const retry = useRef<HTMLButtonElement>(null);
-  /** Where the page Show more asked for begins, until it is on screen. */
+  /**
+   * Where the page this list's own Show more asked for begins, until it lands
+   * or fails — the only time focus is moved. A list that mounts on a state
+   * left by an earlier tap takes no one's focus.
+   */
   const firstNew = useRef<number | null>(null);
 
   // Show more goes away with the last page, or gives way to "couldn't load
@@ -99,7 +110,9 @@ function BetList({
     list.current?.querySelectorAll<HTMLElement>(":scope > li a")[at]?.focus();
   }, [items.length]);
   useEffect(() => {
-    if (bets.isFetchNextPageError) retry.current?.focus();
+    if (!bets.isFetchNextPageError || firstNew.current === null) return;
+    firstNew.current = null;
+    retry.current?.focus();
   }, [bets.isFetchNextPageError]);
 
   // Laid out as the tickets will be, so nothing jumps when they land.

@@ -271,6 +271,53 @@ describe("My bets", () => {
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 
+  it("takes no focus when a list mounts after an earlier Show more failed (R1)", async () => {
+    answers({
+      [OPEN_LIST]: [[200, page([OPEN()], "c2")]],
+      [`${OPEN_LIST}&cursor=c2`]: [problem(503, "SERVICE_UNAVAILABLE")],
+    });
+    const { queryClient, rerender } = render(<MyBetsView />);
+    await userEvent.click(
+      await screen.findByRole("button", { name: "Show more" }),
+    );
+    await screen.findByRole("alert");
+
+    // Later, elsewhere: the player is in another control when a list mounts
+    // again (the aside on the next page) over the same failed state.
+    const elsewhere = (
+      <QueryClientProvider client={queryClient}>
+        <button type="button">Elsewhere</button>
+      </QueryClientProvider>
+    );
+    rerender(elsewhere);
+    screen.getByRole("button", { name: "Elsewhere" }).focus();
+    rerender(
+      <QueryClientProvider client={queryClient}>
+        <button type="button">Elsewhere</button>
+        <MyBetsView />
+      </QueryClientProvider>,
+    );
+
+    await screen.findAllByRole("listitem");
+    expect(screen.getByRole("button", { name: "Elsewhere" })).toHaveFocus();
+  });
+
+  it("shows nothing on a card for a settled bet the API sent without a payout, never a 0.00 (M2)", async () => {
+    answers({
+      [OPEN_LIST]: [[200, page([])]],
+      [SETTLED_LIST]: [[200, page([WON({ status: "lost", payout: null })])]],
+    });
+    render(<MyBetsView />);
+
+    await userEvent.click(screen.getByRole("button", { name: "Settled" }));
+
+    const [card] = await screen.findAllByRole("listitem");
+    // The payout's own cell: the stake beside it holds "100.00" too.
+    const cell = within(card).getByText("Payout").parentElement!;
+    expect(cell).toHaveTextContent("—");
+    expect(cell).not.toHaveTextContent("ETB");
+  });
+
   it("says when there are no bets under a tab, in that tab's words", async () => {
     answers({
       [OPEN_LIST]: [[200, page([])]],

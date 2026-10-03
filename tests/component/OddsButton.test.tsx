@@ -215,6 +215,9 @@ describe("OddsButton → responsible-gaming break", () => {
 
     expect(screen.getByRole("button")).toBeEnabled();
 
+    // The status is read on mount: stop that read, or it can land after the
+    // break set here and put the old status back.
+    await queryClient.cancelQueries({ queryKey: ["responsible-gaming"] });
     queryClient.setQueryData(["responsible-gaming"], {
       coolOffUntil: "Wed 30 Sep, 14:00",
       selfExcludedUntil: null,
@@ -233,6 +236,7 @@ describe("OddsButton → responsible-gaming break", () => {
       />,
     );
 
+    await queryClient.cancelQueries({ queryKey: ["responsible-gaming"] });
     queryClient.setQueryData(["responsible-gaming"], {
       coolOffUntil: null,
       selfExcludedUntil: "Permanent",

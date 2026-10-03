@@ -160,7 +160,7 @@ test("answers 404 for an unknown number, in the ticket's words (AC-9)", async ({
     content: "nextjs-portal { display: none !important; }",
   });
   await page.screenshot({
-    path: "test-results/ui/ticket-not-found-en-desktop.png",
+    path: "test-results/ui/ticket-check-not-found-en-desktop.png",
     fullPage: true,
   });
 });

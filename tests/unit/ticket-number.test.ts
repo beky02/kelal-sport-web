@@ -39,6 +39,17 @@ describe("ticket numbers (D3)", () => {
     expect(normaliseTicketNumber(typed)).toBe(number);
   });
 
+  it.each([
+    [
+      "K7Q2\u2011M9XP\u2011M",
+      "non-breaking hyphens, as the error's example is written",
+    ],
+    ["K7Q2\u2013M9XP\u2013M", "en dashes, as chat apps turn hyphens into"],
+    ["K7Q2\u2212M9XP\u2212M", "minus signs"],
+  ])("forgives typographic dashes: %j (%s)", (typed) => {
+    expect(normaliseTicketNumber(typed)).toBe("K7Q2-M9XP-M");
+  });
+
   it("reads O as 0 and I or L as 1, as the alphabet means them to be", () => {
     const body = "K0Q1M9XP";
     const check = checkCharacter(body);

@@ -26,14 +26,17 @@ export function checkCharacter(body: string): string {
  * `XXXX-XXXX-C`, or null.
  *
  * Forgives what the alphabet was designed to forgive — case, spaces and
- * hyphens, O read as 0 and I or L as 1 — then insists on 9 Crockford
+ * hyphens (typographic dashes too), O read as 0 and I or L as 1 — then
+ * insists on 9 Crockford
  * characters whose last is the check character (D3). Anything else is not a
  * ticket number, and is never sent to the API or shown back.
  */
 export function normaliseTicketNumber(raw: string): string | null {
   const compact = raw
     .toUpperCase()
-    .replace(/[\s-]/g, "")
+    // Hyphens, and the dashes they become: non-breaking (as the error's own
+    // example is written), en and em dashes from chat apps, minus signs.
+    .replace(/[\s\u2010-\u2015\u2212-]/g, "")
     .replace(/O/g, "0")
     .replace(/[IL]/g, "1");
   if (!/^[0-9A-HJKMNP-TV-Z]{9}$/.test(compact)) return null;
