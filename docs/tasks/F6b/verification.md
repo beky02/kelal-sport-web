@@ -1,5 +1,30 @@
 # F6b — verification
 
+## Self-review
+
+- **Money moves:** a deposit moves money only when the API says `completed` — the step to it (a poll, a
+  201 or a resumed read already completed) invalidates `walletKeys.all` and `transactionKeys.all`, once;
+  `failed` and `expired` invalidate nothing; nothing is patched in the browser (`DepositPolling`,
+  `Deposit` AC-4).
+- **New values:** the status rows and "Money added" use the deposit's own `amount` and `method`; the
+  confirm step, Try again and a refusal use the request on screen, which equals the attempt's (the alert
+  shows only while it does); Deposit {amount} is the API's `errors[].limit`; the withdrawal ceiling is
+  still `cash`.
+- **Async tests:** every component test waits for the data it asserts on (methods by `findBy…`, the
+  balance by `waitFor`, three pending reads before "nothing changed"); the polling test advances a fake
+  clock and flushes before each check.
+- **Personal data:** methods and deposits sit under `paymentKeys`, dropped by `forgetPlayer`; the flow is
+  keyed by the player; the resume pointer is ignored for anyone else (`Deposit` "drops the payment
+  methods…", "ignores a deposit remembered for another player").
+- **Route handlers:** all three read the session (401 tests); the body, key and id are checked before
+  anything goes upstream (422/400/404 tests, nothing sent); `no-store` asserted on each; `Prefer` only
+  under `next dev` and never to the real API (`payments-route`).
+- **Screens:** every state has a screenshot, including the two added in this review —
+  `deposit-methods-empty` and `deposit-not-found`. Loading is a skeleton that keeps the layout, as on
+  every screen; guest is `wallet-guest`.
+- **Docs:** the plan's Files and AC→tests names match the code (updated); 01, 02, 04, 05, 09, the
+  translation notes and contract request 009 describe what was built.
+
 ## Tests proven
 
 Each new acceptance test, once green, was run against the behaviour it guards broken once, and failed.

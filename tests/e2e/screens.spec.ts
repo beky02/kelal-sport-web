@@ -1035,6 +1035,16 @@ const SCREENS: Array<{
     allowConsole: /503/,
   },
   {
+    name: "deposit-methods-empty",
+    path: "/wallet?action=deposit",
+    before: async (page) => {
+      await loginViaApi(page);
+      await page.route("**/api/payment-methods", (route) =>
+        route.fulfill({ json: [] }),
+      );
+    },
+  },
+  {
     name: "deposit-amount-invalid",
     path: "/wallet?action=deposit",
     before: loginViaApi,
@@ -1138,6 +1148,27 @@ const SCREENS: Array<{
       [200, deposit({ status: "expired", nextAction: null })],
     ),
     prepare: depositShows((t) => t.deposit.expiredTitle),
+  },
+  {
+    // Back from a provider with a deposit the API doesn't know for this player.
+    name: "deposit-not-found",
+    path: "/wallet?deposit=return",
+    before: async (page) => {
+      await depositReturn(page);
+      await page.route(/\/api\/deposits\/[^/?]+$/, (route) =>
+        route.fulfill({
+          status: 404,
+          contentType: "application/problem+json",
+          json: problemJson(404, "NOT_FOUND"),
+        }),
+      );
+    },
+    prepare: async (page, _device, lang) => {
+      await page
+        .getByRole("heading", { name: MESSAGES[lang].deposit.notFoundTitle })
+        .waitFor();
+    },
+    allowConsole: /404/,
   },
   {
     name: "deposit-check-failed",
