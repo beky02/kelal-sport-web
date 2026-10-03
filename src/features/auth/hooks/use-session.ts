@@ -135,10 +135,13 @@ export function useLogout() {
 }
 
 /**
- * Notices a player becoming a guest. After a logout it only clears the flag;
- * otherwise the API no longer honours the session, and it says so, once, over
- * whatever page they are on. Either way the player's caches go. The bet slip
- * underneath is untouched.
+ * Notices the session changing hands. A player becoming a guest: after a
+ * logout it only clears the flag; otherwise the API no longer honours the
+ * session, and it says so, once, over whatever page they are on. A player
+ * becoming another player with no guest between — another tab logged out and
+ * someone else in — says nothing. Every time, the previous player's caches go,
+ * so the next one never sees their bets or balance. The bet slip underneath is
+ * untouched.
  */
 export function SessionWatcher() {
   const { player, isLoading } = useSession();
@@ -146,17 +149,21 @@ export function SessionWatcher() {
   const show = useSystemStore((s) => s.show);
   const loggedOut = useSystemStore((s) => s.loggedOut);
   const clearLoggedOut = useSystemStore((s) => s.clearLoggedOut);
-  const wasPlayer = useRef(false);
+  /** Who was signed in when this last looked; null for nobody. */
+  const lastPlayer = useRef<string | null>(null);
 
   useEffect(() => {
     if (isLoading) return;
     if (player) {
-      wasPlayer.current = true;
+      if (lastPlayer.current !== null && lastPlayer.current !== player.id) {
+        forgetPlayer(queryClient);
+      }
+      lastPlayer.current = player.id;
       if (loggedOut) clearLoggedOut();
       return;
     }
-    if (!wasPlayer.current) return;
-    wasPlayer.current = false;
+    if (lastPlayer.current === null) return;
+    lastPlayer.current = null;
     forgetPlayer(queryClient);
     if (loggedOut) clearLoggedOut();
     else show("session");

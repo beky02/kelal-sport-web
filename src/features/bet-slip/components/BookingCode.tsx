@@ -10,10 +10,7 @@ import { useValidUntil } from "@/features/bookings/hooks/use-valid-until";
 import { normaliseBookingCode } from "@/features/bookings/lib/code";
 import { bookingErrorMessage } from "@/features/bookings/lib/errors";
 import type { BookingReceipt } from "@/features/bookings/types";
-
-/** Telegram's share sheet on the booking's own link (D7: one link set). */
-const telegramShare = (url: string, text: string) =>
-  `https://t.me/share/url?url=${encodeURIComponent(url)}&text=${encodeURIComponent(text)}`;
+import { telegramShareUrl } from "@/lib/share";
 
 /**
  * A slip saved without placing it, under the code the server issued.
@@ -74,13 +71,13 @@ export function BookingCode({
           {t.t(copied ? "betSlip.copied" : "betSlip.copyCode")}
         </button>
         <a
-          href={telegramShare(
+          href={telegramShareUrl(
             receipt.shareUrl,
             t.t("booking.shareText", { code }),
           )}
           target="_blank"
           rel="noopener noreferrer"
-          className="bg-telegram font-body flex h-11 items-center justify-center gap-2 rounded-md text-[13px] font-bold text-white"
+          className="bg-telegram font-body flex h-11 items-center justify-center gap-2 rounded-md px-2 text-center text-[13px] leading-tight font-bold text-white"
         >
           <Send size={15} strokeWidth={1.5} aria-hidden />
           {t.t("betSlip.shareTelegram")}

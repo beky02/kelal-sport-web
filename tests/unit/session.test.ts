@@ -104,8 +104,14 @@ describe("the sealed session cookie", () => {
   it("opens a tampered cookie to nothing", async () => {
     const { seal, open } = await load();
     const sealed = seal(live());
+    // Change one character of the tag for certain: one that is already the
+    // replacement would leave the cookie as it was.
+    const at = sealed.length - 2;
     const flipped =
-      sealed.slice(0, -2) + (sealed.endsWith("A") ? "B" : "A") + sealed.at(-1);
+      sealed.slice(0, at) +
+      (sealed[at] === "A" ? "B" : "A") +
+      sealed.slice(at + 1);
+    expect(flipped).not.toBe(sealed);
     expect(open(flipped)).toBeNull();
     expect(open("not-a-cookie")).toBeNull();
     expect(open("")).toBeNull();

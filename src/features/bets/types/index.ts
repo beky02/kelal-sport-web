@@ -1,47 +1,78 @@
 import type { Localized } from "@/types/common";
 
-export type BetStatus = "open" | "won" | "lost" | "cashed";
+/** The contract's `BetStatus`. */
+export type BetStatus =
+  "open" | "won" | "lost" | "void" | "cashed_out" | "cancelled";
 
-/** A leg's own outcome. `void` means the fixture fell through; it counts as 1.00 (D1.5). */
-export type LegStatus = "open" | "live" | "won" | "lost" | "void";
+/**
+ * A ticket's status as the public check reports it (`TicketCheck.status`):
+ * a bet's, and for shop tickets `paid` (collected) and `expired`.
+ */
+export type TicketStatus = BetStatus | "paid" | "expired";
+
+/**
+ * The contract's `LegResult` — slipcalc's own. A void leg counts as odds 1.00
+ * and a half result as half a win or half a loss (D1.5).
+ */
+export type LegResult =
+  "open" | "win" | "lose" | "void" | "half_win" | "half_lose";
+
+export type BetType = "single" | "multiple" | "system";
 
 export interface BetLeg {
+  outcomeId: string;
+  fixtureId: string;
+  /** `fixture_name`, `market_name` and `outcome_name`, in both languages. */
+  match: Localized;
   market: Localized;
   pick: Localized;
-  match: Localized;
-  /** The contract's decimal string: the price taken, even on a void leg. */
+  /** Kick-off, ISO 8601 UTC. */
+  startTime: string;
+  /** The contract's decimal string: the price taken (`odds_taken`). */
   odds: string;
-  status: LegStatus;
-  /** Score, kickoff or "Postponed" — whatever explains the leg's state. */
-  result: Localized;
+  result: LegResult;
 }
 
+/**
+ * A ticket as the API keeps it (`Bet`). Every figure is the API's decimal
+ * string (FD4), shown as it comes: nothing on a ticket is priced in the
+ * browser. A figure the API didn't send is `null`, never a made-up zero.
+ */
 export interface Bet {
-  /** The ticket id, e.g. `KS-260927-3381`. */
+  /** The API's bet id, opaque (D3): the ticket's address under My bets. */
   id: string;
+  /** The ticket number, `XXXX-XXXX-C` (D3). */
+  ticketId: string;
   status: BetStatus;
-  /** At least one leg is in play. Drives the LIVE badge on an open bet. */
-  live: boolean;
-  placedAt: Localized;
-  /** Decimal strings from here down (FD4). */
+  betType: BetType;
+  systemSizes: number[];
+  lines: number;
   stake: string;
-  /** What the book currently offers to buy the bet back for. Null when closed. */
-  cashOutValue: string | null;
-  /** Trading is suspended on a leg, so cash out is off. */
-  cashOutBlocked: boolean;
-  /** What was actually paid on a cashed-out bet. */
-  cashedOutAmount: string | null;
+  /** The part of the stake paid from the bonus balance. */
+  stakeBonus: string | null;
+  stakeTax: string;
+  /** Display only, single-line bets (D1.11). */
+  totalOdds: string | null;
+  /** What the bet pays if every open leg wins. */
+  potentialPayout: string;
+  accaBonus: string;
+  /** What the bet paid; null while it is open. */
+  payout: string | null;
+  /** Decided at settlement; null while the bet is open. */
+  winTax: string | null;
   legs: BetLeg[];
+  placedAt: string;
+  settledAt: string | null;
 }
 
-export type BetsTab = "open" | "settled" | "won" | "lost";
-
-export interface BetCounts {
-  open: number;
-  settled: number;
-  won: number;
-  lost: number;
+/** One page of `GET /v1/bets`: `nextCursor` is null on the last. */
+export interface BetPage {
+  items: Bet[];
+  nextCursor: string | null;
 }
+
+/** The contract's filter on My bets (`status`). */
+export type BetsTab = "open" | "settled";
 
 export type TransactionKind = "deposit" | "withdrawal" | "bet" | "winnings";
 export type TransactionStatus = "success" | "pending" | "failed";
@@ -58,7 +89,3 @@ export interface Transaction {
   /** ISO date, for grouping into days. */
   date: string;
 }
-
-/** An open bet with a live leg badges as LIVE rather than merely Open. */
-export const displayStatus = (bet: Bet): BetStatus | "live" =>
-  bet.status === "open" && bet.live ? "live" : bet.status;

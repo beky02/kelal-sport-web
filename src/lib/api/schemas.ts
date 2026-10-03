@@ -22,7 +22,7 @@ import type {
 import type { Market, MarketGroup, Outcome } from "@/features/markets/types";
 import type { SearchResults } from "@/features/search/types";
 import type { Sport } from "@/features/sports/types";
-import type { Bet, Transaction } from "@/features/bets/types";
+import type { Bet, BetLeg, BetPage, Transaction } from "@/features/bets/types";
 import type { BetReceipt, PlaceBetRequest } from "@/features/bet-slip/types";
 import type { BettingRules, PublicConfigView } from "@/features/config/types";
 import type {
@@ -31,6 +31,7 @@ import type {
   BookingRequest,
 } from "@/features/bookings/types";
 import { BOOKING_CODE } from "@/features/bookings/lib/code";
+import type { TicketCheck } from "@/features/tickets/types";
 import type {
   FaydaChallengeView,
   FaydaStartForm,
@@ -212,36 +213,90 @@ export const searchResultsSchema = z.object({
   ),
 }) satisfies z.ZodType<SearchResults>;
 
+// ── My bets (F5b) ───────────────────────────────────────────────────────────
+
+/** The contract's `BetStatus` and `LegResult`. */
+export const betStatusSchema = z.enum([
+  "open",
+  "won",
+  "lost",
+  "void",
+  "cashed_out",
+  "cancelled",
+]);
+export const legResultSchema = z.enum([
+  "open",
+  "win",
+  "lose",
+  "void",
+  "half_win",
+  "half_lose",
+]);
+
 const betLegSchema = z.object({
+  outcomeId: z.string().min(1),
+  fixtureId: z.string().min(1),
+  match: localizedSchema,
   market: localizedSchema,
   pick: localizedSchema,
-  match: localizedSchema,
-  odds: oddsSchema,
-  status: z.enum(["open", "live", "won", "lost", "void"]),
-  result: localizedSchema,
-});
+  startTime: z.string(),
+  odds: z.string().regex(ODDS_PATTERN),
+  result: legResultSchema,
+}) satisfies z.ZodType<BetLeg>;
 
+/** A ticket as `/api/bets` answers it: the API's figures, in its own patterns. */
 export const betSchema = z.object({
-  id: z.string(),
-  status: z.enum(["open", "won", "lost", "cashed"]),
-  live: z.boolean(),
-  placedAt: localizedSchema,
-  stake: moneySchema,
-  cashOutValue: moneySchema.nullable(),
-  cashOutBlocked: z.boolean(),
-  cashedOutAmount: moneySchema.nullable(),
+  id: z.string().min(1),
+  ticketId: z.string().regex(TICKET_NUMBER_PATTERN),
+  status: betStatusSchema,
+  betType: z.enum(["single", "multiple", "system"]),
+  systemSizes: z.array(z.number().int().positive()),
+  lines: z.number().int().positive(),
+  stake: z.string().regex(MONEY_PATTERN),
+  stakeBonus: z.string().regex(MONEY_PATTERN).nullable(),
+  stakeTax: z.string().regex(MONEY_PATTERN),
+  // Not the per-leg Odds pattern: the product of an accumulator's odds runs to
+  // eight digits and more (D1.11; golden CAP_DEFAULT_HUGE_ODDS).
+  totalOdds: oddsSchema.nullable(),
+  potentialPayout: z.string().regex(MONEY_PATTERN),
+  accaBonus: z.string().regex(MONEY_PATTERN),
+  payout: z.string().regex(MONEY_PATTERN).nullable(),
+  winTax: z.string().regex(MONEY_PATTERN).nullable(),
   legs: z.array(betLegSchema).min(1),
+  placedAt: z.string(),
+  settledAt: z.string().nullable(),
 }) satisfies z.ZodType<Bet>;
 
-export const betListSchema = z.object({
-  bets: z.array(betSchema),
-  counts: z.object({
-    open: z.number().int().nonnegative(),
-    settled: z.number().int().nonnegative(),
-    won: z.number().int().nonnegative(),
-    lost: z.number().int().nonnegative(),
-  }),
-});
+export const betPageSchema = z.object({
+  items: z.array(betSchema),
+  nextCursor: z.string().min(1).nullable(),
+}) satisfies z.ZodType<BetPage>;
+
+/**
+ * The public check's ticket. It never passes through `apiClient` — the page
+ * is rendered on the server — so the loader checks it here: an answer that
+ * isn't a ticket is a failure, not a broken page.
+ */
+export const ticketCheckSchema = z.object({
+  ticketId: z.string().regex(TICKET_NUMBER_PATTERN),
+  status: z.enum([...betStatusSchema.options, "paid", "expired"]),
+  betType: z.enum(["single", "multiple", "system"]),
+  placedAt: z.string(),
+  settledAt: z.string().nullable(),
+  stake: z.string().regex(MONEY_PATTERN),
+  payout: z.string().regex(MONEY_PATTERN).nullable(),
+  legs: z
+    .array(
+      z.object({
+        match: localizedSchema,
+        market: localizedSchema,
+        pick: localizedSchema,
+        odds: z.string().regex(ODDS_PATTERN),
+        result: legResultSchema,
+      }),
+    )
+    .min(1),
+}) satisfies z.ZodType<TicketCheck>;
 
 export const transactionSchema = z.object({
   id: z.string(),

@@ -1,9 +1,9 @@
 // @vitest-environment node
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { components } from "@/lib/api/schema";
-import { betReceiptSchema } from "@/lib/api/schemas";
+import { betPageSchema, betReceiptSchema, betSchema } from "@/lib/api/schemas";
 import { CSRF_HEADER, CSRF_VALUE } from "@/lib/session-cookie";
-import { requestExample, responseExample } from "../contract";
+import { example, requestExample, responseExample } from "../contract";
 
 // Route handlers are server-only; the marker package refuses to load outside
 // React's server build, which a unit test is not.
@@ -14,11 +14,12 @@ type Tokens = components["schemas"]["Tokens"];
 /** A fresh module graph per test, so the refresh caches start clean. */
 async function load() {
   vi.resetModules();
-  const [bets, session] = await Promise.all([
+  const [bets, bet, session] = await Promise.all([
     import("@/app/api/bets/route"),
+    import("@/app/api/bets/[id]/route"),
     import("@/lib/server/session"),
   ]);
-  return { place: bets.POST, ...session };
+  return { place: bets.POST, list: bets.GET, one: bet.GET, ...session };
 }
 type Loaded = Awaited<ReturnType<typeof load>>;
 
@@ -349,5 +350,298 @@ describe("POST /api/bets", () => {
 
     expect(new URL(sent[0].url).host).toBe("real.test");
     expect(sent[0].headers.get("prefer")).toBeNull();
+  });
+});
+
+// ── reading (F5b) ───────────────────────────────────────────────────────────
+
+/** What this site's own My bets sends: just the session cookie. */
+const reading = (mod: Loaded, extra: Record<string, string> = {}) => ({
+  host: "localhost:3000",
+  cookie: `${mod.SESSION_COOKIE}=${mod.seal(live())}`,
+  ...extra,
+});
+
+const list = (
+  mod: Loaded,
+  query: string,
+  sentHeaders: Record<string, string> = reading(mod),
+) =>
+  mod.list(
+    new Request(`${URL_BETS}${query}`, { method: "GET", headers: sentHeaders }),
+  );
+
+const one = (
+  mod: Loaded,
+  id: string,
+  sentHeaders: Record<string, string> = reading(mod),
+) =>
+  mod.one(
+    new Request(`${URL_BETS}/${encodeURIComponent(id)}`, {
+      method: "GET",
+      headers: sentHeaders,
+    }),
+    { params: Promise.resolve({ id }) },
+  );
+
+const language = (request: Request) => request.headers.get("accept-language");
+
+/** The contract's examples, with the Amharic read's names marked. */
+function readsInBothLanguages(
+  body: (request: Request) => unknown,
+): (request: Request) => { status: number; body: unknown } {
+  return (request) => {
+    const answer = body(request) as {
+      items?: { legs: { fixture_name: string }[] }[];
+      legs?: { fixture_name: string }[];
+    };
+    if (language(request) === "am") {
+      for (const bet of answer.items ?? [answer]) {
+        for (const leg of bet.legs ?? []) leg.fixture_name += " (am)";
+      }
+    }
+    return { status: 200, body: answer };
+  };
+}
+
+describe("GET /api/bets", () => {
+  it("forwards status and cursor to /v1/bets with the player's token, in both languages, and answers nextCursor (AC-5)", async () => {
+    const mod = await load();
+    upstreamAnswers(
+      readsInBothLanguages(() => ({
+        ...example("/v1/bets"),
+        next_cursor: "c3",
+      })),
+    );
+
+    const response = await list(mod, "?status=open&cursor=c2");
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("cache-control")).toBe("no-store");
+    const page = betPageSchema.parse(await response.json());
+    expect(page.nextCursor).toBe("c3");
+    expect(page.items.map((bet) => bet.ticketId)).toEqual([
+      "M3HX-7PQA-V",
+      "K7Q2-M9XP-M",
+    ]);
+    expect(page.items[0].legs[0].match).toEqual({
+      en: "Saint George v Fasil Kenema",
+      am: "Saint George v Fasil Kenema (am)",
+    });
+    expect(sent).toHaveLength(2);
+    for (const request of sent) {
+      expect(request.method).toBe("GET");
+      expect(path(request)).toBe("/v1/bets");
+      const query = new URL(request.url).searchParams;
+      expect(query.get("status")).toBe("open");
+      expect(query.get("cursor")).toBe("c2");
+      expect(bearer(request)).toBe("eyJ.live.access");
+      expect(request.headers.get("x-tenant-id")).toBe("demo");
+    }
+    expect(sent.map(language).sort()).toEqual(["am", "en"]);
+  });
+
+  it("asks for the first page without a cursor", async () => {
+    const mod = await load();
+    upstreamAnswers(readsInBothLanguages(() => example("/v1/bets")));
+
+    const response = await list(mod, "?status=settled");
+
+    expect(response.status).toBe(200);
+    expect((await response.json()).nextCursor).toBeNull();
+    const query = new URL(sent[0].url).searchParams;
+    expect(query.get("status")).toBe("settled");
+    expect(query.has("cursor")).toBe(false);
+  });
+
+  it.each([
+    ["no status", ""],
+    ["a status the contract doesn't filter by", "?status=won"],
+    ["an empty cursor", "?status=open&cursor="],
+    ["a cursor with a space in it", "?status=open&cursor=c%202"],
+    ["a cursor far longer than any", `?status=open&cursor=${"c".repeat(513)}`],
+  ])("refuses %s with 422 and sends nothing", async (_, query) => {
+    const mod = await load();
+    upstreamAnswers(() => ({ status: 200, body: example("/v1/bets") }));
+
+    const response = await list(mod, query);
+
+    expect(response.status).toBe(422);
+    expect((await response.json()).code).toBe("VALIDATION_FAILED");
+    expect(sent).toHaveLength(0);
+  });
+
+  it("answers 401 AUTH_TOKEN_EXPIRED without a session and sends nothing", async () => {
+    const mod = await load();
+    upstreamAnswers(() => ({ status: 200, body: example("/v1/bets") }));
+
+    const response = await list(mod, "?status=open", {
+      host: "localhost:3000",
+    });
+
+    expect(response.status).toBe(401);
+    expect((await response.json()).code).toBe("AUTH_TOKEN_EXPIRED");
+    expect(sent).toHaveLength(0);
+  });
+
+  it("refreshes an expired token once for both reads", async () => {
+    const mod = await load();
+    const tokens = responseExample("/v1/auth/refresh", "post", 200) as Tokens;
+    upstreamAnswers((request) => {
+      if (path(request) === "/v1/auth/refresh")
+        return { status: 200, body: tokens };
+      return bearer(request) === tokens.access_token
+        ? { status: 200, body: example("/v1/bets") }
+        : { status: 401, body: EXPIRED };
+    });
+
+    const response = await list(mod, "?status=open");
+
+    expect(response.status).toBe(200);
+    expect(sent.filter((r) => path(r) === "/v1/auth/refresh")).toHaveLength(1);
+    const reads = sent.filter((r) => path(r) === "/v1/bets");
+    expect(reads.filter((r) => bearer(r) === tokens.access_token)).toHaveLength(
+      2,
+    );
+    expect(response.headers.get("set-cookie")).toContain(mod.SESSION_COOKIE);
+  });
+
+  it("keeps a refreshed session when the other language read fails first (SEC2)", async () => {
+    const mod = await load();
+    const tokens = responseExample("/v1/auth/refresh", "post", 200) as Tokens;
+    upstreamAnswers((request) => {
+      if (path(request) === "/v1/auth/refresh")
+        return { status: 200, body: tokens };
+      // The Amharic read fails at once; the English one needs a refresh.
+      if (language(request) === "am")
+        return {
+          status: 503,
+          body: {
+            type: "x",
+            title: "x",
+            status: 503,
+            code: "SERVICE_UNAVAILABLE",
+          },
+        };
+      return bearer(request) === tokens.access_token
+        ? { status: 200, body: example("/v1/bets") }
+        : { status: 401, body: EXPIRED };
+    });
+
+    const response = await list(mod, "?status=open");
+
+    expect(response.status).toBe(503);
+    // The refresh spent the old refresh token: the rotated session must reach
+    // the browser, or its next request replays the spent one (C01 §8).
+    expect(sent.filter((r) => path(r) === "/v1/auth/refresh")).toHaveLength(1);
+    const cookie = response.headers.get("set-cookie") ?? "";
+    expect(cookie).toContain(`${mod.SESSION_COOKIE}=v1.`);
+    expect(cookie).not.toContain("Max-Age=0");
+  });
+
+  it("ends a session the API no longer honours: 401, cookie cleared", async () => {
+    const mod = await load();
+    upstreamAnswers(() => ({
+      status: 401,
+      body: responseExample("/v1/bets", "get", 401),
+    }));
+
+    const response = await list(mod, "?status=open");
+
+    expect(response.status).toBe(401);
+    expect((await response.json()).code).toBe("AUTH_TOKEN_EXPIRED");
+    expect(response.headers.get("set-cookie")).toContain("Max-Age=0");
+  });
+});
+
+describe("Prefer on the reads (Q12)", () => {
+  it("forwards Prism's Prefer on both reads under next dev only", async () => {
+    const mod = await load();
+    upstreamAnswers((request) => ({
+      status: 200,
+      body: path(request).startsWith("/v1/bets/")
+        ? example("/v1/bets/{id}")
+        : example("/v1/bets"),
+    }));
+    const prefer = { prefer: "code=401" };
+
+    vi.stubEnv("NODE_ENV", "development");
+    await list(mod, "?status=open", reading(mod, prefer));
+    await one(mod, "01J9A7V0000000000000000001", reading(mod, prefer));
+    expect(sent).toHaveLength(4);
+    expect(sent.map((r) => r.headers.get("prefer"))).toEqual(
+      Array(4).fill("code=401"),
+    );
+
+    // Any other build forwards nothing.
+    vi.stubEnv("NODE_ENV", "test");
+    sent = [];
+    await list(mod, "?status=open", reading(mod, prefer));
+    await one(mod, "01J9A7V0000000000000000001", reading(mod, prefer));
+    expect(sent.map((r) => r.headers.get("prefer"))).toEqual(
+      Array(4).fill(null),
+    );
+  });
+});
+
+describe("GET /api/bets/[id]", () => {
+  it("reads one bet in both languages with the player's token", async () => {
+    const mod = await load();
+    upstreamAnswers(readsInBothLanguages(() => example("/v1/bets/{id}")));
+
+    const response = await one(mod, "01J9A7V0000000000000000001");
+
+    expect(response.status).toBe(200);
+    const bet = betSchema.parse(await response.json());
+    expect(bet).toMatchObject({
+      ticketId: "K7Q2-M9XP-M",
+      payout: "289.17",
+      winTax: "0.00",
+    });
+    expect(bet.legs[0].match.am).toBe("Arsenal v Chelsea (am)");
+    expect(sent.map(path)).toEqual([
+      "/v1/bets/01J9A7V0000000000000000001",
+      "/v1/bets/01J9A7V0000000000000000001",
+    ]);
+    expect(sent.map(bearer)).toEqual(["eyJ.live.access", "eyJ.live.access"]);
+  });
+
+  it("passes the API's 404 through: a bet not on this account", async () => {
+    const mod = await load();
+    upstreamAnswers(() => ({
+      status: 404,
+      body: responseExample("/v1/bets/{id}", "get", 404),
+    }));
+
+    const response = await one(mod, "01J9A7V0000000000000000009");
+
+    expect(response.status).toBe(404);
+    expect((await response.json()).code).toBe("NOT_FOUND");
+  });
+
+  it.each(["../me", "a b", "x".repeat(65), "01J9/../me", ""])(
+    "answers 404 and sends nothing for an id that can't be one (%s)",
+    async (id) => {
+      const mod = await load();
+      upstreamAnswers(() => ({ status: 200, body: example("/v1/bets/{id}") }));
+
+      const response = await one(mod, id);
+
+      expect(response.status).toBe(404);
+      expect((await response.json()).code).toBe("NOT_FOUND");
+      expect(sent).toHaveLength(0);
+    },
+  );
+
+  it("answers 401 AUTH_TOKEN_EXPIRED without a session and sends nothing", async () => {
+    const mod = await load();
+    upstreamAnswers(() => ({ status: 200, body: example("/v1/bets/{id}") }));
+
+    const response = await one(mod, "01J9A7V0000000000000000001", {
+      host: "localhost:3000",
+    });
+
+    expect(response.status).toBe(401);
+    expect(sent).toHaveLength(0);
   });
 });

@@ -58,6 +58,18 @@ A refusal of the bet stays in the slip until the slip changes or another attempt
 new alert, announced even when it repeats the last; the API's `detail` is shown as its own line except
 where the slip's copy already states the same limit.
 
+### My bets and the ticket check (F5b)
+
+| Where            | Code / status                                       | Shown                                                                                                                                                             | Fix offered                  |
+| ---------------- | --------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------- |
+| My bets, ticket  | 401 `AUTH_TOKEN_EXPIRED`                            | `/api/me` is re-read; the session-ended dialog, then "Log in to see your bets"                                                                                    | Log in                       |
+| Ticket (My bets) | 404 `NOT_FOUND`                                     | "Ticket not found — This ticket isn't on your account."                                                                                                           | Back to My bets              |
+| My bets, ticket  | network, 5xx, an unreadable reply (after 2 retries) | "Couldn't load your bets" / "Couldn't load this ticket"; a failed Show more inline                                                                                | Try again                    |
+| `/t/[ticket]`    | 404 `NOT_FOUND`, `RETAIL_TICKET_NOT_FOUND`          | 404: "No ticket with this number — Check number {number} and try again." Drawn by the browser (Next 16); without JavaScript only the title, which a preview shows | Check another ticket (form)  |
+| `/t/[ticket]`    | not a ticket number (pattern or check character)    | The proxy's 404, rendered whole: "Check the number and try again." — nothing from the address is repeated                                                         | The form                     |
+| `/t/[ticket]`    | anything else (5xx, unreachable, malformed answer)  | "Couldn't check this ticket" (status 200; the preview gets a neutral title, no card)                                                                              | Try again (a link), the form |
+| `/t?ticket=`     | not a ticket number                                 | The form: "A ticket number has 9 letters and numbers, like K7Q2-M9XP-M." (not echoed)                                                                             | Fix and check again          |
+
 ### Wallet (F6)
 
 | Code                             | HTTP | Shown                                               | Fix offered                       |
@@ -77,11 +89,12 @@ limits that cannot be lowered below usage; `RG_*` as above.
 
 ### Route-handler refusals (ours, same shape)
 
-| Code                  | HTTP                      | When                                                                                |
-| --------------------- | ------------------------- | ----------------------------------------------------------------------------------- |
-| `PERMISSION_DENIED`   | 403                       | A POST from another origin, without the CSRF header (09-security)                   |
-| `VALIDATION_FAILED`   | 400 / 413 / 415 / 422     | Missing `Idempotency-Key`; body too large; not JSON; a body that is not the request |
-| `SERVICE_UNAVAILABLE` | 503 (or the API's status) | The API could not be reached, or answered with something that is not a Problem      |
+| Code                  | HTTP                      | When                                                                                                                                       |
+| --------------------- | ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| `PERMISSION_DENIED`   | 403                       | A POST from another origin, without the CSRF header (09-security)                                                                          |
+| `VALIDATION_FAILED`   | 400 / 413 / 415 / 422     | Missing `Idempotency-Key`; body too large; not JSON; a body that is not the request; a My bets `status` or `cursor` the route doesn't take |
+| `NOT_FOUND`           | 404                       | `/api/bets/{id}` with an id that can't be one: nothing is sent upstream                                                                    |
+| `SERVICE_UNAVAILABLE` | 503 (or the API's status) | The API could not be reached, or answered with something that is not a Problem                                                             |
 
 ## System states
 

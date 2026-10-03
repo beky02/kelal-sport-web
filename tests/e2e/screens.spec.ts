@@ -364,6 +364,119 @@ const dropThenRateLimited = (page: Page) => {
   );
 };
 
+/**
+ * My bets as the real API answers each tab. Prism ignores `status` and sends
+ * both example bets for either, so the route's own answer is shaped here:
+ * open bets under Open, the rest under Settled — the app itself shows
+ * whatever the API returns. `more` gives the first page a `next_cursor`, so
+ * Show more is on screen.
+ */
+const myBets =
+  ({ more = false }: { more?: boolean } = {}) =>
+  async (page: Page) => {
+    await loginViaApi(page);
+    await page.route(/\/api\/bets\?/, async (route) => {
+      const response = await route.fetch();
+      const body = (await response.json()) as {
+        items: { status: string }[];
+        nextCursor: string | null;
+      };
+      const query = new URL(route.request().url()).searchParams;
+      const open = query.get("status") === "open";
+      body.items = body.items.filter((bet) => (bet.status === "open") === open);
+      if (more && !query.has("cursor")) body.nextCursor = "c2";
+      await route.fulfill({ response, json: body });
+    });
+  };
+
+/** My bets answered by the browser: no bets, or a failure. */
+const myBetsAnswer = (status: number, json: unknown) => async (page: Page) => {
+  await loginViaApi(page);
+  await page.route(/\/api\/bets\?/, (route) =>
+    route.fulfill({
+      status,
+      contentType:
+        status >= 400 ? "application/problem+json" : "application/json",
+      json,
+    }),
+  );
+};
+
+/**
+ * A guest on My bets: a session cookie the proxy lets through (it only looks
+ * for one) but the API doesn't honour, so `/api/me` says nobody — as when a
+ * session ends with the page open.
+ */
+const staleSession = async (page: Page) => {
+  await page.context().addCookies([
+    {
+      name: "kelal.session",
+      value: "v1.stale",
+      url: "http://localhost:3000",
+    },
+  ]);
+};
+
+/** My bets, with the next page failing. */
+const myBetsMoreFails = async (page: Page) => {
+  await myBets({ more: true })(page);
+  await page.route(/\/api\/bets\?.*cursor=/, (route) =>
+    route.fulfill({
+      status: 503,
+      contentType: "application/problem+json",
+      json: {
+        type: "about:blank",
+        title: "The sportsbook API could not be reached",
+        status: 503,
+        code: "SERVICE_UNAVAILABLE",
+      },
+    }),
+  );
+};
+
+const showMoreFails = async (page: Page, _device: Device, lang: Lang) => {
+  const t = MESSAGES[lang];
+  await page.getByRole("button", { name: t.bets.showMore }).first().click();
+  // Retried twice, as every read is, before it says so.
+  await page.getByText(t.bets.moreFailed).first().waitFor();
+};
+
+/** The ticket detail, answered by the browser: not on this account, or failing. */
+const ticketAnswer = (status: number, code: string) => async (page: Page) => {
+  await loginViaApi(page);
+  await page.route(/\/api\/bets\/01J9A7V0000000000000000001/, (route) =>
+    route.fulfill({
+      status,
+      contentType: "application/problem+json",
+      json: { type: "about:blank", title: code, status, code },
+    }),
+  );
+};
+
+const waitForTicketFailure = async (
+  page: Page,
+  _device: Device,
+  lang: Lang,
+) => {
+  await page
+    .getByRole("heading", { name: MESSAGES[lang].bets.ticketFailedTitle })
+    .waitFor();
+};
+
+/** A failed read is retried twice (the app's default) before it says so. */
+const waitForBetsFailure = async (page: Page, _device: Device, lang: Lang) => {
+  await page
+    .getByRole("heading", { name: MESSAGES[lang].bets.loadFailedTitle })
+    .waitFor();
+};
+
+const showSettled = async (page: Page, _device: Device, lang: Lang) => {
+  await page
+    .getByRole("button", { name: MESSAGES[lang].bets.tabSettled })
+    .first()
+    .click();
+};
+
 /** `/b/7KQ2M9X`, loaded into the slip — the sheet opens on a phone. */
 async function loadBooking(page: Page, _device: Device, lang: Lang) {
   await page
@@ -530,7 +643,79 @@ const SCREENS: Array<{
     path: "/b/7KQ2M9X",
     headers: { Prefer: "code=410" },
   },
-  { name: "my-bets", path: "/my-bets", before: loginViaApi },
+  { name: "my-bets", path: "/my-bets", before: myBets() },
+  {
+    name: "my-bets-settled",
+    path: "/my-bets",
+    before: myBets(),
+    prepare: showSettled,
+  },
+  { name: "my-bets-more", path: "/my-bets", before: myBets({ more: true }) },
+  {
+    name: "my-bets-empty",
+    path: "/my-bets",
+    before: myBetsAnswer(200, { items: [], nextCursor: null }),
+  },
+  {
+    name: "my-bets-error",
+    path: "/my-bets",
+    before: myBetsAnswer(503, {
+      type: "about:blank",
+      title: "The sportsbook API could not be reached",
+      status: 503,
+      code: "SERVICE_UNAVAILABLE",
+    }),
+    prepare: waitForBetsFailure,
+    allowConsole: /503/,
+  },
+  {
+    name: "my-bets-guest",
+    path: "/my-bets",
+    before: staleSession,
+  },
+  {
+    name: "my-bets-more-failed",
+    path: "/my-bets",
+    before: myBetsMoreFails,
+    prepare: showMoreFails,
+    allowConsole: /503/,
+  },
+  {
+    name: "ticket",
+    path: "/my-bets/01J9A7V0000000000000000001",
+    before: loginViaApi,
+  },
+  {
+    name: "ticket-not-found",
+    path: "/my-bets/01J9A7V0000000000000000001",
+    before: ticketAnswer(404, "NOT_FOUND"),
+    allowConsole: /404/,
+  },
+  {
+    name: "ticket-failed",
+    path: "/my-bets/01J9A7V0000000000000000001",
+    before: ticketAnswer(503, "SERVICE_UNAVAILABLE"),
+    prepare: waitForTicketFailure,
+    allowConsole: /503/,
+  },
+  { name: "ticket-check", path: "/t/K7Q2-M9XP-M" },
+  { name: "ticket-check-form", path: "/t" },
+  { name: "ticket-check-invalid", path: "/t?ticket=K7Q2-M9XP-X" },
+  {
+    // No ticket number in the address: the proxy's 404, rendered whole.
+    name: "ticket-check-not-a-number",
+    path: "/t/K7Q2-M9XP-X",
+    allowConsole: /status of 404/,
+  },
+  {
+    name: "ticket-check-failed",
+    path: "/t/K7Q2-M9XP-M",
+    // Prism has no 503 for this operation and answers a 404 with no code —
+    // which the page calls a failure, as it should. `next dev` replays the
+    // server's log of that failure in the browser's console.
+    headers: { prefer: "code=503" },
+    allowConsole: /Server\s+UpstreamError: Upstream responded 404/,
+  },
   { name: "transactions", path: "/transactions", before: loginViaApi },
   { name: "wallet", path: "/wallet", before: loginViaApi },
   { name: "profile", path: "/profile", before: loginViaApi },

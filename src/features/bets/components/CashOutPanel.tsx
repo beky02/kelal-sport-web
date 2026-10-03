@@ -9,8 +9,18 @@ import { usePublicConfig } from "@/features/config/hooks/use-public-config";
 import { share } from "@/lib/money";
 import { CASH_OUT_SHARES } from "@/config/constants";
 import { settleBet } from "@/features/bet-slip/lib/calculate";
-import { LEG_RESULT } from "../lib/figures";
 import type { Bet } from "../types";
+
+/**
+ * The server's offer to buy a bet back — what the book prices, never the
+ * browser. The contract has no cash-out quote yet (Release 2), so there is
+ * none to pass.
+ */
+export interface CashOutQuote {
+  amount: string;
+  /** Trading is suspended on a leg, so cash out is off for now. */
+  blocked: boolean;
+}
 
 /**
  * Buying a bet back.
@@ -22,10 +32,15 @@ import type { Bet } from "../types";
  */
 export function CashOutPanel({
   bet,
+  quote,
   size = "card",
+  className,
 }: {
   bet: Bet;
+  /** Null until the server offers one: then there is nothing to show. */
+  quote: CashOutQuote | null;
   size?: "card" | "ticket";
+  className?: string;
 }) {
   const t = useTranslation();
   const [asking, setAsking] = useState(false);
@@ -33,11 +48,16 @@ export function CashOutPanel({
   const cashOut = useCashOut();
   const rules = usePublicConfig().data?.betting.calc ?? null;
 
-  if (bet.status !== "open") return null;
+  if (bet.status !== "open" || !quote) return null;
 
-  if (bet.cashOutBlocked || bet.cashOutValue === null) {
+  if (quote.blocked) {
     return (
-      <div className="bg-raised text-muted flex h-11 items-center gap-2 rounded-md px-3 text-xs font-semibold">
+      <div
+        className={cn(
+          "bg-raised text-muted flex h-11 items-center gap-2 rounded-md px-3 text-xs font-semibold",
+          className,
+        )}
+      >
         <Lock size={14} strokeWidth={1.5} aria-hidden />
         {t.t("bets.cashOutUnavailable")}
       </div>
@@ -47,20 +67,21 @@ export function CashOutPanel({
   // Previews only: the amount actually paid is the server's.
   const part = CASH_OUT_SHARES[shareIndex];
   const all = part.numerator === part.denominator;
-  const amount = share(bet.cashOutValue, part.numerator, part.denominator);
+  const amount = share(quote.amount, part.numerator, part.denominator);
   // What stays on the bet is the remaining stake priced by slipcalc, not a
   // share of today's payout: the win-tax threshold is all-or-nothing (D1.8).
-  const remaining = rules
-    ? settleBet(
-        bet.legs.length === 1 ? "single" : "multiple",
-        bet.legs.map((leg) => ({
-          odds: leg.odds,
-          result: LEG_RESULT[leg.status],
-        })),
-        share(bet.stake, part.denominator - part.numerator, part.denominator),
-        rules,
-      )
-    : null;
+  // Priced as the ticket's own type; a system bet's sizes it can't price, so
+  // nothing is shown for one. To be replaced by the server's own quote for
+  // the rest when cash out is built (F3a review, M4).
+  const remaining =
+    rules && bet.betType !== "system"
+      ? settleBet(
+          bet.betType,
+          bet.legs.map((leg) => ({ odds: leg.odds, result: leg.result })),
+          share(bet.stake, part.denominator - part.numerator, part.denominator),
+          rules,
+        )
+      : null;
   const rest = remaining?.ok ? remaining.quote.netPayout : null;
   const buttonHeight = size === "ticket" ? "h-12" : "h-11";
 
@@ -72,16 +93,22 @@ export function CashOutPanel({
         className={cn(
           "bg-raised text-text font-body flex w-full cursor-pointer items-center justify-between rounded-md px-3 text-sm font-bold",
           buttonHeight,
+          className,
         )}
       >
         <span>{t.t("bets.cashOut")}</span>
-        <span className="numeric">{t.money(bet.cashOutValue)}</span>
+        <span className="numeric">{t.money(quote.amount)}</span>
       </button>
     );
   }
 
   return (
-    <div className="border-accent flex flex-col gap-2 rounded-md border p-2.5">
+    <div
+      className={cn(
+        "border-accent flex flex-col gap-2 rounded-md border p-2.5",
+        className,
+      )}
+    >
       <span className="text-[13px] font-semibold">
         {t.t("bets.cashOutConfirm", { amount: t.money(amount) })}
       </span>

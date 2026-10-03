@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { placeBetRequestSchema } from "@/lib/api/schemas";
-import { placeBet } from "@/lib/server/bets";
+import { loadMyBets, placeBet } from "@/lib/server/bets";
 import { readForm } from "@/lib/server/body";
 import { assertSameOrigin } from "@/lib/server/csrf";
 import { problemResponse, respond } from "@/lib/server/respond";
@@ -8,6 +8,43 @@ import { readSession, SessionGoneError } from "@/lib/server/session";
 import { mockPreference } from "@/lib/server/upstream";
 
 const idempotencyKeySchema = z.uuid();
+
+/**
+ * My bets' query: the contract's filter, and the previous page's cursor —
+ * opaque, so only its size and alphabet are checked (printable ASCII, no
+ * spaces) before it goes upstream.
+ */
+const listQuerySchema = z.object({
+  status: z.enum(["open", "settled"]),
+  cursor: z
+    .string()
+    .regex(/^[\x21-\x7e]{1,512}$/)
+    .nullable(),
+});
+
+/**
+ * The player's bets, a page at a time (`GET /v1/bets`). Read-only, so no
+ * CSRF check (as `/api/me`); a session for this tenant is required.
+ */
+export function GET(request: Request) {
+  const params = new URL(request.url).searchParams;
+  const query = listQuerySchema.safeParse({
+    status: params.get("status"),
+    cursor: params.get("cursor"),
+  });
+  if (!query.success) {
+    return problemResponse(422, "VALIDATION_FAILED", "Not a bets query");
+  }
+  return respond(request, (ctx) => {
+    const session = readSession(request, ctx.tenant);
+    if (!session) throw new SessionGoneError();
+    return loadMyBets(
+      { ...ctx, prefer: mockPreference(request.headers.get("prefer")) },
+      session,
+      query.data,
+    );
+  });
+}
 
 /** Far more than any slip (30 legs) needs; nothing bigger is read. */
 const MAX_BODY_BYTES = 16 * 1024;

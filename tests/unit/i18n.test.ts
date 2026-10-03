@@ -55,6 +55,8 @@ describe("message catalogues", () => {
       "bets.part50",
       // "{tax} · {rate}": both placeholders are filled with Amharic.
       "betSlip.taxRate",
+      // "{status} · {matches}": the status is Amharic, the matches the API's.
+      "ticket.og.description",
     ]);
     for (const [key, value] of amharic) {
       if (symbolic.has(key)) continue;

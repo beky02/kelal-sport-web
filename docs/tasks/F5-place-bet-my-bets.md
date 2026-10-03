@@ -1,7 +1,7 @@
 ---
 id: F5
 title: Place bet with Idempotency-Key and the 409 flow; My bets; /t/[ticket]
-status: in_progress
+status: done
 depends_on: [F3a, F3b, F4]
 contract_tags: [Bets, Bookings]
 touches_money: true
@@ -49,22 +49,22 @@ Out: cash out (Release 2 flag stays off).
 
 ## Acceptance criteria
 
-- [ ] **AC-1** Placing twice with the same key (retry) sends the same `Idempotency-Key` (request log test).
-- [ ] **AC-2** `Prefer: code=409` shows old and new odds and accepting re-places with a new key.
-- [ ] **AC-3** The ticket shows the API's `net_payout`, not the preview's.
-- [ ] **AC-4** `/t/R7K2-M9XP-K` renders the ticket status with JavaScript disabled.
-- [ ] **AC-5** My bets pages with `next_cursor`.
+- [x] **AC-1** Placing twice with the same key (retry) sends the same `Idempotency-Key` (request log test).
+- [x] **AC-2** `Prefer: code=409` shows old and new odds and accepting re-places with a new key.
+- [x] **AC-3** The ticket shows the API's `net_payout`, not the preview's.
+- [x] **AC-4** `/t/R7K2-M9XP-K` renders the ticket status with JavaScript disabled.
+- [x] **AC-5** My bets pages with `next_cursor`.
 
 Added at the split (2026-10-02) so every scope item above has an observable criterion:
 
-- [ ] **AC-6** The `odds_policy` sent is the slip's setting (`none` / `higher` / `any`), which starts at
+- [x] **AC-6** The `odds_policy` sent is the slip's setting (`none` / `higher` / `any`), which starts at
       the tenant's `betting.default_odds_policy`.
-- [ ] **AC-7** Each refusal in scope says what happened and offers its fix: `BET_EVENT_STARTED` /
+- [x] **AC-7** Each refusal in scope says what happened and offers its fix: `BET_EVENT_STARTED` /
       `BET_MARKET_SUSPENDED` mark the pick and offer Remove; `BET_STAKE_TOO_HIGH` offers `errors[].limit`;
       `WALLET_INSUFFICIENT_FUNDS` offers Deposit; `RG_LIMIT_REACHED` offers View limits; `RG_SELF_EXCLUDED`
       and `RG_COOLING_OFF` say betting is paused; `KYC_REQUIRED` offers Verify.
-- [ ] **AC-8** Ticket barcodes are Code 128 (symbol table, check character and stop pattern under test).
-- [ ] **AC-9** `/t/[ticket]` puts its Open Graph tags in `<head>` for Telegram's preview bot, answers 404
+- [x] **AC-8** Ticket barcodes are Code 128 (symbol table, check character and stop pattern under test).
+- [x] **AC-9** `/t/[ticket]` puts its Open Graph tags in `<head>` for Telegram's preview bot, answers 404
       in the ticket's own words for an unknown number, and redirects a typed number to its canonical path.
 
 ## Carried over from F3a review (2026-10-01)
@@ -78,3 +78,9 @@ Added at the split (2026-10-02) so every scope item above has an observable crit
   server's cash-out quote when cash out is built (M4).
 - **Placement** still sends no `Idempotency-Key` and its request/receipt are not the contract's
   `PlacedBet` shapes; no 409 `BET_ODDS_CHANGED` flow yet (security SEC2, money M9).
+
+## Done (2026-10-03)
+
+F5a (placing) and F5b (My bets, the ticket, `/t/[ticket]`) are both done — see `F5/verification.md` and
+`F5b/verification.md`. AC-3's "`net_payout`" is shown as the API's `potential_payout` / `payout` (the
+contract has no `net_payout`; contract request 007 asks it to describe them).

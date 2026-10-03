@@ -120,13 +120,19 @@ The slip warns when the stake exceeds the balance (compared as strings through `
 offers Deposit; the API is what refuses. Amounts the player types are validated against the method's
 `min`/`max` the same way before anything is sent.
 
-## Tickets and settlement (F5; C10)
+## Tickets and settlement (F5b; C10)
 
-A ticket shows the API's `stake`, `stake_tax`, `total_odds`, `potential_payout` or `payout`,
-`acca_bonus`, `win_tax`, `bet_type`, `system_sizes`, `rules_version`, every leg with the odds taken and
-its result. A recomputation with slipcalc is only ever a labelled preview with the bet's own type and
-rule version. Void legs count as odds 1.00; all void refunds the net stake (SET-02, D1.9). Cash out is
-Release 2: when built, its value is the server's quote, never slipcalc on the remaining stake.
+A ticket shows the API's `stake`, `stake_bonus` (when above zero), `stake_tax`, `total_odds`,
+`acca_bonus` (when above zero), `win_tax` (once settled), `potential_payout` (open) or `payout`
+(settled), `bet_type`, `system_sizes` and `lines`, and every leg with the odds taken and its result —
+as built in F5b, nothing on a ticket is recomputed: no net stake, no gross, no refund line, which the
+contract's `Bet` doesn't carry. A figure the API didn't send shows "—", never 0.00. "Payout", not "net
+payout": the contract doesn't say whether payout taxes are out of it (contract request 007, which also
+asks for `rules_version`). Void legs read "counted at odds 1.00" (D1.5); all void refunds the net stake
+(SET-02, D1.9) — the API's `payout` says so. Cash out is Release 2: the panel shows nothing until the
+server quotes a value (the contract has no quote yet); its preview of what stays on the bet is still
+slipcalc on the remaining stake, as the ticket's own type, until the server quotes that too (F3a review
+M4).
 
 ## Formats (06-language)
 
