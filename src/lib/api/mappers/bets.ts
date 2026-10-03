@@ -40,7 +40,7 @@ export function toPlaceBetRequest(
 /**
  * The engine's `PlacedBet` → the ticket the slip confirms. Every figure is the
  * API's, untouched. The balance it carries stays on the server: the wallet is
- * read again instead (F6 owns it).
+ * read again instead (`/v1/wallet`, F6a).
  */
 export function toBetReceipt(bet: ApiPlacedBet): BetReceipt {
   return {

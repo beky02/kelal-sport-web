@@ -3,7 +3,13 @@
 import { useCallback } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { getMe } from "@/features/auth/api/auth";
-import { betKeys, rgKeys, sessionKeys, walletKeys } from "@/lib/query/keys";
+import {
+  betKeys,
+  rgKeys,
+  sessionKeys,
+  transactionKeys,
+  walletKeys,
+} from "@/lib/query/keys";
 import { placeBet, placementDeadline } from "../api/place-bet";
 import {
   legUpdates,
@@ -62,7 +68,10 @@ export function usePlaceBet(owner: string | null) {
     },
     onSuccess: (receipt, { attempt }) => {
       useBetSlipStore.getState().placementPlaced(attempt.key, receipt);
+      // The stake left the wallet: the balance, the history and the bets are
+      // read again, never adjusted here.
       void queryClient.invalidateQueries({ queryKey: walletKeys.all });
+      void queryClient.invalidateQueries({ queryKey: transactionKeys.all });
       void queryClient.invalidateQueries({ queryKey: betKeys.all });
     },
     onError: (error, { attempt: { request, key } }) => {
@@ -77,11 +86,12 @@ export function usePlaceBet(owner: string | null) {
       const outcome = placementOutcome(error);
       switch (outcome.kind) {
         case "unanswered":
-          // The bet may exist. The wallet and bets are read again; until My
-          // bets (F5b) and the wallet (F6) come from the API, they cannot
-          // settle it — Try again with the same key can.
+          // The bet may exist. The wallet and bets are read again, so a stake
+          // that did go shows in the balance and My bets; only Try again with
+          // the same key settles it.
           slip.placementUnanswered(key);
           void queryClient.invalidateQueries({ queryKey: walletKeys.all });
+          void queryClient.invalidateQueries({ queryKey: transactionKeys.all });
           void queryClient.invalidateQueries({ queryKey: betKeys.all });
           return;
         case "session":

@@ -1,0 +1,229 @@
+# F6 — plan
+
+F6 is split (see **Sub-tasks**). This plan covers **F6a — balances and history**; F6b (deposits) and
+F6c (withdrawals) get their own plans when they start. Plan gate: approved 2026-10-03 (mode: interactive) — question 2:
+the balance is `cash`, bonus, pending withdrawals and owed listed apart, no computed withdrawable;
+question 3: the limit card waits for F7; question 4: contract request 008 written now.
+
+## Understanding
+
+The wallet's reads still come from the in-repo mock, as floats: the header chip, the wallet card and the
+slip's balance check show `WalletOverview.balance: number` (the slip through a `fromLegacyAmount` bridge
+F3a left for this task), and the history is fixed fixture rows with day headings typed in by hand. F6a
+moves both to the contract through two new route handlers on the F4 session: `/v1/wallet` for the
+balances and `/v1/wallet/transactions` for the ledger, paged by `next_cursor` and filtered by the
+contract's `type`. Every wallet amount becomes the API's decimal string from the mapper to the screen,
+so the browser never holds a balance it computed — it shows `cash`, `bonus`, `locked` and `debt` as
+sent, compares only through `lib/money.ts` (FD4), and re-reads after any money operation. The deposit
+and withdrawal flow keeps its mock until F6b and F6c, changed only where it read the old balance shape.
+
+## Spec conflicts and decisions
+
+| #   | Question                                                                                                                                                                                                                                                                                                                                                          | Decision and why                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| --- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 1   | F6 is ~3,500 changed lines over three areas: the wallet's reads, money in, money out.                                                                                                                                                                                                                                                                             | Split into **F6a** (balances and history: AC-5, AC-6), **F6b** (methods and deposits: AC-1 and AC-4 for deposits, AC-2, AC-3, AC-7, AC-8 and AC-9 for deposits) and **F6c** (payout accounts and withdrawals: AC-1, AC-4, AC-8 and AC-9 for withdrawals, AC-10), as F3–F5 were. Reads first: every amount becomes a string here, and both money flows re-read the balance and history this builds. AC-5 to AC-10 were added to F6 so every scope item has an observable criterion.                                                                     |
+| 2   | The task lists "cash, bonus, withdrawable". The contract's `Wallet` has `cash`, `bonus`, `locked`, `debt` and no withdrawable figure. docs/design/04 defines withdrawable as "cash less what bonus terms or locks hold back"; C03 §4 defines `PLAYER_CASH` as the withdrawable money, `PLAYER_BONUS` as not withdrawable, `PLAYER_LOCKED` as pending withdrawals. | **Question 2.** Recommended: the balance shown everywhere is `cash` (docs/design/04; by C03 it is the withdrawable money, with pending withdrawals already out of it). The wallet card lists under it **Bonus** ("for bets only — can't be withdrawn"), **Pending withdrawals** (`locked`) and **Owed** (`debt`), each only when above zero. No separate computed "Withdrawable" line: the browser never derives a money figure (contract and C03 over docs/design). Whether a withdrawal is possible at all stays the API's `can_withdraw`, as built. |
+| 3   | What "Owed" says.                                                                                                                                                                                                                                                                                                                                                 | "Owed", with C03's own rule as its note: "Repaid first from your next deposits and wins" (C03 §4, `PLAYER_DEBT`). No other money copy is invented. `debt` is optional in the contract: absent is `null`, never `"0.00"`, and not shown.                                                                                                                                                                                                                                                                                                                |
+| 4   | The daily deposit limit card and the amount step's "left under today's limit" read the wallet mock (`dailyDepositLimit`, `depositedToday`). Real limits are `/v1/me/limits` (Responsible gambling), which F7 owns.                                                                                                                                                | **Question 3.** Recommended: F6a removes the card and that ceiling — no placeholder figures beside real balances — and F7 brings the card back from `/v1/me/limits` (noted in F7's task file). The API's `RG_LIMIT_REACHED` stays the control (F6b handles it on a deposit).                                                                                                                                                                                                                                                                           |
+| 5   | The slip's balance check bridges `balance: number` with `fromLegacyAmount` (F3a, "until F6").                                                                                                                                                                                                                                                                     | The slip compares the stake with `cash` exactly as sent; bonus money never counts (`use_bonus: false` since F5a). `fromLegacyAmount` and its test are deleted (FD4; its own deprecation note).                                                                                                                                                                                                                                                                                                                                                         |
+| 6   | The history design shows a status per row (success / pending / failed, a failed deposit struck through). `WalletTxn` has no status.                                                                                                                                                                                                                               | Contract wins. A ledger movement is a posted fact (C03 §2: immutable, corrections are reversals), and a deposit that failed never reaches the ledger — F6b shows those on its status screens. Rows show kind, reference, time, signed amount and the balance after it instead.                                                                                                                                                                                                                                                                         |
+| 7   | Kinds: the contract has nine `type`s and takes one per request; the screen filters All, Deposits, Withdrawals, Bets (the mock's "Bets" covered stakes and winnings).                                                                                                                                                                                              | Filters **All** (no `type`), **Deposits** (`deposit`), **Withdrawals** (`withdrawal`), **Bets** (`bet`), **Winnings** (`win`): each is one contract value, so the server filters and pages it. Refunds, bonuses, returned withdrawals and adjustments show under All. Each of the nine types has its own label. The filter stays component state, as today (an account view, not a shareable board filter).                                                                                                                                            |
+| 8   | Day headings were fixed strings in the mock (06-language: "a known gap until real data lands (F6)").                                                                                                                                                                                                                                                              | Grouped by the East Africa Time date of `created_at` (`toEat`), across pages, in the API's order; headings "Today · 3 Oct", "Yesterday · 2 Oct", otherwise "Thu 1 Oct", from `formatWeekday` and `formatDayMonth` with the player's calendar; a row's time follows the player's clock (`formatKickoff`). The wallet's recent list has no headings, so its rows show date and time (`useDateTimeText`). The paragraph in 06-language goes.                                                                                                              |
+| 9   | A row's `reference` (`type`, `id`, `label`, all optional).                                                                                                                                                                                                                                                                                                        | The label joins the kind: "Deposit · telebirr", "Bet · K7Q2-M9XP-M"; without one, the kind alone. A `bet` reference links the row to its ticket in My bets (`routes.bet(id)`, F5b). `payment` references are kept on the domain type for F6c (a withdrawal's status).                                                                                                                                                                                                                                                                                  |
+| 10  | Signed amounts.                                                                                                                                                                                                                                                                                                                                                   | The API's sign, never recomputed: "+ ETB 500.00" or "− ETB 100.00" with a real minus (06-language); winnings tinted `text-win`; the arrow follows the sign; "Balance ETB 1,208.95" under it from `balance_after`.                                                                                                                                                                                                                                                                                                                                      |
+| 11  | Paging.                                                                                                                                                                                                                                                                                                                                                           | The list takes the API's default page (20) and Show more follows `next_cursor`, with F5b's focus rules (to the first new row, or to Try again when the page fails). The wallet's recent activity is its own small read (`limit=5`, its own key), as F5b's open-bets count, so it never re-reads the list's pages.                                                                                                                                                                                                                                      |
+| 12  | States. `WalletView` shows its skeleton forever when the wallet doesn't load (a stale cookie, a 5xx); the transactions view reads for a guest.                                                                                                                                                                                                                    | Every state 01-screens asks for: loading keeps the layout; guest → "Log in to see your wallet" / "…your transactions" with Log in; error → what failed and Try again; empty → a sentence and what next. Reads only for a signed-in player (`enabled`), as My bets.                                                                                                                                                                                                                                                                                     |
+| 13  | The mock flow (deposit and withdraw, until F6b / F6c) reads the old balance shape, and its success screen shows a "new balance" the mock computes.                                                                                                                                                                                                                | Only what the new shape forces: the withdraw amount step's ceiling becomes `cash`, compared through `lib/money.ts` (the typed amount is whole birr); the deposit step loses the limit ceiling (decision 4); the success screen loses "New balance" — nothing shows a balance the server did not send. Methods, amounts and the payment calls stay mock until F6b.                                                                                                                                                                                      |
+| 14  | Route handlers.                                                                                                                                                                                                                                                                                                                                                   | `GET /api/wallet` and `GET /api/wallet/transactions`: a session for this tenant (401 `AUTH_TOKEN_EXPIRED`, the cookie cleared); read-only, so no CSRF check (as `GET /api/bets`); `type` must be a contract value, `cursor` opaque printable ASCII up to 512, `limit` 1–100 — anything else 422 before anything goes upstream; one language (movements carry no translated names); `Cache-Control: no-store`; Prism's `Prefer` in `next dev` only.                                                                                                     |
+| 15  | Where the history's code lives.                                                                                                                                                                                                                                                                                                                                   | `TransactionsList` and `TransactionRow` move from `features/bets` to `features/wallet` (the wallet's ledger, `Wallet` tag); My bets' Transactions view imports them. The bets feature keeps no transaction code.                                                                                                                                                                                                                                                                                                                                       |
+| 16  | Bonus forfeit (BON-07, for F6c): the contract has no way to confirm a forfeit when withdrawing.                                                                                                                                                                                                                                                                   | **Question 4.** Not F6a's to build; asked now so a contract request can start early.                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+
+## Design
+
+**Contract → loader → mapper → route → api → hook → components**
+
+- `src/lib/server/wallet.ts` (server only):
+  - `loadWallet(ctx, session)` →
+    `withSession(ctx, session, auth => upstream("Wallet", { ...ctx, authorization: auth }).GET("/v1/wallet"))`
+    → `toWalletBalances`.
+  - `loadWalletHistory(ctx, session, { type, cursor, limit })` → `GET /v1/wallet/transactions` with
+    those query parameters that are set → `toWalletTxnPage`.
+- `src/lib/api/mappers/wallet.ts` (pure): `toWalletBalances(Wallet)` (strings untouched, `debt ?? null`);
+  `toWalletTxn(WalletTxn)` (`balance_after` → `balanceAfter`, `created_at` → `createdAt`, `label` from
+  `reference.label ?? null`, `reference` only when both `type` and `id` are present);
+  `toWalletTxnPage(page)` (`next_cursor` → `nextCursor`).
+- `src/app/api/wallet/route.ts` `GET`; `src/app/api/wallet/transactions/route.ts` `GET` (query checked
+  by a Zod schema, decision 14). Both through `respond()` with the session read as in `/api/bets`.
+- `src/lib/api/schemas.ts`: `walletBalancesSchema`, `walletTxnSchema`, `walletTxnPageSchema`, each
+  `satisfies z.ZodType<Domain>`, amounts on the contract's `MONEY_PATTERN`; `walletSchema`,
+  `transactionSchema` and `transactionDaysSchema` go; `paymentResultSchema` loses `newBalance`.
+- `src/features/wallet/api/get-wallet.ts`: `getWallet(signal)` → `apiClient.get("/wallet", …)` and
+  `getWalletHistory({ type, cursor, limit }, signal)` → `apiClient.get("/wallet/transactions", …)`,
+  with no mock branch; the mock payment calls stay for F6b.
+- `src/features/wallet/hooks/use-wallet.ts`: `useWallet(enabled)` (`walletKeys.balance()`, 15 s, as
+  today); `useWalletHistory(filter, enabled)` — `useInfiniteQuery` on `transactionKeys.list(filter)`;
+  `useRecentTransactions(enabled)` — `transactionKeys.recent()`, `limit: 5`. All under the `wallet` and
+  `transactions` roots the session watcher already drops when the player changes.
+- Components:
+  - `AppHeader`: the chip shows `cash` (`t.number`), named "Wallet, balance ETB 1,208.95".
+  - `use-bet-slip.ts`: `balance = wallet.data?.cash ?? null`.
+  - `WalletView`: loading, guest (`WalletGuest`), error (Try again), then the home or the flow.
+  - `WalletHome`: the balance card (cash; Bonus / Pending withdrawals / Owed lines when above zero,
+    `compareMoney(x, "0.00") > 0`); Deposit / Withdraw; recent activity (five rows, its own loading,
+    empty and failed states); See all.
+  - `TransactionsList` (moved): filter chips; days with headings; Show more; empty (all / filtered),
+    error, failed-more and guest states; a list per filter (`key`), so a page asked for under one filter
+    never lands under another.
+  - `TransactionRow` (moved): arrow, "{kind} · {label}", the time it is given, signed amount, balance
+    after; a link to the ticket for a `bet` reference.
+  - `AmountStep` (mock flow): `available: string` (cash) for a withdrawal; the limit rows go.
+    `PaymentResultStep`: no "New balance" row.
+- Domain types (`src/features/wallet/types/index.ts`): `WalletBalances { cash, bonus, locked, debt,
+currency }`; `WALLET_TXN_TYPES` and `WalletTxnType`; `WalletTxn { id, type, amount, balanceAfter,
+label, reference, createdAt }`; `WalletTxnPage`; `HistoryFilter`. `WalletOverview`,
+  `remainingDepositAllowance`, `PaymentResult.newBalance` and the bets feature's `Transaction*` types go.
+- **Errors**: 401 → the session watcher turns the player into a guest (the session-ended dialog, then
+  the guest state); network, 5xx and an unreadable answer → the error state with Try again (2 retries
+  first, the app's default); a 422 from our own route can't happen from this UI and shows the error
+  state. No Problem code here has a fix to offer.
+- **i18n** (en and am): `wallet.bonus`, `bonusNote`, `locked`, `debt`, `debtNote`, `guestTitle`,
+  `guestBody`, `loadFailedTitle`, `loadFailedBody`, `recentEmpty`, `recentFailed`; a `history`
+  namespace — the five filters, the nine kinds, `withLabel` ("{kind} · {label}"), `balanceAfter`,
+  `today` ("Today · {date}"), `yesterday`, `day` ("{weekday} {date}"), empty (all and filtered), load
+  failed, Show more, more failed, guest. Removed: `wallet.withdrawable`, `dailyLimit`, `manage`,
+  `usedToday`, `remaining`, `overLimit`, `newBalance`, `bets.filter*`, `bets.tx*`. Composed Amharic in
+  `TRANSLATION-NOTES.md`.
+- **Flags**: none.
+
+## Files
+
+| File                                                                                                                                                                         | Why                                                                                  |
+| ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| `docs/tasks/F6-wallet.md`, `F6a-balances-history.md`, `F6b-deposits.md`, `F6c-withdrawals.md`, `README.md`; `F7-account-rg-inbox.md` (decision 4)                            | The split, statuses; the limit card handed to F7                                     |
+| `docs/tasks/F6/plan.md`, `verification.md`                                                                                                                                   | This plan; phase 3                                                                   |
+| `src/lib/server/wallet.ts` (new)                                                                                                                                             | `loadWallet`, `loadWalletHistory`                                                    |
+| `src/lib/api/mappers/wallet.ts` (new)                                                                                                                                        | `toWalletBalances`, `toWalletTxn`, `toWalletTxnPage`                                 |
+| `src/app/api/wallet/route.ts`, `src/app/api/wallet/transactions/route.ts` (new)                                                                                              | The two reads                                                                        |
+| `src/lib/api/schemas.ts`                                                                                                                                                     | The browser's checks on the new shapes; old wallet and transaction schemas go        |
+| `src/lib/query/keys.ts`                                                                                                                                                      | `transactionKeys.list(filter)`, `recent()`                                           |
+| `src/features/wallet/types/index.ts`                                                                                                                                         | Domain types                                                                         |
+| `src/features/wallet/api/get-wallet.ts`, `hooks/use-wallet.ts`                                                                                                               | Real reads, paging; the balance's mock branch goes                                   |
+| `src/features/wallet/components/WalletView.tsx`, `WalletHome.tsx`, `WalletGuest.tsx` (new), `AmountStep.tsx`, `PaymentResultStep.tsx`                                        | States, the balance card, recent activity; the mock flow's minimal changes           |
+| `src/features/bets/components/TransactionsList.tsx`, `TransactionRow.tsx` → `src/features/wallet/components/` (moved)                                                        | The history on the contract                                                          |
+| `src/features/bets/components/MyBetsView.tsx`, `hooks/use-bets.ts`, `api/get-bets.ts`, `types/index.ts`                                                                      | Import the moved list; the bets feature's transaction code goes                      |
+| `src/components/layout/AppHeader.tsx`                                                                                                                                        | The chip on `cash`                                                                   |
+| `src/features/bet-slip/hooks/use-bet-slip.ts`; `src/lib/money.ts`                                                                                                            | The balance check on `cash`; `fromLegacyAmount` goes                                 |
+| `src/lib/api/mock/wallet.ts`, `mock/repository.ts`; `mock/transactions.ts` (deleted); `src/config/env.ts`, `src/lib/i18n/format.ts`, `use-translation.ts`                    | The wallet and history mocks go; comments that named F6                              |
+| `src/lib/i18n/messages/en.json`, `am.json`, `TRANSLATION-NOTES.md`                                                                                                           | Strings                                                                              |
+| `tests/unit/wallet-mappers.test.ts`, `tests/unit/wallet-route.test.ts` (new)                                                                                                 | Mappers on the contract's examples; the route handlers                               |
+| `tests/component/Wallet.test.tsx`, `tests/component/Transactions.test.tsx` (new)                                                                                             | AC-5, AC-6                                                                           |
+| `tests/component/Session.test.tsx`, `AuthDialog.test.tsx`, `BetSlip.test.tsx`, `PlaceBet.test.tsx` (only where a player's wallet is now fetched); `tests/unit/money.test.ts` | The header and slip read `/api/wallet`; the bridge's test goes                       |
+| `tests/e2e/screens.spec.ts`                                                                                                                                                  | `wallet`, `wallet-held`, `wallet-guest`, `transactions`, `-more`, `-empty`, `-error` |
+| `docs/design/01-screens.md`, `04-slip-and-money.md`, `05-errors-and-states.md`, `06-language-and-format.md`                                                                  | The wallet and history as built                                                      |
+| `docs/contract-requests/008-withdrawal-bonus-forfeit.md` (new), `README.md`                                                                                                  | BON-07 for F6c                                                                       |
+
+## Acceptance criteria → tests
+
+| AC   | Test                                                                                                                                                                                                                           | How it proves it                                                                                                                                                                                                                           |
+| ---- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| AC-5 | `wallet-mappers.test.ts` "maps the contract's wallet example without touching an amount"; "keeps an absent debt empty, never zero"                                                                                             | `toWalletBalances(example("/v1/wallet"))` is the example's strings, unchanged; `walletBalancesSchema` accepts it; no `debt` → `null`                                                                                                       |
+| AC-5 | `wallet-route.test.ts` "reads /v1/wallet with the player's token for this tenant, never cached (AC-5)"; "answers 401 without a session and sends nothing upstream"                                                             | Upstream request log: one `GET /v1/wallet` with the bearer and `X-Tenant-Id`; the answer `no-store`; no cookie → 401 `AUTH_TOKEN_EXPIRED`, nothing sent                                                                                    |
+| AC-5 | `Wallet.test.tsx` "shows the cash balance exactly as the API sends it, and the bonus apart (AC-5)"                                                                                                                             | `/api/wallet` answered with the contract's example through the mapper: "ETB 1,208.95" as the balance, "Bonus ETB 50.00" with its note; no "Pending withdrawals" or "Owed" for `0.00`                                                       |
+| AC-5 | `Wallet.test.tsx` "shows pending withdrawals and the amount owed only when above zero (AC-5)"                                                                                                                                  | `locked: "300.00"`, `debt: "120.00"` → both lines with their amounts and the owed note; `bonus: "0.00"` → no bonus line                                                                                                                    |
+| AC-5 | `Session.test.tsx` "shows the balance and the profile to a player" (updated)                                                                                                                                                   | The header chip named "Wallet, balance ETB 1,208.95" from `/api/wallet`                                                                                                                                                                    |
+| AC-5 | `Wallet.test.tsx` "asks for a deposit when the stake is above the cash balance, bonus aside (AC-5)"                                                                                                                            | `cash: "40.00"`, `bonus: "500.00"`, a 50.00 stake → the slip's main button is "Deposit to continue"; at `cash: "50.00"` it is Place                                                                                                        |
+| AC-5 | `Wallet.test.tsx` "asks a guest to log in, and reads nothing"; "says when the wallet couldn't load, and Try again reads it again"                                                                                              | Guest → "Log in to see your wallet" + Log in, no `/api/wallet` request; 503 → "Couldn't load your wallet", Try again → a second request                                                                                                    |
+| AC-5 | `pnpm ui` `wallet`, `wallet-held`, `wallet-guest`                                                                                                                                                                              | Prism's balances; locked and owed answered in the browser; a stale session                                                                                                                                                                 |
+| AC-6 | `wallet-mappers.test.ts` "maps the contract's history example: kinds, signed amounts, balance after, references"                                                                                                               | `toWalletTxnPage(example("/v1/wallet/transactions"))`: three movements, `"-100.00"` kept signed, `balanceAfter`, `label`, the `bet` and `payment` references, `nextCursor: null`                                                           |
+| AC-6 | `wallet-route.test.ts` "forwards type, cursor and limit to /v1/wallet/transactions and answers nextCursor (AC-6)"; nine "refuses … with 422 and sends nothing"                                                                 | Upstream log: the query as sent; `nextCursor` from `next_cursor`; `type=lottery`, a cursor with a space, `limit=0` / `101` → 422 `VALIDATION_FAILED`, nothing sent                                                                         |
+| AC-6 | `Transactions.test.tsx` "groups movements by day in East Africa Time, newest first (AC-6)"                                                                                                                                     | System time 2026-10-04 12:00 EAT; movements at `2026-10-03T22:30:00Z` (01:30 on 4 Oct EAT), `2026-10-03T14:05:22Z`, `2026-10-01T09:00:00Z` → headings "Today · 4 Oct", "Yesterday · 3 Oct", "Thu 1 Oct", in that order, each over its rows |
+| AC-6 | `Transactions.test.tsx` "shows each movement's kind, reference, time, signed amount and balance after (AC-6)"                                                                                                                  | The contract's example: "Winnings · K7Q2-M9XP-M", "+ ETB 289.17", "Bet · K7Q2-M9XP-M", "− ETB 100.00", "Deposit · telebirr", "Balance ETB 1,208.95"; the bet rows link to `/my-bets/01J9A7V0000000000000000001`                            |
+| AC-6 | `Transactions.test.tsx` "asks for the contract's type when a filter is chosen (AC-6)"                                                                                                                                          | Request log: `/api/wallet/transactions`, then `?type=deposit`, `?type=win`; All sends no `type`                                                                                                                                            |
+| AC-6 | `Transactions.test.tsx` "pages with next_cursor: Show more adds the next page under the same days, and goes on the last (AC-6)"                                                                                                | `?cursor=c2` asked; page 2's movement on the same day joins that day's heading; no Show more once `nextCursor` is null; focus on the first new row                                                                                         |
+| AC-6 | `Transactions.test.tsx` "says when there is nothing yet, and when a filter has nothing"; "says when the history couldn't load, and Try again reads it again"; "says when the next page couldn't load, and offers to try again" | Empty all / filtered copy; 503 → "Couldn't load your transactions" + Try again; a failed Show more inline with Try again                                                                                                                   |
+| AC-6 | `Wallet.test.tsx` "lists the latest movements under Recent activity, with date and time"                                                                                                                                       | `/api/wallet/transactions?limit=5`; rows with "03/10 · 17:05"-style times                                                                                                                                                                  |
+| AC-6 | `pnpm ui` `transactions`, `transactions-more`, `transactions-empty`, `transactions-error`                                                                                                                                      | Prism's history; Show more; empty and failed answered in the browser                                                                                                                                                                       |
+
+## Risks
+
+- **Money**: amounts stay the contract's strings from mapper to screen; the only comparisons are
+  `compareMoney` against `"0.00"` (which lines show) and the mock withdraw step's ceiling; formatting is
+  `groupDecimal`'s character moves. No sum, no difference, no balance computed or patched in the browser:
+  every change comes from a re-read (`walletKeys.all`, `transactionKeys.all` invalidated by placing, cash
+  out and, in F6b/F6c, payments). The slip's check uses the same `cash` string. Mapper tests run on the
+  contract's own examples, so a shape change fails them.
+- **Security**: two read-only route handlers behind the session; every query parameter checked before
+  it reaches an upstream URL; Problems reduced to the contract's fields by `respond()`; `no-store`. The
+  history is personal data: its keys sit under the roots the session watcher drops, so the next player
+  on a shared phone never sees it (a test asserts the recent and list keys are dropped).
+- **Accessibility**: day headings are headings; Show more keeps focus (F5b's rules); failures are
+  `role="alert"`; signed amounts read with a real minus and an arrow, never colour alone; 44 px targets
+  on the filters and Show more; no `uppercase` or `tracking-*` on labels (today's row badge has both and
+  goes).
+- **Performance**: one language per read (no `both()`); 20 rows a page; the wallet's recent list is a
+  five-row read of its own; the balance is shared by header, slip and wallet through one query key.
+
+## Out of scope
+
+- Payment methods, deposits, `next_action`, the redirect allow-list, polling (F6b).
+- Payout accounts, withdrawals, cancelling, BON-07 (F6c).
+- Deposit, loss and stake limits; the wallet's limit card (F7, decision 4); bonus wagering progress
+  (`/v1/me/bonuses`, F7).
+- Date-range filters on the history (`from`, `to`): no design asks for them.
+- A list of the player's withdrawals: not in the contract; F6c reaches a withdrawal from its history row.
+
+## Sub-tasks
+
+- [F6a — balances and history](../F6a-balances-history.md): this plan.
+- [F6b — deposits](../F6b-deposits.md): depends on F6a.
+- [F6c — withdrawals](../F6c-withdrawals.md): depends on F6b.
+
+## Steps
+
+1. Domain types, mappers and schemas, tested on the contract's examples (AC-5, AC-6 mapper rows).
+2. Loaders and the two route handlers, with their route tests.
+3. Browser API and hooks; header chip and the slip's check on `cash`; `fromLegacyAmount` goes.
+4. The wallet: states, balance card, recent activity; the mock flow's minimal changes.
+5. The history: moved components on the contract, filters, days, paging, states.
+6. Mocks removed, strings in both languages, docs, `pnpm ui` screens.
+
+## Changes during implementation
+
+- **Files beyond the list**: `src/features/wallet/lib/history.ts` (the day grouping, apart from the
+  component); `src/features/bet-slip/hooks/use-place-bet.ts` and `src/lib/api/mappers/bets.ts` (comments
+  that said the wallet waits for F6); `tests/unit/i18n.test.ts` (`history.withLabel` and `history.day`
+  are symbolic templates, as `ticket.og.description` is).
+- **Steps 3 and 4 of the plan were one commit**: removing the old balance shape forces the wallet card
+  and the mock flow's amount step to move with it. Recent activity moved with the history (step 5).
+- **The filter chips are 44 px tall** (were 38 px), the touch-target minimum; they scroll sideways on a
+  phone like the board's strips (five no longer fit at 375 px).
+- **`wallet.locked` in Amharic** uses `wallet.statusPending`'s word (በሂደት ላይ), the catalogue's own
+  "pending".
+
+### Review round 1 (2026-10-03) — what changed in the design
+
+- **The slip's "Insufficient balance" alert names the balance** (money M1, BLOCKER; the bug predates F6 —
+  it filled "Your balance is {amount}" with the stake). `SlipAlerts` now gets the `cash` string the
+  check used.
+- **Placing a bet, or a bet with no answer, re-reads the history** with the balance (spec S1, money M2,
+  quality Q1): `transactionKeys.all` is invalidated next to `walletKeys.all`, as cash out and payments
+  already did.
+- **The history's keys carry the language** (Q5): a movement's label is the API's, read with the UI's
+  `Accept-Language`. **The paged list is fresh for a minute** (Q8; it re-reads every loaded page when
+  stale), recent activity for 15 s like the balance, and **recent activity starts with the balance**
+  instead of after it (Q7).
+- **A kind or reference type the contract adds later shows as "Other" / no link** (Q11) instead of
+  failing the page (TD-01 allows additive values within `/v1`).
+- **The balance-after line is left out for `bonus`, `bonus_converted` and "Other"** (M3, Q4): the
+  contract doesn't say which account `balance_after` follows, and a bonus grant posts only to the bonus
+  account (C03 §6). A contract request to define it is proposed in the verification report.
+- **Screens** (UI review): the empty history offers Deposit (U1); day headings are 12 px in the body font,
+  not 11 px condensed (U2); empty-state text wraps evenly (`text-pretty` in `StateMessage`, U3); rows
+  that open a ticket carry a chevron (U4); no empty band after the last row (U5); day groups are
+  `role="group"`, not landmarks (Q9); See all is a 44 px target (Q12); `routes.bet` encodes the id
+  (SEC3). New screens: `wallet-error`, `transactions-guest`, `transactions-more-failed`; `wallet-held`'s
+  recent activity agrees with its balance.
+- **Tests that prove more**: the slip test waits for `/api/wallet` before asserting and checks the
+  alert's words (Q2); a behavioural test that the history is dropped when the player changes (Q3, S2,
+  SEC1 — fails if `forgetPlayer` stops dropping it); `Prefer` never reaches the real API on the wallet
+  routes (SEC2).

@@ -9,10 +9,11 @@ import {
   useBetSlipStore,
 } from "@/features/bet-slip/stores/bet-slip.store";
 import { toBetReceipt } from "@/lib/api/mappers/bets";
+import { toWalletBalances } from "@/lib/api/mappers/wallet";
 import type { components } from "@/lib/api/schema";
-import { sessionKeys } from "@/lib/query/keys";
+import { sessionKeys, transactionKeys } from "@/lib/query/keys";
 import { useUiStore } from "@/stores/ui.store";
-import { responseExample } from "../contract";
+import { example, responseExample } from "../contract";
 import { CONTRACT_PLAYER, CONTRACT_RULES, render } from "./render";
 
 const push = vi.fn();
@@ -83,6 +84,10 @@ function bets(...answers: Answer[]) {
         );
       }
       return Response.json({ player: signedIn });
+    }
+    // The slip's balance check: Prism's player's balances.
+    if (url.pathname === "/api/wallet") {
+      return Response.json(toWalletBalances(example("/v1/wallet")));
     }
     if (url.pathname !== "/api/bets") throw new Error(`unexpected ${url}`);
     const headers = new Headers(init?.headers);
@@ -362,6 +367,46 @@ describe("placing the slip", () => {
     expect(await screen.findByTestId("ticket-code")).toHaveTextContent(
       "K7Q2-M9XP-M",
     );
+  });
+});
+
+describe("the wallet history after placing (F6a)", () => {
+  /** A history read earlier — the wallet's recent activity and the list. */
+  function seedHistory(queryClient: ReturnType<typeof render>["queryClient"]) {
+    const page = { items: [], nextCursor: null };
+    queryClient.setQueryData([...transactionKeys.all, "recent"], page);
+    queryClient.setQueryData([...transactionKeys.all, "list", "all"], {
+      pages: [page],
+      pageParams: [null],
+    });
+  }
+  const historyInvalidated = (
+    queryClient: ReturnType<typeof render>["queryClient"],
+  ) =>
+    queryClient
+      .getQueryCache()
+      .findAll({ queryKey: transactionKeys.all })
+      .map((query) => query.state.isInvalidated);
+
+  it("reads the history again once a bet is placed", async () => {
+    bets([201, TICKET()]);
+    const { queryClient } = render(<BetSlip />);
+    seedHistory(queryClient);
+
+    await placeBet();
+    await screen.findByTestId("ticket-code");
+
+    expect(historyInvalidated(queryClient)).toEqual([true, true]);
+  });
+
+  it("reads the history again when a bet had no answer, since it may have gone", async () => {
+    bets("drop");
+    const { queryClient } = render(<BetSlip />);
+    seedHistory(queryClient);
+
+    await placeAndLoseTheAnswer();
+
+    expect(historyInvalidated(queryClient)).toEqual([true, true]);
   });
 });
 

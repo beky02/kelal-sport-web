@@ -188,6 +188,7 @@ function problemAlert(
  */
 export function SlipAlerts({
   totals,
+  balance,
   rules,
   rulesState,
   onRetryRules,
@@ -196,6 +197,8 @@ export function SlipAlerts({
   fixes,
 }: {
   totals: BetSlipTotals;
+  /** The cash balance as `/api/wallet` sent it; null for a guest or while it loads. */
+  balance: string | null;
   rules: RuleSetJson | null;
   rulesState: "loading" | "ready" | "error";
   onRetryRules: () => void;
@@ -352,13 +355,15 @@ export function SlipAlerts({
     });
   }
 
-  if (totals.insufficientBalance && totals.quote) {
+  // The player's balance, as the API sent it — the figure the stake was
+  // compared with, never the stake itself.
+  if (totals.insufficientBalance && balance !== null) {
     alerts.push({
       id: "balance",
       tone: "error",
       title: t.t("betSlip.alerts.insufficientTitle"),
       body: t.t("betSlip.alerts.insufficientBody", {
-        amount: t.money(totals.quote.totalStake),
+        amount: t.money(balance),
       }),
     });
   }

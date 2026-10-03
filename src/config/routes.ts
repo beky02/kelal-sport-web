@@ -16,7 +16,8 @@ export const routes = {
   ticketMissing: "/t?missing=1",
 
   myBets: "/my-bets",
-  bet: (id: string) => `/my-bets/${id}`,
+  /** A ticket in My bets; the id is the API's, opaque, so it is encoded. */
+  bet: (id: string) => `/my-bets/${encodeURIComponent(id)}`,
   wallet: "/wallet",
   /** Opens the wallet straight into a deposit or withdrawal. */
   walletAction: (action: "deposit" | "withdraw") => `/wallet?action=${action}`,

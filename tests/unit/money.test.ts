@@ -4,7 +4,6 @@ import {
   addMoney,
   compareMoney,
   compareOdds,
-  fromLegacyAmount,
   fromSantim,
   maxMoney,
   mulMoney,
@@ -63,11 +62,6 @@ describe("lib/money (FD4)", () => {
     expect(compareOdds("2.1", "2.10")).toBe(0);
     expect(compareOdds("2.105", "2.10")).toBe(1);
     expect(compareOdds("1.99", "2")).toBe(-1);
-  });
-
-  it("bridges a legacy numeric amount to a string (until F6)", () => {
-    expect(fromLegacyAmount(1250)).toBe("1250.00");
-    expect(fromLegacyAmount(0.1 + 0.2)).toBe("0.30");
   });
 });
 

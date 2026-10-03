@@ -57,6 +57,10 @@ describe("message catalogues", () => {
       "betSlip.taxRate",
       // "{status} · {matches}": the status is Amharic, the matches the API's.
       "ticket.og.description",
+      // "{kind} · {label}": the kind is Amharic, the label the API's.
+      "history.withLabel",
+      // "{weekday} {date}": both filled in Amharic (or the Ethiopian calendar).
+      "history.day",
     ]);
     for (const [key, value] of amharic) {
       if (symbolic.has(key)) continue;

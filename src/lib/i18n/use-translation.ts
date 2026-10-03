@@ -12,7 +12,10 @@ export interface Translator {
   t: (key: MessageKey, values?: Interpolations) => string;
   /** A `Localized` value that came from the API. */
   pick: (value: Localized) => string;
-  /** A decimal-string amount (or a number, until the wallet moves to strings). */
+  /**
+   * A decimal-string amount (or a number, where a screen is not on the
+   * contract yet: payment amounts until F6b, responsible gaming until F7).
+   */
   money: (amount: string | number) => string;
   number: (value: string | number) => string;
   odds: (value: string | number) => string;

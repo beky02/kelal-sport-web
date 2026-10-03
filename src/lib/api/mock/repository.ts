@@ -3,9 +3,10 @@
  *
  * The catalogue, auth, bookings and bets no longer come from here: they go
  * through the route handlers to the API, and Prism serves the contract's own
- * examples locally. What is left — wallet, transactions, responsible gaming,
- * session activity — moves to the contract task by task (F6–F7), after which
- * this folder is deleted.
+ * examples locally, as do the wallet's balances and history. What is left —
+ * payment methods and payments (F6b, F6c), responsible gaming and session
+ * activity (F7) — moves to the contract task by task, after which this folder
+ * is deleted.
  *
  * `listBoard` and `listMarkets` remain only as fixtures for the realtime tests,
  * which need live fixtures, scores and many lines per market — shapes the
@@ -27,16 +28,12 @@ import type {
   MarketType,
   Outcome,
 } from "@/features/markets/types";
-import {
-  remainingDepositAllowance,
-  type PaymentMethod,
-  type PaymentResult,
-  type WalletMode,
-  type WalletOverview,
+import type {
+  PaymentMethod,
+  PaymentResult,
+  WalletMode,
 } from "@/features/wallet/types";
-import type { Transaction, TransactionKind } from "@/features/bets/types";
-import { TRANSACTIONS, TRANSACTION_DAYS } from "./transactions";
-import { PAYMENT_METHODS, WALLET_OVERVIEW } from "./wallet";
+import { PAYMENT_METHODS } from "./wallet";
 import {
   CLUB_COLOUR,
   COUNTRIES,
@@ -291,12 +288,6 @@ function boardMarkets(event: SportEvent, raw: RawMatch): BoardMarkets {
 
 // ── queries ─────────────────────────────────────────────────────────────────
 
-export interface TransactionDay {
-  date: string;
-  label: Localized;
-  items: Transaction[];
-}
-
 export interface ResponsibleGamingStatus {
   /** Human-readable end of an active break, or null if there is none. */
   coolOffUntil: string | null;
@@ -463,25 +454,6 @@ export const mockRepository = {
     return { staked: 350, won: 120, net: -230 };
   },
 
-  async listTransactions(
-    kind?: TransactionKind | "all",
-  ): Promise<TransactionDay[]> {
-    await delay(160);
-
-    const matches = (transaction: Transaction) => {
-      if (!kind || kind === "all") return true;
-      // "Bets" covers both the stake going out and the winnings coming back.
-      if (kind === "bet")
-        return transaction.kind === "bet" || transaction.kind === "winnings";
-      return transaction.kind === kind;
-    };
-
-    return TRANSACTION_DAYS.map((day) => ({
-      ...day,
-      items: TRANSACTIONS.filter((x) => x.date === day.date && matches(x)),
-    })).filter((day) => day.items.length > 0);
-  },
-
   async getResponsibleGamingStatus(): Promise<ResponsibleGamingStatus> {
     await delay(80);
     return { ...responsibleGaming };
@@ -503,11 +475,6 @@ export const mockRepository = {
     return { ...responsibleGaming };
   },
 
-  async getWallet(): Promise<WalletOverview> {
-    await delay(100);
-    return WALLET_OVERVIEW;
-  },
-
   async listPaymentMethods(mode: WalletMode): Promise<PaymentMethod[]> {
     await delay(100);
     return mode === "withdraw"
@@ -516,12 +483,13 @@ export const mockRepository = {
   },
 
   /**
-   * Starts a deposit or a withdrawal.
+   * Starts a deposit or a withdrawal, until F6b and F6c send them to the API.
    *
-   * Every limit is re-checked here, not just in the form: a client-side maximum
-   * is a hint to the user, never a control. Deposits come back `pending` because
-   * mobile money needs the customer to approve a prompt on their handset — the
-   * money has not moved when this returns.
+   * The method's limits are re-checked here, not just in the form: a
+   * client-side maximum is a hint to the user, never a control. Deposits come
+   * back `pending` because mobile money needs the customer to approve a prompt
+   * on their handset — the money has not moved when this returns. Balances are
+   * the API's (`/v1/wallet`): nothing here knows or changes one.
    */
   async createPayment(
     mode: WalletMode,
@@ -542,23 +510,10 @@ export const mockRepository = {
     if (amount < method.minAmount || amount > method.maxAmount)
       throw new ApiError("Amount outside limits", 422, "amount_out_of_range");
 
-    if (mode === "withdraw" && amount > WALLET_OVERVIEW.withdrawable)
-      throw new ApiError("More than withdrawable", 422, "exceeds_withdrawable");
-
-    if (
-      mode === "deposit" &&
-      amount > remainingDepositAllowance(WALLET_OVERVIEW)
-    )
-      throw new ApiError("Daily limit reached", 422, "deposit_limit_reached");
-
     return {
       reference: `TX-${Math.floor(1000 + Math.random() * 9000)}-${Math.floor(1000 + Math.random() * 9000)}`,
       status: "pending",
       amount,
-      newBalance:
-        mode === "withdraw"
-          ? WALLET_OVERVIEW.balance - amount
-          : WALLET_OVERVIEW.balance + amount,
     };
   },
 

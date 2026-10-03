@@ -93,14 +93,12 @@ export function PaymentResultStep({
     },
   }[result.status];
 
+  // No "new balance": a balance is only ever the API's, read again by the
+  // wallet once a payment settles — never one worked out here.
   const rows =
     result.status === "success"
       ? [
           { label: t.t("wallet.amount"), value: t.money(result.amount) },
-          {
-            label: t.t("wallet.newBalance"),
-            value: t.money(result.newBalance),
-          },
           { label: t.t("wallet.reference"), value: result.reference },
         ]
       : [

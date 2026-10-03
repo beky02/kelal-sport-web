@@ -106,19 +106,22 @@ A booking stores selections only; loading re-prices. The slip can be booked by a
 is measured from the API's clock. `/b/[code]` shows every leg with today's price and the price when
 booked, marks started or suspended legs, and loads what it can.
 
-## Balances (F6; C03, C04)
+## Balances (F6a built; C03, C04)
 
-| Shown                     | Source                                                       | Rule                                                                                   |
-| ------------------------- | ------------------------------------------------------------ | -------------------------------------------------------------------------------------- |
-| Balance                   | `/v1/wallet` `cash`                                          | Read when a player is signed in; cached 15 s; invalidated after any money operation    |
-| Withdrawable              | `/v1/wallet` (cash less what bonus terms or locks hold back) | Stated right under the balance: finding out at the withdrawal screen feels like a bait |
-| Bonus, locked             | `/v1/wallet`                                                 | Bonus money is not withdrawable; locked is a pending withdrawal                        |
-| Daily deposit limit       | `/v1/me/limits`                                              | Used and remaining, with Manage                                                        |
-| Potential win on the slip | slipcalc on the current rule set                             | A preview; the ticket shows the API's figure                                           |
+| Shown                     | Source                                     | Rule                                                                                                                                                                                                                                                                                                                                         |
+| ------------------------- | ------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Balance                   | `/v1/wallet` `cash`, through `/api/wallet` | The header chip, the wallet card and the slip's check, exactly as sent. Read when a player is signed in; fresh for 15 s; read again after any money operation, never adjusted in the browser                                                                                                                                                 |
+| Withdrawable              | — (the contract has no such figure)        | By C03 `cash` is the withdrawable money, so no second figure is worked out here (F6a decision 2); whether a withdrawal can start is the API's `can_withdraw`                                                                                                                                                                                 |
+| Bonus                     | `/v1/wallet` `bonus`                       | Under the balance when above zero: "for bets only — can't be withdrawn"; never counted by the slip (`use_bonus: false`)                                                                                                                                                                                                                      |
+| Pending withdrawals       | `/v1/wallet` `locked`                      | Under the balance when above zero; already out of `cash`                                                                                                                                                                                                                                                                                     |
+| Owed                      | `/v1/wallet` `debt`                        | Under the balance when above zero, with C03's rule: "repaid first from your next deposits and wins"; absent means not shown, never 0.00                                                                                                                                                                                                      |
+| Each movement             | `/v1/wallet/transactions`                  | The API's signed `amount` and `balance_after`; no status (a ledger movement is posted, C03 §2). The balance-after line is left out for `bonus` and `bonus_converted` (a bonus grant posts only to the bonus account, C03 §6, and the contract doesn't say which balance it reports) and for a kind the contract adds later, shown as "Other" |
+| Daily deposit limit       | `/v1/me/limits` (F7)                       | Used and remaining, with Manage — the wallet's card returns with F7; until then the API's `RG_LIMIT_REACHED` is the only limit a deposit meets                                                                                                                                                                                               |
+| Potential win on the slip | slipcalc on the current rule set           | A preview; the ticket shows the API's figure                                                                                                                                                                                                                                                                                                 |
 
-The slip warns when the stake exceeds the balance (compared as strings through `lib/money.ts`) and
-offers Deposit; the API is what refuses. Amounts the player types are validated against the method's
-`min`/`max` the same way before anything is sent.
+The only comparison anywhere near a balance is `lib/money.ts`'s, on strings: which lines show (above
+`"0.00"`), the slip's warning when the stake exceeds the balance (it offers Deposit; the API is what
+refuses), and amounts the player types against the method's `min`/`max` before anything is sent (F6b).
 
 ## Tickets and settlement (F5b; C10)
 

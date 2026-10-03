@@ -1,13 +1,7 @@
-import { env } from "@/config/env";
-import { apiClient, assertContract } from "@/lib/api/client";
+import { apiClient } from "@/lib/api/client";
 import { ApiError } from "@/lib/api/errors";
-import { mockRepository, type TransactionDay } from "@/lib/api/mock/repository";
-import {
-  betPageSchema,
-  betSchema,
-  transactionDaysSchema,
-} from "@/lib/api/schemas";
-import type { Bet, BetPage, BetsTab, TransactionKind } from "../types";
+import { betPageSchema, betSchema } from "@/lib/api/schemas";
+import type { Bet, BetPage, BetsTab } from "../types";
 
 /** One page of the player's bets; `cursor` is the previous page's `nextCursor`. */
 export const getBets = (
@@ -48,21 +42,4 @@ export async function getBet(
  */
 export async function cashOutBet(id: string, fraction: number): Promise<Bet> {
   return apiClient.post(`/bets/${id}/cash-out`, betSchema, { fraction });
-}
-
-export async function getTransactions(
-  kind: TransactionKind | "all",
-  signal?: AbortSignal,
-): Promise<TransactionDay[]> {
-  if (env.useMocks) {
-    return assertContract(
-      "/transactions",
-      transactionDaysSchema,
-      await mockRepository.listTransactions(kind),
-    );
-  }
-  return apiClient.get("/transactions", transactionDaysSchema, {
-    params: { kind },
-    signal,
-  });
 }

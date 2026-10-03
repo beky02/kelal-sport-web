@@ -5,12 +5,13 @@ import { AppHeader } from "@/components/layout/AppHeader";
 import { SessionWatcher } from "@/features/auth/hooks/use-session";
 import { ProfileView } from "@/features/profile/components/ProfileView";
 import { SystemOverlays } from "@/features/system/components/SystemOverlays";
-import { mockRepository } from "@/lib/api/mock/repository";
+import { toWalletBalances } from "@/lib/api/mappers/wallet";
 import { sessionKeys, walletKeys } from "@/lib/query/keys";
 import { CSRF_HEADER, CSRF_VALUE } from "@/lib/session-cookie";
 import am from "@/lib/i18n/messages/am.json";
 import { useSystemStore } from "@/stores/system.store";
 import { useUiStore } from "@/stores/ui.store";
+import { example } from "../contract";
 import { CONTRACT_PLAYER, render } from "./render";
 
 const push = vi.fn();
@@ -40,6 +41,19 @@ function api(answer: (call: Sent) => [number, unknown]) {
   });
 }
 
+const NOT_FOUND = {
+  type: "about:blank",
+  title: "Not found",
+  status: 404,
+  code: "NOT_FOUND",
+};
+
+/** `/api/wallet` with Prism's player's balances; nothing else is there. */
+const walletOnly = (call: Sent): [number, unknown] =>
+  call.path === "/api/wallet"
+    ? [200, toWalletBalances(example("/v1/wallet"))]
+    : [404, NOT_FOUND];
+
 beforeEach(() => {
   sent = [];
   push.mockReset();
@@ -66,10 +80,13 @@ describe("who is signed in comes from /api/me (AC-8)", () => {
   });
 
   it("shows the balance and the profile to a player", async () => {
+    api(walletOnly);
     render(<AppHeader />, { session: "player" });
-    // The mock wallet's balance, named for a screen reader.
+    // The API's cash balance, named for a screen reader.
     expect(
-      await screen.findByRole("link", { name: /ETB\s1,250\.00/ }),
+      await screen.findByRole("link", {
+        name: "Wallet, balance ETB\u00a01,208.95",
+      }),
     ).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Profile" })).toBeInTheDocument();
     expect(
@@ -149,7 +166,9 @@ describe("who is signed in comes from /api/me (AC-8)", () => {
   });
 
   it("drops the previous player's wallet when the session changes, so the next player never sees it", async () => {
-    const getWallet = vi.spyOn(mockRepository, "getWallet");
+    api(walletOnly);
+    const walletReads = () =>
+      sent.filter((call) => call.path === "/api/wallet").length;
     const { queryClient } = render(
       <>
         <SessionWatcher />
@@ -157,8 +176,8 @@ describe("who is signed in comes from /api/me (AC-8)", () => {
       </>,
       { session: "player" },
     );
-    await screen.findByRole("link", { name: /ETB\s1,250\.00/ });
-    expect(getWallet).toHaveBeenCalledTimes(1);
+    await screen.findByRole("link", { name: /ETB\s1,208\.95/ });
+    expect(walletReads()).toBe(1);
 
     // The session is found gone…
     act(() => {
@@ -174,8 +193,8 @@ describe("who is signed in comes from /api/me (AC-8)", () => {
         player: { ...CONTRACT_PLAYER, id: "p2", fullName: "Birtukan Tadesse" },
       });
     });
-    await screen.findByRole("link", { name: /ETB\s1,250\.00/ });
-    expect(getWallet).toHaveBeenCalledTimes(2);
+    await screen.findByRole("link", { name: /ETB\s1,208\.95/ });
+    expect(walletReads()).toBe(2);
   });
 
   it("tells a player whose session is found gone that it has ended", async () => {

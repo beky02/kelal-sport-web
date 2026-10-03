@@ -16,7 +16,7 @@ function groupDecimal(value: string): string {
 /**
  * Two decimals, grouped — the house style for money and odds alike. Amounts
  * from the API are decimal strings; numbers remain only where a screen has not
- * moved to strings yet (wallet, F6).
+ * moved to strings yet (payment amounts until F6b, responsible gaming F7).
  */
 export const formatNumber = (n: number | string): string =>
   typeof n === "string"

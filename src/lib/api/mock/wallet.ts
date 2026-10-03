@@ -1,11 +1,8 @@
 /**
- * Payment methods and wallet state, ported from `Screen Wallet.dc.html`.
- *
- * The amounts are placeholders. Balance, withdrawable and the daily limit are all
- * server-owned in production — in particular `withdrawable` is not something the
- * client can work out, since it depends on bonus terms and ID verification.
+ * Payment methods, ported from `Screen Wallet.dc.html`, until F6b reads them
+ * from `/v1/payment-methods`. The balances already come from `/v1/wallet`.
  */
-import type { PaymentMethod, WalletOverview } from "@/features/wallet/types";
+import type { PaymentMethod } from "@/features/wallet/types";
 
 export const PAYMENT_METHODS: PaymentMethod[] = [
   {
@@ -63,14 +60,6 @@ export const PAYMENT_METHODS: PaymentMethod[] = [
     supportsWithdrawal: false,
   },
 ];
-
-export const WALLET_OVERVIEW: WalletOverview = {
-  balance: 1250,
-  withdrawable: 980,
-  currency: "ETB",
-  dailyDepositLimit: 2000,
-  depositedToday: 500,
-};
 
 /** The account money moves to and from, masked as the design shows it. */
 export const PAYOUT_ACCOUNT = "+251 9•• ••• 482";

@@ -9,12 +9,12 @@ import { Skeleton } from "@/components/ui/Skeleton";
 import { routes } from "@/config/routes";
 import { cn } from "@/lib/utils/cn";
 import { useSession } from "@/features/auth/hooks/use-session";
+import { TransactionsList } from "@/features/wallet/components/TransactionsList";
 import { useBets } from "../hooks/use-bets";
 import type { BetsTab } from "../types";
 import { BetCard } from "./BetCard";
 import { BetsGuest } from "./BetsGuest";
 import { BetTabs } from "./BetTabs";
-import { TransactionsList } from "./TransactionsList";
 
 type View = "bets" | "transactions";
 
