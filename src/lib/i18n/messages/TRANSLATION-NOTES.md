@@ -529,3 +529,11 @@ name, the account's masked number and a rejection's reason are the API's text, s
 with the mock (the provenance notes above that name them still say where an older string came from):
 `wallet.fee`, `youReceive`, `promptWithdraw`, `pendingTitle`, `pendingBody`, `cancelPayment`,
 `successTitleWithdraw`, `successBodyWithdraw`, `failedTitle`, `failedBody`, `startFailed`, `fromAccount`.
+
+### Withdrawals, review round 1 (2026-10-03)
+
+The requested, processing and paid bodies name the withdrawal instead of its amount (the user's
+decision on the money reviewer's M1): `withdraw.requestedBody` ወጪዎን ወደ {account} ከመላካችን በፊት ጥያቄዎን
+እያረጋገጥን ነው። …, `withdraw.processingBody` ወጪዎ ወደ {account} እየተላከ ነው።, `withdraw.paidBody` ወጪዎ ወደ
+{account} ተከፍሏል። — ወጪዎ ("your withdrawal") from `withdraw.unconfirmedTitle` (ወጪዎን). The break refusal's
+fix is `withdraw.help` (Help / እገዛ, as `footer.help`), not Contact support, as approved at the plan gate.

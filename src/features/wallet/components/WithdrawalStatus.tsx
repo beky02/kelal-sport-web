@@ -178,7 +178,7 @@ export function WithdrawalStatus({
         tone: "wait",
         icon: icon(Clock),
         title: t.t("withdraw.requestedTitle"),
-        lines: [t.t("withdraw.requestedBody", { amount, account })],
+        lines: [t.t("withdraw.requestedBody", { account })],
         actions: [{ ...backToWallet, primary: true }, ...cancelAction],
       };
       break;
@@ -211,7 +211,7 @@ export function WithdrawalStatus({
         tone: "wait",
         icon: icon(Send),
         title: t.t("withdraw.processingTitle"),
-        lines: [t.t("withdraw.processingBody", { amount, account })],
+        lines: [t.t("withdraw.processingBody", { account })],
         actions: [{ ...backToWallet, primary: true }],
       };
       break;
@@ -220,7 +220,7 @@ export function WithdrawalStatus({
         tone: "good",
         icon: icon(CircleCheck),
         title: t.t("withdraw.paidTitle"),
-        lines: [t.t("withdraw.paidBody", { amount, account })],
+        lines: [t.t("withdraw.paidBody", { account })],
         actions: [
           { label: t.t("wallet.done"), onClick: onDone, primary: true },
           { label: t.t("wallet.backToSports"), onClick: onBackToSports },

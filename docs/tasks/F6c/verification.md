@@ -70,6 +70,16 @@ docs/backend/ matches the backend.
   470 passed (3.6m)
 ```
 
+## Acceptance criteria
+
+| AC    | Status | Evidence                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| ----- | ------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| AC-1  | MET    | `Withdrawal.test.tsx` "shows each withdrawal status in words, with what to do next (AC-1)" — eight cases, PASS; "never shows a review reason it has no words for", PASS; `withdrawal.test.ts` "names a review reason it knows, and never shows one it doesn't (AC-1)", PASS; `pnpm ui` `withdrawal-requested`, `-review`, `-approved`, `-processing`, `-paid`, `-failed`, `-rejected`, `-cancelled` (32 PNGs, looked at)                                              |
+| AC-4  | MET    | "changes no balance until the server answers the withdrawal (AC-4)" — the chip shows the API's 650.00, never 708.95; "…answers the cancel (AC-4)" — the API's 3,100.00, never 3,208.95; `WithdrawalPolling` "reads a withdrawal every 10 s until it is paid, and reads the balance again only when its status changes (AC-4)"; round 1: "reads the balance again when a withdrawal had no answer…" (M2), "…first seen in another language" (M3) — all PASS            |
+| AC-8  | MET    | "sends the same Idempotency-Key on Try again after no answer, and a new one after an answer (AC-8)" (drop, timeout, 502 → one key; a new key after), "makes a new key when the account or the amount changes…", "asks who is signed in before Try again…", "keeps the key when the player leaves…", "shows the withdrawal that started after the player left…", "says a refused Try again didn't go through, and keeps its key (S2)"; route and unit tests — all PASS |
+| AC-9  | MET    | One component test per code in scope (Verify, Keep wagering, Withdraw {amount} with a new key, Change amount with the fresh balance, Help, nothing for real money); `withdrawal.test.ts` "says what each withdrawal refusal means and offers its fix (AC-9)"; route "passes the API's refusals through…: 403, 422, 503 (AC-9)"; `pnpm ui` `withdraw-unconfirmed`, `-kyc`, `-bonus`, `-out-of-range`, `-insufficient`, `-break`, `-real-money` — PASS                  |
+| AC-10 | MET    | Accounts listed, added (`POST`, chosen, focused) and removed (asked first, `DELETE`); withdrawals to a saved id and a new number as `account`; Cancel only while requested or in review (`DELETE`, CSRF header, no key; 409 and no answer re-read); the history row's link; the address both ways (Q1); route tests for all six calls; `pnpm ui` account and cancel screens — PASS                                                                                    |
+
 ## Tests proven
 
 Each new acceptance test was seen failing against the behaviour it guards, then restored.
@@ -134,3 +144,84 @@ Each new acceptance test was seen failing against the behaviour it guards, then 
 - `Withdrawal` "drops the payout accounts and the withdrawal when another player signs in" — the
   accounts' key moved outside `paymentKeys`.
 - `Transactions` "opens a withdrawal from its row in the history…" — the withdrawal row's link removed.
+
+Review round 1 (each test red before its fix, green after; `9d1a491` and the commit after it):
+
+- `Withdrawal` "follows the address both ways: a withdrawal the wallet opened closes on Back (Q1)" — red:
+  the screen stayed on the withdrawal when the address lost it, and Done replaced instead of going Back.
+- `Withdrawal` "offers Cancel only while…", "reads the status again when … no longer be cancelled",
+  "says it couldn't confirm a cancel…", "adds a number…" — red on `toHaveFocus()` (Q2): focus fell to
+  the page when the answer took the button away.
+- `Withdrawal` "sends nothing for an address that can't name a withdrawal… (SEC1)" — red: `..` and `.`
+  asked `/api/` and `/api/withdrawals/`.
+- `Withdrawal` "never puts an account saved for one player into the next player's list (SEC2)" — red:
+  the first player's account showed in the next player's step.
+- `Withdrawal` "keeps the cancel's answer when a read was already on its way (Q3)" — red: the late read
+  put "requested" back over "cancelled".
+- `Withdrawal` "reads the balance again when a change is first seen in another language (M3)", "reads the
+  balance again when a withdrawal had no answer… (M2)", "says nothing is too late when the read says it is
+  already cancelled (M4)", "leaves the account out when the API didn't name it…", "shows each line of a
+  notice once, an empty one never… (Q4)", and the Q5 role and description assertions — each red first.
+- `Withdrawal` "says this withdrawal can't go through during a break, and offers help" — red until the
+  button read Help (S1).
+- `Withdrawal` "says a refused Try again didn't go through, and keeps its key (S2)" — passed at once (the
+  behaviour was right, the coverage missing); fails when `refused()` drops the unanswered intent on a Try
+  again's no.
+- `Withdrawal` "changes no balance until the server answers the cancel (AC-4)", strengthened (M5) — fails
+  when the cancel adds the amount to the cached balance instead of reading it again.
+- `Withdrawal` "withdraws to a saved account by its id (AC-10)", title assertion (U2) — fails with the
+  flow's status step titled Withdraw.
+- `Withdrawal` "shows each withdrawal status… (AC-1): requested / processing / paid" — red on the old
+  lines, green with the copy the user chose for M1.
+
+## Review findings
+
+Panel: spec-verifier (PASS: S1, S2), quality-reviewer (FAIL: Q1, Q2 MAJOR), money-reviewer (FAIL: M1
+MAJOR), security-reviewer (PASS: SEC1, SEC2), ui-checker (PASS: U1–U3). No BLOCKER, so no re-review: each
+fix has a test that failed before it and passes with it (above), or a re-taken screenshot.
+
+| Id        | Reviewer       | Severity | Summary                                                                                                 | Decision                                                                                                                                                                                         |
+| --------- | -------------- | -------- | ------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Q1        | quality        | MAJOR    | Back didn't close a withdrawal opened from recent activity; leaving left the wallet twice in history    | Fixed in `9d1a491`: the screen is the address's (`?withdrawal=`), both ways; Done/Back is `router.back()` when the wallet put the id there, else `replace`. Test above                           |
+| Q2        | quality        | MAJOR    | Focus lost after Cancel's answer and after Save                                                         | Fixed in `9d1a491`: the heading after a cancel's 200 or 409, the notice's Try again after no answer (held, busy, during its retry), the new account's radio after Save. Tests above              |
+| M1        | money          | MAJOR    | requested, processing and paid lines claimed the amount received                                        | Fixed in the commit after `9d1a491` — the user's decision: the lines name the withdrawal ("Your withdrawal was paid to {account}"); contract request 010 asks what `amount` is (item 8)          |
+| S1        | spec           | MINOR    | The break refusal's fix read "Contact support", not the approved "Help"                                 | Fixed: `withdraw.help` (Help / እገዛ)                                                                                                                                                              |
+| S2        | spec; quality  | MINOR    | No test that a refused Try again keeps its key                                                          | Fixed: test added, proven against the bug                                                                                                                                                        |
+| SEC1      | security       | MINOR    | `?withdrawal=..` resolved to `/api/` in the browser                                                     | Fixed: ids checked in the browser before any path (`pathId`), not found otherwise, nothing sent                                                                                                  |
+| SEC2      | security       | MINOR    | Save's answer written into the list without checking who is signed in                                   | Fixed: the owner rides with the request; written only while it is still theirs                                                                                                                   |
+| Q3 (= M3) | quality; money | MINOR    | A read in flight could put the old status over a cancel's 200; status changes tracked per language only | Fixed: `cancelQueries` before the answer, other languages' copies dropped, changes compared with the latest copy in any language                                                                 |
+| Q4        | quality        | MINOR    | Notice lines keyed by text; an empty detail rendered                                                    | Fixed: keyed by place, empty lines dropped (deposits too)                                                                                                                                        |
+| Q5        | quality        | MINOR    | Remove buttons inside a radiogroup; the hint not tied to the field                                      | Fixed: a named `group`; `aria-describedby` = the hint (and the problem when invalid)                                                                                                             |
+| Q6        | quality        | MINOR    | Withdrawal screens reuse `deposit.backToWallet`, `deposit.provider`, `deposit.changeAmount`             | Follow-up: moving them to `wallet.*` rewrites F6b's `DepositFlow` and `MethodStep`, which this task doesn't touch                                                                                |
+| U1        | ui             | MINOR    | Remove looked like a label                                                                              | Fixed: a raised button (re-taken: `withdraw-accounts`, `-number`, `-remove`)                                                                                                                     |
+| U2        | ui             | MINOR    | The flow's status step titled "Withdraw"                                                                | Fixed for withdrawals ("Withdrawal", as from the history); the deposit flow's "Deposit" over its status is a follow-up (F6b's file)                                                              |
+| U3        | ui             | MINOR    | "Too late to cancel" under the rows, pointing back up                                                   | Fixed: notices sit over the status they point to (re-taken: `withdrawal-not-cancellable`, `-cancel-unconfirmed`)                                                                                 |
+| M2        | money          | MINOR    | No answer didn't re-read the balance, though an accepted withdrawal locks its amount at once            | Fixed: no answer re-reads the wallet and the history                                                                                                                                             |
+| M4        | money          | MINOR    | "Too late to cancel" over a read that says it was cancelled (another tab)                               | Fixed: no too-late notice over a cancelled withdrawal                                                                                                                                            |
+| M5        | money          | MINOR    | The cancel test's API figure equalled the browser-side sum                                              | Fixed: 3,100.00, and 3,208.95 never appears                                                                                                                                                      |
+| M6        | money          | MINOR    | The unanswered intent is memory only: a reload makes a new key                                          | Follow-up: plan decision 6, as F6b's deposits; keeping it across a reload means `sessionStorage` (a phone number in the browser for a new number) and changes both flows — for the user to weigh |
+
+Notes (no decision):
+
+- The approved confirm line "You can cancel while it's being checked" is conditional, and true by the
+  contract: Cancel is offered exactly while `requested` or in `review` (money).
+- `Withdrawal.amount`'s meaning (asked, or paid) is now contract request 010's item 8 (money).
+- The PhoneInput's 9 px "ET" prefix with tracking is F4's shared field, unchanged here (ui).
+- No `pnpm ui` screen captures a loading skeleton — the repo's convention, not a gap opened here (ui).
+- The bonus refusal's line and the API's detail ("Withdrawing now forfeits…") read as if a forfeit were
+  offered; Confirm forfeit waits for contract request 008, Keep wagering is the only fix (ui, money).
+- `withdrawal.ts`'s comment that a refused Try again "never offers a new withdrawal of the same amount"
+  stands: a different amount (Withdraw {nearest}) is a new intent the player chooses (money).
+
+## Gaps
+
+- **Prism can't show** a requested, approved, failed, rejected or cancelled withdrawal, a cancel worth
+  showing (its answer is generated from the schema: `"id": "string"`, `requested`), any withdrawal
+  refusal, or an empty or failing account list: those screens are answered in the browser with shapes from
+  the contract's schema (contract request 010 asks for named examples). `withdrawal-processing`,
+  `withdrawal-review`, `withdrawal-paid` and the account step go through Prism end to end.
+- **A real payout** (the provider paying a number) can't run locally; the statuses after `processing` are
+  the API's to set.
+- **Flaky**: none — the gate's 470 UI tests passed on the first try.
+- **Follow-ups**: Q6 (shared strings to `wallet.*`), M6 (an unanswered intent across a reload), the deposit
+  flow's status title (U2's twin).

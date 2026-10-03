@@ -565,7 +565,7 @@ describe("where a withdrawal stands (AC-1)", () => {
       "Requested",
       "Withdrawal requested",
       [
-        "We’re checking your request before sending ETB 2,000.00 to +2519••••567. You can cancel it while it’s being checked.",
+        "We’re checking your request before sending your withdrawal to +2519••••567. You can cancel it while it’s being checked.",
       ],
       ["Back to wallet", "Cancel withdrawal"],
     ],
@@ -594,7 +594,8 @@ describe("where a withdrawal stands (AC-1)", () => {
       as("processing"),
       "Processing",
       "Sending your money",
-      ["ETB 2,000.00 is being sent to +2519••••567."],
+      // Never how much arrives: withholding tax may apply (M1).
+      ["Your withdrawal is being sent to +2519••••567."],
       ["Back to wallet"],
     ],
     [
@@ -602,7 +603,7 @@ describe("where a withdrawal stands (AC-1)", () => {
       PAID,
       "Paid",
       "Withdrawal paid",
-      ["ETB 2,000.00 was paid to +2519••••567."],
+      ["Your withdrawal was paid to +2519••••567."],
       ["Done", "Back to sports"],
     ],
     [
@@ -1548,7 +1549,7 @@ describe("review round 1", () => {
     await screen.findByRole("heading", { name: "Sending your money" });
     expect(row("Account")).toBeNull();
     expect(
-      screen.getByText("ETB 2,000.00 is being sent to your account."),
+      screen.getByText("Your withdrawal is being sent to your account."),
     ).toBeInTheDocument();
   });
 

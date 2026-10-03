@@ -9,7 +9,7 @@ requested_by: F6c
 
 F6c moved withdrawals onto the contract: payout accounts (`GET`/`POST /v1/me/payout-accounts`,
 `DELETE …/{id}`), `POST /v1/withdrawals` with an `Idempotency-Key`, then `GET /v1/withdrawals/{id}` while
-its screen is open, and `DELETE /v1/withdrawals/{id}` to cancel while `requested` or in `review`. Seven
+its screen is open, and `DELETE /v1/withdrawals/{id}` to cancel while `requested` or in `review`. Eight
 things are missing or undefined.
 
 1. **Examples for the states and refusals the screens handle.** `POST /v1/withdrawals` has `processing`
@@ -49,6 +49,12 @@ things are missing or undefined.
    dropped answer can never become a second withdrawal. That is safe only if the API stores the key
    before it calls the provider (as C04 §10 suggests: "never re-send blindly"). The contract should say
    so, or list the 502 with what it means for the key.
+
+8. **What `amount` is.** A withdrawal's `amount` is a bare `Money`. With withholding tax at withdrawal
+   (WDR-09) or a provider's fee, what reaches the player's account can be less. The web never says how
+   much arrives — its status lines name the withdrawal, and the Amount row shows `amount` as sent — but
+   the contract should say whether `amount` is what was asked for or what is paid, and send the other
+   (`net_amount`, `tax`) when they differ.
 
 ## Proposed change
 

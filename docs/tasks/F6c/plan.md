@@ -51,11 +51,11 @@ offers its fix.
 | ------------------------------------ | ----------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Confirm step, the line under the sum | —                                   | We'll check your request, then send it to {account}. You can cancel while it's being checked.                                                                   |
 | No answer (confirm)                  | We couldn't confirm your withdrawal | It may have gone through. Try again — if it did, you'll see the same withdrawal, not a second one.                                                              |
-| `requested`                          | Withdrawal requested                | We're checking your request before sending {amount} to {account}. You can cancel it while it's being checked.                                                   |
+| `requested`                          | Withdrawal requested                | We're checking your request before sending your withdrawal to {account}. You can cancel it while it's being checked. _(review round 1, M1)_                     |
 | `review`                             | Being reviewed                      | We're reviewing this withdrawal before paying it. [`FIRST_WITHDRAWAL`: We review every player's first withdrawal.] You can cancel it while it's being reviewed. |
 | `approved`                           | Withdrawal approved                 | It's approved and will be sent to {account}.                                                                                                                    |
-| `processing`                         | Sending your money                  | {amount} is being sent to {account}.                                                                                                                            |
-| `paid`                               | Withdrawal paid                     | {amount} was paid to {account}.                                                                                                                                 |
+| `processing`                         | Sending your money                  | Your withdrawal is being sent to {account}. _(review round 1, M1)_                                                                                              |
+| `paid`                               | Withdrawal paid                     | Your withdrawal was paid to {account}. _(review round 1, M1)_                                                                                                   |
 | `failed`                             | Withdrawal didn't go through        | It couldn't be paid to {account}, so {amount} is back in your balance.                                                                                          |
 | `rejected`                           | Withdrawal rejected                 | {amount} is back in your balance. [the API's `rejection_reason`, as its own line]                                                                               |
 | `cancelled`                          | Withdrawal cancelled                | {amount} is back in your balance.                                                                                                                               |
@@ -69,7 +69,10 @@ offers its fix.
 | `REAL_MONEY_DISABLED`                | Not available yet                   | Withdrawals aren't available yet.                                                                                                                               |
 | Any other code                       | Your withdrawal didn't go through   | [the API's `title`]                                                                                                                                             |
 
-"Back in your balance" follows the contract for a cancel ("money back in cash balance"), WDR-07 for a
+After review round 1 (money reviewer M1; the user's decision, 2026-10-03), the requested, processing
+and paid lines name the withdrawal, not its amount: how much reaches the account is not the API's to say
+here (withholding tax at withdrawal, WDR-09), as "You receive" was dropped from the confirm step. The
+Amount row still shows the API's figure. "Back in your balance" follows the contract for a cancel ("money back in cash balance"), WDR-07 for a
 failure ("return funds to cash") and the SRS for a rejection ("reject returns funds to cash with a
 reason"). Nothing says how long a payout takes: the API gives no time.
 
