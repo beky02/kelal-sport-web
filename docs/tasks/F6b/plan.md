@@ -263,7 +263,7 @@ None (decision 1).
   nothing about whether the key already started one, so it leaves the intent unanswered. A Try again the
   API refuses is titled "Try again didn't go through" (F5a's words), keeps the intent and offers no new
   deposit of the same amount — Try again, with the first try's key, stays the main button.
-- **Copy that claimed more than the API says** (M3, M7, M5), for the user to confirm: the provider
+- **Copy that claimed more than the API says** (M3, M7, M5), confirmed by the user (2026-10-03): the provider
   refusal is "{method} didn't answer. Try again, or choose another method." (no "your deposit didn't
   start"); the limit refusal is "You've reached a deposit limit…" (not "a limit you set"); a deposit's
   total reads "You deposit", not "You pay" (the provider's prompt says what it charges). An amount
