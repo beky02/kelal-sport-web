@@ -1,70 +1,41 @@
-import type { LegResult, RuleSetJson } from "@golden/slipcalc";
-import { settleBet, type SlipQuote } from "@/features/bet-slip/lib/calculate";
-import type { Bet, LegStatus } from "../types";
-
-export const LEG_RESULT: Record<LegStatus, LegResult> = {
-  open: "open",
-  live: "open",
-  won: "win",
-  lost: "lose",
-  void: "void",
-};
-
-/**
- * A ticket's money, from the same calculator the bet slip uses (D1).
- *
- * For a settled bet the backend has already decided these; this recomputes them
- * only so the breakdown can be shown. If the two ever disagree, the server is
- * right and this is the bug. Null while the rule set loads.
- */
-export function betFigures(
-  bet: Bet,
-  rules: RuleSetJson | null,
-): SlipQuote | null {
-  if (!rules) return null;
-  const result = settleBet(
-    bet.legs.length === 1 ? "single" : "multiple",
-    bet.legs.map((leg) => ({ odds: leg.odds, result: LEG_RESULT[leg.status] })),
-    bet.stake,
-    rules,
-  );
-  return result.ok ? result.quote : null;
-}
+import type { MessageKey } from "@/lib/i18n";
+import type { Bet } from "../types";
 
 export type PayoutTone = "win" | "loss" | "plain";
 
 /**
- * What to call the bottom-right figure on a ticket, and how much it is.
+ * What to call the bottom-right figure on a ticket, and how much it is — the
+ * API's own figure, never a recomputation (AC-3).
  *
- * Four different things depending on state: what a bet might pay, what it did
- * pay, what was taken early, or nothing at all. Labelling all four "payout"
- * would be the easy mistake. `amount` is null while the figures load.
+ * An open bet shows what it might pay (`potential_payout`); a settled one what
+ * it did (`payout`), and a cashed-out one what was taken early. "Payout", not
+ * "net payout": the contract doesn't say whether payout taxes are out of it
+ * (contract request 007). A settled bet without a `payout` shows nothing
+ * rather than a zero the API didn't send.
  */
 export function payoutView(
-  bet: Bet,
-  figures: SlipQuote | null,
-): { labelKey: string; amount: string | null; tone: PayoutTone } {
+  bet: Pick<Bet, "status" | "potentialPayout" | "payout">,
+): { labelKey: MessageKey; amount: string | null; tone: PayoutTone } {
   switch (bet.status) {
-    case "won":
-      return {
-        labelKey: "bets.netPayout",
-        amount: figures?.netPayout ?? null,
-        tone: "win",
-      };
-    case "lost":
-      return { labelKey: "bets.lostPayout", amount: "0.00", tone: "loss" };
-    case "cashed":
-      return {
-        labelKey: "bets.cashedAmount",
-        amount: bet.cashedOutAmount ?? "0.00",
-        tone: "plain",
-      };
-    default:
+    case "open":
       return {
         labelKey: "bets.potentialPayout",
-        amount: figures?.netPayout ?? null,
+        amount: bet.potentialPayout,
         tone: "plain",
       };
+    case "won":
+      return { labelKey: "bets.payout", amount: bet.payout, tone: "win" };
+    case "lost":
+      return { labelKey: "bets.payout", amount: bet.payout, tone: "loss" };
+    case "cashed_out":
+      return {
+        labelKey: "bets.cashedAmount",
+        amount: bet.payout,
+        tone: "plain",
+      };
+    case "void":
+    case "cancelled":
+      return { labelKey: "bets.payout", amount: bet.payout, tone: "plain" };
   }
 }
 

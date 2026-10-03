@@ -8,6 +8,10 @@ export const routes = {
   search: "/search",
   /** A booking code's deep link (D7, FD3) — unprefixed until F2a adds `/{lang}`. */
   booking: (code: string) => `/b/${encodeURIComponent(code)}`,
+  /** The public ticket check (D7, FD3): `/t/K7Q2-M9XP-M`, unprefixed until F2a. */
+  ticket: (ticketId: string) => `/t/${encodeURIComponent(ticketId)}`,
+  /** The ticket check's form; `?ticket=` sends a typed number to `ticket()`. */
+  ticketCheck: "/t",
 
   myBets: "/my-bets",
   bet: (id: string) => `/my-bets/${id}`,

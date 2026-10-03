@@ -4,25 +4,25 @@ import Link from "next/link";
 import { useTranslation } from "@/lib/i18n/use-translation";
 import { routes } from "@/config/routes";
 import { cn } from "@/lib/utils/cn";
-import { usePublicConfig } from "@/features/config/hooks/use-public-config";
-import { betFigures, payoutView, PAYOUT_TONE } from "../lib/figures";
+import { features } from "@/config/features";
+import { useDateTimeText } from "@/features/bookings/hooks/use-date-time-text";
+import { payoutView, PAYOUT_TONE } from "../lib/figures";
+import { betKindLabel, RESULT_KEY } from "../lib/labels";
 import type { Bet } from "../types";
 import { BetStatusBadge, LegDot } from "./BetStatusBadge";
-import { features } from "@/config/features";
 import { CashOutPanel } from "./CashOutPanel";
 
 /**
  * One ticket in the list.
  *
  * Reads top to bottom as a person would ask it: what state is it in, what did I
- * pick, what did it cost and what is it worth. Tax is only spelled out on a bet
- * that won, because that is the only time money was actually withheld.
+ * pick, what did it cost and what is it worth — every figure the API's own.
+ * Tax is spelled out on a bet that won, once the API has decided it.
  */
 export function BetCard({ bet }: { bet: Bet }) {
   const t = useTranslation();
-  const rules = usePublicConfig().data?.betting.calc ?? null;
-  const figures = betFigures(bet, rules);
-  const payout = payoutView(bet, figures);
+  const when = useDateTimeText();
+  const payout = payoutView(bet);
 
   return (
     <div className="bg-surface flex flex-col rounded-lg">
@@ -31,39 +31,41 @@ export function BetCard({ bet }: { bet: Bet }) {
         className="text-text font-body flex flex-col gap-2.5 p-3 no-underline"
       >
         <span className="flex w-full items-center gap-2">
-          <BetStatusBadge bet={bet} />
-          <span className="flex-1 text-xs font-semibold">
-            {bet.legs.length > 1
-              ? t.t("bets.multiple", { n: bet.legs.length })
-              : t.t("bets.single")}
+          <BetStatusBadge status={bet.status} />
+          <span className="min-w-0 flex-1 truncate text-xs font-semibold">
+            {betKindLabel(bet, t)}
           </span>
-          <span className="text-muted text-[11px]">{t.pick(bet.placedAt)}</span>
+          <span className="text-muted numeric text-[11px] whitespace-nowrap">
+            {when(bet.placedAt)}
+          </span>
         </span>
 
         <span className="flex w-full flex-col gap-1.5">
-          {bet.legs.map((leg, index) => (
+          {bet.legs.map((leg) => (
             <span
-              key={`${leg.pick.en}-${index}`}
+              key={leg.outcomeId}
               className="grid grid-cols-[14px_minmax(0,1fr)_auto] items-center gap-2"
             >
-              <LegDot status={leg.status} />
+              <LegDot result={leg.result} />
               <span className="flex min-w-0 flex-col">
                 <span className="truncate text-[13px] font-medium">
                   {t.pick(leg.pick)}
+                  <span className="text-muted font-normal">
+                    {" · "}
+                    {t.pick(leg.market)}
+                  </span>
                 </span>
                 <span className="text-muted truncate text-[11px]">
-                  {t.pick(leg.match)}
+                  {t.pick(leg.match)} ·{" "}
+                  {leg.result === "open"
+                    ? when(leg.startTime)
+                    : t.t(RESULT_KEY[leg.result])}
                 </span>
-                {leg.status === "void" && (
-                  <span className="text-muted text-[11px] font-bold">
-                    {t.t("bets.voidLeg")}
-                  </span>
-                )}
               </span>
               <span
                 className={cn(
                   "numeric font-bold",
-                  leg.status === "void" ? "text-muted" : "text-text",
+                  leg.result === "void" ? "text-muted" : "text-text",
                 )}
               >
                 {t.odds(leg.odds)}
@@ -80,12 +82,12 @@ export function BetCard({ bet }: { bet: Bet }) {
           <span className="flex flex-col">
             <span className="text-muted text-[11px]">{t.t("bets.odds")}</span>
             <span className="font-semibold">
-              {figures?.totalOdds ? t.odds(figures.totalOdds) : "—"}
+              {bet.totalOdds ? t.odds(bet.totalOdds) : "—"}
             </span>
           </span>
           <span className="flex flex-col items-end">
             <span className="text-muted text-[11px]">
-              {t.t(payout.labelKey as "bets.netPayout")}
+              {t.t(payout.labelKey)}
             </span>
             <span className={cn("text-sm font-bold", PAYOUT_TONE[payout.tone])}>
               {payout.amount ? t.money(payout.amount) : "—"}
@@ -93,20 +95,22 @@ export function BetCard({ bet }: { bet: Bet }) {
           </span>
         </span>
 
-        {bet.status === "won" && figures && (
-          <span className="text-muted numeric text-[11px]">
-            {t.t("bets.taxWithheld", {
-              winnings: t.money(figures.winTax),
-              stake: t.money(figures.stakeTax),
-            })}
-          </span>
-        )}
+        <span className="text-muted flex flex-wrap justify-between gap-x-3 text-[11px]">
+          <span className="numeric">{bet.ticketId}</span>
+          {bet.status === "won" && bet.winTax !== null && (
+            <span className="numeric">
+              {t.t("bets.taxWithheld", {
+                winnings: t.money(bet.winTax),
+                stake: t.money(bet.stakeTax),
+              })}
+            </span>
+          )}
+        </span>
       </Link>
 
-      {features.cashOut && bet.status === "open" && (
-        <div className="px-3 pb-3">
-          <CashOutPanel bet={bet} />
-        </div>
+      {/* Cash out is Release 2 (D8), and the contract has no quote yet. */}
+      {features.cashOut && (
+        <CashOutPanel bet={bet} quote={null} className="mx-3 mb-3" />
       )}
     </div>
   );

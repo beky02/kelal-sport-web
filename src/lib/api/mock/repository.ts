@@ -1,18 +1,17 @@
 /**
  * In-memory stand-in for the features not yet wired to the contract.
  *
- * The catalogue no longer comes from here: it goes through the route handlers
- * to the API, and Prism serves the contract's own examples locally. What is
- * left — bets, wallet, responsible gaming, session activity — moves to the
- * contract task by task (F4–F7), after which this folder is deleted.
+ * The catalogue, auth, bookings and bets no longer come from here: they go
+ * through the route handlers to the API, and Prism serves the contract's own
+ * examples locally. What is left — wallet, transactions, responsible gaming,
+ * session activity — moves to the contract task by task (F6–F7), after which
+ * this folder is deleted.
  *
  * `listBoard` and `listMarkets` remain only as fixtures for the realtime tests,
  * which need live fixtures, scores and many lines per market — shapes the
  * Release 1 contract examples do not have.
  */
 import { ApiError } from "@/lib/api/errors";
-import { addMoney, share } from "@/lib/money";
-import { CASH_OUT_SHARES } from "@/config/constants";
 import type { Crest, Localized } from "@/types/common";
 import type { Competition } from "@/features/competitions/types";
 import type {
@@ -35,14 +34,8 @@ import {
   type WalletMode,
   type WalletOverview,
 } from "@/features/wallet/types";
-import {
-  type Bet,
-  type BetCounts,
-  type BetsTab,
-  type Transaction,
-  type TransactionKind,
-} from "@/features/bets/types";
-import { BETS, TRANSACTIONS, TRANSACTION_DAYS } from "./bets";
+import type { Transaction, TransactionKind } from "@/features/bets/types";
+import { TRANSACTIONS, TRANSACTION_DAYS } from "./transactions";
 import { PAYMENT_METHODS, WALLET_OVERVIEW } from "./wallet";
 import {
   CLUB_COLOUR,
@@ -298,12 +291,6 @@ function boardMarkets(event: SportEvent, raw: RawMatch): BoardMarkets {
 
 // ── queries ─────────────────────────────────────────────────────────────────
 
-export interface BetList {
-  bets: Bet[];
-  /** Tab counts are of the whole book, not the filtered page. */
-  counts: BetCounts;
-}
-
 export interface TransactionDay {
   date: string;
   label: Localized;
@@ -322,18 +309,6 @@ export interface SessionActivity {
   /** Won minus staked. Negative is the usual case and is shown in the loss tint. */
   net: number;
 }
-
-/**
- * Cash-outs made during this session.
- *
- * The fixtures are constant; this overlays what the user has done to them, so a
- * bet cashed out stays cashed out while they navigate around. A real backend
- * holds this, obviously.
- */
-const cashOuts = new Map<string, Bet>();
-
-const withCashOuts = (): Bet[] =>
-  BETS.map((bet) => cashOuts.get(bet.id) ?? bet);
 
 /**
  * Responsible-gaming state for this session.
@@ -486,74 +461,6 @@ export const mockRepository = {
   async getSessionActivity(): Promise<SessionActivity> {
     await delay(100);
     return { staked: 350, won: 120, net: -230 };
-  },
-
-  async listBets(tab: BetsTab): Promise<BetList> {
-    await delay(180);
-    const all = withCashOuts();
-
-    const inTab = (bet: Bet) =>
-      tab === "open"
-        ? bet.status === "open"
-        : tab === "settled"
-          ? bet.status !== "open"
-          : bet.status === tab;
-
-    return {
-      bets: all.filter(inTab),
-      counts: {
-        open: all.filter((b) => b.status === "open").length,
-        settled: all.filter((b) => b.status !== "open").length,
-        won: all.filter((b) => b.status === "won").length,
-        lost: all.filter((b) => b.status === "lost").length,
-      },
-    };
-  },
-
-  async getBet(id: string): Promise<Bet | null> {
-    await delay(140);
-    return withCashOuts().find((bet) => bet.id === id) ?? null;
-  },
-
-  /**
-   * Buys a bet back, in whole or in part.
-   *
-   * A full cash-out closes the ticket. A partial one pays out that share and
-   * leaves the rest running on a proportionally smaller stake — which is what the
-   * screen's own copy promises, so it has to be what actually happens.
-   */
-  async cashOut(id: string, fraction: number): Promise<Bet> {
-    await delay(500);
-    const bet = withCashOuts().find((b) => b.id === id);
-
-    if (!bet) throw new ApiError("Bet not found", 404, "bet_not_found");
-    if (bet.status !== "open")
-      throw new ApiError("Bet is already settled", 409, "bet_settled");
-    if (bet.cashOutBlocked || bet.cashOutValue === null)
-      throw new ApiError("Cash out unavailable", 409, "cash_out_unavailable");
-
-    const part = CASH_OUT_SHARES.find((s) => s.fraction === fraction);
-    if (!part) throw new ApiError("Unknown share", 422, "VALIDATION_FAILED");
-    const { numerator: n, denominator: d } = part;
-    const paid = share(bet.cashOutValue, n, d);
-
-    const settled: Bet =
-      n === d
-        ? {
-            ...bet,
-            status: "cashed",
-            cashOutValue: null,
-            cashedOutAmount: paid,
-          }
-        : {
-            ...bet,
-            stake: share(bet.stake, d - n, d),
-            cashOutValue: share(bet.cashOutValue, d - n, d),
-            cashedOutAmount: addMoney(bet.cashedOutAmount ?? "0.00", paid),
-          };
-
-    cashOuts.set(id, settled);
-    return settled;
   },
 
   async listTransactions(

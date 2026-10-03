@@ -1,216 +1,243 @@
 "use client";
 
 import Link from "next/link";
-import { ChevronLeft, Send, Ticket } from "lucide-react";
+import { ChevronLeft, Send, Ticket, TriangleAlert } from "lucide-react";
 import { useTranslation } from "@/lib/i18n/use-translation";
 import { StateMessage } from "@/components/feedback/StateMessage";
 import { Barcode } from "@/components/ui/Barcode";
 import { Card } from "@/components/ui/Card";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { routes } from "@/config/routes";
+import { features } from "@/config/features";
+import { useSession } from "@/features/auth/hooks/use-session";
+import { useDateTimeText } from "@/features/bookings/hooks/use-date-time-text";
+import { compareMoney } from "@/lib/money";
+import { absoluteUrl, telegramShareUrl } from "@/lib/share";
 import { cn } from "@/lib/utils/cn";
 import { useBet } from "../hooks/use-bets";
-import { usePublicConfig } from "@/features/config/hooks/use-public-config";
-import { taxLineLabel, taxLines } from "@/features/bet-slip/lib/tax-lines";
-import { compareMoney } from "@/lib/money";
-import { betFigures, payoutView, PAYOUT_TONE } from "../lib/figures";
+import { payoutView, PAYOUT_TONE } from "../lib/figures";
+import { betKindLabel, RESULT_KEY } from "../lib/labels";
+import type { Bet } from "../types";
 import { BetStatusBadge, LegDot } from "./BetStatusBadge";
-import { features } from "@/config/features";
-import { RulesUnavailable } from "@/features/config/components/RulesUnavailable";
+import { BetsGuest } from "./BetsGuest";
 import { CashOutPanel } from "./CashOutPanel";
 
 /**
  * A single ticket, in full.
  *
- * The record of the bet: its id, when it was placed, every leg with how it
- * finished, and the whole money trail from stake through both taxes to the
- * payout. Nothing is summarised away, because this is the page someone opens when
- * they want to check a figure they disagree with.
+ * The record of the bet: its number, when it was placed, every leg with how it
+ * finished, and the money as the API keeps it — stake, stake tax, bonus,
+ * winnings tax, payout. Nothing is recomputed here: this is the page someone
+ * opens when they want to check a figure, so every figure is the book's own.
  */
 export function BetTicket({ id }: { id: string }) {
   const t = useTranslation();
-  const { data: bet, isPending } = useBet(id);
-  const rules = usePublicConfig().data?.betting.calc ?? null;
+  const session = useSession();
+  const signedIn = !session.isLoading && !session.isGuest;
+  const { data: bet, isPending, isError, refetch } = useBet(id, signedIn);
 
-  if (isPending) {
-    return (
+  let body: React.ReactNode;
+  if (!session.isLoading && session.isGuest) {
+    body = <BetsGuest />;
+  } else if (isPending) {
+    body = (
       <Card className="m-4 flex flex-col gap-3 p-3.5">
         <Skeleton className="h-4 w-24" />
         <Skeleton className="h-7 w-48" />
         <Skeleton className="h-[62px] w-full" />
       </Card>
     );
-  }
-
-  if (!bet) {
-    return (
-      <Card>
-        <StateMessage
-          icon={<Ticket size={24} strokeWidth={1.5} />}
-          title={t.t("bets.notFound")}
-          body={t.t("bets.notFoundBody")}
-        />
-      </Card>
+  } else if (isError) {
+    body = (
+      <StateMessage
+        icon={<TriangleAlert size={24} strokeWidth={1.5} />}
+        title={t.t("bets.ticketFailedTitle")}
+        body={t.t("bets.ticketFailedBody")}
+        action={{ label: t.t("common.retry"), onClick: () => void refetch() }}
+      />
     );
+  } else if (!bet) {
+    body = (
+      <StateMessage
+        icon={<Ticket size={24} strokeWidth={1.5} />}
+        title={t.t("bets.notFound")}
+        body={t.t("bets.notFoundBody")}
+        action={{ label: t.t("bets.backToBets"), href: routes.myBets }}
+      />
+    );
+  } else {
+    body = <TicketDetail bet={bet} />;
   }
-
-  const figures = betFigures(bet, rules);
-  const payout = payoutView(bet, figures);
-  const money = (value: string | null | undefined) =>
-    value ? t.money(value) : "—";
-  const taxes = rules ? taxLines(rules, figures) : [];
-  const taxRow = (tax: (typeof taxes)[number]) => ({
-    label: taxLineLabel(t, tax),
-    value: `− ${money(tax.amount)}`,
-    strong: true,
-  });
-
-  // D1's order: stake tax per line, net stake, gross, bonus, payout taxes.
-  const rows: Array<{ label: string; value: string; strong?: boolean }> = [
-    {
-      label: t.t("bets.totalOdds"),
-      value: figures?.totalOdds ? t.odds(figures.totalOdds) : "—",
-      strong: true,
-    },
-    { label: t.t("bets.stake"), value: t.money(bet.stake) },
-    ...taxes.filter((tax) => tax.stage === "stake").map(taxRow),
-    { label: t.t("bets.netStake"), value: money(figures?.netStake) },
-    {
-      label: bet.status === "won" ? t.t("bets.win") : t.t("bets.potentialWin"),
-      value: money(figures?.grossPayout),
-    },
-    ...(figures && compareMoney(figures.accaBonus, "0.00") > 0
-      ? [
-          {
-            label: t.t("betSlip.accaBonus"),
-            value: `+ ${t.money(figures.accaBonus)}`,
-          },
-        ]
-      : []),
-    ...taxes.filter((tax) => tax.stage === "payout").map(taxRow),
-    // All legs void, and the tenant refunds the stake tax (D1.9).
-    ...(figures && compareMoney(figures.stakeTaxRefund, "0.00") > 0
-      ? [
-          {
-            label: t.t("bets.stakeTaxRefund"),
-            value: `+ ${t.money(figures.stakeTaxRefund)}`,
-          },
-        ]
-      : []),
-  ];
 
   return (
     <>
       <div className="border-divider grid min-h-12 grid-cols-[44px_minmax(0,1fr)_44px] items-center border-b px-1">
         <Link
           href={routes.myBets}
-          aria-label={t.t("event.backToBoard")}
+          aria-label={t.t("bets.backToBets")}
           className="text-text grid size-11 place-items-center rounded-md no-underline"
         >
           <ChevronLeft size={20} strokeWidth={1.5} aria-hidden />
         </Link>
-        <div className="font-display text-center text-[15px]">
+        <h2 className="font-display text-center text-[15px]">
           {t.t("bets.ticket")}
-        </div>
+        </h2>
         <span />
       </div>
+      {body}
+    </>
+  );
+}
 
-      <Card className="m-4 flex flex-col gap-3 p-3.5">
-        <RulesUnavailable />
-        <div className="flex items-center justify-between">
-          <BetStatusBadge bet={bet} />
-          <span className="text-muted text-[11px]">
-            {bet.legs.length > 1
-              ? t.t("bets.multiple", { n: bet.legs.length })
-              : t.t("bets.single")}
+function TicketDetail({ bet }: { bet: Bet }) {
+  const t = useTranslation();
+  const when = useDateTimeText();
+  const payout = payoutView(bet);
+  const above = (amount: string | null): amount is string =>
+    amount !== null && compareMoney(amount, "0.00") > 0;
+
+  // D1's order, the API's figures only: no net stake or gross, which the
+  // contract's ticket doesn't carry and the browser must not work out.
+  const rows: Array<{ label: string; value: string; strong?: boolean }> = [
+    ...(bet.totalOdds
+      ? [
+          {
+            label: t.t("bets.totalOdds"),
+            value: t.odds(bet.totalOdds),
+            strong: true,
+          },
+        ]
+      : []),
+    { label: t.t("bets.stake"), value: t.money(bet.stake) },
+    ...(above(bet.stakeBonus)
+      ? [{ label: t.t("bets.stakeBonus"), value: t.money(bet.stakeBonus) }]
+      : []),
+    {
+      label: t.t("bets.stakeTax"),
+      value: `− ${t.money(bet.stakeTax)}`,
+      strong: true,
+    },
+    ...(above(bet.accaBonus)
+      ? [
+          {
+            label: t.t("betSlip.accaBonus"),
+            value: `+ ${t.money(bet.accaBonus)}`,
+          },
+        ]
+      : []),
+    // Decided at settlement: there is none to show on an open bet.
+    ...(bet.winTax !== null
+      ? [
+          {
+            label: t.t("bets.winTax"),
+            value: `− ${t.money(bet.winTax)}`,
+            strong: true,
+          },
+        ]
+      : []),
+  ];
+
+  return (
+    <Card className="m-4 flex flex-col gap-3 p-3.5">
+      <div className="flex items-center justify-between gap-2">
+        <BetStatusBadge status={bet.status} />
+        <span className="text-muted text-[11px]">{betKindLabel(bet, t)}</span>
+      </div>
+
+      <div>
+        <div className="text-muted text-[11px]">{t.t("bets.ticketId")}</div>
+        <div className="font-display text-[22px] leading-[1.1] tracking-[0.06em]">
+          {bet.ticketId}
+        </div>
+        <div className="text-muted numeric text-[11px]">
+          {t.t("bets.placedAt", { date: when(bet.placedAt) })}
+        </div>
+        {bet.settledAt && (
+          <div className="text-muted numeric text-[11px]">
+            {t.t("bets.settledAt", { date: when(bet.settledAt) })}
+          </div>
+        )}
+      </div>
+
+      <Barcode code={bet.ticketId} label={t.t("bets.ticket")} />
+
+      <h3 className="font-display mt-1 text-sm">{t.t("bets.selections")}</h3>
+
+      <ul className="border-divider flex flex-col border-t">
+        {bet.legs.map((leg) => (
+          <li
+            key={leg.outcomeId}
+            className="border-divider grid grid-cols-[14px_minmax(0,1fr)_auto] items-center gap-2.5 border-b py-2.5"
+          >
+            <LegDot result={leg.result} />
+            <div className="min-w-0">
+              <div className="text-muted text-[11px]">{t.pick(leg.market)}</div>
+              <div className="font-semibold">{t.pick(leg.pick)}</div>
+              <div className="text-muted text-[11px]">
+                {t.pick(leg.match)} ·{" "}
+                {leg.result === "open"
+                  ? when(leg.startTime)
+                  : t.t(RESULT_KEY[leg.result])}
+              </div>
+            </div>
+            <span
+              className={cn(
+                "numeric font-bold",
+                leg.result === "void" ? "text-muted" : "text-text",
+              )}
+            >
+              {t.odds(leg.odds)}
+            </span>
+          </li>
+        ))}
+      </ul>
+
+      <div
+        data-testid="ticket-figures"
+        className="numeric flex flex-col gap-[7px]"
+      >
+        {rows.map((row) => (
+          <div key={row.label} className="flex justify-between gap-3">
+            <span className={row.strong ? undefined : "text-muted"}>
+              {row.label}
+            </span>
+            <span className={row.strong ? "font-semibold" : undefined}>
+              {row.value}
+            </span>
+          </div>
+        ))}
+
+        <div className="bg-divider my-[3px] h-px" />
+
+        <div className="flex items-baseline justify-between gap-3">
+          <span className="font-display text-[15px]">
+            {t.t(payout.labelKey)}
+          </span>
+          <span
+            className={cn("font-display text-2xl", PAYOUT_TONE[payout.tone])}
+          >
+            {payout.amount ? t.money(payout.amount) : "—"}
           </span>
         </div>
+      </div>
 
-        <div>
-          <div className="text-muted text-[11px]">{t.t("bets.ticketId")}</div>
-          <div className="font-display text-[22px] leading-[1.1] tracking-[0.06em]">
-            {bet.id}
-          </div>
-          <div className="text-muted text-[11px]">
-            {t.t("bets.placed")} {t.pick(bet.placedAt)}
-          </div>
-        </div>
+      <a
+        href={telegramShareUrl(
+          absoluteUrl(routes.ticket(bet.ticketId)),
+          t.t("ticket.shareText", { ticket: bet.ticketId }),
+        )}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="bg-telegram font-body flex h-11 items-center justify-center gap-2 rounded-md text-[13px] font-bold text-white no-underline"
+      >
+        <Send size={16} strokeWidth={1.5} aria-hidden />
+        {t.t("bets.shareTelegram")}
+      </a>
 
-        <Barcode code={bet.id} label={t.t("bets.ticket")} />
-
-        <div className="font-display mt-1 text-sm">
-          {t.t("bets.selections")}
-        </div>
-
-        <div className="border-divider flex flex-col border-t">
-          {bet.legs.map((leg, index) => (
-            <div
-              key={`${leg.pick.en}-${index}`}
-              className="border-divider grid grid-cols-[14px_minmax(0,1fr)_auto] items-center gap-2.5 border-b py-2.5"
-            >
-              <LegDot status={leg.status} />
-              <div className="min-w-0">
-                <div className="text-muted text-[11px]">
-                  {t.pick(leg.market)}
-                </div>
-                <div className="font-semibold">{t.pick(leg.pick)}</div>
-                <div className="text-muted text-[11px]">
-                  {t.pick(leg.match)} ·{" "}
-                  {leg.status === "void"
-                    ? t.t("bets.voidLeg")
-                    : t.pick(leg.result)}
-                </div>
-              </div>
-              <span
-                className={cn(
-                  "numeric font-bold",
-                  leg.status === "void" ? "text-muted" : "text-text",
-                )}
-              >
-                {t.odds(leg.odds)}
-              </span>
-            </div>
-          ))}
-        </div>
-
-        <div className="numeric flex flex-col gap-[7px]">
-          {rows.map((row) => (
-            <div key={row.label} className="flex justify-between gap-3">
-              <span className={row.strong ? undefined : "text-muted"}>
-                {row.label}
-              </span>
-              <span className={row.strong ? "font-semibold" : undefined}>
-                {row.value}
-              </span>
-            </div>
-          ))}
-
-          <div className="bg-divider my-[3px] h-px" />
-
-          <div className="flex items-baseline justify-between">
-            <span className="font-display text-[15px]">
-              {t.t(payout.labelKey as "bets.netPayout")}
-            </span>
-            <span
-              className={cn("font-display text-2xl", PAYOUT_TONE[payout.tone])}
-            >
-              {money(payout.amount)}
-            </span>
-          </div>
-        </div>
-
-        <button
-          type="button"
-          style={{ background: "#229ed9" }}
-          className="font-body flex h-11 cursor-pointer items-center justify-center gap-2 rounded-md text-[13px] font-bold text-white"
-        >
-          <Send size={16} strokeWidth={1.5} aria-hidden />
-          {t.t("bets.shareTelegram")}
-        </button>
-
-        {/* Cash out is Release 2 (D8). */}
-        {features.cashOut && <CashOutPanel bet={bet} size="ticket" />}
-      </Card>
-    </>
+      {/* Cash out is Release 2 (D8), and the contract has no quote yet. */}
+      {features.cashOut && (
+        <CashOutPanel bet={bet} quote={null} size="ticket" />
+      )}
+    </Card>
   );
 }

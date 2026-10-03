@@ -1,8 +1,14 @@
 import "server-only";
 import type { BetReceipt, PlaceBetRequest } from "@/features/bet-slip/types";
-import { toBetReceipt, toPlaceBetRequest } from "@/lib/api/mappers/bets";
+import type { Bet, BetPage, BetsTab } from "@/features/bets/types";
+import {
+  toBet,
+  toBetPage,
+  toBetReceipt,
+  toPlaceBetRequest,
+} from "@/lib/api/mappers/bets";
 import { withSession, type Session, type SessionContext } from "./session";
-import { upstream } from "./upstream";
+import { both, upstream } from "./upstream";
 
 /**
  * Places a bet for the signed-in player (C08 §7).
@@ -28,4 +34,46 @@ export async function placeBet(
     }),
   );
   return toBetReceipt(placed);
+}
+
+/**
+ * One page of the player's bets (`GET /v1/bets`), names in both languages.
+ *
+ * The two reads go out together: an expired token is refreshed once for both
+ * (`withSession` shares the refresh), so a refresh token is never replayed.
+ */
+export async function loadMyBets(
+  ctx: SessionContext,
+  session: Session,
+  query: { status: BetsTab; cursor: string | null },
+): Promise<BetPage> {
+  const pair = await both((lang) =>
+    withSession({ ...ctx, lang }, session, (authorization) =>
+      upstream("Bets", { ...ctx, lang, authorization }).GET("/v1/bets", {
+        params: {
+          query: {
+            status: query.status,
+            ...(query.cursor ? { cursor: query.cursor } : {}),
+          },
+        },
+      }),
+    ),
+  );
+  return toBetPage(pair);
+}
+
+/** One of the player's bets (`GET /v1/bets/{id}`); another player's is the API's 404. */
+export async function loadMyBet(
+  ctx: SessionContext,
+  session: Session,
+  id: string,
+): Promise<Bet> {
+  const pair = await both((lang) =>
+    withSession({ ...ctx, lang }, session, (authorization) =>
+      upstream("Bets", { ...ctx, lang, authorization }).GET("/v1/bets/{id}", {
+        params: { path: { id } },
+      }),
+    ),
+  );
+  return toBet(pair);
 }

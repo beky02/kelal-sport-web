@@ -27,11 +27,16 @@ export function AsidePanel() {
   // Until /api/me answers, a player is not sent to log in.
   const isGuest = !isLoading && guestOrPending;
   const openAuth = useAuthStore((s) => s.open);
-  // A guest has no bets to count, so this stays idle until they sign in.
-  const { data: bets } = useBets("open");
-  const openBets = isGuest ? 0 : (bets?.counts.open ?? 0);
+  // A guest has no bets to count, so this stays idle until they sign in. The
+  // list carries no totals, so the count is the first page's, `+` when there
+  // are more pages (contract request 007).
+  const { data: bets } = useBets("open", !isLoading && !guestOrPending);
+  const first = isGuest ? undefined : bets?.pages[0];
+  const openBets = first
+    ? `${first.items.length}${first.nextCursor ? "+" : ""}`
+    : "0";
 
-  const tabs: Array<{ value: Panel; label: string; count: number }> = [
+  const tabs: Array<{ value: Panel; label: string; count: number | string }> = [
     { value: "slip", label: t.t("betSlip.title"), count: selectionCount },
     { value: "bets", label: t.t("betSlip.myBets"), count: openBets },
   ];
