@@ -80,17 +80,39 @@ where the slip's copy already states the same limit.
 | Wallet's recent activity   | as above                                            | Inline: "Couldn't load your recent activity."                                                                 | Try again   |
 | `/api/wallet/transactions` | 422 `VALIDATION_FAILED` (ours)                      | Never from this UI: a `type`, `cursor` or `limit` the contract doesn't allow is refused before going upstream | —           |
 
-### Wallet payments (F6b, F6c)
+### Deposits (F6b)
 
-| Code                             | HTTP | Shown                                               | Fix offered                                                    |
-| -------------------------------- | ---- | --------------------------------------------------- | -------------------------------------------------------------- |
-| `PAY_METHOD_UNAVAILABLE`         | 422  | The method is marked unavailable on its tile        | Choose another                                                 |
-| `PAY_AMOUNT_OUT_OF_RANGE`        | 422  | The method's min–max                                | The nearest allowed amount                                     |
-| `PAY_PROVIDER_ERROR`             | 502  | "Payment provider did not respond"                  | Retry; choose another                                          |
-| `PAY_WITHDRAWAL_NOT_CANCELLABLE` | 409  | "This withdrawal is already being paid"             | None                                                           |
-| `PAY_ACTIVE_BONUS_WAGERING`      | 422  | What withdrawing now forfeits (BON-07)              | Confirm forfeit (needs contract request 008), or keep wagering |
-| `KYC_REQUIRED`                   | 403  | Verify your Fayda ID to unlock withdrawals          | Verify                                                         |
-| Deposit `failed` / `expired`     | —    | Status screens with the provider reference (DEP-08) | Retry; choose another; Done                                    |
+Shown on the confirm step, `role="alert"`, the API's `detail` as its own line; the fix is a button.
+
+| Code / state                                                              | HTTP | Shown                                                                                                                           | Fix offered                                                                                                  |
+| ------------------------------------------------------------------------- | ---- | ------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| No answer: network, 30 s, a 5xx without a code below, an unreadable reply | —    | "We couldn't confirm your deposit — It may have started. Try again — if it did, you'll see the same deposit, not a second one." | Try again · {amount}: the same request, the same key (after `/api/me` says it is still the player)           |
+| `PAY_METHOD_UNAVAILABLE`                                                  | 422  | "Method unavailable — {method} isn't available right now"; the methods are read again, Confirm is disabled                      | Choose another method (the tile is marked unavailable)                                                       |
+| `PAY_AMOUNT_OUT_OF_RANGE`                                                 | 422  | "Amount not allowed — {method} takes {min} to {max} per deposit"                                                                | Deposit {amount}: `errors[].limit` when it is an amount, else the method's limit on that side; Change amount |
+| `PAY_PROVIDER_ERROR`                                                      | 502  | "Payment provider didn't respond — {method} didn't answer, so your deposit didn't start"                                        | Try again (a new deposit, a new key); Choose another method                                                  |
+| `RG_LIMIT_REACHED`                                                        | 403  | "Limit reached — You've reached a limit you set, so this deposit can't go through" + the API's `detail`                         | View limits                                                                                                  |
+| `RG_SELF_EXCLUDED`, `RG_COOLING_OFF`                                      | 403  | "You're taking a break — Deposits are paused until {date}" (`flags.excluded_until`, else without a date)                        | None; `/api/me` and the RG status are read again                                                             |
+| `KYC_REQUIRED`                                                            | 403  | "Verify your ID — Verify your ID with Fayda to deposit"                                                                         | Verify                                                                                                       |
+| `REAL_MONEY_DISABLED`                                                     | 503  | "Not available yet — Deposits aren't available yet"                                                                             | None                                                                                                         |
+| Any other code                                                            | any  | "Your deposit didn't start" and the API's `title`                                                                               | Change amount when `errors[]` names the amount; Confirm again is a new deposit                               |
+| 401 `AUTH_TOKEN_EXPIRED`                                                  | 401  | The session-ended dialog; the wallet's guest state                                                                              | Log in                                                                                                       |
+
+The status screen (`role="status"`, focus on its title) follows `/api/deposits/{id}`: Starting your
+payment; Check your phone (the API's `message`); Finish paying on {method} (Continue to {method}); This
+payment can't continue here (`app_sdk`, a page the allow-list refused, a kind added later: Choose another
+method); Money added; Payment didn't go through (the API's `failure_reason`; Try again, Choose another
+method, Done); Payment timed out (Try again, Choose another method, Done). A read that fails before any
+answer: "Couldn't check this deposit" with Try again; 404: "We couldn't find this deposit". Back to
+wallet everywhere, never Cancel: the contract can't cancel a deposit. The provider reference DEP-08 asks
+for is not in the contract (request 009): the deposit's own `id` is shown as the reference.
+
+### Withdrawals (F6c)
+
+| Code                             | HTTP | Shown                                      | Fix offered                                                    |
+| -------------------------------- | ---- | ------------------------------------------ | -------------------------------------------------------------- |
+| `PAY_WITHDRAWAL_NOT_CANCELLABLE` | 409  | "This withdrawal is already being paid"    | None                                                           |
+| `PAY_ACTIVE_BONUS_WAGERING`      | 422  | What withdrawing now forfeits (BON-07)     | Confirm forfeit (needs contract request 008), or keep wagering |
+| `KYC_REQUIRED`                   | 403  | Verify your Fayda ID to unlock withdrawals | Verify                                                         |
 
 ### Account, promotions, inbox (F7)
 
@@ -99,29 +121,29 @@ limits that cannot be lowered below usage; `RG_*` as above.
 
 ### Route-handler refusals (ours, same shape)
 
-| Code                  | HTTP                      | When                                                                                                                                                                                  |
-| --------------------- | ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `PERMISSION_DENIED`   | 403                       | A POST from another origin, without the CSRF header (09-security)                                                                                                                     |
-| `VALIDATION_FAILED`   | 400 / 413 / 415 / 422     | Missing `Idempotency-Key`; body too large; not JSON; a body that is not the request; a My bets `status` or `cursor`, or a history `type`, `cursor` or `limit`, the route doesn't take |
-| `NOT_FOUND`           | 404                       | `/api/bets/{id}` with an id that can't be one: nothing is sent upstream                                                                                                               |
-| `SERVICE_UNAVAILABLE` | 503 (or the API's status) | The API could not be reached, or answered with something that is not a Problem                                                                                                        |
+| Code                  | HTTP                      | When                                                                                                                                                                                                                                                                               |
+| --------------------- | ------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `PERMISSION_DENIED`   | 403                       | A POST from another origin, without the CSRF header (09-security)                                                                                                                                                                                                                  |
+| `VALIDATION_FAILED`   | 400 / 413 / 415 / 422     | Missing `Idempotency-Key` (bets, deposits); body too large; not JSON; a body that is not the request (a deposit is a contract method and amount, nothing else — no `return_url`); a My bets `status` or `cursor`, or a history `type`, `cursor` or `limit`, the route doesn't take |
+| `NOT_FOUND`           | 404                       | `/api/bets/{id}` or `/api/deposits/{id}` with an id that can't be one: nothing is sent upstream                                                                                                                                                                                    |
+| `SERVICE_UNAVAILABLE` | 503 (or the API's status) | The API could not be reached, or answered with something that is not a Problem                                                                                                                                                                                                     |
 
 ## System states
 
-| State                | Trigger                                                         | Screen                                                                            | Rule                                                       |
-| -------------------- | --------------------------------------------------------------- | --------------------------------------------------------------------------------- | ---------------------------------------------------------- |
-| Loading              | Any query pending                                               | Skeletons that keep the layout; the header's labelled placeholder for the session | Nothing jumps when data lands; no flash of the wrong state |
-| Empty                | No matches for the filter, no bets, no transactions, empty slip | A sentence and the next thing to do                                               | Never a blank card                                         |
-| Error                | A query failed                                                  | What failed and Retry; the previous data stays if there was any                   | Retries only for 5xx and network (`ApiError.retryable`)    |
-| Offline              | `navigator.onLine` false                                        | Banner: odds may be stale; placing disabled                                       | One watcher in the shell, every odds button reads it       |
-| Suspended market     | `status: suspended` or no price                                 | Locks on the board and the match page; "Betting paused. Markets reopen shortly."  | Never a stale price                                        |
-| Cool-off / exclusion | RG status query                                                 | Banner with the end; slip locked; deposits off                                    | Server state; a reload changes nothing                     |
-| Reality check        | `rg.reality_check_minutes` (F7)                                 | Dialog with the session's figures from the API                                    | Not dismissible by clicking away                           |
-| Session ended        | A player found to be a guest without logging out                | Dialog; the slip is saved                                                         | 03-session                                                 |
-| Deposit limit        | A deposit refused by `RG_LIMIT_REACHED`                         | Dialog with the amount used and the reset time                                    | Figures from the API                                       |
-| Maintenance          | The API says so (a status endpoint is not in the contract yet)  | Full screen: back at `{time}`, balances and bets are safe                         | Placeholder copy in `constants.ts` until then              |
-| Age gate             | First visit                                                     | Full screen 21+ question                                                          | Placeholder trigger until F7                               |
-| Real money off       | `real_money_enabled: false` in config (F1)                      | A clear notice; placing, depositing and withdrawing disabled                      | CFG-04                                                     |
+| State                | Trigger                                                         | Screen                                                                             | Rule                                                                                                                   |
+| -------------------- | --------------------------------------------------------------- | ---------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| Loading              | Any query pending                                               | Skeletons that keep the layout; the header's labelled placeholder for the session  | Nothing jumps when data lands; no flash of the wrong state                                                             |
+| Empty                | No matches for the filter, no bets, no transactions, empty slip | A sentence and the next thing to do                                                | Never a blank card                                                                                                     |
+| Error                | A query failed                                                  | What failed and Retry; the previous data stays if there was any                    | Retries only for 5xx and network (`ApiError.retryable`)                                                                |
+| Offline              | `navigator.onLine` false                                        | Banner: odds may be stale; placing disabled                                        | One watcher in the shell, every odds button reads it                                                                   |
+| Suspended market     | `status: suspended` or no price                                 | Locks on the board and the match page; "Betting paused. Markets reopen shortly."   | Never a stale price                                                                                                    |
+| Cool-off / exclusion | RG status query                                                 | Banner with the end; slip locked; deposits off                                     | Server state; a reload changes nothing                                                                                 |
+| Reality check        | `rg.reality_check_minutes` (F7)                                 | Dialog with the session's figures from the API                                     | Not dismissible by clicking away                                                                                       |
+| Session ended        | A player found to be a guest without logging out                | Dialog; the slip is saved                                                          | 03-session                                                                                                             |
+| Deposit limit        | A deposit refused by `RG_LIMIT_REACHED`                         | On the confirm step: "Limit reached" with the API's `detail` and View limits (F6b) | The dialog with the amount used and the reset time waits for F7's `/v1/me/limits`: the Problem carries no such figures |
+| Maintenance          | The API says so (a status endpoint is not in the contract yet)  | Full screen: back at `{time}`, balances and bets are safe                          | Placeholder copy in `constants.ts` until then                                                                          |
+| Age gate             | First visit                                                     | Full screen 21+ question                                                           | Placeholder trigger until F7                                                                                           |
+| Real money off       | `real_money_enabled: false` in config (F1)                      | A clear notice; placing, depositing and withdrawing disabled                       | CFG-04                                                                                                                 |
 
 ## Accessibility of errors
 
