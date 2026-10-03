@@ -625,7 +625,7 @@
     "withdrawAmount": "Withdraw {amount}",
     "chooseAccount": "Choose another account",
     "keepWagering": "Keep wagering",
-    "contactSupport": "Contact support",
+    "help": "Help",
     "status": {
       "requested": "Requested",
       "review": "In review",

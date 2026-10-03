@@ -42,11 +42,14 @@ const apiTitle = (error: unknown): string | null =>
  * still works.
  */
 export function AccountStep({
+  owner,
   method,
   choice,
   onChoice,
   onContinue,
 }: {
+  /** The signed-in player, whose accounts these are. */
+  owner: string;
   method: PaymentMethod;
   choice: AccountChoice | null;
   onChoice: (choice: AccountChoice | null) => void;
@@ -63,9 +66,12 @@ export function AccountStep({
   const titleId = useId();
   const group = useId();
   const fieldId = useId();
+  const hintId = useId();
   const problemId = useId();
   const removeButtons = useRef(new Map<string, HTMLButtonElement>());
   const title = useRef<HTMLHeadingElement>(null);
+  /** The account Save just added: its radio takes focus as it is listed. */
+  const focusOn = useRef<string | null>(null);
 
   const saved = (accounts.data ?? []).filter(
     (account) => account.provider === method.code,
@@ -92,9 +98,15 @@ export function AccountStep({
   const save = () => {
     if (!number || add.isPending) return;
     add.mutate(
-      { provider: method.code, account: number },
+      { request: { provider: method.code, account: number }, owner },
       {
-        onSuccess: choose,
+        // Saved, the field and its button go: the keyboard goes to the
+        // account they made — or, with no list to show it in, to the question.
+        onSuccess: (account) => {
+          choose(account);
+          if (accounts.data) focusOn.current = account.id;
+          else title.current?.focus();
+        },
       },
     );
   };
@@ -155,8 +167,10 @@ export function AccountStep({
       )}
 
       {saved.length > 0 && (
+        // A group, not a radiogroup: Remove sits beside each choice. Native
+        // radios sharing one name already move with the arrow keys.
         <div
-          role="radiogroup"
+          role="group"
           aria-labelledby={titleId}
           className="flex flex-col gap-2"
         >
@@ -167,6 +181,12 @@ export function AccountStep({
                   <input
                     type="radio"
                     name={group}
+                    ref={(node) => {
+                      if (node && focusOn.current === account.id) {
+                        focusOn.current = null;
+                        node.focus();
+                      }
+                    }}
                     checked={
                       choice?.kind === "saved" && choice.id === account.id
                     }
@@ -208,7 +228,7 @@ export function AccountStep({
                     remove.reset();
                     setAsking(account.id);
                   }}
-                  className="text-muted min-h-11 shrink-0 cursor-pointer rounded-md px-2 text-xs font-semibold"
+                  className="bg-raised text-text font-body min-h-11 shrink-0 cursor-pointer rounded-md px-3 text-xs font-bold"
                 >
                   {t.t("withdraw.remove")}
                 </button>
@@ -258,14 +278,14 @@ export function AccountStep({
             onChange={(event) => type(event.target.value)}
             onBlur={() => setTouched(true)}
             aria-invalid={invalid || undefined}
-            aria-describedby={invalid ? problemId : undefined}
+            aria-describedby={invalid ? `${problemId} ${hintId}` : hintId}
           />
           {invalid && (
             <div id={problemId} role="alert" className="text-loss text-xs">
               {t.t("auth.phoneInvalid")}
             </div>
           )}
-          <p className="text-muted text-xs text-pretty">
+          <p id={hintId} className="text-muted text-xs text-pretty">
             {t.t("withdraw.numberHint")}
           </p>
           <button

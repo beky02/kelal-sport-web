@@ -625,7 +625,7 @@
     "withdrawAmount": "{amount} ወጪ አድርግ",
     "chooseAccount": "ሌላ ሂሳብ ምረጥ",
     "keepWagering": "ውርርዱን ቀጥል",
-    "contactSupport": "ድጋፍ ሰጪዎችን አግኝ",
+    "help": "እገዛ",
     "status": {
       "requested": "ተጠይቋል",
       "review": "በግምገማ ላይ",

@@ -14,21 +14,26 @@ export interface NoticeAction {
  * What came of the last thing the player asked, as an alert: `pending` —
  * there was no answer, and it may have gone through — or `refused`, with the
  * API's reason. The first line is ours, any further one the API's own
- * `detail`; each action is a real button, the first the main one.
+ * `detail` (an empty one is not shown); each action is a real button, the
+ * first the main one. `focusAction`: the first button takes focus when the
+ * notice appears — for one that replaces the button the player pressed, so
+ * the keyboard keeps its place.
  */
 export function PaymentNotice({
   tone,
   title,
   lines,
   actions = [],
+  focusAction = false,
 }: {
   tone: "pending" | "refused";
   title: string;
   lines: (string | null)[];
   actions?: NoticeAction[];
+  focusAction?: boolean;
 }) {
   const Icon = tone === "pending" ? Clock : CircleAlert;
-  const shown = lines.filter((line): line is string => line !== null);
+  const shown = lines.filter((line): line is string => Boolean(line));
   return (
     <div
       role="alert"
@@ -51,7 +56,8 @@ export function PaymentNotice({
           <div className="font-bold">{title}</div>
           {shown.map((line, i) => (
             <p
-              key={line}
+              // By place: the API's detail can repeat its title word for word.
+              key={i}
               className={cn("text-muted text-xs text-pretty", i > 0 && "mt-1")}
             >
               {line}
@@ -65,6 +71,7 @@ export function PaymentNotice({
             <button
               key={action.label}
               type="button"
+              autoFocus={focusAction && i === 0}
               aria-disabled={action.busy || undefined}
               aria-busy={action.busy || undefined}
               onClick={action.busy ? undefined : action.onClick}

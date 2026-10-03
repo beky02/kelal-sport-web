@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClientProvider } from "@tanstack/react-query";
+import { PaymentNotice } from "@/features/wallet/components/PaymentNotice";
 import { SessionWatcher } from "@/features/auth/hooks/use-session";
 import { useAuthStore } from "@/features/auth/stores/auth.store";
 import type { Player } from "@/features/auth/types";
@@ -26,10 +27,11 @@ import { CONTRACT_PLAYER, render } from "./render";
 
 const push = vi.fn();
 const replace = vi.fn();
+const back = vi.fn();
 /** The wallet's address: `?action=withdraw` unless a test opens a withdrawal's own. */
 let search = new URLSearchParams("action=withdraw");
 vi.mock("next/navigation", () => ({
-  useRouter: () => ({ push, replace, refresh: vi.fn() }),
+  useRouter: () => ({ push, replace, back, refresh: vi.fn() }),
   useSearchParams: () => search,
   usePathname: () => "/wallet",
 }));
@@ -121,10 +123,12 @@ let cancels: Answer[] = [];
 /** Every account added, and removed. */
 let added: unknown[] = [];
 let removed: string[] = [];
-let addAnswer: () => [number, unknown] = () => [201, ADDED];
+let addAnswer: () => Answer = () => [201, ADDED];
+/** Whether each save of an account gave up after a while, as the others do. */
+let addSignals: (AbortSignal | null)[] = [];
 let removeAnswer: () => [number, unknown] = () => [204, null];
-let accounts: () => [number, unknown] = () => [200, ACCOUNTS];
-let reads: (id: string) => [number, unknown] = () => [200, PROCESSING];
+let accounts: () => Answer = () => [200, ACCOUNTS];
+let reads: (id: string) => Answer = () => [200, PROCESSING];
 let methods: () => [number, unknown] = () => [200, METHODS];
 let wallet: () => [number, unknown] = () => [200, CONTRACT_WALLET];
 /** Who `/api/me` says is signed in when it is read again. */
@@ -166,9 +170,10 @@ function api() {
       case "/api/payout-accounts":
         if (method === "POST") {
           added.push(JSON.parse(String(init?.body)));
-          return reply(addAnswer());
+          addSignals.push(init?.signal ?? null);
+          return reply(await answered(addAnswer()));
         }
-        return reply(accounts());
+        return reply(await answered(accounts()));
       case "/api/withdrawals": {
         const headers = new Headers(init?.headers);
         posted.push({
@@ -192,7 +197,7 @@ function api() {
       });
       return reply(await answered(cancels.shift() ?? [500, {}]));
     }
-    if (id) return reply(reads(decodeURIComponent(id)));
+    if (id) return reply(await answered(reads(decodeURIComponent(id))));
     throw new Error(`unexpected ${method} ${url}`);
   });
 }
@@ -265,6 +270,7 @@ beforeEach(() => {
   added = [];
   removed = [];
   addAnswer = () => [201, ADDED];
+  addSignals = [];
   removeAnswer = () => [204, null];
   accounts = () => [200, ACCOUNTS];
   reads = () => [200, PROCESSING];
@@ -274,6 +280,7 @@ beforeEach(() => {
   search = new URLSearchParams("action=withdraw");
   push.mockReset();
   replace.mockReset();
+  back.mockReset();
   // A fresh page: no withdrawal on its way or unanswered.
   resetWithdrawalStore();
   useUiStore.setState({ lang: "en" });
@@ -306,6 +313,11 @@ describe("payout accounts (AC-10)", () => {
     expect(
       screen.getByRole("radio", { name: "Another number" }),
     ).toBeInTheDocument();
+    // A group named by the question: its Remove buttons are no radios (Q5).
+    expect(
+      screen.getByRole("group", { name: "Send to which telebirr account?" }),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("radiogroup")).not.toBeInTheDocument();
     // Continue waits for a choice.
     const next = () => screen.getByRole("button", { name: "Continue" });
     expect(next()).toBeDisabled();
@@ -340,15 +352,20 @@ describe("payout accounts (AC-10)", () => {
     );
     const number = screen.getByLabelText("telebirr number");
     await user.type(number, "922334890");
-    expect(
-      screen.getByText("We’ll keep it for your next withdrawals."),
-    ).toBeInTheDocument();
+    // The only place the player learns the number is kept: read with the field (Q5).
+    expect(number).toHaveAccessibleDescription(
+      "We’ll keep it for your next withdrawals.",
+    );
     await user.click(screen.getByRole("button", { name: "Save number" }));
 
-    // Saved, listed and chosen: the API's own answer.
+    // Saved, listed and chosen: the API's own answer — and the keyboard is
+    // on it, not lost with the field that went away (Q2).
     const fresh = await screen.findByRole("radio", { name: /\+2519••••890/ });
     await waitFor(() => expect(fresh).toBeChecked());
+    await waitFor(() => expect(fresh).toHaveFocus());
     expect(added).toEqual([{ provider: "telebirr", account: "+251922334890" }]);
+    // It gives up after a while, as every payment call does.
+    expect(addSignals[0]).toBeInstanceOf(AbortSignal);
     // The list is read again for everything else.
     await waitFor(() => expect(count("GET /api/payout-accounts")).toBe(2));
 
@@ -485,6 +502,10 @@ describe("withdrawing (AC-10)", () => {
 
     expect(
       await screen.findByRole("heading", { name: "Sending your money" }),
+    ).toBeInTheDocument();
+    // The status screen is the withdrawal's, as from the history (U2).
+    expect(
+      screen.getByText("Withdrawal", { selector: "div" }),
     ).toBeInTheDocument();
     expect(posted).toHaveLength(1);
     expect(posted[0].key).toMatch(UUID);
@@ -667,19 +688,91 @@ describe("where a withdrawal stands (AC-1)", () => {
     reads = () => [200, PAID];
     search = new URLSearchParams(`withdrawal=${PAID.id}`);
     api();
-    render(<WalletView />);
+    const { queryClient, rerender } = render(<WalletView />);
 
     expect(
       await screen.findByRole("heading", { name: "Withdrawal paid" }),
     ).toBeInTheDocument();
+    // The status screen's own title, wherever it was reached from (U2).
     expect(
       screen.getByText("Withdrawal", { selector: "div" }),
     ).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Done" }));
+    // Opened on this address (a link, a reload): replaced in place (Q1).
     expect(replace).toHaveBeenCalledWith("/wallet");
+    expect(back).not.toHaveBeenCalled();
+
+    search = new URLSearchParams("");
+    rerender(
+      <QueryClientProvider client={queryClient}>
+        <WalletView />
+      </QueryClientProvider>,
+    );
     expect(
       await screen.findByRole("button", { name: "Withdraw" }),
     ).toBeInTheDocument();
+  });
+
+  it("follows the address both ways: a withdrawal the wallet opened closes on Back (Q1)", async () => {
+    reads = () => [200, PAID];
+    search = new URLSearchParams("");
+    api();
+    const { queryClient, rerender } = render(<WalletView />);
+    const navigated = (to: string) => {
+      search = new URLSearchParams(to);
+      rerender(
+        <QueryClientProvider client={queryClient}>
+          <WalletView />
+        </QueryClientProvider>,
+      );
+    };
+    await screen.findByRole("button", { name: "Withdraw" });
+
+    // A row in the wallet's recent activity puts it in the address…
+    navigated(`withdrawal=${PAID.id}`);
+    expect(
+      await screen.findByRole("heading", { name: "Withdrawal paid" }),
+    ).toBeInTheDocument();
+    // …and the browser's Back takes it out: the wallet follows the address.
+    navigated("");
+    expect(
+      await screen.findByRole("button", { name: "Withdraw" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("heading", { name: "Withdrawal paid" }),
+    ).not.toBeInTheDocument();
+
+    // Opened from the wallet again, its own Done is that Back: history
+    // never holds the wallet twice.
+    navigated(`withdrawal=${PAID.id}`);
+    await user.click(await screen.findByRole("button", { name: "Done" }));
+    expect(back).toHaveBeenCalledTimes(1);
+    expect(replace).not.toHaveBeenCalled();
+  });
+
+  it("sends nothing for an address that can't name a withdrawal, and says it isn't there (SEC1)", async () => {
+    for (const id of ["..", ".", "a b"]) {
+      vi.restoreAllMocks();
+      asked = [];
+      search = new URLSearchParams();
+      search.set("withdrawal", id);
+      api();
+      const { unmount } = render(<WalletView />);
+
+      expect(
+        await screen.findByRole("heading", {
+          name: "We couldn’t find this withdrawal",
+        }),
+      ).toBeInTheDocument();
+      expect(
+        asked.filter(
+          (call) =>
+            call === "GET /api/" || call.startsWith("GET /api/withdrawals"),
+        ),
+        id,
+      ).toEqual([]);
+      unmount();
+    }
   });
 
   it("says when the withdrawal the address names isn't the player's", async () => {
@@ -732,9 +825,11 @@ describe("cancelling (AC-10)", () => {
       await screen.findByRole("button", { name: "Cancel withdrawal" }),
     );
 
-    expect(
-      await screen.findByRole("heading", { name: "Withdrawal cancelled" }),
-    ).toBeInTheDocument();
+    const heading = await screen.findByRole("heading", {
+      name: "Withdrawal cancelled",
+    });
+    // The button went with the answer: the keyboard is on what it says now (Q2).
+    await waitFor(() => expect(heading).toHaveFocus());
     expect(cancelled.map((c) => c.id)).toEqual([REQUESTED.id]);
     // This site's own page asked, and a cancel is no new intent: no key.
     expect(cancelled[0].headers.get(CSRF_HEADER)).toBe(CSRF_VALUE);
@@ -757,11 +852,16 @@ describe("cancelling (AC-10)", () => {
 
     await user.click(screen.getByRole("button", { name: "Cancel withdrawal" }));
 
-    expect(
-      await screen.findByRole("heading", { name: "Sending your money" }),
-    ).toBeInTheDocument();
+    const heading = await screen.findByRole("heading", {
+      name: "Sending your money",
+    });
+    await waitFor(() => expect(heading).toHaveFocus());
     const alert = screen.getByRole("alert");
     expect(alert).toHaveTextContent("Too late to cancel");
+    // Over the status it points to: "here's where it stands" (U3).
+    expect(
+      alert.compareDocumentPosition(heading) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
     expect(alert).toHaveTextContent(
       "This withdrawal can no longer be cancelled. Here’s where it stands.",
     );
@@ -790,11 +890,15 @@ describe("cancelling (AC-10)", () => {
     expect(
       screen.queryByRole("button", { name: "Cancel withdrawal" }),
     ).not.toBeInTheDocument();
-    await user.click(within(alert).getByRole("button", { name: "Try again" }));
+    // The keyboard is on the way on, not lost with the Cancel button (Q2).
+    const retry = within(alert).getByRole("button", { name: "Try again" });
+    await waitFor(() => expect(retry).toHaveFocus());
+    await user.click(retry);
 
-    expect(
-      await screen.findByRole("heading", { name: "Withdrawal cancelled" }),
-    ).toBeInTheDocument();
+    const heading = await screen.findByRole("heading", {
+      name: "Withdrawal cancelled",
+    });
+    await waitFor(() => expect(heading).toHaveFocus());
     expect(cancelled).toHaveLength(2);
   });
 });
@@ -843,7 +947,9 @@ describe("the balance (AC-4)", () => {
     let back = false;
     wallet = () => [
       200,
-      back ? { ...CONTRACT_WALLET, cash: "3208.95" } : CONTRACT_WALLET,
+      // The API's balance once the 2,000.00 is back — a bet was placed
+      // meanwhile, so it is not 3,208.95: the screen shows the API's figure.
+      back ? { ...CONTRACT_WALLET, cash: "3100.00" } : CONTRACT_WALLET,
     ];
     let answer!: (value: [number, unknown]) => void;
     cancels = [new Promise((resolve) => (answer = resolve))];
@@ -868,10 +974,11 @@ describe("the balance (AC-4)", () => {
     await act(async () => answer([200, CANCELLED]));
     await screen.findByRole("heading", { name: "Withdrawal cancelled" });
     await waitFor(() =>
-      expect(screen.getByTestId("chip")).toHaveTextContent("ETB 3,208.95"),
+      expect(screen.getByTestId("chip")).toHaveTextContent("ETB 3,100.00"),
     );
     expect(count("GET /api/wallet")).toBe(2);
     expect(count("GET /api/wallet/transactions?limit=5")).toBe(2);
+    expect(screen.queryByText(/3,208\.95/)).not.toBeInTheDocument();
   });
 });
 
@@ -1208,9 +1315,7 @@ describe("refusals and their fixes (AC-9)", () => {
     expect(alert).not.toHaveTextContent("paused");
     // A break is server state: who is signed in is read again.
     await waitFor(() => expect(count("GET /api/me")).toBe(1));
-    await user.click(
-      within(alert).getByRole("button", { name: "Contact support" }),
-    );
+    await user.click(within(alert).getByRole("button", { name: "Help" }));
     expect(push).toHaveBeenCalledWith("/help");
   });
 
@@ -1272,5 +1377,196 @@ describe("whose withdrawal it is", () => {
     expect(await screen.findByLabelText("telebirr number")).toBeInTheDocument();
     expect(screen.queryByText("+2519••••567")).not.toBeInTheDocument();
     expect(accountReads).toBe(2);
+  });
+});
+
+describe("review round 1", () => {
+  it("says a refused Try again didn't go through, and keeps its key (S2)", async () => {
+    requests = [
+      "drop",
+      [422, problem(422, "VALIDATION_FAILED")],
+      [201, PROCESSING],
+    ];
+    api();
+    render(<WalletView />);
+    await toConfirm();
+    await confirmWithdrawal();
+    await screen.findByText("We couldn’t confirm your withdrawal");
+
+    await user.click(tryAgain());
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent("Try again didn’t go through");
+    // The first try may still have gone through: Try again, with its key,
+    // stays the way on.
+    await user.click(tryAgain());
+
+    await screen.findByRole("heading", { name: "Sending your money" });
+    expect(posted).toHaveLength(3);
+    expect(new Set(posted.map((p) => p.key)).size).toBe(1);
+  });
+
+  it("reads the balance again when a withdrawal had no answer: it may have taken the money (M2)", async () => {
+    requests = ["drop"];
+    api();
+    render(<WalletView />);
+    await toConfirm();
+    expect(count("GET /api/wallet")).toBe(1);
+
+    await confirmWithdrawal();
+    await screen.findByText("We couldn’t confirm your withdrawal");
+
+    await waitFor(() => expect(count("GET /api/wallet")).toBe(2));
+    expect(count("GET /api/wallet/transactions?limit=5")).toBe(2);
+  });
+
+  it("never puts an account saved for one player into the next player's list (SEC2)", async () => {
+    let answer!: (value: [number, unknown]) => void;
+    addAnswer = () => new Promise((resolve) => (answer = resolve));
+    let accountReads = 0;
+    // The first player's list, then the next player's (nothing saved), then
+    // reads that never come back: whatever is listed is what was written.
+    accounts = () => {
+      accountReads += 1;
+      if (accountReads === 1) return [200, ACCOUNTS];
+      if (accountReads === 2) return [200, []];
+      return new Promise<[number, unknown]>(() => {});
+    };
+    api();
+    const { queryClient } = render(
+      <>
+        <SessionWatcher />
+        <WalletView />
+      </>,
+    );
+    await toAccount(/telebirr/);
+    await user.click(
+      await screen.findByRole("radio", { name: "Another number" }),
+    );
+    await user.type(screen.getByLabelText("telebirr number"), "922334890");
+    await user.click(screen.getByRole("button", { name: "Save number" }));
+    await waitFor(() => expect(added).toHaveLength(1));
+
+    // Someone else signs in before the answer lands…
+    signedIn = OTHER_PLAYER;
+    act(() => {
+      queryClient.setQueryData(sessionKeys.me(), { player: OTHER_PLAYER });
+    });
+    await toAccount(/telebirr/);
+    await screen.findByLabelText("telebirr number");
+
+    // …and the first player's account comes back: it stays theirs.
+    await act(async () => answer([201, ADDED]));
+    expect(queryClient.getQueryData(paymentKeys.payoutAccounts())).toEqual([]);
+    expect(screen.queryByText("+2519••••890")).not.toBeInTheDocument();
+  });
+
+  it("keeps the cancel's answer when a read was already on its way (Q3)", async () => {
+    let late!: (value: [number, unknown]) => void;
+    let readCount = 0;
+    reads = () => {
+      readCount += 1;
+      return readCount === 1
+        ? [200, REQUESTED]
+        : new Promise((resolve) => (late = resolve));
+    };
+    cancels = [[200, CANCELLED]];
+    search = new URLSearchParams(`withdrawal=${REQUESTED.id}`);
+    api();
+    const { queryClient } = render(<WalletView />);
+    await screen.findByRole("heading", { name: "Withdrawal requested" });
+
+    // A read is on its way — the 10 s beat, or the tab coming back…
+    act(() => {
+      void queryClient.invalidateQueries({
+        queryKey: paymentKeys.withdrawals(REQUESTED.id),
+      });
+    });
+    await waitFor(() => expect(readCount).toBe(2));
+    // …when the player cancels, and the API answers first.
+    await user.click(screen.getByRole("button", { name: "Cancel withdrawal" }));
+    await screen.findByRole("heading", { name: "Withdrawal cancelled" });
+
+    // The read from before the cancel lands late: it changes nothing.
+    await act(async () => late([200, REQUESTED]));
+    await waitFor(() => expect(queryClient.isFetching()).toBe(0));
+    expect(
+      queryClient.getQueryData(paymentKeys.withdrawal(REQUESTED.id, "en")),
+    ).toMatchObject({ status: "cancelled" });
+    expect(
+      screen.getByRole("heading", { name: "Withdrawal cancelled" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Cancel withdrawal" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("reads the balance again when a change is first seen in another language (M3)", async () => {
+    let decided = false;
+    reads = () => [200, decided ? as("rejected") : as("review")];
+    search = new URLSearchParams(`withdrawal=${PROCESSING.id}`);
+    api();
+    render(<WalletView />);
+    await screen.findByRole("heading", { name: "Being reviewed" });
+    expect(count("GET /api/wallet")).toBe(1);
+
+    // Finance rejects it while the player switches to Amharic.
+    decided = true;
+    act(() => useUiStore.setState({ lang: "am" }));
+
+    expect(
+      await screen.findByRole("heading", { name: "ወጪው ውድቅ ሆኗል" }),
+    ).toBeInTheDocument();
+    await waitFor(() => expect(count("GET /api/wallet")).toBe(2));
+  });
+
+  it("says nothing is too late when the read says it is already cancelled (M4)", async () => {
+    let tried = false;
+    reads = () => [200, tried ? CANCELLED : REQUESTED];
+    cancels = [[409, problem(409, "PAY_WITHDRAWAL_NOT_CANCELLABLE")]];
+    search = new URLSearchParams(`withdrawal=${REQUESTED.id}`);
+    api();
+    render(<WalletView />);
+    await screen.findByRole("heading", { name: "Withdrawal requested" });
+
+    // Another tab cancelled it first.
+    tried = true;
+    await user.click(screen.getByRole("button", { name: "Cancel withdrawal" }));
+
+    expect(
+      await screen.findByRole("heading", { name: "Withdrawal cancelled" }),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("Too late to cancel")).not.toBeInTheDocument();
+  });
+
+  it("leaves the account out when the API didn't name it, and says where in words", async () => {
+    const unnamed = as("processing", { accountMasked: null });
+    search = new URLSearchParams(`withdrawal=${unnamed.id}`);
+    reads = () => [200, unnamed];
+    api();
+    render(<WalletView />);
+
+    await screen.findByRole("heading", { name: "Sending your money" });
+    expect(row("Account")).toBeNull();
+    expect(
+      screen.getByText("ETB 2,000.00 is being sent to your account."),
+    ).toBeInTheDocument();
+  });
+
+  it("shows each line of a notice once, an empty one never, and keys them by place (Q4)", () => {
+    const errors = vi.spyOn(console, "error").mockImplementation(() => {});
+    render(
+      <PaymentNotice
+        tone="refused"
+        title="Your withdrawal didn’t go through"
+        lines={["Same words", "Same words", ""]}
+      />,
+    );
+
+    expect(screen.getAllByText("Same words")).toHaveLength(2);
+    expect(screen.getByRole("alert").querySelectorAll("p")).toHaveLength(2);
+    // No duplicate-key warning from React.
+    expect(
+      errors.mock.calls.filter((call) => String(call[0]).includes("key")),
+    ).toEqual([]);
   });
 });

@@ -26,11 +26,11 @@ export interface OutcomeAction {
 }
 
 /**
- * Where a deposit or a withdrawal stands: what, in words — a badge that
- * reads without `uppercase` or `tracking-*`, a title focus lands on, the
- * lines under it — the payment's rows, anything to say about the last thing
- * the player asked (`notice`), and what to do next. `role="status"`, so each
- * change is read out.
+ * Where a deposit or a withdrawal stands: anything to say about the last
+ * thing the player asked (`notice`) — over the status it points to — then
+ * what, in words — a badge that reads without `uppercase` or `tracking-*`, a
+ * title focus lands on, the lines under it — the payment's rows, and what to
+ * do next. `role="status"`, so each change is read out.
  */
 export function PaymentOutcome({
   tone,
@@ -55,6 +55,8 @@ export function PaymentOutcome({
 }) {
   return (
     <>
+      {notice && <div className="mx-4 mt-4">{notice}</div>}
+
       <div
         role="status"
         aria-live="polite"
@@ -107,8 +109,6 @@ export function PaymentOutcome({
           ))}
         </dl>
       )}
-
-      {notice && <div className="mx-4 mt-3">{notice}</div>}
 
       <div className="flex flex-col gap-2 p-4 pb-6">
         {actions.map((action) => (

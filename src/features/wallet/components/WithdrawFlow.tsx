@@ -264,7 +264,10 @@ export function WithdrawFlow({
   return (
     <>
       <FlowHeader
-        title={t.t("wallet.withdraw")}
+        // The status screen is the withdrawal's, as from the history (U2).
+        title={t.t(
+          display === "result" ? "wallet.withdrawalTitle" : "wallet.withdraw",
+        )}
         step={display}
         steps={WITHDRAW_FLOW}
         onBack={display === "result" ? leave : goBack}
@@ -287,6 +290,7 @@ export function WithdrawFlow({
 
       {display === "account" && method && (
         <AccountStep
+          owner={owner}
           method={method}
           choice={choice}
           onChoice={setChoice}

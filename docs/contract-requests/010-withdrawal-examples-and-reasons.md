@@ -42,7 +42,7 @@ things are missing or undefined.
 6. **Self-exclusion and withdrawals.** C04's rules chain has `NotExcluded` and WDR-04 says "not
    self-excluded", but RG-02 says a self-excluded player's "remaining funds can be withdrawn" and C12
    says "funds withdrawable". The web shows `RG_SELF_EXCLUDED` (or `RG_COOLING_OFF`) on a withdrawal as
-   the API's refusal with Contact support, and never calls withdrawals paused. The backend should settle
+   the API's refusal with Help, and never calls withdrawals paused. The backend should settle
    which rule applies and list the 403 codes this operation can return.
 7. **A 502 on `POST /v1/withdrawals`.** None is listed. The web treats any 5xx but `REAL_MONEY_DISABLED`
    — a 502 included — as no answer, and Try again sends the same request with the same key, so a

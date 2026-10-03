@@ -65,7 +65,7 @@ export function WithdrawRefused({
       case "keepWagering":
         return t.t("withdraw.keepWagering");
       case "help":
-        return t.t("withdraw.contactSupport");
+        return t.t("withdraw.help");
     }
   };
 

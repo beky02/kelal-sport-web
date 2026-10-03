@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, type ReactNode } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
 import {
   BadgeCheck,
   Ban,
@@ -66,12 +66,22 @@ export function WithdrawalStatus({
 
   // Focus lands on the outcome once it is there, so it is what is read out.
   const focused = useRef(false);
+  const heading = useRef<HTMLHeadingElement | null>(null);
   const focusOnce = (node: HTMLHeadingElement | null) => {
+    heading.current = node;
     if (node && !focused.current) {
       focused.current = true;
       node.focus();
     }
   };
+
+  // A cancel's answer takes the button away — cancelled, or too late — so
+  // the keyboard goes to what the screen says now, not to the page.
+  useEffect(() => {
+    if (cancelling.kind === "cancelled" || cancelling.kind === "tooLate") {
+      heading.current?.focus();
+    }
+  }, [cancelling.kind]);
 
   const backToWallet: OutcomeAction = {
     label: t.t("deposit.backToWallet"),
@@ -122,18 +132,25 @@ export function WithdrawalStatus({
 
   const amount = t.money(withdrawal.amount);
   const account = withdrawal.accountMasked ?? t.t("withdraw.yourAccount");
+  // An account the API didn't name gets no row of its own: the body says
+  // "your account".
   const rows = [
     { label: t.t("wallet.method"), value: method },
-    { label: t.t("wallet.account"), value: account },
+    ...(withdrawal.accountMasked
+      ? [{ label: t.t("wallet.account"), value: withdrawal.accountMasked }]
+      : []),
     { label: t.t("wallet.amount"), value: amount },
     { label: t.t("wallet.reference"), value: withdrawal.id },
   ];
 
-  // Cancel, while the contract allows it — and not while a cancel is on its
-  // way, had no answer (its own Try again says so) or was too late.
+  // Cancel, while the contract allows it — and not while a cancel had no
+  // answer or is that one's Try again (its own notice says so and holds the
+  // button), or was too late.
   const cancellable = isCancellable(withdrawal.status);
+  const retrying = cancelling.kind === "sending" && cancelling.again;
   const cancelAction: OutcomeAction[] =
     cancellable &&
+    !retrying &&
     cancelling.kind !== "unanswered" &&
     cancelling.kind !== "tooLate"
       ? [
@@ -254,22 +271,31 @@ export function WithdrawalStatus({
       break;
   }
 
-  // What came of the cancel the player asked for. No answer is only worth
-  // saying while it can still be cancelled: once the read says cancelled,
-  // the screen says so itself.
+  // What came of the cancel the player asked for. Too late says nothing
+  // when the read says it was cancelled after all (another tab did it), and
+  // no answer is only worth saying while it can still be cancelled: once the
+  // read says cancelled, the screen says so itself. Its Try again stays put,
+  // busy, while it goes, so the keyboard keeps its place.
   const notice =
-    cancelling.kind === "tooLate" ? (
+    cancelling.kind === "tooLate" && withdrawal.status !== "cancelled" ? (
       <PaymentNotice
         tone="refused"
         title={t.t("withdraw.tooLateTitle")}
         lines={[t.t("withdraw.tooLateBody")]}
       />
-    ) : cancelling.kind === "unanswered" && cancellable ? (
+    ) : (cancelling.kind === "unanswered" || retrying) && cancellable ? (
       <PaymentNotice
         tone="pending"
         title={t.t("withdraw.cancelUnconfirmedTitle")}
         lines={[t.t("withdraw.cancelUnconfirmedBody")]}
-        actions={[{ label: t.t("wallet.tryAgain"), onClick: () => cancel(id) }]}
+        actions={[
+          {
+            label: t.t("wallet.tryAgain"),
+            onClick: () => cancel(id),
+            busy: retrying,
+          },
+        ]}
+        focusAction
       />
     ) : cancelling.kind === "refused" && cancellable ? (
       <PaymentNotice

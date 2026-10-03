@@ -71,22 +71,31 @@ const readAccountsAgain = (queryClient: QueryClient): void =>
   });
 
 /**
- * Saves a payout account. The API's own answer goes into the list at once,
- * so the new account can be chosen straight away, and the list is read
+ * Saves a payout account for the signed-in player `owner`. The API's own
+ * answer goes into the list at once — while the list is still that player's
+ * — so the new account can be chosen straight away, and the list is read
  * again; a refusal re-reads it too — a 409 may mean it was already saved.
  */
 export function useAddPayoutAccount() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (request: PayoutAccountRequest) => addPayoutAccount(request),
-    onSuccess: (account) => {
-      queryClient.setQueryData<PayoutAccount[]>(
-        paymentKeys.payoutAccounts(),
-        (list) =>
-          list && !list.some((saved) => saved.id === account.id)
-            ? [...list, account]
-            : list,
-      );
+    mutationFn: ({
+      request,
+    }: {
+      request: PayoutAccountRequest;
+      owner: string;
+    }) => addPayoutAccount(request, withdrawalDeadline()),
+    onSuccess: (account, { owner }) => {
+      // Someone else signed in while it was on its way: their list is theirs.
+      if (signedIn(queryClient) === owner) {
+        queryClient.setQueryData<PayoutAccount[]>(
+          paymentKeys.payoutAccounts(),
+          (list) =>
+            list && !list.some((saved) => saved.id === account.id)
+              ? [...list, account]
+              : list,
+        );
+      }
       readAccountsAgain(queryClient);
     },
     onError: (error) => {
@@ -113,7 +122,7 @@ export function useRemovePayoutAccount() {
     readAccountsAgain(queryClient);
   };
   return useMutation({
-    mutationFn: (id: string) => removePayoutAccount(id),
+    mutationFn: (id: string) => removePayoutAccount(id, withdrawalDeadline()),
     onSuccess: (_, id) => removed(id),
     onError: (error, id) => {
       if (error instanceof ApiError && error.status === 404) removed(id);
@@ -138,14 +147,31 @@ const settledBy = (error: unknown): boolean =>
   error instanceof ApiError && (error.status === 404 || error.status === 401);
 
 /**
+ * The last this page knew of a withdrawal, in whichever language it read it:
+ * a change of status first seen after a change of language still counts.
+ */
+function latestCopy(
+  queryClient: QueryClient,
+  id: string,
+): Withdrawal | undefined {
+  const [latest] = queryClient
+    .getQueryCache()
+    .findAll({ queryKey: paymentKeys.withdrawals(id) })
+    .filter((query) => query.state.data !== undefined)
+    .sort((a, b) => b.state.dataUpdatedAt - a.state.dataUpdatedAt);
+  return latest?.state.data as Withdrawal | undefined;
+}
+
+/**
  * One withdrawal, as the API states it: read again every 10 s while it moves
  * on its own, every minute while a person reviews it (`pollInterval`), only
  * while its screen is open and the tab visible — read at once when the tab
  * comes back — until the API decides. Whenever a read shows its status has
  * changed, the balance and the history are read again: paying it, failing
  * it, rejecting or cancelling it each move money (C03 §6), and the browser
- * assumes nothing about when. Keyed by language (its rejection reason is the
- * API's text); another language's copy shows until its own lands.
+ * assumes nothing about when — compared with the last copy in any language.
+ * Keyed by language (its rejection reason is the API's text); another
+ * language's copy shows until its own lands.
  */
 export function useWithdrawal(id: string | null) {
   const queryClient = useQueryClient();
@@ -153,9 +179,7 @@ export function useWithdrawal(id: string | null) {
   return useQuery({
     queryKey: paymentKeys.withdrawal(id ?? "", lang),
     queryFn: async ({ signal }) => {
-      const before = queryClient.getQueryData<Withdrawal>(
-        paymentKeys.withdrawal(id!, lang),
-      );
+      const before = latestCopy(queryClient, id!);
       const withdrawal = await getWithdrawal(id!, signal);
       if (before && before.status !== withdrawal.status) {
         moneyMoved(queryClient);
@@ -261,6 +285,9 @@ export function useWithdrawalAttempt(owner: string | null) {
       switch (outcome.kind) {
         case "unanswered":
           store.unanswered(attempt.key);
+          // It may have been accepted, and its amount locked at once (WDR-03):
+          // the balance is read again, never worked out.
+          moneyMoved(queryClient);
           return;
         case "session":
           store.dropped(attempt.key);
@@ -352,7 +379,10 @@ export function useWithdrawalAttempt(owner: string | null) {
 /** Where a cancel the player asked for stands, while its screen is open. */
 export type CancelState =
   | { kind: "idle" }
-  | { kind: "sending" }
+  /** On its way; `again` when it is the Try again of one that had no answer. */
+  | { kind: "sending"; again: boolean }
+  /** The API cancelled it: its answer is on screen. */
+  | { kind: "cancelled" }
   /** No answer: it may have gone through. The status is read again. */
   | { kind: "unanswered" }
   /** The API says it can no longer be cancelled. The status is read again. */
@@ -363,8 +393,10 @@ export type CancelState =
  * Cancels the signed-in player's withdrawal while it is `requested` or in
  * `review`. No key: the contract takes none, and a withdrawal can only be
  * cancelled once — a repeat is the API's 409 — so Try again after no answer
- * can do no harm. The answer is the cancelled withdrawal: shown as it is,
- * with the balance and the history read again (its money is back in cash).
+ * can do no harm. The answer is the cancelled withdrawal: shown as it is —
+ * a read of it still on its way is called off first, so the status from
+ * before the cancel can't land on top of it, and other languages' copies go
+ * — with the balance and the history read again (its money is back in cash).
  * Anything else reads the withdrawal again, so the screen says where it
  * really stands. One cancel at a time.
  */
@@ -375,12 +407,17 @@ export function useCancelWithdrawal(owner: string | null) {
 
   const { mutate } = useMutation({
     mutationFn: (id: string) => cancelWithdrawal(id, withdrawalDeadline()),
-    onSuccess: (withdrawal, id) => {
+    onSuccess: async (withdrawal, id) => {
+      await queryClient.cancelQueries({
+        queryKey: paymentKeys.withdrawals(id),
+      });
       if (signedIn(queryClient) === owner) {
-        queryClient.setQueryData(
-          paymentKeys.withdrawal(id, useUiStore.getState().lang),
-          withdrawal,
-        );
+        const lang = useUiStore.getState().lang;
+        queryClient.removeQueries({
+          queryKey: paymentKeys.withdrawals(id),
+          predicate: (query) => query.queryKey.at(-1) !== lang,
+        });
+        queryClient.setQueryData(paymentKeys.withdrawal(id, lang), withdrawal);
       }
       moneyMoved(queryClient);
     },
@@ -402,9 +439,12 @@ export function useCancelWithdrawal(owner: string | null) {
     (id: string) => {
       if (busy.current) return;
       busy.current = true;
-      setState({ kind: "sending" });
+      setState((last) => ({
+        kind: "sending",
+        again: last.kind === "unanswered",
+      }));
       mutate(id, {
-        onSuccess: () => setState({ kind: "idle" }),
+        onSuccess: () => setState({ kind: "cancelled" }),
         onError: (error) => {
           const outcome = cancelOutcome(error);
           setState(

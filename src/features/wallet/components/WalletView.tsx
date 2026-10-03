@@ -17,11 +17,11 @@ import { WalletHome } from "./WalletHome";
 import { WithdrawFlow, type WithdrawSeed } from "./WithdrawFlow";
 import { WithdrawalStatus } from "./WithdrawalStatus";
 
+/** Where the wallet is — apart from one withdrawal's screen, which the address holds. */
 type View =
   | { name: "home" }
   | { name: "deposit"; resumeId: string | null }
-  | { name: "withdraw"; seed: WithdrawSeed | null }
-  | { name: "withdrawal"; id: string };
+  | { name: "withdraw"; seed: WithdrawSeed | null };
 
 /**
  * The wallet: balances at rest, a deposit, a withdrawal, or where one
@@ -31,7 +31,8 @@ type View =
  * slip's "Deposit to continue" already know what the player came to do —
  * `?deposit=return` is where a payment provider sends the player back (the
  * deposit this tab left to pay is shown again), and `?withdrawal={id}` is a
- * withdrawal's own screen, reached from its row in the history.
+ * withdrawal's own screen, reached from its row in the history — on screen
+ * exactly while the address says so, so Back and a reload agree with it.
  */
 export function WalletView() {
   const t = useTranslation();
@@ -43,21 +44,22 @@ export function WalletView() {
   const linked = params.get("withdrawal");
 
   const [view, setView] = useState<View>(
-    linked
-      ? { name: "withdrawal", id: linked }
-      : action === "deposit"
-        ? { name: "deposit", resumeId: null }
-        : action === "withdraw"
-          ? { name: "withdraw", seed: null }
-          : { name: "home" },
+    action === "deposit"
+      ? { name: "deposit", resumeId: null }
+      : action === "withdraw"
+        ? { name: "withdraw", seed: null }
+        : { name: "home" },
   );
 
-  // A withdrawal's address opened while the wallet is already on screen (a
-  // row in its recent activity): the address changed under it.
+  // Whether this wallet put the withdrawal in the address — the id came in
+  // while it was on screen, from a row in its recent activity. Leaving is
+  // then Back, so history never holds the wallet twice; a withdrawal it was
+  // opened on (a link from the history, a reload) is left in place.
   const [lastLinked, setLastLinked] = useState(linked);
+  const [openedHere, setOpenedHere] = useState(false);
   if (linked !== lastLinked) {
     setLastLinked(linked);
-    if (linked) setView({ name: "withdrawal", id: linked });
+    setOpenedHere(linked !== null);
   }
 
   const { isLoading, isGuest, player } = useSession();
@@ -110,15 +112,52 @@ export function WalletView() {
     );
   }
 
-  // Leaving a withdrawal's screen takes its id out of the address, so a
-  // reload lands on what is on screen, and its row opens it again.
+  // Leaving a withdrawal's screen takes its id out of the address — the
+  // screen follows — so a reload lands on what is on screen, and its row
+  // opens it again.
   const show = (next: View) => {
-    if (linked) router.replace(routes.wallet);
     setView(next);
+    if (!linked) return;
+    if (openedHere) router.back();
+    else router.replace(routes.wallet);
   };
   const home = () => show({ name: "home" });
   const withdraw = (seed: WithdrawSeed | null) =>
     show({ name: "withdraw", seed });
+
+  if (linked) {
+    return (
+      <>
+        <FlowHeader
+          title={t.t("wallet.withdrawalTitle")}
+          step="result"
+          onBack={home}
+          backLabel={t.t("auth.back")}
+        />
+        <WithdrawalStatus
+          key={`${owner}:${linked}`}
+          id={linked}
+          owner={owner}
+          onDone={home}
+          onBackToSports={() => router.push(routes.home)}
+          onRetry={(withdrawal) =>
+            withdraw({
+              method: withdrawal.method,
+              amount: withdrawal.amount,
+              step: "account",
+            })
+          }
+          onChooseAnother={(withdrawal) =>
+            withdraw({
+              method: null,
+              amount: withdrawal.amount,
+              step: "method",
+            })
+          }
+        />
+      </>
+    );
+  }
 
   if (view.name === "deposit") {
     // Keyed by the player: someone else signing in starts afresh, and never
@@ -143,40 +182,6 @@ export function WalletView() {
         seed={view.seed}
         onExit={home}
       />
-    );
-  }
-
-  if (view.name === "withdrawal") {
-    return (
-      <>
-        <FlowHeader
-          title={t.t("wallet.withdrawalTitle")}
-          step="result"
-          onBack={home}
-          backLabel={t.t("auth.back")}
-        />
-        <WithdrawalStatus
-          key={`${owner}:${view.id}`}
-          id={view.id}
-          owner={owner}
-          onDone={home}
-          onBackToSports={() => router.push(routes.home)}
-          onRetry={(withdrawal) =>
-            withdraw({
-              method: withdrawal.method,
-              amount: withdrawal.amount,
-              step: "account",
-            })
-          }
-          onChooseAnother={(withdrawal) =>
-            withdraw({
-              method: null,
-              amount: withdrawal.amount,
-              step: "method",
-            })
-          }
-        />
-      </>
     );
   }
 
