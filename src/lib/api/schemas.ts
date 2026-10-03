@@ -51,19 +51,29 @@ import type {
 import { isIsoDate } from "@/features/auth/lib/birth-date";
 import { toE164 } from "@/features/auth/lib/phone";
 import { compareMoney } from "@/lib/money";
-import { MONEY_PATTERN, ODDS_PATTERN, TICKET_NUMBER_PATTERN } from "./patterns";
+import {
+  MONEY_PATTERN,
+  ODDS_PATTERN,
+  PHONE_PATTERN,
+  TICKET_NUMBER_PATTERN,
+} from "./patterns";
 import {
   DEPOSIT_STATUSES,
   PAYMENT_METHOD_CODES,
   WALLET_TXN_REFERENCE_TYPES,
   WALLET_TXN_TYPES,
+  WITHDRAWAL_STATUSES,
   type Deposit,
   type DepositRequest,
   type PaymentMethod,
   type PaymentResult,
+  type PayoutAccount,
+  type PayoutAccountRequest,
   type WalletBalances,
   type WalletTxn,
   type WalletTxnPage,
+  type Withdrawal,
+  type WithdrawalRequest,
 } from "@/features/wallet/types";
 
 export const localizedSchema = z.object({
@@ -423,6 +433,72 @@ export const depositRequestSchema = z.strictObject({
     "Not an amount",
   ),
 }) satisfies z.ZodType<DepositRequest>;
+
+// ── withdrawals and payout accounts (F6c) ─────────────────────────────────
+
+/**
+ * What an API id can be before this app puts it in an upstream path or body:
+ * ids are opaque (D3), but only UUIDv7 and the contract's ULID-like examples
+ * are ever sent. `abort`, so nothing else is checked against a value that
+ * isn't one.
+ */
+const apiIdSchema = z.string().regex(/^[A-Za-z0-9_-]{1,64}$/, { abort: true });
+
+/** A mobile number in the contract's `Phone` form. */
+const phoneSchema = z.string().regex(PHONE_PATTERN);
+
+/** `/api/payout-accounts`: one of the player's saved accounts. */
+export const payoutAccountSchema = z.object({
+  id: z.string().min(1),
+  provider: paymentMethodCodeSchema,
+  accountMasked: z.string().min(1),
+  holderName: z.string().nullable(),
+  verified: z.boolean(),
+  createdAt: z.iso.datetime({ offset: true }),
+}) satisfies z.ZodType<PayoutAccount>;
+
+export const payoutAccountsSchema = z.array(payoutAccountSchema);
+
+/**
+ * What `/api/payout-accounts` accepts from the browser: a contract method and
+ * a mobile number in the contract's form — strict, so nothing else rides along.
+ */
+export const payoutAccountRequestSchema = z.strictObject({
+  provider: paymentMethodCodeSchema,
+  account: phoneSchema,
+}) satisfies z.ZodType<PayoutAccountRequest>;
+
+/** `/api/withdrawals` and `/api/withdrawals/{id}`: a withdrawal. */
+export const withdrawalSchema = z.object({
+  id: z.string().min(1),
+  method: paymentMethodCodeSchema,
+  amount: z.string().regex(MONEY_PATTERN),
+  status: z.enum(WITHDRAWAL_STATUSES),
+  accountMasked: z.string().nullable(),
+  reviewReason: z.string().nullable(),
+  rejectionReason: z.string().nullable(),
+  createdAt: z.iso.datetime({ offset: true }),
+  paidAt: z.iso.datetime({ offset: true }).nullable(),
+}) satisfies z.ZodType<Withdrawal>;
+
+/**
+ * What `/api/withdrawals` accepts from the browser: a method, an amount in the
+ * contract's form above zero, and where it goes — a saved account by an id
+ * that can be one, or a mobile number — strict, so nothing else rides along.
+ * Whether the method, the limits, the balance or the account allow it is the
+ * API's to say.
+ */
+export const withdrawalRequestSchema = z.strictObject({
+  method: paymentMethodCodeSchema,
+  amount: contractMoneySchema.refine(
+    (amount) => compareMoney(amount, "0.00") > 0,
+    "Not an amount",
+  ),
+  to: z.discriminatedUnion("kind", [
+    z.strictObject({ kind: z.literal("saved"), payoutAccountId: apiIdSchema }),
+    z.strictObject({ kind: z.literal("new"), account: phoneSchema }),
+  ]),
+}) satisfies z.ZodType<WithdrawalRequest>;
 
 /** The withdrawal mock's answer, until F6c moves it to `/v1/withdrawals`. */
 export const paymentResultSchema = z.object({
