@@ -124,6 +124,8 @@ let methods: () => [number, unknown] = () => [200, METHODS];
 let wallet: () => [number, unknown] = () => [200, CONTRACT_WALLET];
 /** Who `/api/me` says is signed in when it is read again. */
 let signedIn: Player | null = CONTRACT_PLAYER;
+/** The language each read of a deposit asked for. */
+let readLanguages: (string | null)[] = [];
 
 function api() {
   vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
@@ -163,7 +165,10 @@ function api() {
       }
     }
     const id = /^\/api\/deposits\/(.+)$/.exec(url.pathname)?.[1];
-    if (id) return reply(reads(decodeURIComponent(id)));
+    if (id) {
+      readLanguages.push(new Headers(init?.headers).get("Accept-Language"));
+      return reply(reads(decodeURIComponent(id)));
+    }
     throw new Error(`unexpected ${url}`);
   });
 }
@@ -207,6 +212,7 @@ function row(label: string): string | null {
 beforeEach(() => {
   posted = [];
   asked = [];
+  readLanguages = [];
   starts = [];
   reads = () => [200, PHONE];
   methods = () => [200, METHODS];
@@ -1187,6 +1193,79 @@ describe("a deposit outlives its screen (review round 1)", () => {
     await user.click(tryAgain());
     await screen.findByRole("heading", { name: "Check your phone" });
     expect(posted.map((p) => p.key)).toEqual(Array(3).fill(posted[0].key));
+  });
+});
+
+describe("details from review round 1", () => {
+  it("reads a finished deposit again in the language the player switches to (Q4)", async () => {
+    const failed: Deposit = {
+      ...ended("failed", "01J9A7W0000000000000000011"),
+      failureReason: "Declined by the wallet",
+    };
+    starts = [[201, failed]];
+    reads = () => [200, failed];
+    api();
+    render(<WalletView />);
+    await toConfirm(/CBE Birr/);
+    await confirmAndPay();
+    await screen.findByText("Declined by the wallet");
+
+    // Final, so no longer polled — but its reason is the API's text.
+    act(() => useUiStore.setState({ lang: "am" }));
+    await waitFor(() => expect(readLanguages).toContain("am"));
+  });
+
+  it("names the method, never its code, while the methods are read or when they fail (Q5)", async () => {
+    search = new URLSearchParams("deposit=return");
+    sessionStorage.setItem(
+      "kelal.deposit",
+      JSON.stringify({
+        id: "01J9A7W0000000000000000002",
+        player: CONTRACT_PLAYER.id,
+      }),
+    );
+    // A Chapa deposit (its code "chapa"), and the methods can't be read.
+    reads = () => [200, { ...WEB, method: "chapa" }];
+    methods = () => [503, problem(503, "SERVICE_UNAVAILABLE")];
+    api();
+    render(<WalletView />);
+
+    expect(
+      await screen.findByRole("heading", {
+        name: "Finish paying on your payment provider",
+      }),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/\bchapa\b/)).not.toBeInTheDocument();
+  });
+
+  it("offers Try again and the way back when there is no method to choose (U4)", async () => {
+    methods = () => [200, []];
+    api();
+    const { unmount } = render(<WalletView />);
+
+    expect(
+      await screen.findByText(
+        "No payment methods are available right now. Try again later.",
+      ),
+    ).toBeInTheDocument();
+    // No Continue that can never act: the way on is back to the wallet.
+    expect(
+      screen.queryByRole("button", { name: "Continue" }),
+    ).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Back to wallet" }));
+    expect(await screen.findByTestId("wallet-cash")).toBeInTheDocument();
+    unmount();
+
+    // Or Try again, which reads the methods again.
+    render(<WalletView />);
+    await screen.findByText(
+      "No payment methods are available right now. Try again later.",
+    );
+    methods = () => [200, METHODS];
+    await user.click(screen.getByRole("button", { name: "Try again" }));
+    expect(
+      await screen.findByRole("button", { name: /CBE Birr/ }),
+    ).toBeInTheDocument();
   });
 });
 

@@ -116,10 +116,14 @@ export function DepositFlow({
         ? "method"
         : step;
 
+  // Read here, in this render, so the flow re-renders when they change (a
+  // query result re-renders only for what its own render read).
+  const offeredMethods = methods.data;
+  const methodsSettled = !methods.isPending;
   /** A method's name, null while the methods are still being read. */
   const name = (c: PaymentMethodCode): string | null =>
-    methods.data?.find((m) => m.code === c)?.name ??
-    (methods.isPending ? null : t.t("deposit.provider"));
+    offeredMethods?.find((m) => m.code === c)?.name ??
+    (methodsSettled ? t.t("deposit.provider") : null);
 
   const started = (deposit: Deposit) => {
     setShown(deposit.id);
