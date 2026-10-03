@@ -6,9 +6,11 @@ import {
   selectionFrom,
   useBetSlipStore,
 } from "@/features/bet-slip/stores/bet-slip.store";
+import { AmountStep } from "@/features/wallet/components/AmountStep";
 import { WalletView } from "@/features/wallet/components/WalletView";
 import type { WalletBalances } from "@/features/wallet/types";
 import { toWalletBalances, toWalletTxnPage } from "@/lib/api/mappers/wallet";
+import { PAYMENT_METHODS } from "@/lib/api/mock/wallet";
 import { useUiStore } from "@/stores/ui.store";
 import { example } from "../contract";
 import { render } from "./render";
@@ -201,6 +203,43 @@ describe("the wallet's recent activity (AC-6)", () => {
     expect(
       await screen.findByText("Winnings · K7Q2-M9XP-M"),
     ).toBeInTheDocument();
+  });
+});
+
+describe("the withdraw amount step's ceiling (AC-5)", () => {
+  const step = (amount: number) =>
+    render(
+      <AmountStep
+        mode="withdraw"
+        method={PAYMENT_METHODS[0]}
+        available="1208.95"
+        amount={amount}
+        onAmountChange={() => undefined}
+        onContinue={() => undefined}
+      />,
+    );
+
+  it("compares the typed amount with the cash balance as strings", () => {
+    const { unmount } = step(1208);
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Continue" })).toBeEnabled();
+    expect(screen.getByText("ETB 1,208.95")).toBeInTheDocument();
+    unmount();
+
+    step(1209);
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "This is more than your withdrawable balance.",
+    );
+    expect(screen.getByRole("button", { name: "Continue" })).toBeDisabled();
+  });
+
+  it("says a number too long to be an amount is over the balance, rather than failing", () => {
+    // 22 digits: `String()` of it is "1e+22", which is no amount at all.
+    step(Number("9".repeat(22)));
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "This is more than your withdrawable balance.",
+    );
+    expect(screen.getByRole("button", { name: "Continue" })).toBeDisabled();
   });
 });
 

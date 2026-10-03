@@ -1,7 +1,7 @@
 ---
 id: F6a
 title: Split from F6 — balances and history from the contract, money as strings
-status: planned
+status: verifying
 depends_on: [F4]
 contract_tags: [Wallet]
 touches_money: true

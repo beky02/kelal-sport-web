@@ -40,9 +40,13 @@ export function AmountStep({
   const withdrawing = mode === "withdraw";
 
   // Compared as strings (FD4): the typed amount is whole birr, so `String`
-  // is its exact decimal form.
+  // is its exact decimal form — while it is a safe integer. Anything longer
+  // is no amount at all (`String` gives "1e+22") and far above any balance:
+  // the contract's `Money` has at most 12 digits before the point.
   const overCeiling =
-    withdrawing && compareMoney(String(amount), available) > 0;
+    withdrawing &&
+    (!Number.isSafeInteger(amount) ||
+      compareMoney(String(amount), available) > 0);
   const belowMinimum = amount > 0 && amount < method.minAmount;
   const blocked = overCeiling || belowMinimum || amount <= 0;
 
