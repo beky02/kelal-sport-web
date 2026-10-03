@@ -1,7 +1,7 @@
 ---
 id: F6b
 title: Split from F6 — methods and limits, deposits driven by next_action, every deposit status
-status: todo
+status: planned
 depends_on: [F6a]
 contract_tags: [Payments]
 touches_money: true
