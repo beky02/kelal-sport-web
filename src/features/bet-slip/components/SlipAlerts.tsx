@@ -3,7 +3,7 @@
 import { CircleAlert } from "lucide-react";
 import type { RuleSetJson } from "@golden/slipcalc";
 import { useSession } from "@/features/auth/hooks/use-session";
-import { useDateTimeText } from "@/features/bookings/hooks/use-date-time-text";
+import { useDateTimeText } from "@/lib/i18n/use-date-time-text";
 import { useTranslation, type Translator } from "@/lib/i18n/use-translation";
 import { normaliseMoney } from "@/lib/money";
 import { cn } from "@/lib/utils/cn";

@@ -1,15 +1,18 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { screen, waitFor, within } from "@testing-library/react";
+import { QueryClientProvider } from "@tanstack/react-query";
+import { act, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { AsidePanel } from "@/components/layout/AsidePanel";
+import { SessionWatcher } from "@/features/auth/hooks/use-session";
 import { useAuthStore } from "@/features/auth/stores/auth.store";
 import { BetTicket } from "@/features/bets/components/BetTicket";
 import { MyBetsView } from "@/features/bets/components/MyBetsView";
 import { toBet, toBetPage } from "@/lib/api/mappers/bets";
 import type { components } from "@/lib/api/schema";
+import { sessionKeys } from "@/lib/query/keys";
 import { useUiStore } from "@/stores/ui.store";
 import { example } from "../contract";
-import { render } from "./render";
+import { CONTRACT_PLAYER, render } from "./render";
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: vi.fn(), replace: vi.fn(), refresh: vi.fn() }),
@@ -233,6 +236,40 @@ describe("My bets", () => {
     await waitFor(() => expect(cards()).toHaveLength(1));
   });
 
+  it("drops one player's bets when another signs in elsewhere, with no guest between (SEC1)", async () => {
+    answers({
+      [OPEN_LIST]: [
+        [200, page([OPEN()])],
+        [
+          200,
+          page([
+            OPEN({
+              id: "01J9A7V0000000000000000003",
+              ticket_id: "R7K2-M9XP-K",
+            }),
+          ]),
+        ],
+      ],
+    });
+    const { queryClient } = render(
+      <>
+        <SessionWatcher />
+        <MyBetsView />
+      </>,
+    );
+    expect(await screen.findByText("M3HX-7PQA-V")).toBeInTheDocument();
+
+    // Another tab logged out and someone else logged in: /api/me says so.
+    act(() => {
+      queryClient.setQueryData(sessionKeys.me(), {
+        player: { ...CONTRACT_PLAYER, id: "01J9A7R0000000000000000099" },
+      });
+    });
+
+    expect(await screen.findByText("R7K2-M9XP-K")).toBeInTheDocument();
+    expect(screen.queryByText("M3HX-7PQA-V")).not.toBeInTheDocument();
+  });
+
   it("asks a guest to log in, and asks the API nothing", async () => {
     answers({});
     render(<MyBetsView />, { session: "guest" });
@@ -325,6 +362,38 @@ describe("a ticket", () => {
     );
   });
 
+  it.each([
+    // All legs void: the API pays back the net stake (D1.9) — its figure.
+    ["void", "85.00", "Payout", "ETB 85.00"],
+    ["cashed_out", "120.00", "Cashed out", "ETB 120.00"],
+    // The API's own zero for a lost bet, shown as it comes.
+    ["lost", "0.00", "Payout", "ETB 0.00"],
+  ] as const)(
+    "shows a %s ticket's payout as the API sends it (M2)",
+    async (status, payout, label, amount) => {
+      answers({ [WON_DETAIL]: [[200, bet(WON({ status, payout }))]] });
+      render(<BetTicket id="01J9A7V0000000000000000001" />);
+
+      const figures = await screen.findByTestId("ticket-figures");
+      const line = within(figures).getByText(label).closest("div")!;
+      expect(line).toHaveTextContent(amount);
+      // Never the slip's view of the same legs.
+      expect(figures).not.toHaveTextContent("289.17");
+    },
+  );
+
+  it("shows nothing for a settled ticket the API sent without a payout, never a 0.00 (M2)", async () => {
+    answers({
+      [WON_DETAIL]: [[200, bet(WON({ status: "lost", payout: null }))]],
+    });
+    render(<BetTicket id="01J9A7V0000000000000000001" />);
+
+    const figures = await screen.findByTestId("ticket-figures");
+    const line = within(figures).getByText("Payout").closest("div")!;
+    expect(line).toHaveTextContent("—");
+    expect(line).not.toHaveTextContent("0.00");
+  });
+
   it("shares the ticket's /t address on Telegram", async () => {
     answers({ [WON_DETAIL]: [[200, bet(WON())]] });
     render(<BetTicket id="01J9A7V0000000000000000001" />);
@@ -353,6 +422,22 @@ describe("a ticket", () => {
     ).toBeInTheDocument();
   });
 
+  it("doesn't call a 404 without the API's NOT_FOUND a ticket that isn't yours (Q7)", async () => {
+    // A 404 from something in the way (an edge, a mock route) says nothing
+    // about whose ticket this is.
+    answers({
+      [WON_DETAIL]: [
+        [404, { type: "about:blank", title: "Not Found", status: 404 }],
+      ],
+    });
+    render(<BetTicket id="01J9A7V0000000000000000001" />);
+
+    expect(
+      await screen.findByRole("heading", { name: "Couldn’t load this ticket" }),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("This ticket isn’t on your account.")).toBeNull();
+  });
+
   it("says when a ticket couldn't be loaded, and tries again", async () => {
     answers({ [WON_DETAIL]: ["drop", [200, bet(WON())]] });
     render(<BetTicket id="01J9A7V0000000000000000001" />);
@@ -368,6 +453,21 @@ describe("a ticket", () => {
 describe("the aside's My bets count", () => {
   const myBetsTab = () => screen.getByRole("button", { name: /My bets/ });
 
+  /** The aside shows from 1280 px; below it, it is in the page but hidden. */
+  const viewport = (wide: boolean) =>
+    vi.stubGlobal(
+      "matchMedia",
+      vi.fn((query: string) => ({
+        matches: wide && query === "(min-width: 1280px)",
+        media: query,
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+      })),
+    );
+
+  beforeEach(() => viewport(true));
+  afterEach(() => vi.unstubAllGlobals());
+
   it("counts open bets from the first page", async () => {
     answers({ [OPEN_LIST]: [[200, page([OPEN(), WON()])]] });
     render(<AsidePanel />);
@@ -382,6 +482,65 @@ describe("the aside's My bets count", () => {
     await waitFor(() => expect(myBetsTab()).toHaveTextContent("My bets2+"));
     // Only the first page is read for the count.
     expect(requests.map((url) => url.search)).toEqual(["?status=open"]);
+  });
+
+  it("reads only the first page for its count, however far My bets has paged (Q3)", async () => {
+    answers({
+      [OPEN_LIST]: [[200, page([OPEN()], "c2")]],
+      [`${OPEN_LIST}&cursor=c2`]: [
+        [
+          200,
+          page([
+            OPEN({
+              id: "01J9A7V0000000000000000003",
+              ticket_id: "R7K2-M9XP-K",
+            }),
+          ]),
+        ],
+      ],
+    });
+    const { queryClient, rerender } = render(<MyBetsView />);
+    await userEvent.click(
+      await screen.findByRole("button", { name: "Show more" }),
+    );
+    await waitFor(() => expect(cards()).toHaveLength(2));
+    // Later, on another page: the pages My bets loaded have gone stale.
+    await queryClient.invalidateQueries({
+      queryKey: ["bets"],
+      refetchType: "none",
+    });
+    requests = [];
+
+    rerender(
+      <QueryClientProvider client={queryClient}>
+        <AsidePanel />
+      </QueryClientProvider>,
+    );
+
+    await waitFor(() => expect(myBetsTab()).toHaveTextContent("My bets1+"));
+    // One small read, not every page My bets once loaded.
+    expect(requests.map((url) => url.search)).toEqual(["?status=open"]);
+  });
+
+  it("asks nothing on a screen too narrow to show the aside (Q2)", () => {
+    viewport(false);
+    answers({});
+    render(<AsidePanel />);
+
+    expect(requests).toHaveLength(0);
+  });
+
+  it("shows no count until the first page is in, and none after it failed — never a 0 (Q8)", async () => {
+    answers({ [OPEN_LIST]: ["drop"] });
+    const { queryClient } = render(<AsidePanel />);
+
+    expect(myBetsTab()).toHaveTextContent(/^My bets$/);
+    await waitFor(() =>
+      expect(queryClient.getQueryState(["bets", "open-count"])?.status).toBe(
+        "error",
+      ),
+    );
+    expect(myBetsTab()).toHaveTextContent(/^My bets$/);
   });
 
   it("asks nothing for a guest", () => {

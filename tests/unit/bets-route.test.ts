@@ -506,6 +506,39 @@ describe("GET /api/bets", () => {
     expect(response.headers.get("set-cookie")).toContain(mod.SESSION_COOKIE);
   });
 
+  it("keeps a refreshed session when the other language read fails first (SEC2)", async () => {
+    const mod = await load();
+    const tokens = responseExample("/v1/auth/refresh", "post", 200) as Tokens;
+    upstreamAnswers((request) => {
+      if (path(request) === "/v1/auth/refresh")
+        return { status: 200, body: tokens };
+      // The Amharic read fails at once; the English one needs a refresh.
+      if (language(request) === "am")
+        return {
+          status: 503,
+          body: {
+            type: "x",
+            title: "x",
+            status: 503,
+            code: "SERVICE_UNAVAILABLE",
+          },
+        };
+      return bearer(request) === tokens.access_token
+        ? { status: 200, body: example("/v1/bets") }
+        : { status: 401, body: EXPIRED };
+    });
+
+    const response = await list(mod, "?status=open");
+
+    expect(response.status).toBe(503);
+    // The refresh spent the old refresh token: the rotated session must reach
+    // the browser, or its next request replays the spent one (C01 §8).
+    expect(sent.filter((r) => path(r) === "/v1/auth/refresh")).toHaveLength(1);
+    const cookie = response.headers.get("set-cookie") ?? "";
+    expect(cookie).toContain(`${mod.SESSION_COOKIE}=v1.`);
+    expect(cookie).not.toContain("Max-Age=0");
+  });
+
   it("ends a session the API no longer honours: 401, cookie cleared", async () => {
     const mod = await load();
     upstreamAnswers(() => ({

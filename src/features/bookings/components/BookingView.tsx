@@ -3,7 +3,7 @@
 import { CardLabel } from "@/components/ui/Card";
 import { BookingAlert } from "@/features/bet-slip/components/BookingCode";
 import { useBetSlipStore } from "@/features/bet-slip/stores/bet-slip.store";
-import { useDateTimeText } from "@/features/bookings/hooks/use-date-time-text";
+import { useDateTimeText } from "@/lib/i18n/use-date-time-text";
 import { useTranslation } from "@/lib/i18n/use-translation";
 import { compareOdds } from "@/lib/money";
 import { cn } from "@/lib/utils/cn";
@@ -15,9 +15,7 @@ import { stakeHintOf } from "../lib/to-slip";
 import { useValidUntil } from "../hooks/use-valid-until";
 import { bookingErrorMessage } from "../lib/errors";
 import type { Booking, BookingLeg } from "../types";
-
-/** The slip is a sheet below this width; at and above it, the aside shows it. */
-const SLIP_ASIDE_QUERY = "(min-width: 1280px)";
+import { ASIDE_QUERY } from "@/lib/utils/use-media-query";
 
 /**
  * The `/b/{code}` page: a shared booking, re-priced now, and the one action
@@ -39,7 +37,7 @@ export function BookingView({ booking: rendered }: { booking: Booking }) {
     // On a phone or tablet the slip is a sheet: open it to show what loaded.
     if (
       typeof window.matchMedia === "function" &&
-      !window.matchMedia(SLIP_ASIDE_QUERY).matches
+      !window.matchMedia(ASIDE_QUERY).matches
     ) {
       setMobileSlipOpen(true);
     }

@@ -6,9 +6,10 @@ import { useAuthStore } from "@/features/auth/stores/auth.store";
 import { BetSlip } from "@/features/bet-slip/components/BetSlip";
 import { useBetSlipStore } from "@/features/bet-slip/stores/bet-slip.store";
 import { MyBetsView } from "@/features/bets/components/MyBetsView";
-import { useBets } from "@/features/bets/hooks/use-bets";
+import { useOpenBetsCount } from "@/features/bets/hooks/use-bets";
 import { useUiStore, type AsidePanel as Panel } from "@/stores/ui.store";
 import { cn } from "@/lib/utils/cn";
+import { ASIDE_QUERY, useMediaQuery } from "@/lib/utils/use-media-query";
 
 /**
  * The sportsbook's right-hand column: the slip, or what is already running.
@@ -27,16 +28,25 @@ export function AsidePanel() {
   // Until /api/me answers, a player is not sent to log in.
   const isGuest = !isLoading && guestOrPending;
   const openAuth = useAuthStore((s) => s.open);
-  // A guest has no bets to count, so this stays idle until they sign in. The
-  // list carries no totals, so the count is the first page's, `+` when there
-  // are more pages (contract request 007).
-  const { data: bets } = useBets("open", !isLoading && !guestOrPending);
-  const first = isGuest ? undefined : bets?.pages[0];
-  const openBets = first
-    ? `${first.items.length}${first.nextCursor ? "+" : ""}`
-    : "0";
+  // A guest has no bets to count, and below 1280 px the column is hidden —
+  // so nothing is read until both a player and the column are there.
+  const shown = useMediaQuery(ASIDE_QUERY);
+  const { data: open } = useOpenBetsCount(
+    shown && !isLoading && !guestOrPending,
+  );
+  // No figure until the first page is in, and none if it failed: "0" would
+  // tell a player with open bets they have none.
+  const openBets = isGuest
+    ? 0
+    : open
+      ? `${open.count}${open.more ? "+" : ""}`
+      : null;
 
-  const tabs: Array<{ value: Panel; label: string; count: number | string }> = [
+  const tabs: Array<{
+    value: Panel;
+    label: string;
+    count: number | string | null;
+  }> = [
     { value: "slip", label: t.t("betSlip.title"), count: selectionCount },
     { value: "bets", label: t.t("betSlip.myBets"), count: openBets },
   ];
@@ -64,14 +74,18 @@ export function AsidePanel() {
               )}
             >
               {tab.label}
-              <span
-                className={cn(
-                  "inline-grid h-[18px] min-w-[18px] place-items-center rounded-full px-[5px] text-[10px] font-extrabold",
-                  active ? "bg-accent text-on-accent" : "bg-ground text-muted",
-                )}
-              >
-                {tab.count}
-              </span>
+              {tab.count !== null && (
+                <span
+                  className={cn(
+                    "inline-grid h-[18px] min-w-[18px] place-items-center rounded-full px-[5px] text-[10px] font-extrabold",
+                    active
+                      ? "bg-accent text-on-accent"
+                      : "bg-ground text-muted",
+                  )}
+                >
+                  {tab.count}
+                </span>
+              )}
             </button>
           );
         })}

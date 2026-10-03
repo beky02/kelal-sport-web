@@ -10,17 +10,18 @@ import { Skeleton } from "@/components/ui/Skeleton";
 import { routes } from "@/config/routes";
 import { features } from "@/config/features";
 import { useSession } from "@/features/auth/hooks/use-session";
-import { useDateTimeText } from "@/features/bookings/hooks/use-date-time-text";
+import { useDateTimeText } from "@/lib/i18n/use-date-time-text";
 import { compareMoney } from "@/lib/money";
 import { absoluteUrl, telegramShareUrl } from "@/lib/share";
 import { cn } from "@/lib/utils/cn";
 import { useBet } from "../hooks/use-bets";
 import { payoutView, PAYOUT_TONE } from "../lib/figures";
-import { betKindLabel, RESULT_KEY } from "../lib/labels";
+import { betKindLabel, kindOf } from "../lib/labels";
 import type { Bet } from "../types";
-import { BetStatusBadge, LegDot } from "./BetStatusBadge";
+import { BetStatusBadge } from "./BetStatusBadge";
 import { BetsGuest } from "./BetsGuest";
 import { CashOutPanel } from "./CashOutPanel";
+import { TicketLeg } from "./TicketLeg";
 
 /**
  * A single ticket, in full.
@@ -141,7 +142,9 @@ function TicketDetail({ bet }: { bet: Bet }) {
     <Card className="m-4 flex flex-col gap-3 p-3.5">
       <div className="flex items-center justify-between gap-2">
         <BetStatusBadge status={bet.status} />
-        <span className="text-muted text-[11px]">{betKindLabel(bet, t)}</span>
+        <span className="text-muted text-[11px]">
+          {betKindLabel(kindOf(bet), t)}
+        </span>
       </div>
 
       <div>
@@ -165,30 +168,11 @@ function TicketDetail({ bet }: { bet: Bet }) {
 
       <ul className="border-divider flex flex-col border-t">
         {bet.legs.map((leg) => (
-          <li
+          <TicketLeg
             key={leg.outcomeId}
-            className="border-divider grid grid-cols-[14px_minmax(0,1fr)_auto] items-center gap-2.5 border-b py-2.5"
-          >
-            <LegDot result={leg.result} />
-            <div className="min-w-0">
-              <div className="text-muted text-[11px]">{t.pick(leg.market)}</div>
-              <div className="font-semibold">{t.pick(leg.pick)}</div>
-              <div className="text-muted text-[11px]">
-                {t.pick(leg.match)} ·{" "}
-                {leg.result === "open"
-                  ? when(leg.startTime)
-                  : t.t(RESULT_KEY[leg.result])}
-              </div>
-            </div>
-            <span
-              className={cn(
-                "numeric font-bold",
-                leg.result === "void" ? "text-muted" : "text-text",
-              )}
-            >
-              {t.odds(leg.odds)}
-            </span>
-          </li>
+            leg={leg}
+            kickoff={when(leg.startTime)}
+          />
         ))}
       </ul>
 

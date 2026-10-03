@@ -5,9 +5,9 @@ import { useTranslation } from "@/lib/i18n/use-translation";
 import { routes } from "@/config/routes";
 import { cn } from "@/lib/utils/cn";
 import { features } from "@/config/features";
-import { useDateTimeText } from "@/features/bookings/hooks/use-date-time-text";
+import { useDateTimeText } from "@/lib/i18n/use-date-time-text";
 import { payoutView, PAYOUT_TONE } from "../lib/figures";
-import { betKindLabel, RESULT_KEY } from "../lib/labels";
+import { betKindLabel, kindOf, RESULT_KEY } from "../lib/labels";
 import type { Bet } from "../types";
 import { BetStatusBadge, LegDot } from "./BetStatusBadge";
 import { CashOutPanel } from "./CashOutPanel";
@@ -33,7 +33,7 @@ export function BetCard({ bet }: { bet: Bet }) {
         <span className="flex w-full items-center gap-2">
           <BetStatusBadge status={bet.status} />
           <span className="min-w-0 flex-1 truncate text-xs font-semibold">
-            {betKindLabel(bet, t)}
+            {betKindLabel(kindOf(bet), t)}
           </span>
           <span className="text-muted numeric text-[11px] whitespace-nowrap">
             {when(bet.placedAt)}

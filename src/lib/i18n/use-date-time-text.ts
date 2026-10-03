@@ -6,7 +6,7 @@ import { formatKickoff } from "@/lib/i18n/format";
 import { useTranslation } from "@/lib/i18n/use-translation";
 import { useUiStore } from "@/stores/ui.store";
 
-/** A kickoff as a board row shows it: `04/10 · 17:00`, East Africa Time (D7). */
+/** A time as a board row shows a kickoff: `04/10 · 17:00`, East Africa Time, in the player's calendar and clock (D7). */
 export function useDateTimeText(): (iso: string) => string {
   const t = useTranslation();
   const clock = useUiStore((s) => s.clock);

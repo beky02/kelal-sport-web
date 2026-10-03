@@ -53,6 +53,8 @@ export const searchKeys = {
 export const betKeys = {
   all: ["bets"] as const,
   list: (tab: string) => [...betKeys.all, "list", tab] as const,
+  /** The aside's count: the first page of open bets alone, apart from the paged list. */
+  openCount: () => [...betKeys.all, "open-count"] as const,
   detail: (id: string) => [...betKeys.all, "detail", id] as const,
 };
 

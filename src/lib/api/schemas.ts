@@ -255,7 +255,9 @@ export const betSchema = z.object({
   stake: z.string().regex(MONEY_PATTERN),
   stakeBonus: z.string().regex(MONEY_PATTERN).nullable(),
   stakeTax: z.string().regex(MONEY_PATTERN),
-  totalOdds: z.string().regex(ODDS_PATTERN).nullable(),
+  // Not the per-leg Odds pattern: the product of an accumulator's odds runs to
+  // eight digits and more (D1.11; golden CAP_DEFAULT_HUGE_ODDS).
+  totalOdds: oddsSchema.nullable(),
   potentialPayout: z.string().regex(MONEY_PATTERN),
   accaBonus: z.string().regex(MONEY_PATTERN),
   payout: z.string().regex(MONEY_PATTERN).nullable(),

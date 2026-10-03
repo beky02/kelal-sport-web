@@ -13,6 +13,7 @@ import {
   placeBetRequestSchema,
 } from "@/lib/api/schemas";
 import { example, requestExample, responseExample } from "../contract";
+import { GOLDEN_ROWS } from "../golden";
 
 type PlacedBet = components["schemas"]["PlacedBet"];
 
@@ -212,5 +213,24 @@ describe("toBetPage (AC-5)", () => {
       am: example("/v1/bets"),
     });
     expect(betPageSchema.parse(page)).toEqual(page);
+  });
+
+  it("accepts every accumulator's total odds the engine can produce, the biggest included (M1)", () => {
+    // D1.11 floors the product of the odds: eight legs at 9.00 make
+    // 43046721.00 (golden CAP_DEFAULT_HUGE_ODDS), beyond the per-leg Odds
+    // pattern's six digits. One such ticket must not take My bets down.
+    const huge = GOLDEN_ROWS.find(
+      (row) => row.case_id === "CAP_DEFAULT_HUGE_ODDS",
+    )!;
+    const totals = GOLDEN_ROWS.map((row) => row.total_odds).filter(Boolean);
+    expect(totals).toContain(huge.total_odds);
+    for (const total_odds of totals) {
+      const raw = { ...example("/v1/bets/{id}"), total_odds };
+      const page = toBetPage({
+        en: { items: [raw], next_cursor: null },
+        am: { items: [raw], next_cursor: null },
+      });
+      expect(betPageSchema.safeParse(page).success, total_odds).toBe(true);
+    }
   });
 });

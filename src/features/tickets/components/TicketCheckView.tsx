@@ -2,38 +2,13 @@
 
 import { useTranslation } from "@/lib/i18n/use-translation";
 import { cn } from "@/lib/utils/cn";
-import { useDateTimeText } from "@/features/bookings/hooks/use-date-time-text";
-import {
-  BetStatusBadge,
-  LegDot,
-} from "@/features/bets/components/BetStatusBadge";
-import { PAYOUT_TONE, type PayoutTone } from "@/features/bets/lib/figures";
-import { RESULT_KEY } from "@/features/bets/lib/labels";
-import type { MessageKey } from "@/lib/i18n";
+import { useDateTimeText } from "@/lib/i18n/use-date-time-text";
+import { BetStatusBadge } from "@/features/bets/components/BetStatusBadge";
+import { TicketLeg } from "@/features/bets/components/TicketLeg";
+import { PAYOUT_TONE } from "@/features/bets/lib/figures";
+import { betKindLabel } from "@/features/bets/lib/labels";
+import { ticketPayout } from "../lib/figures";
 import type { TicketCheck } from "../types";
-
-/**
- * The payout line, when the API gives one: "Cashed out" for a ticket taken
- * early, "Payout" for every other status — the API's figure, labelled no more
- * than the contract describes it.
- */
-function payoutLine(
-  ticket: TicketCheck,
-): { labelKey: MessageKey; amount: string; tone: PayoutTone } | null {
-  if (ticket.payout === null) return null;
-  const tone: PayoutTone =
-    ticket.status === "won" || ticket.status === "paid"
-      ? "win"
-      : ticket.status === "lost"
-        ? "loss"
-        : "plain";
-  return {
-    labelKey:
-      ticket.status === "cashed_out" ? "bets.cashedAmount" : "bets.payout",
-    amount: ticket.payout,
-    tone,
-  };
-}
 
 /**
  * A ticket as anyone holding its number may see it (`/t/{ticket}`): its
@@ -44,16 +19,11 @@ function payoutLine(
 export function TicketCheckView({ ticket }: { ticket: TicketCheck }) {
   const t = useTranslation();
   const when = useDateTimeText();
-  const payout = payoutLine(ticket);
-  const n = ticket.legs.length;
-  const kind =
-    ticket.betType === "multiple"
-      ? t.t("betSlip.multipleLabel", { n })
-      : ticket.betType === "system"
-        ? t.t("betSlip.system")
-        : n > 1
-          ? t.t("betSlip.singlesLabel", { n })
-          : t.t("betSlip.single");
+  const payout = ticketPayout(ticket);
+  const kind = betKindLabel(
+    { betType: ticket.betType, legCount: ticket.legs.length },
+    t,
+  );
 
   return (
     <div className="flex flex-col gap-3 p-4">
@@ -82,28 +52,8 @@ export function TicketCheckView({ ticket }: { ticket: TicketCheck }) {
 
       <ul className="border-divider flex flex-col border-t">
         {ticket.legs.map((leg, index) => (
-          <li
-            // A ticket's legs never move: their order is the key.
-            key={index}
-            className="border-divider grid grid-cols-[14px_minmax(0,1fr)_auto] items-center gap-2.5 border-b py-2.5"
-          >
-            <LegDot result={leg.result} />
-            <div className="min-w-0">
-              <div className="text-muted text-[11px]">{t.pick(leg.market)}</div>
-              <div className="font-semibold">{t.pick(leg.pick)}</div>
-              <div className="text-muted text-[11px]">
-                {t.pick(leg.match)} · {t.t(RESULT_KEY[leg.result])}
-              </div>
-            </div>
-            <span
-              className={cn(
-                "numeric font-bold",
-                leg.result === "void" ? "text-muted" : "text-text",
-              )}
-            >
-              {t.odds(leg.odds)}
-            </span>
-          </li>
+          // A ticket's legs never move: their order is the key.
+          <TicketLeg key={index} leg={leg} />
         ))}
       </ul>
 

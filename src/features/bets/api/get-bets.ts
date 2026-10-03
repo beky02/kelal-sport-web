@@ -22,7 +22,8 @@ export const getBets = (
 
 /**
  * One of the player's tickets, or null when it isn't theirs: the API answers
- * another player's bet with 404, which is a state of the screen, not a fault.
+ * another player's bet with 404 `NOT_FOUND`, which is a state of the screen,
+ * not a fault. A 404 without that code (an edge, a mock) is a fault.
  */
 export async function getBet(
   id: string,
@@ -33,7 +34,7 @@ export async function getBet(
       signal,
     });
   } catch (error) {
-    if (error instanceof ApiError && error.status === 404) return null;
+    if (error instanceof ApiError && error.code === "NOT_FOUND") return null;
     throw error;
   }
 }

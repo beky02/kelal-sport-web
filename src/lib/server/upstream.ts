@@ -43,12 +43,19 @@ const LANGS: readonly Lang[] = ["en", "am"];
  * The same read in both languages. Names come back in one language per
  * request, but the UI switches language without refetching, so reads that
  * carry names are made in both and merged by the mappers.
+ *
+ * Both reads finish before either answer counts, failures included: a read
+ * that refreshed the player's session must get the rotated cookie onto the
+ * response even when the other read failed first — answering early would
+ * leave the browser holding a refresh token the API has already spent.
  */
 export async function both<T>(
   read: (lang: Lang) => Promise<T>,
 ): Promise<Record<Lang, T>> {
-  const [en, am] = await Promise.all(LANGS.map(read));
-  return { en, am };
+  const [en, am] = await Promise.allSettled(LANGS.map(read));
+  if (en.status === "rejected") throw en.reason;
+  if (am.status === "rejected") throw am.reason;
+  return { en: en.value, am: am.value };
 }
 
 /**

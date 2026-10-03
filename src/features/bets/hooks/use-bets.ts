@@ -31,6 +31,24 @@ export function useBets(status: BetsTab, enabled: boolean) {
   });
 }
 
+/**
+ * How many open bets the aside shows: the first page's, `more` when there are
+ * further pages (the list carries no totals). Its own small read, never the
+ * paged list — refetching that re-reads every page My bets has loaded.
+ */
+export function useOpenBetsCount(enabled: boolean) {
+  return useQuery({
+    queryKey: betKeys.openCount(),
+    queryFn: ({ signal }) => getBets("open", null, signal),
+    staleTime: BETS_STALE_MS,
+    enabled,
+    select: (page) => ({
+      count: page.items.length,
+      more: page.nextCursor !== null,
+    }),
+  });
+}
+
 /** One of the player's tickets; null when it isn't theirs. A player's only, as `useBets`. */
 export function useBet(id: string, enabled: boolean) {
   return useQuery({
