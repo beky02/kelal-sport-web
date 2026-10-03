@@ -1,7 +1,7 @@
 ---
 id: F6a
 title: Split from F6 — balances and history from the contract, money as strings
-status: verifying
+status: done
 depends_on: [F4]
 contract_tags: [Wallet]
 touches_money: true
@@ -52,11 +52,11 @@ Out: payment methods, deposits (F6b); payout accounts, withdrawals (F6c); deposi
 
 ## Acceptance criteria
 
-- [ ] **AC-5** Balances come from `/v1/wallet` as the contract's decimal strings: the header chip, the
+- [x] **AC-5** Balances come from `/v1/wallet` as the contract's decimal strings: the header chip, the
       wallet and the slip's balance check use `cash` exactly as sent; bonus, pending withdrawals
       (`locked`) and anything owed (`debt`) are shown, each only when above zero; nothing about a
       balance is computed in the browser.
-- [ ] **AC-6** History comes from `/v1/wallet/transactions`: movements grouped by day in East Africa
+- [x] **AC-6** History comes from `/v1/wallet/transactions`: movements grouped by day in East Africa
       Time, newest first, each with its kind, reference, time, signed amount and balance after; a
       filter asks for the contract's `type`; Show more follows `next_cursor`.
 
@@ -68,4 +68,5 @@ Out: payment methods, deposits (F6b); payout accounts, withdrawals (F6c); deposi
 
 ## Notes
 
-Plan: `docs/tasks/F6/plan.md`.
+Plan: `docs/tasks/F6/plan.md`. Done 2026-10-03: evidence and every review finding in
+`docs/tasks/F6/verification.md`.

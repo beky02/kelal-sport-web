@@ -54,11 +54,11 @@ Out: card payments.
 
 Added at the split (2026-10-03) so every scope item above has an observable criterion:
 
-- [ ] **AC-5** Balances come from `/v1/wallet` as the contract's decimal strings: the header chip, the
+- [x] **AC-5** Balances come from `/v1/wallet` as the contract's decimal strings: the header chip, the
       wallet and the slip's balance check use `cash` exactly as sent; bonus, pending withdrawals
       (`locked`) and anything owed (`debt`) are shown, each only when above zero; nothing about a
       balance is computed in the browser.
-- [ ] **AC-6** History comes from `/v1/wallet/transactions`: movements grouped by day in East Africa
+- [x] **AC-6** History comes from `/v1/wallet/transactions`: movements grouped by day in East Africa
       Time, newest first, each with its kind, reference, time, signed amount and balance after; a
       filter asks for the contract's `type`; Show more follows `next_cursor`.
 - [ ] **AC-7** Methods and their limits come from `/v1/payment-methods`: an amount outside the method's

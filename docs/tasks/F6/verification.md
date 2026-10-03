@@ -87,6 +87,21 @@ amount was found and fixed before the reviews, in `3d1a82e`.
 | S6   | spec     | note     | The report was a draft                                                                                         | This file                                                                                                                                                                                              |
 | U11  | ui       | note     | `home` is a guest screen (no chip)                                                                             | No change                                                                                                                                                                                              |
 
+### Round 2 (2026-10-03): fixes confirmed by tests
+
+The workflow changed during this round (the user's decision; `.claude/skills/task/SKILL.md` §3c): a fix is
+confirmed by a test that fails without it and passes with it, and only a BLOCKER goes back to its reviewer,
+scoped to that finding. The full spec, money and quality re-reviews started under the old rule were
+stopped.
+
+| Finding        | Test                                                                                                                    | Without the fix                                                                                          | With the fix                                                                                               |
+| -------------- | ----------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| M1             | `Wallet.test.tsx` "asks for a deposit when the stake is above the cash balance, bonus aside (AC-5)"                     | Failed: no "Your balance is ETB 40.00." (the alert said ETB 50.00, the stake)                            | Passes                                                                                                     |
+| S1 / M2 / Q1   | `PlaceBet.test.tsx` "reads the history again once a bet is placed"; "reads the history again when a bet had no answer…" | Failed: history queries not invalidated (`[false, false]`)                                               | Pass                                                                                                       |
+| Q2             | `Wallet.test.tsx` "asks for a deposit…" (now waits for `/api/wallet`)                                                   | Fails against an off-by-one at equality (`compareMoney(…) >= 0` in `calculate.ts`, put in and taken out) | Passes                                                                                                     |
+| Q3 / S2 / SEC1 | `Transactions.test.tsx` "drops the previous player's history when the session changes…"                                 | Fails with `transactionKeys.all` taken out of `forgetPlayer` (put back after)                            | Passes                                                                                                     |
+| M1 (BLOCKER)   | Money reviewer, scoped to M1 (28 s)                                                                                     | —                                                                                                        | CONFIRMED: the alert reads the `cash` string the check used; the test would read ETB 50.00 if it regressed |
+
 ## Gaps
 
 - **The shared dev server.** The first `pnpm verify` lost the dev server mid-run (48 UI failures, all
