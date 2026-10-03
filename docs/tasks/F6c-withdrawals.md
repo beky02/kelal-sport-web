@@ -1,7 +1,7 @@
 ---
 id: F6c
 title: Split from F6 — withdrawals with payout accounts, every withdrawal status, cancel
-status: verifying
+status: done
 depends_on: [F6b]
 contract_tags: [Payments]
 touches_money: true
@@ -54,12 +54,12 @@ In:
 
 From F6:
 
-- [ ] **AC-1** (withdrawals) Each `WithdrawalStatus` has a screen state (`pnpm ui` screenshots).
-- [ ] **AC-4** (withdrawals) No balance changes before the server confirms (component test).
-- [ ] **AC-8** (withdrawals) One `Idempotency-Key` per withdrawal intent: the same key on a retry after
+- [x] **AC-1** (withdrawals) Each `WithdrawalStatus` has a screen state (`pnpm ui` screenshots).
+- [x] **AC-4** (withdrawals) No balance changes before the server confirms (component test).
+- [x] **AC-8** (withdrawals) One `Idempotency-Key` per withdrawal intent: the same key on a retry after
       no answer, a new one after a final answer.
-- [ ] **AC-9** (withdrawals) Each withdrawal refusal in scope says what happened and offers its fix.
-- [ ] **AC-10** Payout accounts are listed, added and removed through `/v1/me/payout-accounts`; a
+- [x] **AC-9** (withdrawals) Each withdrawal refusal in scope says what happened and offers its fix.
+- [x] **AC-10** Payout accounts are listed, added and removed through `/v1/me/payout-accounts`; a
       withdrawal goes to a saved account or a new number; Cancel is offered only while `requested` or
       `review`.
 

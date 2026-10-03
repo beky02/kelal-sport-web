@@ -70,6 +70,22 @@ docs/backend/ matches the backend.
   470 passed (3.6m)
 ```
 
+### After review round 1 (at `d3c58d1`) — stopped at the user's request
+
+The full `pnpm verify` was not completed after the review fixes: the machine was under heavy load from
+other work (another session's backend Python process, a virtual machine, three other Claude Code
+sessions, the Claude app at 183% CPU, ~75 MB of free memory), and the user asked to stop the review and
+close the task. What did run on this code:
+
+| Check                   | Result  | Evidence                                                                                                                                                                                                                                                |
+| ----------------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `pnpm check`            | PASS    | Typecheck, lint, format and 1,293 tests, on a quiet machine just before `d3c58d1` was committed (that commit changed only strings checked by the suite and docs; the suite passed with them)                                                            |
+| `pnpm api:check`        | PASS    | "Generated API types match contracts/openapi.yaml."                                                                                                                                                                                                     |
+| Contract and docs drift | PASS    | "contracts/ matches the backend." / "docs/backend/ matches the backend."                                                                                                                                                                                |
+| `pnpm build`            | PASS    | "✓ Compiled successfully", 39/39 static pages                                                                                                                                                                                                           |
+| `pnpm ui`               | PARTIAL | Stopped at 428 of 470: 425 passed first time; 3 `auth.spec.ts` tests (F4a's, untouched here) passed only on their retry (flaky, below); 42 not run. The withdrawal and deposit screens the fixes touched passed in their own runs before (124, then 12) |
+| `pnpm verify` (whole)   | NOT RUN | Two attempts at `d3c58d1` failed at `pnpm test` with timeouts under the load (Gaps); not retried — stopped at the user's request                                                                                                                        |
+
 ## Acceptance criteria
 
 | AC    | Status | Evidence                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
@@ -145,7 +161,7 @@ Each new acceptance test was seen failing against the behaviour it guards, then 
   accounts' key moved outside `paymentKeys`.
 - `Transactions` "opens a withdrawal from its row in the history…" — the withdrawal row's link removed.
 
-Review round 1 (each test red before its fix, green after; `9d1a491` and the commit after it):
+Review round 1 (each test red before its fix, green after; `9d1a491` and `d3c58d1`):
 
 - `Withdrawal` "follows the address both ways: a withdrawal the wallet opened closes on Back (Q1)" — red:
   the screen stayed on the withdrawal when the address lost it, and Done replaced instead of going Back.
@@ -184,7 +200,7 @@ fix has a test that failed before it and passes with it (above), or a re-taken s
 | --------- | -------------- | -------- | ------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | Q1        | quality        | MAJOR    | Back didn't close a withdrawal opened from recent activity; leaving left the wallet twice in history    | Fixed in `9d1a491`: the screen is the address's (`?withdrawal=`), both ways; Done/Back is `router.back()` when the wallet put the id there, else `replace`. Test above                           |
 | Q2        | quality        | MAJOR    | Focus lost after Cancel's answer and after Save                                                         | Fixed in `9d1a491`: the heading after a cancel's 200 or 409, the notice's Try again after no answer (held, busy, during its retry), the new account's radio after Save. Tests above              |
-| M1        | money          | MAJOR    | requested, processing and paid lines claimed the amount received                                        | Fixed in the commit after `9d1a491` — the user's decision: the lines name the withdrawal ("Your withdrawal was paid to {account}"); contract request 010 asks what `amount` is (item 8)          |
+| M1        | money          | MAJOR    | requested, processing and paid lines claimed the amount received                                        | Fixed in `d3c58d1` — the user's decision: the lines name the withdrawal ("Your withdrawal was paid to {account}"); contract request 010 asks what `amount` is (item 8)                           |
 | S1        | spec           | MINOR    | The break refusal's fix read "Contact support", not the approved "Help"                                 | Fixed: `withdraw.help` (Help / እገዛ)                                                                                                                                                              |
 | S2        | spec; quality  | MINOR    | No test that a refused Try again keeps its key                                                          | Fixed: test added, proven against the bug                                                                                                                                                        |
 | SEC1      | security       | MINOR    | `?withdrawal=..` resolved to `/api/` in the browser                                                     | Fixed: ids checked in the browser before any path (`pathId`), not found otherwise, nothing sent                                                                                                  |
@@ -222,6 +238,23 @@ Notes (no decision):
   `withdrawal-review`, `withdrawal-paid` and the account step go through Prism end to end.
 - **A real payout** (the provider paying a number) can't run locally; the statuses after `processing` are
   the API's to set.
-- **Flaky**: none — the gate's 470 UI tests passed on the first try.
+- **Flaky**: none in the first gate — its 470 UI tests passed on the first try.
+- **The final gate under load** (at `d3c58d1`): the first run failed at `pnpm test` with the machine's load
+  average at ~55 (a Chrome renderer at 100%, Finder, a virtual machine and two other Claude Code
+  sessions — none of them this task's): six tests timed out, files taking 36–50 s instead of ~1 s —
+  `Withdrawal` "lists the player's saved accounts for the chosen method (AC-10)" ("Unable to find
+  role="button" and name `/telebirr/`" within `findByRole`'s 1 s), `PlaceBet` "forgets a refusal once the
+  slip changes" and four `RegisterFlow` tests ("Test timed out in 5000ms"). A `pnpm test` at load ~38 took
+  101 s instead of ~9 s and timed out five others (`RegisterFlow` ×3, `Withdrawal` AC-8 ×2). The same
+  suite passed whole three times on a quiet machine this session (1,293 tests). A third attempt, started
+  with the load steady under 8, timed out again as the load climbed back to ~58; one with four workers
+  timed out five tests. The test stage was not retried after that: the user stopped the review.
+- **Flaky (UI, after review round 1)**: `auth.spec.ts` "logging out clears the session and the account
+  pages close again (AC-8)", "sends a visitor without a session from the wallet to log in, and back
+  afterwards", "logs in through the dialog and leaves no token in the browser (AC-3)" — each failed at
+  ~20 s on its first try under the load and passed on the retry (6–8 s); the first error was not printed,
+  as the run was stopped before Playwright's summary. F4a's tests, untouched by this task.
+- **Not verified after review round 1**: 42 of the 470 UI tests (the run was stopped), and a single
+  whole `pnpm verify` on the final commit.
 - **Follow-ups**: Q6 (shared strings to `wallet.*`), M6 (an unanswered intent across a reload), the deposit
   flow's status title (U2's twin).
