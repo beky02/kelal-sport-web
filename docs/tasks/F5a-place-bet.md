@@ -1,7 +1,7 @@
 ---
 id: F5a
 title: Place a bet with an Idempotency-Key per intent, the 409 flow and every refusal's fix; Code 128
-status: blocked
+status: done
 depends_on: [F3a, F3b, F4]
 contract_tags: [Bets]
 touches_money: true
@@ -64,17 +64,17 @@ Out (do not build here):
 
 ## Acceptance criteria
 
-- [ ] **AC-1** Placing twice with the same key (retry) sends the same `Idempotency-Key` (request log test).
-- [ ] **AC-2** `Prefer: code=409` shows old and new odds and accepting re-places with a new key.
-- [ ] **AC-3** The placed ticket shows the API's figures (`potential_payout`, `stake_tax`, `total_odds`,
+- [x] **AC-1** Placing twice with the same key (retry) sends the same `Idempotency-Key` (request log test).
+- [x] **AC-2** `Prefer: code=409` shows old and new odds and accepting re-places with a new key.
+- [x] **AC-3** The placed ticket shows the API's figures (`potential_payout`, `stake_tax`, `total_odds`,
       `acca_bonus`), not the preview's.
-- [ ] **AC-6** The `odds_policy` sent is the slip's setting (`none` / `higher` / `any`), which starts at
+- [x] **AC-6** The `odds_policy` sent is the slip's setting (`none` / `higher` / `any`), which starts at
       the tenant's `betting.default_odds_policy`.
-- [ ] **AC-7** Each refusal in scope says what happened and offers its fix: `BET_EVENT_STARTED` /
+- [x] **AC-7** Each refusal in scope says what happened and offers its fix: `BET_EVENT_STARTED` /
       `BET_MARKET_SUSPENDED` mark the pick and offer Remove; `BET_STAKE_TOO_HIGH` offers `errors[].limit`;
       `WALLET_INSUFFICIENT_FUNDS` offers Deposit; `RG_LIMIT_REACHED` offers View limits; `RG_SELF_EXCLUDED`
       and `RG_COOLING_OFF` say betting is paused; `KYC_REQUIRED` offers Verify.
-- [ ] **AC-8** Ticket barcodes are Code 128 (symbol table, check character and stop pattern under test).
+- [x] **AC-8** Ticket barcodes are Code 128 (symbol table, check character and stop pattern under test).
 
 ## Verification
 
@@ -92,6 +92,5 @@ Out (do not build here):
   only once a bet commits (C08 §7), so a refused retry says nothing about the first try. Only a ticket
   ends it — its own, or one for a bet the player explicitly placed as new. See `F5/plan.md`, "Review
   round 1" and "Review round 2", and docs/design/04 "Placing a bet".
-- 2026-10-03: **blocked** after the three review rounds. Round 3's only MAJOR (P1: the check before a Try
-  again had no time limit) is fixed and tested in c4e5ac9 but not confirmed by a reviewer; the money and
-  UI reviewers passed round 3. Next: a confirming review, or the user's sign-off (`F5/verification.md`).
+- 2026-10-03: blocked after the three review rounds with round 3's only MAJOR (P1) fixed but unconfirmed;
+  the user chose a confirming review, which passed. **Done** — evidence in `F5/verification.md`.
