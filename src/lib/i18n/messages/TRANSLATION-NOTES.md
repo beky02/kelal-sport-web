@@ -491,3 +491,41 @@ The flow's other Try again buttons (methods failed or empty, a deposit that coul
 `wallet.done` (ተጠናቀቀ, which under a failure reads as "completed"). Removed: `wallet.youPay` (a deposit
 shows what it puts in, not what is paid), `wallet.successTitle` and `wallet.successBody` (the withdrawal
 mock's deposit branch).
+
+## Withdrawals (F6c, 2026-10-03)
+
+Composed from the wallet's own words: ወጪ ("withdrawal", `wallet.withdraw`, `history.type.withdrawal`),
+ሂሳብ ("account", `wallet.account`), ቀሪ ሂሳብ ("balance", `wallet.balance`), ሰርዝ ("cancel",
+`wallet.cancel`). The refusal and no-answer lines follow F6b's deposit lines with ገቢ → ወጪ.
+
+| Key                                                                             | Amharic                                                                            | Composed from                                                                               |
+| ------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| `withdraw.accountTitle`                                                         | ወደ የትኛው የ{method} ሂሳብ ይላክ?                                                         | `wallet.chooseWithdraw` (…እንላክ), `wallet.account` (ሂሳብ)                                     |
+| `withdraw.verified`                                                             | ተረጋግጧል                                                                             | `auth.verified`, verbatim                                                                   |
+| `withdraw.remove` / `removeLabel` / `removeQuestion` / `keep`                   | አስወግድ / ሂሳቡን አስወግድ፦ {account} / {account} ይወገድ? / ይቆይ                              | new: አስወግድ ("remove"), ይቆይ ("let it stay")                                                  |
+| `withdraw.removeFailed` / `accountsFailed`                                      | ይህን ሂሳብ ማስወገድ አልተቻለም። / የተቀመጡ ሂሳቦችዎን መጫን አልተሳካም።                                   | `deposit.checkFailedTitle` (…አልተቻለም), `deposit.methodsFailed` (…መጫን አልተሳካም)                 |
+| `withdraw.anotherNumber` / `numberLabel`                                        | ሌላ ቁጥር / የ{method} ቁጥር                                                             | `wallet.otherMethod` (ሌላ), ቁጥር ("number", `auth.phoneInvalid`)                              |
+| `withdraw.numberHint` / `save` / `saveFailed`                                   | ለሚቀጥሉት ወጪዎችዎ እናስቀምጠዋለን። / ቁጥሩን አስቀምጥ / ይህን ቁጥር ማስቀመጥ አልተቻለም።                       | `wallet.debtNote` (ከሚቀጥሉት…), new: አስቀምጥ ("save")                                            |
+| `withdraw.yourAccount` / `youWithdraw`                                          | ሂሳብዎ / የሚያወጡት                                                                      | `wallet.account` + possessive; `deposit.youDeposit` (የሚያስገቡት → የሚያወጡት)                      |
+| `withdraw.prompt`                                                               | ጥያቄዎን አረጋግጠን ወደ {account} እንልካለን። በመረጋገጥ ላይ እያለ መሰረዝ ይችላሉ።                         | `wallet.confirmTitle` (ያረጋግጡ), `wallet.chooseWithdraw` (እንላክ), `wallet.cancel` (ሰርዝ)        |
+| `withdraw.unconfirmedTitle` / `Body`, `retry`                                   | ወጪዎን ማረጋገጥ አልቻልንም / ወጪው ተልኮ ሊሆን ይችላል። … / እንደገና ሞክር · {amount}                     | `deposit.unconfirmed*`, ገቢ → ወጪ, ተጀምሮ → ተልኮ ("sent"); `deposit.retry`                       |
+| `withdraw.refused.bonusTitle` / `bonus`                                         | ቦነሱ ገና በውርርድ ላይ ነው / ውርርዱ ያልተጠናቀቀ ቦነስ ስላለዎት ይህ ወጪ ሊፈጸም አይችልም።                      | `wallet.bonus` (ቦነስ), `deposit.refused.limit` (…ሊፈጸም አይችልም)                                 |
+| `withdraw.refused.amount`                                                       | {method} በአንድ ወጪ ከ{min} እስከ {max} ይከፍላል።                                           | `deposit.refused.amount`, ገቢ → ወጪ, ይቀበላል → ይከፍላል ("pays")                                   |
+| `withdraw.refused.fundsTitle` / `funds`                                         | ቀሪ ሂሳብዎ በቂ አይደለም / ቀሪ ሂሳብዎ ከዚህ መጠን ያነሰ ነው።                                         | `wallet.balance`, `wallet.amount` (መጠን), new: ያነሰ ("less")                                  |
+| `withdraw.refused.break`                                                        | በዕረፍትዎ ጊዜ ይህ ወጪ ሊፈጸም አይችልም። ድጋፍ ሰጪዎቻችንን ያግኙ፤ ገንዘብዎን እንዲያገኙ እንረዳዎታለን።               | `deposit.refused.break` (በዕረፍትዎ ጊዜ…), new: ድጋፍ ሰጪ ("support")                               |
+| `withdraw.refused.kyc`, `realMoney`, `method`, `retryTitle`, `otherTitle`       | … ወጪ ለማድረግ … / ወጪ ማድረግ ገና አልተጀመረም። / … / … / ወጪዎ አልተፈጸመም                           | the `deposit.refused.*` lines, ገቢ → ወጪ                                                      |
+| `withdraw.withdrawAmount` / `chooseAccount` / `keepWagering` / `contactSupport` | {amount} ወጪ አድርግ / ሌላ ሂሳብ ምረጥ / ውርርዱን ቀጥል / ድጋፍ ሰጪዎችን አግኝ                          | `deposit.depositAmount`, `wallet.otherMethod` (ሌላ … ምረጥ), `wallet.continue` (ቀጥል)           |
+| `withdraw.status.*`                                                             | ተጠይቋል / በግምገማ ላይ / ጸድቋል / በሂደት ላይ / ተከፍሏል / አልተሳካም / ውድቅ ሆኗል / ተሰርዟል               | `wallet.statusPending` (…ላይ), `wallet.statusFailed`; new: ግምገማ ("review"), ውድቅ ("rejected") |
+| `withdraw.requested*`, `review*`, `approved*`, `processing*`, `paid*`           | ወጪ ተጠይቋል / በግምገማ ላይ ነው / ወጪው ጸድቋል / ገንዘብዎ እየተላከ ነው / ወጪው ተከፍሏል, and their bodies   | the status words above; እንልካለን / እየተላከ ("sending", `wallet.chooseWithdraw`)                 |
+| `withdraw.reviewReason.FIRST_WITHDRAWAL`                                        | የእያንዳንዱን ተጫዋች የመጀመሪያ ወጪ እንገመግማለን።                                                  | new: ተጫዋች ("player"), የመጀመሪያ ("first")                                                      |
+| `withdraw.failed*`, `rejected*`, `cancelled*`                                   | ወጪው አልተሳካም / ወጪው ውድቅ ሆኗል / ወጪው ተሰርዟል; "{amount} ወደ ቀሪ ሂሳብዎ ተመልሷል።"                 | `history.type.withdrawal_released` (የተመለሰ → ተመልሷል, "returned")                              |
+| `withdraw.cancel`, `tooLate*`, `cancelUnconfirmed*`, `cancelFailedTitle`        | ወጪውን ሰርዝ / ለመሰረዝ ዘግይቷል / መሰረዙን ማረጋገጥ አልቻልንም / ይህን ወጪ መሰረዝ አልተቻለም, and their bodies | `wallet.cancel` (ሰርዝ), `deposit.unconfirmedTitle` pattern; new: ዘግይቷል ("too late")          |
+| `withdraw.checkFailed*`, `notFound*`                                            | ይህን ወጪ ማረጋገጥ አልተቻለም / ይህን ወጪ ማግኘት አልቻልንም, and their bodies                         | `deposit.checkFailed*`, `deposit.notFound*`, ገቢ → ወጪ                                        |
+| `wallet.withdrawalTitle`                                                        | ወጪ                                                                                 | `history.type.withdrawal`, verbatim                                                         |
+
+The fix labels Choose another method, Try again, Change amount and Verify, and Back to wallet, Done and
+Back to sports reuse `wallet.*`, `deposit.changeAmount` and `deposit.backToWallet` verbatim. A method's
+name, the account's masked number and a rejection's reason are the API's text, shown as sent. Removed
+with the mock (the provenance notes above that name them still say where an older string came from):
+`wallet.fee`, `youReceive`, `promptWithdraw`, `pendingTitle`, `pendingBody`, `cancelPayment`,
+`successTitleWithdraw`, `successBodyWithdraw`, `failedTitle`, `failedBody`, `startFailed`, `fromAccount`.
