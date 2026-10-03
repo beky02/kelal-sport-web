@@ -55,10 +55,12 @@ list exactly — no wildcards, so a subdomain or a longer name ending in a liste
 route handler checks it before the URL reaches the browser (`isAllowedProviderUrl`); a refused page
 becomes "can't continue here" and is logged by its host alone. Unset in production the list is empty,
 so every redirect is refused until hosts are configured (fail closed); a malformed entry stops the
-server at startup; in development and tests it is the contract examples' two hosts. The browser
-re-checks `https:` in its schema and before leaving. Where the provider sends the player back
-(`return_url`) is built by the route handler from the tenant's own origin (`publicOrigin`), never taken
-from the browser, whose request may not carry one. For the way back the tab keeps only the deposit's id
+server at startup; in development and tests it is the contract examples' two hosts. What reaches the
+browser is the page as the allow-list parsed it (`allowedProviderUrl` returns its `href`), never the
+API's raw string; the browser re-checks `https:` in its schema and before leaving. Where the provider
+sends the player back (`return_url`) is built by the route handler from a host the tenant owns in
+`TENANT_HOST_MAP` (`ownedOrigin`) — never a host a request merely arrived on, nor anything the browser
+said (its request may not carry one); a tenant with no host there leaves it to the API. For the way back the tab keeps only the deposit's id
 and the player's id in `sessionStorage` — no token, amount or balance — and resumes it only for that
 player.
 

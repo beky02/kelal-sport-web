@@ -21,6 +21,7 @@ import {
   goToProvider,
   rememberDeposit,
 } from "../lib/provider-redirect";
+import { useDepositStore } from "../stores/deposit.store";
 import type { Deposit, DepositStatus as Status } from "../types";
 
 type Tone = "wait" | "good" | "bad";
@@ -61,7 +62,8 @@ interface Action {
  * balance and what to do next; nothing here works out a balance.
  *
  * There is no Cancel: the contract has no way to cancel a deposit, so Back
- * to wallet leaves it running — a push approved later still arrives.
+ * to wallet leaves it running — a push approved later still arrives, and the
+ * deposit is still followed (`DepositFollower`) until the API decides.
  */
 export function DepositStatus({
   id,
@@ -75,8 +77,8 @@ export function DepositStatus({
   id: string;
   /** The signed-in player, whose deposit this is. */
   owner: string;
-  /** The method's name as the API gives it, by its code. */
-  methodName: (code: Deposit["method"]) => string;
+  /** The method's name as the API gives it, by its code; null while unknown yet. */
+  methodName: (code: Deposit["method"]) => string | null;
   onDone: () => void;
   onBackToSports: () => void;
   /** A new deposit with the same method and amount. */
@@ -87,11 +89,14 @@ export function DepositStatus({
   const query = useDeposit(id);
   const deposit = query.data;
 
-  // Over: nothing to come back to after a trip to the provider.
+  // Over: nothing more to read, nothing to come back to from the provider.
   const status = deposit?.status;
   useEffect(() => {
-    if (status && isFinal(status)) forgetDeposit();
-  }, [status]);
+    if (status && isFinal(status)) {
+      forgetDeposit();
+      useDepositStore.getState().finished(id);
+    }
+  }, [status, id]);
 
   // Focus lands on the outcome once it is there, so it is what is read out.
   const focused = useRef(false);
@@ -129,7 +134,7 @@ export function DepositStatus({
               ? [{ ...backToWallet, primary: true }]
               : [
                   {
-                    label: t.t("common.retry"),
+                    label: t.t("wallet.tryAgain"),
                     onClick: () => void query.refetch(),
                     primary: true,
                   },
@@ -150,6 +155,16 @@ export function DepositStatus({
   }
 
   const method = methodName(deposit.method);
+  if (method === null) {
+    // The method's name is on its way: no half-named screen, read out twice.
+    return (
+      <div className="flex flex-col items-center gap-3 px-5 pt-10 pb-7">
+        <Skeleton className="size-[68px] rounded-lg" />
+        <Skeleton className="h-6 w-48" />
+        <Skeleton className="h-4 w-64" />
+      </div>
+    );
+  }
   const amount = t.money(deposit.amount);
   const action = deposit.nextAction;
   const rows = [
@@ -198,11 +213,7 @@ export function DepositStatus({
           // The API's own words on why, as their own line.
           ...(deposit.failureReason ? [deposit.failureReason] : []),
         ],
-        actions: [
-          tryAgain,
-          chooseAnother,
-          { label: t.t("wallet.done"), onClick: onDone },
-        ],
+        actions: [tryAgain, chooseAnother, backToWallet],
       };
       break;
     case "expired":
@@ -211,10 +222,12 @@ export function DepositStatus({
         icon: <TimerOff size={30} strokeWidth={1.5} aria-hidden />,
         title: t.t("deposit.expiredTitle"),
         lines: [t.t("deposit.expiredBody", { method })],
+        // A late approval still arrives: going back is the main way on, a
+        // new deposit only by choice.
         actions: [
-          tryAgain,
+          { ...backToWallet, primary: true },
+          { ...tryAgain, primary: false },
           chooseAnother,
-          { label: t.t("wallet.done"), onClick: onDone },
         ],
       };
       break;

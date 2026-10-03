@@ -1,42 +1,17 @@
 import { ApiError } from "@/lib/api/errors";
 import { MONEY_PATTERN } from "@/lib/api/patterns";
 import type { MessageKey } from "@/lib/i18n";
-import { compareMoney, normaliseMoney, toSantim } from "@/lib/money";
+import { compareMoney, toSantim } from "@/lib/money";
 import type {
-  AmountRange,
   Deposit,
   DepositRequest,
   DepositStatus,
   PaymentMethod,
 } from "../types";
+import { amountProblem } from "./amount";
 
 /** How often a deposit that is still going is read again (the contract: 3 s). */
 export const DEPOSIT_POLL_MS = 3_000;
-
-/** A typed amount as the contract's `Money`, or null while it isn't one yet. */
-export function typedAmount(amount: string): string | null {
-  const value = amount.replace(/\.$/, "");
-  if (!/^\d+(\.\d{1,2})?$/.test(value)) return null;
-  return toSantim(value) > 0n ? normaliseMoney(value) : null;
-}
-
-export type AmountProblem = "empty" | "below" | "above";
-
-/**
- * What stops a typed amount going to the API: nothing typed yet, or outside
- * the method's limits — compared as strings (FD4), never as floats. The API
- * checks again; this only saves the player a round trip.
- */
-export function amountProblem(
-  amount: string,
-  range: AmountRange,
-): AmountProblem | null {
-  const value = typedAmount(amount);
-  if (value === null) return "empty";
-  if (compareMoney(value, range.min) < 0) return "below";
-  if (compareMoney(value, range.max) > 0) return "above";
-  return null;
-}
 
 const FINAL: readonly DepositStatus[] = ["completed", "failed", "expired"];
 
@@ -67,9 +42,9 @@ export type DepositOutcome =
  * What a failed attempt to start a deposit means.
  *
  * `unanswered`: nothing settled it — no response (a dropped connection, the
- * 30 s limit), a 5xx without a code that decides it, or a reply this app
- * could not read; the deposit may exist, so only the same request with the
- * same key may go again. `session`: the session is gone (the route handler
+ * 30 s limit), a 5xx without a code that decides it, a rate limit (429), or a
+ * reply this app could not read; the deposit may exist, so only the same
+ * request with the same key may go again. `session`: the session is gone (the route handler
  * has refreshed once already). `refused`: the API answered — a 4xx,
  * `PAY_PROVIDER_ERROR` (the provider failed and the API says so) or
  * `REAL_MONEY_DISABLED`; the next attempt is a new intent with a new key.
@@ -79,6 +54,8 @@ export function depositOutcome(error: unknown): DepositOutcome {
     return { kind: "unanswered" };
   }
   if (error.status === 401) return { kind: "session" };
+  // "Not now" says nothing about whether this key already started one.
+  if (error.status === 429) return { kind: "unanswered" };
   if (
     error.status >= 500 &&
     error.code !== "PAY_PROVIDER_ERROR" &&
@@ -120,22 +97,38 @@ export interface DepositNotice {
   fixes: DepositFix[];
 }
 
+const distance = (a: string, b: string): bigint => {
+  const d = toSantim(a) - toSantim(b);
+  return d < 0n ? -d : d;
+};
+
 /**
- * The amount to offer when the API refuses one as out of range: its own
- * limit when it gives one as an amount, else the method's limit on the side
- * the amount fell. Null when neither applies.
+ * The amount to offer when the API refuses one as out of range: of the
+ * limits it gives for the amount, the one nearest the refused amount — the
+ * side it fell on — and only one this method takes; else the method's own
+ * limit on that side. Null when neither applies.
  */
 function nearestAmount(
   error: ApiError,
   method: PaymentMethod,
   amount: string,
 ): string | null {
-  const limit = error.errors.find(
-    (e) => e.limit !== undefined && MONEY_PATTERN.test(e.limit),
-  )?.limit;
-  if (limit && compareMoney(limit, "0.00") > 0) {
-    return compareMoney(limit, amount) === 0 ? null : limit;
-  }
+  const limits = error.errors
+    .filter((e) => e.field === "amount")
+    .map((e) => e.limit)
+    .filter(
+      (limit): limit is string =>
+        limit !== undefined &&
+        MONEY_PATTERN.test(limit) &&
+        compareMoney(limit, amount) !== 0 &&
+        amountProblem(limit, method.deposit) === null,
+    )
+    .sort((a, b) => {
+      const da = distance(a, amount);
+      const db = distance(b, amount);
+      return da < db ? -1 : da > db ? 1 : 0;
+    });
+  if (limits.length > 0) return limits[0];
   if (compareMoney(amount, method.deposit.min) < 0) return method.deposit.min;
   if (compareMoney(amount, method.deposit.max) > 0) return method.deposit.max;
   return null;
@@ -144,7 +137,10 @@ function nearestAmount(
 /**
  * What the wallet says about a refused deposit, by its Problem `code` — never
  * by its title, which is display text in whatever language the API chose —
- * with the fix where there is one (docs/design/05).
+ * with the fix where there is one (docs/design/05). A refused Try again is
+ * titled as one: it says nothing about the first try, which may still have
+ * started, so it never offers a new deposit of the same amount — Try again,
+ * with the first try's key, stays the way on.
  */
 export function depositRefusal(
   error: ApiError,
@@ -154,6 +150,8 @@ export function depositRefusal(
     amount: string;
     /** When the player's break ends, already formatted; null when unknown. */
     breakUntil: string | null;
+    /** It answered a Try again of an unanswered deposit. */
+    retried: boolean;
   },
 ): DepositNotice {
   const problem = error.details as { detail?: unknown } | null | undefined;
@@ -163,7 +161,13 @@ export function depositRefusal(
     title: DepositText,
     body: DepositNotice["body"],
     fixes: DepositFix[] = [],
-  ): DepositNotice => ({ title, body, detail, fixes });
+  ): DepositNotice => ({
+    title: ctx.retried ? { key: "deposit.refused.retryTitle" } : title,
+    body,
+    detail,
+    // After a refused Try again the main button is that Try again.
+    fixes: ctx.retried ? fixes.filter((fix) => fix.kind !== "retry") : fixes,
+  });
 
   switch (error.code) {
     case "PAY_METHOD_UNAVAILABLE":
@@ -175,14 +179,19 @@ export function depositRefusal(
 
     case "PAY_AMOUNT_OUT_OF_RANGE": {
       const nearest = nearestAmount(error, ctx.method, ctx.amount);
+      // The method's range explains it only when the amount is outside it;
+      // otherwise another limit applied, and the API's words say which.
+      const outside = amountProblem(ctx.amount, ctx.method.deposit) !== null;
       return notice(
         { key: "deposit.refused.amountTitle" },
-        {
-          key: "deposit.refused.amount",
-          method,
-          min: ctx.method.deposit.min,
-          max: ctx.method.deposit.max,
-        },
+        outside
+          ? {
+              key: "deposit.refused.amount",
+              method,
+              min: ctx.method.deposit.min,
+              max: ctx.method.deposit.max,
+            }
+          : { text: error.message },
         nearest
           ? [{ kind: "amount", amount: nearest }, { kind: "changeAmount" }]
           : [{ kind: "changeAmount" }],
@@ -232,7 +241,7 @@ export function depositRefusal(
         { text: error.message },
         error.errors.some((e) => e.field === "amount")
           ? [{ kind: "changeAmount" }]
-          : [],
+          : [{ kind: "retry" }],
       );
   }
 }

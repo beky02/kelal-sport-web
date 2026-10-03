@@ -313,6 +313,47 @@ describe("POST /api/deposits", () => {
     expect(line).not.toContain("abc123");
   });
 
+  it("leaves the return address to the API when the tenant owns no host here (SEC1)", async () => {
+    // A tenant with no host in TENANT_HOST_MAP: whatever host a request came
+    // on is the client's choice, so nothing is built from it.
+    vi.stubEnv("TENANT_HOST_MAP", "kelalsport.et=kelal");
+    const mod = await load();
+    upstreamAnswers(() => ({ status: 201, body: USSD() }));
+
+    const response = await start(mod, DEPOSIT, {
+      ...posting(mod),
+      host: "kelal-pay.example",
+    });
+
+    expect(response.status).toBe(201);
+    expect(sent[0].headers.get("x-tenant-id")).toBe("demo");
+    expect(await sent[0].json()).toEqual({
+      method: "chapa",
+      amount: "500.00",
+    });
+  });
+
+  it("hands the browser the provider page as it was checked, not as the API wrote it (SEC3)", async () => {
+    const mod = await load();
+    upstreamAnswers(() => ({
+      status: 201,
+      body: {
+        ...(REDIRECT() as Record<string, unknown>),
+        next_action: {
+          type: "redirect",
+          url: "https://CHECKOUT.chapa.co:443/checkout/payment/abc123",
+        },
+      },
+    }));
+
+    const response = await start(mod);
+
+    expect(depositSchema.parse(await response.json()).nextAction).toEqual({
+      type: "redirect",
+      url: "https://checkout.chapa.co/checkout/payment/abc123",
+    });
+  });
+
   it("builds the return address from the tenant's own host, never a forwarded one", async () => {
     const mod = await load();
     upstreamAnswers(() => ({ status: 201, body: USSD() }));
@@ -425,6 +466,9 @@ describe("POST /api/deposits", () => {
 
     for (const body of [
       { ...DEPOSIT, method: "paypal" },
+      // Not an amount at all: a 422, never a check that throws into a 500 (M6).
+      { ...DEPOSIT, amount: "abc" },
+      { ...DEPOSIT, amount: "5e2" },
       { ...DEPOSIT, amount: "500" },
       { ...DEPOSIT, amount: "500.001" },
       { ...DEPOSIT, amount: "0.00" },

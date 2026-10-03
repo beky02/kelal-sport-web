@@ -13,10 +13,13 @@ import type { PaymentMethod, WalletMode } from "../types";
  * Restates what the player chose and says what happens next — approve a
  * prompt on the phone, or continue to the provider's page — because being
  * told that after nothing appears to happen is a support call. A deposit
- * shows only what the API will charge: the amount. No fee or account is
- * shown for it, since the API sends neither.
+ * shows only what it puts in the wallet: the amount. No fee, account or
+ * total charged is shown for it, since the API sends none of them — the
+ * provider's own prompt or page says what it charges.
  *
- * What went wrong last time, and its fix, is the caller's (`children`).
+ * What went wrong last time, and its fix, is the caller's (`children`). The
+ * buttons stay in the tab order while they can't act, so a keyboard keeps
+ * its place when an answer arrives.
  */
 export function ConfirmStep({
   mode,
@@ -25,6 +28,7 @@ export function ConfirmStep({
   sending,
   disabled = false,
   confirmLabel,
+  cancelLabel,
   onConfirm,
   onCancel,
   children,
@@ -33,17 +37,21 @@ export function ConfirmStep({
   method: PaymentMethod;
   /** The amount in the contract's form. */
   amount: string;
+  /** On its way: nothing here can act until it is answered. */
   sending: boolean;
-  /** Nothing may be sent: the method can't take it now. */
+  /** Nothing may be sent: the method can't take it now, or the API said no. */
   disabled?: boolean;
   /** What the main button says: Confirm and pay, or Try again with the amount. */
   confirmLabel: string;
+  /** Where the other button goes: Cancel, or Back to wallet once nothing can be. */
+  cancelLabel?: string;
   onConfirm: () => void;
   onCancel: () => void;
   children?: ReactNode;
 }) {
   const t = useTranslation();
   const withdrawing = mode === "withdraw";
+  const confirmOff = sending || disabled;
 
   const rows = withdrawing
     ? [
@@ -79,7 +87,7 @@ export function ConfirmStep({
         ))}
         <div className="flex items-baseline justify-between gap-3 py-3">
           <span className="font-display text-[15px]">
-            {t.t(withdrawing ? "wallet.youReceive" : "wallet.youPay")}
+            {t.t(withdrawing ? "wallet.youReceive" : "deposit.youDeposit")}
           </span>
           <span className="font-display text-xl">{t.money(amount)}</span>
         </div>
@@ -99,15 +107,15 @@ export function ConfirmStep({
 
       <button
         type="button"
-        disabled={sending || disabled}
+        aria-disabled={confirmOff || undefined}
         aria-busy={sending || undefined}
-        onClick={onConfirm}
+        onClick={confirmOff ? undefined : onConfirm}
         className={cn(
-          "bg-accent text-on-accent font-body flex h-[52px] items-center justify-center gap-2 rounded-md px-3 text-[15px] font-bold disabled:opacity-60",
+          "bg-accent text-on-accent font-body flex h-[52px] items-center justify-center gap-2 rounded-md px-3 text-[15px] font-bold",
           sending
-            ? "cursor-wait"
+            ? "cursor-wait opacity-60"
             : disabled
-              ? "cursor-not-allowed"
+              ? "cursor-not-allowed opacity-60"
               : "cursor-pointer",
         )}
       >
@@ -117,10 +125,14 @@ export function ConfirmStep({
 
       <button
         type="button"
-        onClick={onCancel}
-        className="bg-raised text-text font-body h-12 cursor-pointer rounded-md text-sm font-bold"
+        aria-disabled={sending || undefined}
+        onClick={sending ? undefined : onCancel}
+        className={cn(
+          "bg-raised text-text font-body h-12 rounded-md text-sm font-bold",
+          sending ? "cursor-wait opacity-60" : "cursor-pointer",
+        )}
       >
-        {t.t("wallet.cancel")}
+        {cancelLabel ?? t.t("wallet.cancel")}
       </button>
     </div>
   );

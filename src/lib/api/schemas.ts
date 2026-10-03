@@ -156,7 +156,9 @@ export const eventSchema = z.object({
 export const oddsSchema = z.string().regex(/^\d+(\.\d{1,3})?$/);
 
 /** A decimal-string amount of money, `"1250.00"`. */
-export const moneySchema = z.string().regex(/^-?\d+\.\d{2}$/);
+// `abort`: a later check (an amount above zero) never sees what isn't one —
+// it would throw, and a malformed body must be a 422, never a 500.
+export const moneySchema = z.string().regex(/^-?\d+\.\d{2}$/, { abort: true });
 
 export const outcomeSchema = z.object({
   id: z.string(),
@@ -349,6 +351,13 @@ export const walletTxnPageSchema = z.object({
 
 // ── payments (F6b) ──────────────────────────────────────────────────────────
 
+/**
+ * The contract's `Money`, as this app sends it upstream. `abort`: a later
+ * check never sees what isn't an amount — it would throw, and a malformed
+ * body must be a 422, never a 500.
+ */
+const contractMoneySchema = z.string().regex(MONEY_PATTERN, { abort: true });
+
 /** A method's limits: the contract's `Money` strings. */
 const amountRangeSchema = z.object({
   min: z.string().regex(MONEY_PATTERN),
@@ -409,10 +418,10 @@ export const depositSchema = z.object({
  */
 export const depositRequestSchema = z.strictObject({
   method: paymentMethodCodeSchema,
-  amount: z
-    .string()
-    .regex(MONEY_PATTERN)
-    .refine((amount) => compareMoney(amount, "0.00") > 0, "Not an amount"),
+  amount: contractMoneySchema.refine(
+    (amount) => compareMoney(amount, "0.00") > 0,
+    "Not an amount",
+  ),
 }) satisfies z.ZodType<DepositRequest>;
 
 /** The withdrawal mock's answer, until F6c moves it to `/v1/withdrawals`. */
@@ -533,7 +542,6 @@ export const bookingRequestSchema = z.strictObject({
 
 /** The contract's `Odds` and `Money` patterns: what may be sent upstream. */
 const contractOddsSchema = z.string().regex(ODDS_PATTERN);
-const contractMoneySchema = z.string().regex(MONEY_PATTERN);
 
 /**
  * What `/api/bets` accepts from the browser — strict, within the contract's

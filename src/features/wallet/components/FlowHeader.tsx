@@ -4,17 +4,22 @@ import { ChevronLeft } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import { WALLET_FLOW, type FlowStep } from "../types";
 
-/** Back, what we're doing, and how far through it we are. */
+/**
+ * Back, what we're doing, and how far through it we are. Back stays in the
+ * tab order but does nothing while `locked` (a deposit on its way).
+ */
 export function FlowHeader({
   title,
   step,
   onBack,
   backLabel,
+  locked = false,
 }: {
   title: string;
   step: FlowStep;
   onBack: () => void;
   backLabel: string;
+  locked?: boolean;
 }) {
   const index = WALLET_FLOW.indexOf(step);
 
@@ -24,8 +29,12 @@ export function FlowHeader({
         <button
           type="button"
           aria-label={backLabel}
-          onClick={onBack}
-          className="text-text grid size-11 cursor-pointer place-items-center rounded-md bg-transparent"
+          aria-disabled={locked || undefined}
+          onClick={locked ? undefined : onBack}
+          className={cn(
+            "text-text grid size-11 place-items-center rounded-md bg-transparent",
+            locked ? "cursor-wait opacity-40" : "cursor-pointer",
+          )}
         >
           <ChevronLeft size={20} strokeWidth={1.5} aria-hidden />
         </button>

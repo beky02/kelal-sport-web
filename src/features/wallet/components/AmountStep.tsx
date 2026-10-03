@@ -6,7 +6,7 @@ import { SubmitButton } from "@/components/ui/Field";
 import { cn } from "@/lib/utils/cn";
 import { PAYOUT_ACCOUNT } from "@/lib/api/mock/wallet";
 import { compareMoney, sanitiseAmount } from "@/lib/money";
-import { amountProblem, typedAmount } from "../lib/deposit";
+import { amountProblem, typedAmount } from "../lib/amount";
 import type { PaymentMethod, WalletMode } from "../types";
 
 /** Quick amounts, in whole birr, as the design has them. */
@@ -89,9 +89,16 @@ export function AmountStep({
           className={cn(
             "bg-surface flex h-16 rounded-md border",
             message ? "border-loss" : "border-divider",
+            // The unit where the language puts it: ETB 500.00, 500.00 ብር (06).
+            t.lang === "am" && "flex-row-reverse",
           )}
         >
-          <span className="border-divider text-muted flex items-center border-r px-3.5 font-semibold">
+          <span
+            className={cn(
+              "border-divider text-muted flex items-center px-3.5 font-semibold",
+              t.lang === "am" ? "border-l" : "border-r",
+            )}
+          >
             {t.t("header.currency")}
           </span>
           <input
@@ -111,7 +118,8 @@ export function AmountStep({
 
       <div className="grid grid-cols-4 gap-1.5">
         {CHIPS.map((chip) => {
-          const on = amount === chip;
+          // "500" and "500.00" are one amount (a retry brings the latter back).
+          const on = typed !== null && typed === typedAmount(chip);
           return (
             <button
               key={chip}

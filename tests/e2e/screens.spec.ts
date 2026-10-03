@@ -1069,6 +1069,9 @@ const SCREENS: Array<{
     before: depositAnswers([
       422,
       problemJson(422, "PAY_AMOUNT_OUT_OF_RANGE", {
+        // The API's own (translated) title: 500.00 is inside the method's
+        // range, so these words, not the range, say why.
+        title: "You can’t deposit this much today",
         detail: "Your daily deposits can’t go over 300.00 ETB.",
         errors: [{ field: "amount", code: "MAX", limit: "300.00" }],
       }),
@@ -1087,6 +1090,116 @@ const SCREENS: Array<{
     ]),
     prepare: depositShows((t) => t.deposit.refused.limitTitle),
     allowConsole: /403/,
+  },
+  {
+    name: "deposit-unavailable",
+    path: "/wallet?action=deposit",
+    before: async (page) => {
+      await loginViaApi(page);
+      // Refused as unavailable — and from then on, the methods say so.
+      let refused = false;
+      await page.route("**/api/deposits", (route) => {
+        refused = true;
+        return route.fulfill({
+          status: 422,
+          contentType: "application/problem+json",
+          json: problemJson(422, "PAY_METHOD_UNAVAILABLE"),
+        });
+      });
+      await page.route("**/api/payment-methods", async (route) => {
+        const response = await route.fetch();
+        const methods = (await response.json()) as {
+          code: string;
+          available: boolean;
+        }[];
+        await route.fulfill({
+          response,
+          json: refused
+            ? methods.map((m) =>
+                m.code === "cbebirr" ? { ...m, available: false } : m,
+              )
+            : methods,
+        });
+      });
+    },
+    prepare: depositShows((t) => t.deposit.refused.methodTitle),
+    allowConsole: /422/,
+  },
+  {
+    name: "deposit-provider-error",
+    path: "/wallet?action=deposit",
+    before: depositAnswers([502, problemJson(502, "PAY_PROVIDER_ERROR")]),
+    prepare: depositShows((t) => t.deposit.refused.providerTitle),
+    allowConsole: /502/,
+  },
+  {
+    name: "deposit-break",
+    path: "/wallet?action=deposit",
+    before: async (page) => {
+      await depositAnswers([403, problemJson(403, "RG_COOLING_OFF")])(page);
+      // On a break until 10 Oct, 18:00 EAT: the date the refusal names.
+      await page.route("**/api/me", async (route) => {
+        const response = await route.fetch();
+        const body = (await response.json()) as {
+          player: { flags: Record<string, unknown> } | null;
+        };
+        if (body.player) {
+          body.player.flags.excludedUntil = "2026-10-10T15:00:00Z";
+        }
+        await route.fulfill({ response, json: body });
+      });
+    },
+    prepare: depositShows((t) => t.deposit.refused.breakTitle),
+    allowConsole: /403/,
+  },
+  {
+    name: "deposit-kyc",
+    path: "/wallet?action=deposit",
+    before: depositAnswers([403, problemJson(403, "KYC_REQUIRED")]),
+    prepare: depositShows((t) => t.deposit.refused.kycTitle),
+    allowConsole: /403/,
+  },
+  {
+    name: "deposit-real-money",
+    path: "/wallet?action=deposit",
+    before: depositAnswers([503, problemJson(503, "REAL_MONEY_DISABLED")]),
+    prepare: depositShows((t) => t.deposit.refused.realMoneyTitle),
+    allowConsole: /503/,
+  },
+  {
+    // No answer, then a Try again the API refused: still that deposit's key.
+    name: "deposit-retry-refused",
+    path: "/wallet?action=deposit",
+    before: async (page) => {
+      await loginViaApi(page);
+      let posts = 0;
+      await page.route("**/api/deposits", (route) => {
+        posts += 1;
+        return posts === 1
+          ? route.abort("failed")
+          : route.fulfill({
+              status: 403,
+              contentType: "application/problem+json",
+              json: problemJson(403, "RG_LIMIT_REACHED", {
+                detail:
+                  "Your daily deposit limit of 1,000.00 ETB resets at midnight.",
+              }),
+            });
+      });
+    },
+    prepare: async (page, device, lang) => {
+      const t = MESSAGES[lang];
+      await depositShows((m) => m.deposit.unconfirmedTitle)(page, device, lang);
+      await page
+        .getByRole("button", {
+          name: new RegExp(`^${escape(t.deposit.retry.split(" ·")[0])}`),
+        })
+        .click();
+      await page
+        .getByText(t.deposit.refused.retryTitle, { exact: true })
+        .waitFor();
+    },
+    allowConsole: /ERR_FAILED|403/,
   },
   {
     name: "deposit-starting",
@@ -1111,10 +1224,17 @@ const SCREENS: Array<{
   {
     name: "deposit-unsupported",
     path: "/wallet?action=deposit",
-    before: depositAnswers([
-      201,
-      deposit({ nextAction: { type: "unsupported", reason: "app_sdk" } }),
-    ]),
+    // Read as it started: Prism's default read is a completed deposit (U1).
+    before: depositAnswers(
+      [
+        201,
+        deposit({ nextAction: { type: "unsupported", reason: "app_sdk" } }),
+      ],
+      [
+        200,
+        deposit({ nextAction: { type: "unsupported", reason: "app_sdk" } }),
+      ],
+    ),
     prepare: depositShows((t) => t.deposit.unsupportedTitle),
   },
   {

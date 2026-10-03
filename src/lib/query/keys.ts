@@ -92,8 +92,14 @@ export const walletKeys = {
  */
 export const paymentKeys = {
   all: ["payments"] as const,
+  /** Every language's methods: read again when the API says one is down. */
+  methodLists: () => [...paymentKeys.all, "methods"] as const,
   /** The methods offered to this player, in one language: names are the API's. */
-  methods: (lang: string) => [...paymentKeys.all, "methods", lang] as const,
-  /** One deposit, polled while it is pending. */
-  deposit: (id: string) => [...paymentKeys.all, "deposit", id] as const,
+  methods: (lang: string) => [...paymentKeys.methodLists(), lang] as const,
+  /**
+   * One deposit, polled while it is going, in one language: its next action's
+   * message and its failure reason are the API's text.
+   */
+  deposit: (id: string, lang: string) =>
+    [...paymentKeys.all, "deposit", id, lang] as const,
 };

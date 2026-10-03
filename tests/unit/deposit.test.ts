@@ -1,12 +1,11 @@
 import { describe, expect, it } from "vitest";
+import { amountProblem, typedAmount } from "@/features/wallet/lib/amount";
 import {
-  amountProblem,
   depositOutcome,
   depositRefusal,
   isFinal,
   sameDeposit,
   shouldPoll,
-  typedAmount,
 } from "@/features/wallet/lib/deposit";
 import type { Deposit, PaymentMethod } from "@/features/wallet/types";
 import { ApiError, ContractError } from "@/lib/api/errors";
@@ -106,7 +105,8 @@ describe("depositOutcome (AC-8)", () => {
     expect(kind(problem(422, "PAY_AMOUNT_OUT_OF_RANGE"))).toBe("refused");
     expect(kind(problem(403, "RG_LIMIT_REACHED"))).toBe("refused");
     expect(kind(problem(422, "IDEMPOTENCY_MISMATCH"))).toBe("refused");
-    expect(kind(problem(429, "RATE_LIMITED"))).toBe("refused");
+    // "Not now" says nothing about whether the key already started one (M2).
+    expect(kind(problem(429, "RATE_LIMITED"))).toBe("unanswered");
     expect(kind(problem(502, "PAY_PROVIDER_ERROR"))).toBe("refused");
     expect(kind(problem(503, "REAL_MONEY_DISABLED"))).toBe("refused");
   });
@@ -162,7 +162,8 @@ describe("depositRefusal (AC-9)", () => {
     error: ApiError,
     amount = "500.00",
     breakUntil: string | null = null,
-  ) => depositRefusal(error, { method: TELEBIRR, amount, breakUntil });
+    retried = false,
+  ) => depositRefusal(error, { method: TELEBIRR, amount, breakUntil, retried });
 
   it("says what each deposit refusal means and offers its fix (AC-9)", () => {
     expect(refuse(problem(422, "PAY_METHOD_UNAVAILABLE"))).toEqual({
@@ -220,7 +221,9 @@ describe("depositRefusal (AC-9)", () => {
   });
 
   it("offers the API's own limit when an amount is out of range, else the method's on that side", () => {
-    // The API names the limit: that is the amount offered.
+    // The API names the limit for the amount: that is the amount offered.
+    // 500.00 is inside telebirr's range, so another limit applied: the API's
+    // own words say which, not the method's range (S4, U6).
     expect(
       refuse(
         problem(422, "PAY_AMOUNT_OUT_OF_RANGE", {
@@ -229,6 +232,14 @@ describe("depositRefusal (AC-9)", () => {
       ),
     ).toEqual({
       title: { key: "deposit.refused.amountTitle" },
+      body: { text: "The API's own title for PAY_AMOUNT_OUT_OF_RANGE" },
+      detail: null,
+      fixes: [{ kind: "amount", amount: "300.00" }, { kind: "changeAmount" }],
+    });
+    // Outside the method's range: the range says it, and its limit on the
+    // side the amount fell is offered.
+    expect(refuse(problem(422, "PAY_AMOUNT_OUT_OF_RANGE"), "10.00")).toEqual({
+      title: { key: "deposit.refused.amountTitle" },
       body: {
         key: "deposit.refused.amount",
         method: "telebirr",
@@ -236,12 +247,8 @@ describe("depositRefusal (AC-9)", () => {
         max: "100000.00",
       },
       detail: null,
-      fixes: [{ kind: "amount", amount: "300.00" }, { kind: "changeAmount" }],
+      fixes: [{ kind: "amount", amount: "20.00" }, { kind: "changeAmount" }],
     });
-    // It doesn't: the method's minimum or maximum, on the side the amount fell.
-    expect(
-      refuse(problem(422, "PAY_AMOUNT_OUT_OF_RANGE"), "10.00").fixes,
-    ).toEqual([{ kind: "amount", amount: "20.00" }, { kind: "changeAmount" }]);
     expect(
       refuse(problem(422, "PAY_AMOUNT_OUT_OF_RANGE"), "200000.00").fixes,
     ).toEqual([
@@ -262,16 +269,62 @@ describe("depositRefusal (AC-9)", () => {
     ).toEqual([{ kind: "changeAmount" }]);
   });
 
+  it("offers only a limit the method itself takes, on the amount, nearest the refused amount (S2, M4)", () => {
+    const offered = (amount: string, errors: ApiError["errors"]) =>
+      refuse(problem(422, "PAY_AMOUNT_OUT_OF_RANGE", { errors }), amount)
+        .fixes[0];
+    // Below the method's own minimum: never offered — the API would refuse it.
+    expect(
+      offered("500.00", [{ field: "amount", code: "MAX", limit: "15.00" }]),
+    ).toEqual({ kind: "changeAmount" });
+    // A limit on something else than the amount is not an amount to offer.
+    expect(
+      offered("500.00", [{ field: "phone", code: "MAX", limit: "300.00" }]),
+    ).toEqual({ kind: "changeAmount" });
+    // Several limits, in any order: the one on the side the amount fell.
+    const both: ApiError["errors"] = [
+      { field: "amount", code: "MIN", limit: "50.00" },
+      { field: "amount", code: "MAX", limit: "300.00" },
+    ];
+    expect(offered("500.00", both)).toEqual({
+      kind: "amount",
+      amount: "300.00",
+    });
+    expect(offered("30.00", both)).toEqual({ kind: "amount", amount: "50.00" });
+  });
+
+  it("titles a refused Try again as one, and never offers a new deposit of the same amount (M2)", () => {
+    const notice = refuse(
+      problem(502, "PAY_PROVIDER_ERROR"),
+      "500.00",
+      null,
+      true,
+    );
+    expect(notice.title).toEqual({ key: "deposit.refused.retryTitle" });
+    expect(notice.body).toEqual({
+      key: "deposit.refused.provider",
+      method: "telebirr",
+    });
+    // Try again stays the main button, with the first try's key.
+    expect(notice.fixes).toEqual([{ kind: "chooseMethod" }]);
+    expect(
+      refuse(problem(403, "RG_LIMIT_REACHED"), "500.00", null, true).title,
+    ).toEqual({ key: "deposit.refused.retryTitle" });
+  });
+
   it("shows the API's own title for a code it has no words for, and the API's detail as its own line", () => {
     expect(
       refuse(
-        problem(429, "RATE_LIMITED", { detail: "Try again in a minute." }),
+        problem(422, "IDEMPOTENCY_MISMATCH", {
+          detail: "This key was used for another deposit.",
+        }),
       ),
     ).toEqual({
       title: { key: "deposit.refused.otherTitle" },
-      body: { text: "The API's own title for RATE_LIMITED" },
-      detail: "Try again in a minute.",
-      fixes: [],
+      body: { text: "The API's own title for IDEMPOTENCY_MISMATCH" },
+      detail: "This key was used for another deposit.",
+      // Confirm is off while this shows: Try again is a new deposit.
+      fixes: [{ kind: "retry" }],
     });
     expect(
       refuse(

@@ -9,7 +9,7 @@ import { useSession } from "@/features/auth/hooks/use-session";
 import { useAuthStore } from "@/features/auth/stores/auth.store";
 import { usePaymentMethods } from "../hooks/use-payments";
 import { useCreateWithdrawal, usePaymentStatus } from "../hooks/use-wallet";
-import { typedAmount } from "../lib/deposit";
+import { typedAmount } from "../lib/amount";
 import {
   WALLET_FLOW,
   type FlowStep,
@@ -100,6 +100,7 @@ export function WithdrawFlow({
           onSelect={setCode}
           onContinue={() => setStep("amount")}
           onVerify={() => openAuth("verify")}
+          onBack={onExit}
         />
       )}
 
@@ -148,7 +149,6 @@ export function WithdrawFlow({
 
       {step === "result" && currentResult && method && (
         <PaymentResultStep
-          mode="withdraw"
           method={method}
           result={currentResult}
           onDone={onExit}

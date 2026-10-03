@@ -45,20 +45,23 @@ export function toPaymentMethods(
 
 /**
  * What the player does next, as this site can follow it. A redirect goes
- * through only when `isAllowed` says its page may be visited — otherwise the
- * URL never leaves the server. App-only payments and kinds the contract adds
- * later can't be finished on the website.
+ * through only as `followable` returns it — the page as it was checked, or
+ * null when it may not be visited, and then the URL never leaves the server.
+ * App-only payments and kinds the contract adds later can't be finished on
+ * the website.
  */
 function toNextAction(
   action: ApiNextAction | null | undefined,
-  isAllowed: (url: string) => boolean,
+  followable: (url: string) => string | null,
 ): DepositNextAction | null {
   if (!action) return null;
   switch (action.type) {
-    case "redirect":
-      return action.url && isAllowed(action.url)
-        ? { type: "redirect", url: action.url }
+    case "redirect": {
+      const url = action.url ? followable(action.url) : null;
+      return url
+        ? { type: "redirect", url }
         : { type: "unsupported", reason: "redirect_refused" };
+    }
     case "ussd_push":
       return { type: "ussd_push", message: action.message ?? null };
     case "app_sdk":
@@ -74,14 +77,14 @@ function toNextAction(
  */
 export function toDeposit(
   deposit: ApiDeposit,
-  isAllowed: (url: string) => boolean,
+  followable: (url: string) => string | null,
 ): Deposit {
   return {
     id: deposit.id,
     method: deposit.method,
     amount: deposit.amount,
     status: deposit.status,
-    nextAction: toNextAction(deposit.next_action, isAllowed),
+    nextAction: toNextAction(deposit.next_action, followable),
     failureReason: deposit.failure_reason ?? null,
     expiresAt: deposit.expires_at ?? null,
     createdAt: deposit.created_at,
@@ -92,13 +95,13 @@ export function toDeposit(
 /**
  * The player's request as the API takes it, with where the provider sends
  * them back — this site's own address, built on the server, never the
- * browser's.
+ * browser's — or, without one, the API's own default for the tenant.
  */
 export const toDepositRequest = (
   request: DepositRequest,
-  returnUrl: string,
+  returnUrl: string | null,
 ): ApiDepositRequest => ({
   method: request.method,
   amount: request.amount,
-  return_url: returnUrl,
+  ...(returnUrl ? { return_url: returnUrl } : {}),
 });

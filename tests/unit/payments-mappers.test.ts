@@ -16,7 +16,7 @@ const created = (name: "redirect" | "ussd_push") =>
 const read = (name: "completed" | "pending") =>
   responseExample("/v1/deposits/{id}", "get", 200, name) as ApiDeposit;
 
-const allowAll = () => true;
+const allowAll = (url: string) => url;
 
 describe("toPaymentMethods (AC-7)", () => {
   it("maps the contract's methods: names, flows, availability and limits as strings", () => {
@@ -98,7 +98,7 @@ describe("toDeposit", () => {
 
     const deposit = toDeposit(created("redirect"), (url) => {
       asked.push(url);
-      return false;
+      return null;
     });
 
     expect(asked).toEqual([
@@ -110,6 +110,23 @@ describe("toDeposit", () => {
     });
     expect(JSON.stringify(deposit)).not.toContain("checkout.chapa.co");
     expect(depositSchema.parse(deposit)).toEqual(deposit);
+  });
+
+  it("hands the browser the page exactly as the allow-list read it, never the raw string (SEC3)", () => {
+    const raw = " https://CHECKOUT.chapa.co:443/checkout/payment/abc123";
+    const deposit = toDeposit(
+      {
+        ...created("redirect"),
+        next_action: { type: "redirect", url: raw },
+      },
+      // What `allowedProviderUrl` returns: the parsed, canonical href.
+      (url) => new URL(url).href,
+    );
+
+    expect(deposit.nextAction).toEqual({
+      type: "redirect",
+      url: "https://checkout.chapa.co/checkout/payment/abc123",
+    });
   });
 
   it("maps the contract's phone deposit with the API's own message", () => {
@@ -196,6 +213,12 @@ describe("toDeposit", () => {
 });
 
 describe("toDepositRequest", () => {
+  it("leaves the return address to the API when this site has none for the tenant (SEC1)", () => {
+    expect(
+      toDepositRequest({ method: "cbebirr", amount: "500.00" }, null),
+    ).toEqual({ method: "cbebirr", amount: "500.00" });
+  });
+
   it("sends the method and the amount with this site's return address, and nothing else", () => {
     expect(
       toDepositRequest(

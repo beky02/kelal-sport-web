@@ -28,6 +28,13 @@ the deposit is `completed`, `failed` or `expired`. Three things are missing.
    it keeps nothing and the provider did receive the first request, a new key starts a second push. The
    contract should say which.
 
+4. **What answers a retried key first.** After no answer the web sends the same key again (Try again).
+   If a rate limit (429) or a responsible-gambling check (403) can answer that retry before the stored
+   answer for the key is replayed, the retry's refusal says nothing about whether the first try started
+   a deposit. The web therefore keeps such an intent unanswered and its key, rather than starting a new
+   one. It would help to know the middleware order, and what a same-key POST gets while the first is
+   still being processed (409? a replay once it finishes?).
+
 ## Proposed change
 
 Additive: one optional property, named examples (the first example of each response stays its default,
@@ -158,9 +165,11 @@ app_sdk:
             request_id: req_01J9B18
 ```
 
-And one sentence on `components.parameters.IdempotencyKey`, or on `POST /v1/deposits`, saying whether a
-5xx Problem (`PAY_PROVIDER_ERROR`) is stored under the key. The web's reading — final, so a retry is a
-new intent — is right only if it is not.
+And a few sentences on `components.parameters.IdempotencyKey`, or on `POST /v1/deposits`, saying:
+whether a 5xx Problem (`PAY_PROVIDER_ERROR`) is stored under the key (the web's reading — final, so a
+retry is a new intent — is right only if it is not); whether a stored answer is replayed before rate
+limits and responsible-gambling checks run; and what a same-key POST gets while the first is still in
+flight.
 
 ## Clients affected
 
@@ -175,6 +184,7 @@ new intent — is right only if it is not.
 
 The Reference row shows the deposit's `id`. Initiated, failed and expired deposits and the deposit
 refusals are answered in the browser for `pnpm ui` and built from the contract's schema in the tests.
-`errors[].limit` is used as the amount to offer only when it is a `Money` string, and otherwise the
-method's own limit on the side the amount fell. After `PAY_PROVIDER_ERROR`, Try again is a new deposit
-with a new key.
+`errors[].limit` is offered only when it is a `Money` string given for the amount, nearest the refused
+amount, and within the method's own limits; otherwise the method's own limit on the side the amount fell.
+After `PAY_PROVIDER_ERROR` on a first try, Try again is a new deposit with a new key; a 429, or any
+refusal of a Try again, keeps the unanswered deposit's key.

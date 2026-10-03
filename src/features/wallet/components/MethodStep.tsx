@@ -29,7 +29,9 @@ const FLOW_LINE: Partial<
  * Tiles rather than a list, with the limits on the tile, so nobody picks a
  * method and then discovers it cannot take the amount they had in mind. A
  * method the API marks unavailable (its provider is down) can't be chosen,
- * and says so. A withdrawal lists only the methods that pay out.
+ * and says so — it stays in the tab order, so a keyboard reaches the reason.
+ * A withdrawal lists only the methods that pay out. With nothing to choose,
+ * the way on is back to the wallet, not a Continue that can never act.
  */
 export function MethodStep({
   mode,
@@ -39,6 +41,7 @@ export function MethodStep({
   onSelect,
   onContinue,
   onVerify,
+  onBack,
 }: {
   mode: WalletMode;
   kycVerified: boolean;
@@ -48,6 +51,8 @@ export function MethodStep({
   onSelect: (method: PaymentMethodCode) => void;
   onContinue: () => void;
   onVerify: () => void;
+  /** Where the player goes when there is nothing to choose. */
+  onBack: () => void;
 }) {
   const t = useTranslation();
   // The wallet is only shown to a signed-in player.
@@ -63,6 +68,7 @@ export function MethodStep({
   );
   const chosen = offered.find((method) => method.code === selected);
   const ready = chosen !== undefined && chosen.available;
+  const nothingToChoose = !methods.isPending && offered.length === 0;
 
   return (
     <div className="flex flex-col gap-3.5 px-4 pt-4.5 pb-6">
@@ -118,13 +124,22 @@ export function MethodStep({
             onClick={() => void methods.refetch()}
             className="bg-raised text-text font-body min-h-11 shrink-0 cursor-pointer rounded-lg px-3 text-xs font-bold"
           >
-            {t.t("common.retry")}
+            {t.t("wallet.tryAgain")}
           </button>
         </div>
       ) : offered.length === 0 ? (
-        <p className="text-muted py-6 text-center text-xs text-pretty">
-          {t.t("deposit.methodsEmpty")}
-        </p>
+        <div className="flex flex-col items-center gap-3 py-6">
+          <p className="text-muted text-center text-xs text-pretty">
+            {t.t("deposit.methodsEmpty")}
+          </p>
+          <button
+            type="button"
+            onClick={() => void methods.refetch()}
+            className="bg-raised text-text font-body min-h-11 cursor-pointer rounded-lg px-4 text-xs font-bold"
+          >
+            {t.t("wallet.tryAgain")}
+          </button>
+        </div>
       ) : (
         <div className="grid grid-cols-2 gap-2.5 xl:grid-cols-3">
           {offered.map((method) => (
@@ -139,13 +154,23 @@ export function MethodStep({
         </div>
       )}
 
-      <SubmitButton
-        className="mt-1"
-        disabled={!ready || locked}
-        onClick={onContinue}
-      >
-        {t.t("wallet.continue")}
-      </SubmitButton>
+      {nothingToChoose ? (
+        <button
+          type="button"
+          onClick={onBack}
+          className="bg-raised text-text font-body mt-1 h-12 cursor-pointer rounded-md text-sm font-bold"
+        >
+          {t.t("deposit.backToWallet")}
+        </button>
+      ) : (
+        <SubmitButton
+          className="mt-1"
+          disabled={!ready || locked}
+          onClick={onContinue}
+        >
+          {t.t("wallet.continue")}
+        </SubmitButton>
+      )}
     </div>
   );
 }
@@ -170,15 +195,15 @@ function MethodTile({
     <button
       type="button"
       aria-pressed={on}
-      disabled={!method.available}
-      onClick={onSelect}
+      aria-disabled={!method.available || undefined}
+      onClick={method.available ? onSelect : undefined}
       className={cn(
         "font-body flex min-h-32 flex-col items-start gap-1 rounded-lg border p-3 text-left",
         !method.available
-          ? "bg-surface border-divider cursor-not-allowed opacity-60"
+          ? "bg-surface cursor-not-allowed border-dashed border-divider opacity-60"
           : on
             ? "border-accent bg-raised cursor-pointer shadow-[inset_0_0_0_1px_var(--color-accent)]"
-            : "bg-surface cursor-pointer border-transparent",
+            : "bg-surface border-divider hover:border-accent cursor-pointer",
       )}
     >
       <span className="flex w-full items-start justify-between">

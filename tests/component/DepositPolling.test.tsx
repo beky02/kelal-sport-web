@@ -20,7 +20,7 @@ import { example, responseExample } from "../contract";
 type ApiDeposit = components["schemas"]["Deposit"];
 
 /** What `/api/deposits/{id}` answers: the contract's examples, mapped. */
-const allowAll = () => true;
+const allowAll = (url: string) => url;
 const PHONE_PENDING = toDeposit(
   responseExample("/v1/deposits", "post", 201, "ussd_push") as ApiDeposit,
   allowAll,
@@ -141,5 +141,79 @@ describe("polling a deposit (AC-2)", () => {
     await tick(9_000);
     expect(deposits()).toHaveLength(3);
     expect(reread("/api/wallet")).toBe(2);
+  });
+});
+
+describe("when a deposit is not read (Q7)", () => {
+  /** The fake clock, React told on a microtask, and `/api/deposits/{id}` answering `answer`. */
+  function setUp(answer: () => [number, unknown]) {
+    vi.useFakeTimers({
+      now: Date.parse("2026-10-03T13:58:12Z"),
+      toFake: [
+        "setTimeout",
+        "clearTimeout",
+        "setInterval",
+        "clearInterval",
+        "Date",
+      ],
+    });
+    notifyManager.setScheduler((cb) => queueMicrotask(cb));
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+      const url = new URL(String(input));
+      asked.push({ path: url.pathname, at: Date.now() });
+      return json(...answer());
+    });
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false, gcTime: Infinity } },
+    });
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+    );
+    return renderHook(() => useDeposit(PHONE_PENDING.id), { wrapper });
+  }
+
+  const reads = () => asked.filter((a) => a.path.startsWith("/api/deposits/"));
+
+  it("stops reading a deposit the API says isn't this player's", async () => {
+    setUp(() => [
+      404,
+      {
+        type: "about:blank",
+        title: "Not found",
+        status: 404,
+        code: "NOT_FOUND",
+      },
+    ]);
+
+    await tick(0);
+    await tick(9_000);
+
+    expect(reads()).toHaveLength(1);
+  });
+
+  it("reads nothing while the tab is hidden, and reads again as soon as it is back", async () => {
+    let visibility: DocumentVisibilityState = "visible";
+    const spy = vi
+      .spyOn(document, "visibilityState", "get")
+      .mockImplementation(() => visibility);
+    setUp(() => [200, PHONE_PENDING]);
+
+    await tick(0);
+    expect(reads()).toHaveLength(1);
+
+    // The player switches to the phone's prompt…
+    visibility = "hidden";
+    window.dispatchEvent(new Event("visibilitychange"));
+    await tick(9_000);
+    expect(reads()).toHaveLength(1);
+
+    // …and comes back: read at once, then every 3 s again.
+    visibility = "visible";
+    window.dispatchEvent(new Event("visibilitychange"));
+    await tick(0);
+    expect(reads()).toHaveLength(2);
+    await tick(3_000);
+    expect(reads()).toHaveLength(3);
+    spy.mockRestore();
   });
 });

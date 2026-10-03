@@ -9,6 +9,7 @@ import {
   OfflineBanner,
 } from "@/features/system/components/StatusBanners";
 import { SystemOverlays } from "@/features/system/components/SystemOverlays";
+import { DepositFollower } from "@/features/wallet/components/DepositFollower";
 import { AppFooter } from "./AppFooter";
 import { AsidePanel } from "./AsidePanel";
 import { AppHeader } from "./AppHeader";
@@ -45,6 +46,7 @@ export function SportsbookShell({
     <>
       <NetworkWatcher />
       <SessionWatcher />
+      <DepositFollower />
       <AppHeader />
       <OfflineBanner />
       {phoneSubheader && <div className="md:hidden">{phoneSubheader}</div>}

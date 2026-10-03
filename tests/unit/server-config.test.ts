@@ -245,6 +245,19 @@ describe("the payment redirect allow-list (AC-3)", () => {
     }
   });
 
+  it("returns the page as it was read, so what is followed is what was checked (SEC3)", async () => {
+    vi.stubEnv("PAYMENT_REDIRECT_HOSTS", "checkout.chapa.co");
+    const { allowedProviderUrl } = await load();
+
+    expect(allowedProviderUrl(" https://CHECKOUT.chapa.co:443/x?y=1#z")).toBe(
+      "https://checkout.chapa.co/x?y=1#z",
+    );
+    expect(allowedProviderUrl("https://checkout.chapa.co\\@evil.com/")).toBe(
+      "https://checkout.chapa.co/@evil.com/",
+    );
+    expect(allowedProviderUrl("https://evil.example/x")).toBeNull();
+  });
+
   it("allows no host in production unless one is listed, and the contract's example hosts in development", async () => {
     vi.stubEnv("PAYMENT_REDIRECT_HOSTS", "");
     vi.stubEnv("NODE_ENV", "production");

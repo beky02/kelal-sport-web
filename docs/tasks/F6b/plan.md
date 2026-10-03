@@ -133,7 +133,7 @@ method, amount)` → `{ title, body, detail, fix }`; `src/features/wallet/lib/pr
 
 | File                                                                                                                                                                                                                            | Why                                                                                                                      |
 | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| `docs/tasks/F6b-deposits.md`, `README.md`, `F6-wallet.md`; `docs/tasks/F6b/plan.md`, `verification.md`                                                                                                                          | Status, this plan, phase 3                                                                                               |
+| `docs/tasks/F6b-deposits.md`, `README.md`; `docs/tasks/F6b/plan.md`, `verification.md`                                                                                                                                          | Status, this plan, phase 3                                                                                               |
 | `src/lib/server/config.ts`, `.env.example`                                                                                                                                                                                      | `PAYMENT_REDIRECT_HOSTS`, `isAllowedProviderUrl`                                                                         |
 | `src/lib/server/payments.ts` (new)                                                                                                                                                                                              | Methods, create, read a deposit                                                                                          |
 | `src/lib/api/mappers/payments.ts` (new)                                                                                                                                                                                         | Contract → domain, the allow-list applied                                                                                |
@@ -245,3 +245,50 @@ None (decision 1).
   disabled, rather than jumping to the method step and hiding why; Choose another method moves on.
 - **`.env.example`**: `PAYMENT_REDIRECT_HOSTS`, and the `NEXT_PUBLIC_USE_MOCKS` comment brought up
   to date (withdrawals and responsible gaming are what it still serves).
+
+### Review round 1 (2026-10-03) — what changed in the design
+
+- **A deposit outlives its screen** (spec S1, security SEC2, quality Q1–Q2, money M1 — MAJOR). The
+  intent no longer lives in the flow's component state: `stores/deposit.store.ts` (memory only, per
+  player, like the slip's placement) keeps the attempt on its way, the one that had no answer, a deposit
+  that started while no flow was on screen, and the started deposits not yet final. What an answer means
+  is recorded by the mutation's own callbacks, which run after the flow unmounts; only showing it,
+  leaving for the provider and showing a refusal wait for the flow. Coming back to Deposit opens on what is
+  still theirs — that deposit's status, or the unanswered (or still sending) intent on its confirm step,
+  where the same method and amount is Try again with its key. `DepositFollower`, mounted in the shell
+  beside the session watcher, keeps reading unfinished deposits wherever the player goes, so the balance
+  moves when the API says the money arrived. Leaving cancels nothing: under an unanswered deposit the
+  second button is Back to wallet (U2); Back and Cancel are locked while a deposit is on its way.
+- **No answer includes a rate limit, and a refused Try again keeps the key** (M2). A 429 says "not now",
+  nothing about whether the key already started one, so it leaves the intent unanswered. A Try again the
+  API refuses is titled "Try again didn't go through" (F5a's words), keeps the intent and offers no new
+  deposit of the same amount — Try again, with the first try's key, stays the main button.
+- **Copy that claimed more than the API says** (M3, M7, M5), for the user to confirm: the provider
+  refusal is "{method} didn't answer. Try again, or choose another method." (no "your deposit didn't
+  start"); the limit refusal is "You've reached a deposit limit…" (not "a limit you set"); a deposit's
+  total reads "You deposit", not "You pay" (the provider's prompt says what it charges). An amount
+  refused inside the method's range shows the API's own title instead of the range (S4, U6).
+- **A refusal's fix is the way on** (U5): after a final refusal of the request on screen, Confirm is off
+  until the method or amount changes; an unknown code offers Try again (a new deposit). Failed and expired
+  deposits end with Back to wallet, not Done, whose Amharic reads as "completed" (U7); on expired it is
+  the main button and Try again secondary, since a late approval still arrives (U9).
+- **The offered amount** (S2, M4): only a limit given for the amount, nearest the refused amount, and one
+  the method itself takes; the methods are read again after `PAY_AMOUNT_OUT_OF_RANGE` too. Try again
+  after a failure goes to the amount step when the method's limits no longer take the old amount.
+- **Server** (SEC1, SEC3, M6): `return_url` is built only from a host the tenant owns in
+  `TENANT_HOST_MAP`, else left to the API; the browser gets the provider page exactly as the allow-list
+  parsed it (`allowedProviderUrl` returns its `href`); a non-decimal amount (or stake) is a 422 — the
+  money pattern now aborts before the above-zero check, which threw.
+- **Smaller** (Q3–Q8, U3, U4, U8, U12): a seeded deposit isn't read again at once (`staleTime` 3 s);
+  deposits are keyed by language; the status screen waits for the method's name (fallback "your payment
+  provider"), never shows its code; `PaymentResultStep` is withdrawals-only; `paymentKeys.methodLists()`;
+  the amount helpers moved to `lib/amount.ts`; unavailable tiles and the busy Confirm use
+  `aria-disabled`, so they keep focus; available tiles are framed, an unavailable one dashed; no methods
+  or a failed read offer Try again and Back to wallet; one Amharic Try again (ሞክር) in the flow; the
+  Amharic unit follows the amount field. New screens: `deposit-unavailable`, `-provider-error`,
+  `-break`, `-kyc`, `-real-money`, `-retry-refused`.
+- **Files added in the round**: `src/features/wallet/stores/deposit.store.ts`,
+  `components/DepositFollower.tsx`, `lib/amount.ts`; changed beyond the list:
+  `src/components/layout/SportsbookShell.tsx` (mounts the follower), `PaymentResultStep.tsx`,
+  `tests/unit/bets-route.test.ts` (the stake's 422). `docs/tasks/F6-wallet.md` was in the Files list but
+  needed no change.

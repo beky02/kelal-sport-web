@@ -134,9 +134,15 @@ refuses), and amounts the player types against the method's `min`/`max` before a
 | The reference        | The deposit's `id`                                     | The contract has no provider reference yet (DEP-08, contract request 009)                                                                                                                                                                              |
 
 One `Idempotency-Key` per deposit intent, made when the player confirms: with no answer (no response,
-30 s, a 5xx without a deciding code, an unreadable reply) Try again sends the same request with the same
-key; any answer — a 201, a 4xx, `PAY_PROVIDER_ERROR`, `REAL_MONEY_DISABLED` — ends the intent, and the
-next Confirm, a fix, or another method or amount is a new one.
+30 s, a 5xx without a deciding code, a rate limit, an unreadable reply) Try again sends the same request
+with the same key — also after the player left and came back, since the intent is kept outside the flow
+(`stores/deposit.store.ts`, per player, memory only). A Try again the API refuses keeps it too: its no
+says nothing about the first try. A first try's answer — a 201, a 4xx, `PAY_PROVIDER_ERROR`,
+`REAL_MONEY_DISABLED` — ends the intent, and the next Confirm, a fix, or another method or amount is a new
+one. A deposit that started is read until the API decides, wherever the player goes
+(`DepositFollower`), so the balance moves when the money arrives and only then. The confirm step says
+"You deposit {amount}": what goes into the wallet, not what the provider charges, which its own prompt
+or page says.
 
 ## Tickets and settlement (F5b; C10)
 

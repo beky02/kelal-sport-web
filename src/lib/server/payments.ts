@@ -10,18 +10,19 @@ import {
   toDepositRequest,
   toPaymentMethods,
 } from "@/lib/api/mappers/payments";
-import { isAllowedProviderUrl, publicOrigin } from "./config";
+import { allowedProviderUrl, ownedOrigin } from "./config";
 import { withSession, type Session, type SessionContext } from "./session";
 import { upstream } from "./upstream";
 
 /**
- * The provider page a deposit may send the player to — or, logged by its host
- * alone (its path can carry the provider's session), refused: a page the
- * allow-list doesn't name is either a provider not configured here or a
- * response that should never have come back.
+ * The provider page a deposit may send the player to, as checked — or,
+ * logged by its host alone (its path can carry the provider's session),
+ * refused: a page the allow-list doesn't name is either a provider not
+ * configured here or a response that should never have come back.
  */
-function allowedRedirect(url: string): boolean {
-  if (isAllowedProviderUrl(url)) return true;
+function allowedRedirect(url: string): string | null {
+  const allowed = allowedProviderUrl(url);
+  if (allowed) return allowed;
   let host = "(not a URL)";
   try {
     host = new URL(url).host;
@@ -31,7 +32,7 @@ function allowedRedirect(url: string): boolean {
   console.error(
     `Refused a deposit redirect to a host not on PAYMENT_REDIRECT_HOSTS: ${host}`,
   );
-  return false;
+  return null;
 }
 
 /**
@@ -57,8 +58,9 @@ export async function loadPaymentMethods(
  * makes one. An expired access token is refreshed and the POST sent again
  * once, with the same key, so a deposit that did start comes back as the same
  * deposit. Where the provider sends the player back is this site's own
- * address for the tenant, never anything the browser said. Refusals pass
- * through as `UpstreamError`, Problem intact.
+ * address for the tenant — a host the tenant owns, never one a request merely
+ * arrived on, nor anything the browser said; with no such host it is left to
+ * the API. Refusals pass through as `UpstreamError`, Problem intact.
  */
 export async function createDeposit(
   ctx: SessionContext,
@@ -66,7 +68,8 @@ export async function createDeposit(
   request: DepositRequest,
   idempotencyKey: string,
 ): Promise<Deposit> {
-  const returnUrl = `${publicOrigin(ctx.request.headers, ctx.tenant)}${routes.depositReturn}`;
+  const origin = ownedOrigin(ctx.request.headers, ctx.tenant);
+  const returnUrl = origin ? `${origin}${routes.depositReturn}` : null;
   const deposit = await withSession(ctx, session, (authorization) =>
     upstream("Payments", { ...ctx, authorization }).POST("/v1/deposits", {
       // A required header parameter in the contract, so typed as one.

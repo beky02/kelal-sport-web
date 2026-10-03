@@ -12,10 +12,12 @@ import type { ReactNode } from "react";
 import { SessionWatcher } from "@/features/auth/hooks/use-session";
 import { useAuthStore } from "@/features/auth/stores/auth.store";
 import type { Player } from "@/features/auth/types";
+import { DepositFollower } from "@/features/wallet/components/DepositFollower";
 import { WalletView } from "@/features/wallet/components/WalletView";
 import { useDepositAttempt } from "@/features/wallet/hooks/use-payments";
 import { useWallet } from "@/features/wallet/hooks/use-wallet";
 import { goToProvider } from "@/features/wallet/lib/provider-redirect";
+import { resetDepositStore } from "@/features/wallet/stores/deposit.store";
 import type { Deposit } from "@/features/wallet/types";
 import { useTranslation } from "@/lib/i18n/use-translation";
 import { toDeposit, toPaymentMethods } from "@/lib/api/mappers/payments";
@@ -64,7 +66,7 @@ const CBE = METHODS[1];
 const created = (name: "redirect" | "ussd_push") =>
   toDeposit(
     responseExample("/v1/deposits", "post", 201, name) as ApiDeposit,
-    () => true,
+    (url) => url,
   );
 /** The contract's push to the phone: CBE Birr, 500.00, pending. */
 const PHONE = created("ussd_push");
@@ -99,7 +101,9 @@ const problem = (
   ...extra,
 });
 
-type Answer = [number, unknown] | "drop" | "timeout";
+/** One answer to a POST: now, never (dropped or timed out), or later (a promise). */
+type Answer =
+  [number, unknown] | "drop" | "timeout" | Promise<[number, unknown]>;
 
 interface Posted {
   key: string | null;
@@ -155,7 +159,7 @@ function api() {
         if (answer === "timeout") {
           throw new DOMException("signal timed out", "TimeoutError");
         }
-        return reply(answer);
+        return reply(await answer);
       }
     }
     const id = /^\/api\/deposits\/(.+)$/.exec(url.pathname)?.[1];
@@ -213,6 +217,8 @@ beforeEach(() => {
   replace.mockReset();
   vi.mocked(goToProvider).mockClear();
   sessionStorage.clear();
+  // A fresh page: no deposit on its way, unanswered or followed.
+  resetDepositStore();
   useUiStore.setState({ lang: "en" });
   useAuthStore.setState({ entry: null });
 });
@@ -233,7 +239,10 @@ describe("choosing a method and an amount (AC-7)", () => {
     const chapa = screen.getByRole("button", { name: /Chapa/ });
     expect(chapa).toHaveTextContent("ETB 50.00 – ETB 100,000.00");
     expect(chapa).toHaveTextContent("Unavailable right now");
-    expect(chapa).toBeDisabled();
+    // Still reachable by keyboard, so the reason is too (Q8).
+    expect(chapa).toHaveAttribute("aria-disabled", "true");
+    await user.click(chapa);
+    expect(chapa).toHaveAttribute("aria-pressed", "false");
 
     const next = screen.getByRole("button", { name: "Continue" });
     expect(next).toBeDisabled();
@@ -356,11 +365,13 @@ describe("one Idempotency-Key per deposit (AC-8)", () => {
     ).not.toBeInTheDocument();
     await confirmAndPay();
 
-    // The API refused it: that intent is over, the next Confirm is new.
+    // The API refused it: that intent is over, and its Try again is new.
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent("Your deposit didn’t start");
     expect(
-      await screen.findByText("Your deposit didn’t start"),
-    ).toBeInTheDocument();
-    await confirmAndPay();
+      screen.getByRole("button", { name: "Confirm and pay" }),
+    ).toHaveAttribute("aria-disabled", "true");
+    await user.click(within(alert).getByRole("button", { name: "Try again" }));
     await screen.findByRole("heading", { name: "Check your phone" });
 
     expect(posted.map((p) => p.body)).toEqual([
@@ -428,9 +439,8 @@ describe("one Idempotency-Key per deposit (AC-8)", () => {
       }),
     ).toBeInTheDocument();
     expect(posted).toHaveLength(1);
-    expect(asked.filter((path) => path === "/api/me").length).toBeGreaterThan(
-      0,
-    );
+    // Once before Try again, once as the wallet follows who it is now.
+    expect(asked.filter((path) => path === "/api/me")).toHaveLength(2);
   });
 });
 
@@ -563,7 +573,7 @@ describe("where a deposit stands (AC-1)", () => {
       "Failed",
       "Payment didn’t go through",
       ["Nothing was added to your balance.", "Declined by the wallet"],
-      ["Try again", "Choose another method", "Done"],
+      ["Try again", "Choose another method", "Back to wallet"],
     ],
     [
       "expired",
@@ -573,7 +583,7 @@ describe("where a deposit stands (AC-1)", () => {
       [
         "It wasn’t approved in time, so nothing was added to your balance. If you approved it just now, it will still arrive once CBE Birr confirms it.",
       ],
-      ["Try again", "Choose another method", "Done"],
+      ["Back to wallet", "Try again", "Choose another method"],
     ],
   ];
 
@@ -701,12 +711,18 @@ describe("refusals and their fixes (AC-9)", () => {
 
     const alert = await screen.findByRole("alert");
     expect(alert).toHaveTextContent("Amount not allowed");
+    // 500.00 is inside CBE Birr's range: the API's own words say why (U6).
     expect(alert).toHaveTextContent(
-      "CBE Birr takes ETB 20.00 to ETB 100,000.00 per deposit.",
+      "The API's title for PAY_AMOUNT_OUT_OF_RANGE",
     );
+    expect(alert).not.toHaveTextContent("per deposit");
     expect(alert).toHaveTextContent(
       "Your daily deposits can't go over 300.00 ETB.",
     );
+    // Its fix is the way on; Confirm can't send the refused amount again.
+    expect(
+      screen.getByRole("button", { name: "Confirm and pay" }),
+    ).toHaveAttribute("aria-disabled", "true");
     await user.click(
       within(alert).getByRole("button", { name: /^Deposit ETB\s300\.00$/ }),
     );
@@ -748,13 +764,13 @@ describe("refusals and their fixes (AC-9)", () => {
     await waitFor(() =>
       expect(
         screen.getByRole("button", { name: "Confirm and pay" }),
-      ).toBeDisabled(),
+      ).toHaveAttribute("aria-disabled", "true"),
     );
     await user.click(
       within(alert).getByRole("button", { name: "Choose another method" }),
     );
     const cbe = await screen.findByRole("button", { name: /CBE Birr/ });
-    expect(cbe).toBeDisabled();
+    expect(cbe).toHaveAttribute("aria-disabled", "true");
     expect(cbe).toHaveTextContent("Unavailable right now");
   });
 
@@ -770,9 +786,11 @@ describe("refusals and their fixes (AC-9)", () => {
 
     const alert = await screen.findByRole("alert");
     expect(alert).toHaveTextContent("Payment provider didn’t respond");
+    // What the API's 502 says, and no more: it never says nothing started (M3).
     expect(alert).toHaveTextContent(
-      "CBE Birr didn’t answer, so your deposit didn’t start. Try again, or choose another method.",
+      "CBE Birr didn’t answer. Try again, or choose another method.",
     );
+    expect(alert).not.toHaveTextContent("didn’t start");
     expect(
       within(alert).getByRole("button", { name: "Choose another method" }),
     ).toBeInTheDocument();
@@ -801,8 +819,9 @@ describe("refusals and their fixes (AC-9)", () => {
 
     const alert = await screen.findByRole("alert");
     expect(alert).toHaveTextContent("Limit reached");
+    // Who set the limit is not the API's to say here (M7).
     expect(alert).toHaveTextContent(
-      "You’ve reached a limit you set, so this deposit can’t go through.",
+      "You’ve reached a deposit limit, so this deposit can’t go through.",
     );
     expect(alert).toHaveTextContent(
       "Your daily deposit limit of 1,000.00 ETB resets at midnight.",
@@ -913,6 +932,50 @@ describe("coming back from the provider", () => {
     );
   });
 
+  it("says when the deposit it came back for isn't this player's, and leads back to the wallet (Q7)", async () => {
+    search = new URLSearchParams("deposit=return");
+    sessionStorage.setItem(
+      "kelal.deposit",
+      JSON.stringify({ id: WEB.id, player: CONTRACT_PLAYER.id }),
+    );
+    reads = () => [404, problem(404, "NOT_FOUND")];
+    api();
+    render(<WalletView />);
+
+    expect(
+      await screen.findByRole("heading", {
+        name: "We couldn’t find this deposit",
+      }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("It isn’t on your account.")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Back to wallet" }));
+    expect(await screen.findByTestId("wallet-cash")).toBeInTheDocument();
+  });
+
+  it("says when the deposit couldn't be checked, offers Try again, and shows it once it can be read (Q7)", async () => {
+    search = new URLSearchParams("deposit=return");
+    sessionStorage.setItem(
+      "kelal.deposit",
+      JSON.stringify({ id: WEB.id, player: CONTRACT_PLAYER.id }),
+    );
+    let down = true;
+    reads = () =>
+      down ? [503, problem(503, "SERVICE_UNAVAILABLE")] : [200, WEB];
+    api();
+    render(<WalletView />);
+
+    expect(
+      await screen.findByRole("heading", {
+        name: "Couldn’t check this deposit",
+      }),
+    ).toBeInTheDocument();
+    down = false;
+    await user.click(screen.getByRole("button", { name: "Try again" }));
+    expect(
+      await screen.findByRole("heading", { name: "Finish paying on telebirr" }),
+    ).toBeInTheDocument();
+  });
+
   it("ignores a deposit remembered for another player", async () => {
     search = new URLSearchParams("deposit=return");
     sessionStorage.setItem(
@@ -924,6 +987,206 @@ describe("coming back from the provider", () => {
 
     expect(await screen.findByTestId("wallet-cash")).toBeInTheDocument();
     expect(asked.some((path) => path.startsWith("/api/deposits/"))).toBe(false);
+  });
+});
+
+describe("a deposit outlives its screen (review round 1)", () => {
+  const tryAgain = () =>
+    screen.getByRole("button", { name: /^Try again · ETB\s500\.00$/ });
+
+  /** The wallet, or another page: what the player sees after leaving it. */
+  function Page({ wallet: showWallet }: { wallet: boolean }) {
+    return (
+      <>
+        <BalanceChip />
+        {showWallet ? <WalletView /> : <p>Sports</p>}
+      </>
+    );
+  }
+
+  it("keeps the key when the player leaves after no answer and comes back to the same deposit (S1, SEC2, Q2, M1)", async () => {
+    starts = ["drop", [201, PHONE]];
+    api();
+    render(<WalletView />);
+    await toConfirm(/CBE Birr/);
+    await confirmAndPay();
+    await screen.findByText("We couldn’t confirm your deposit");
+
+    // Leaving cancels nothing, and the button says where it goes (U2).
+    expect(
+      screen.queryByRole("button", { name: "Cancel" }),
+    ).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Back to wallet" }));
+    await user.click(await screen.findByRole("button", { name: "Deposit" }));
+
+    // The deposit that had no answer is where the flow opens again…
+    expect(
+      await screen.findByText("We couldn’t confirm your deposit"),
+    ).toBeInTheDocument();
+    // …and picking the same method and amount again is still that deposit.
+    await user.click(screen.getByRole("button", { name: "Back" }));
+    await user.click(screen.getByRole("button", { name: "Back" }));
+    await toConfirm(/CBE Birr/);
+    await user.click(tryAgain());
+
+    await screen.findByRole("heading", { name: "Check your phone" });
+    expect(posted).toHaveLength(2);
+    expect(posted[1].key).toBe(posted[0].key);
+    expect(posted[1].body).toEqual(posted[0].body);
+  });
+
+  it("shows the deposit that started after the player left, instead of starting another (Q2)", async () => {
+    let answer!: (value: [number, unknown]) => void;
+    starts = [new Promise((resolve) => (answer = resolve))];
+    api();
+    const { queryClient, rerender } = render(<Page wallet />);
+    await toConfirm(/CBE Birr/);
+    await confirmAndPay();
+
+    // On its way: nothing on this screen can leave it half-sent.
+    expect(screen.getByRole("button", { name: "Cancel" })).toHaveAttribute(
+      "aria-disabled",
+      "true",
+    );
+    // The player goes to another page before the answer comes back…
+    rerender(
+      <QueryClientProvider client={queryClient}>
+        <Page wallet={false} />
+      </QueryClientProvider>,
+    );
+    await act(async () => answer([201, PHONE]));
+    // …and back: the deposit that started is what they see.
+    rerender(
+      <QueryClientProvider client={queryClient}>
+        <Page wallet />
+      </QueryClientProvider>,
+    );
+    expect(
+      await screen.findByRole("heading", { name: "Check your phone" }),
+    ).toBeInTheDocument();
+    expect(posted).toHaveLength(1);
+  });
+
+  it("reads the balance again for a deposit that completed after the player left (Q2)", async () => {
+    let answer!: (value: [number, unknown]) => void;
+    starts = [new Promise((resolve) => (answer = resolve))];
+    let arrived = false;
+    wallet = () => [
+      200,
+      arrived ? { ...CONTRACT_WALLET, cash: "1708.95" } : CONTRACT_WALLET,
+    ];
+    api();
+    const { queryClient, rerender } = render(<Page wallet />);
+    await waitFor(() =>
+      expect(screen.getByTestId("chip")).toHaveTextContent("ETB 1,208.95"),
+    );
+    await toConfirm(/CBE Birr/);
+    await confirmAndPay();
+    rerender(
+      <QueryClientProvider client={queryClient}>
+        <Page wallet={false} />
+      </QueryClientProvider>,
+    );
+
+    arrived = true;
+    await act(async () => answer([201, COMPLETED]));
+
+    await waitFor(() =>
+      expect(screen.getByTestId("chip")).toHaveTextContent("ETB 1,708.95"),
+    );
+    expect(asked.filter((path) => path === "/api/wallet")).toHaveLength(2);
+  });
+
+  it("keeps following a pending deposit after the player leaves its screen, and reads the balance when it completes (Q1)", async () => {
+    let arrived = false;
+    wallet = () => [
+      200,
+      arrived ? { ...CONTRACT_WALLET, cash: "1708.95" } : CONTRACT_WALLET,
+    ];
+    starts = [[201, PHONE]];
+    reads = () => [200, arrived ? COMPLETED : PHONE];
+    api();
+    render(
+      <>
+        <DepositFollower />
+        <BalanceChip />
+        <WalletView />
+      </>,
+    );
+    await toConfirm(/CBE Birr/);
+    await confirmAndPay();
+    await screen.findByRole("heading", { name: "Check your phone" });
+    await user.click(screen.getByRole("button", { name: "Back to wallet" }));
+    await screen.findByTestId("wallet-cash");
+
+    // Still read while the player is elsewhere…
+    const readsNow = () =>
+      asked.filter((path) => path.startsWith("/api/deposits/")).length;
+    const before = readsNow();
+    await waitFor(() => expect(readsNow()).toBeGreaterThan(before + 1));
+
+    // …so the approval on the phone shows up as the API's new balance.
+    arrived = true;
+    await waitFor(() =>
+      expect(screen.getByTestId("chip")).toHaveTextContent("ETB 1,708.95"),
+    );
+    // Final: no longer read.
+    const settled = readsNow();
+    await new Promise((resolve) => setTimeout(resolve, 150));
+    expect(readsNow()).toBe(settled);
+  });
+
+  it("keeps the deposit unanswered when Try again is rate limited, and sends the same key again (M2)", async () => {
+    starts = ["drop", [429, problem(429, "RATE_LIMITED")], [201, PHONE]];
+    api();
+    render(<WalletView />);
+    await toConfirm(/CBE Birr/);
+    await confirmAndPay();
+    await screen.findByText("We couldn’t confirm your deposit");
+
+    await user.click(tryAgain());
+    // "Not now" says nothing about the first try: still unanswered.
+    await waitFor(() => expect(posted).toHaveLength(2));
+    expect(
+      await screen.findByText("We couldn’t confirm your deposit"),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText("Your deposit didn’t start"),
+    ).not.toBeInTheDocument();
+    await user.click(tryAgain());
+
+    await screen.findByRole("heading", { name: "Check your phone" });
+    expect(posted.map((p) => p.key)).toEqual(Array(3).fill(posted[0].key));
+  });
+
+  it("says a refused Try again didn't go through, and keeps its key (M2)", async () => {
+    starts = [
+      "drop",
+      [
+        403,
+        problem(403, "RG_LIMIT_REACHED", {
+          detail:
+            "Your daily deposit limit of 1,000.00 ETB resets at midnight.",
+        }),
+      ],
+      [201, PHONE],
+    ];
+    api();
+    render(<WalletView />);
+    await toConfirm(/CBE Birr/);
+    await confirmAndPay();
+    await screen.findByText("We couldn’t confirm your deposit");
+    await user.click(tryAgain());
+
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent("Try again didn’t go through");
+    expect(alert).toHaveTextContent(
+      "You’ve reached a deposit limit, so this deposit can’t go through.",
+    );
+    // The first try may still have started: Try again keeps its key.
+    await user.click(tryAgain());
+    await screen.findByRole("heading", { name: "Check your phone" });
+    expect(posted.map((p) => p.key)).toEqual(Array(3).fill(posted[0].key));
   });
 });
 
@@ -962,7 +1225,7 @@ describe("whose deposit it is", () => {
       screen.queryByRole("heading", { name: "Check your phone" }),
     ).not.toBeInTheDocument();
     expect(
-      queryClient.getQueryData(paymentKeys.deposit(PHONE.id)),
+      queryClient.getQueryData(paymentKeys.deposit(PHONE.id, "en")),
     ).toBeUndefined();
     expect(methodReads).toBe(2);
   });

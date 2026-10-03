@@ -278,27 +278,45 @@ export function publicOrigin(headers: Headers, tenant: string): string {
 }
 
 /**
- * Whether a deposit may send the player to `url` — a provider's payment page
- * from `next_action` (09-security, Redirects). Only `https:`, on the default
- * port, with no user name or password, and a host on the list exactly: a
- * subdomain, a longer name ending in a listed one, or one with a trailing dot
- * is another host. Anything that doesn't parse is refused.
+ * The provider page a deposit may send the player to — `url` as the parser
+ * read it, so what reaches the browser is exactly what was checked — or null
+ * (09-security, Redirects). Only `https:`, on the default port, with no user
+ * name or password, and a host on the list exactly: a subdomain, a longer
+ * name ending in a listed one, or one with a trailing dot is another host.
+ * Anything that doesn't parse is refused.
  */
-export function isAllowedProviderUrl(
+export function allowedProviderUrl(
   url: string,
   hosts: readonly string[] = serverConfig.paymentRedirectHosts,
-): boolean {
+): string | null {
   let parsed: URL;
   try {
     parsed = new URL(url);
   } catch {
-    return false;
+    return null;
   }
-  return (
-    parsed.protocol === "https:" &&
+  return parsed.protocol === "https:" &&
     parsed.username === "" &&
     parsed.password === "" &&
     parsed.port === "" &&
     hosts.includes(parsed.hostname)
-  );
+    ? parsed.href
+    : null;
+}
+
+/** Whether a deposit may send the player to `url` (`allowedProviderUrl`). */
+export const isAllowedProviderUrl = (
+  url: string,
+  hosts?: readonly string[],
+): boolean => allowedProviderUrl(url, hosts) !== null;
+
+/**
+ * This site's origin for `tenant`, only when the tenant owns a host in
+ * `TENANT_HOST_MAP` — never a host a request merely arrived on. Null when it
+ * owns none: nothing built from it may point anywhere a client chose.
+ */
+export function ownedOrigin(headers: Headers, tenant: string): string | null {
+  return Object.values(serverConfig.tenantHostMap).includes(tenant)
+    ? publicOrigin(headers, tenant)
+    : null;
 }

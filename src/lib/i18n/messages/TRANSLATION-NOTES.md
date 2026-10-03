@@ -474,3 +474,20 @@ limits and Verify, and Done and Back to sports reuse `wallet.*` and `system.view
 method's name, the push's `message` and a failure's reason are the API's text, shown as sent.
 `wallet.mobileMoney` and `wallet.gateway` are gone: the contract says how a method is paid, not what
 kind it is.
+
+### Deposits, review round 1 (2026-10-03)
+
+| Key                          | Amharic                                        | Composed from                                                               |
+| ---------------------------- | ---------------------------------------------- | --------------------------------------------------------------------------- |
+| `deposit.refused.retryTitle` | እንደገና መሞከሩ አልተሳካም                              | `betSlip.unconfirmed.retryRefused`, verbatim                                |
+| `deposit.refused.provider`   | {method} ምላሽ አልሰጠም። እንደገና ይሞክሩ ወይም ሌላ ዘዴ ይምረጡ። | the earlier line without its claim (…ስላልሰጠ ገቢዎ አልተጀመረም → ምላሽ አልሰጠም)         |
+| `deposit.refused.limit`      | የገቢ ገደብ ላይ ደርሰዋል፤ ይህ ገቢ ሊፈጸም አይችልም።            | `rg.depositLimit` (የገቢ ገደብ) in place of ያስቀመጡት ገደብ ("a limit you set")      |
+| `deposit.youDeposit`         | የሚያስገቡት                                        | `rg.deposited` (ያስገቡት), relative form                                       |
+| `deposit.provider`           | የክፍያ አቅራቢዎ                                     | `deposit.refused.providerTitle` (የክፍያ አቅራቢ) + possessive                    |
+| `deposit.retry` (changed)    | እንደገና ሞክር · {amount}                           | `wallet.tryAgain` (ሞክር): one Try again in the flow's buttons (UI review U8) |
+
+The flow's other Try again buttons (methods failed or empty, a deposit that couldn't be checked) now use
+`wallet.tryAgain` too. Failed and expired deposits end with `deposit.backToWallet` (ወደ ቦርሳ ተመለስ), not
+`wallet.done` (ተጠናቀቀ, which under a failure reads as "completed"). Removed: `wallet.youPay` (a deposit
+shows what it puts in, not what is paid), `wallet.successTitle` and `wallet.successBody` (the withdrawal
+mock's deposit branch).
