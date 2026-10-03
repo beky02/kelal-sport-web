@@ -1,5 +1,14 @@
 # F6c — verification
 
+## Review brief
+
+- **Server** (`src/lib/server/withdrawals.ts`, `src/app/api/payout-accounts`, `payout-accounts/[id]`, `withdrawals`, `withdrawals/[id]`, `lib/api/mappers/withdrawals.ts`, `schemas.ts`, `patterns.ts`, `csrf.ts`): six calls on the F4 session. POSTs have `/api/bets`' gates (origin, CSRF header, JSON, 4 KiB strict body; the withdrawal's UUID `Idempotency-Key` forwarded, never made); DELETEs have origin and CSRF but no JSON (`assertSameOrigin({ json: false })`); ids checked before they reach an upstream path; an account only as the contract's `Phone`.
+- **Browser** (`features/wallet/api/withdrawals.ts`, `hooks/use-withdrawals.ts`, `lib/withdrawal.ts`, `stores/withdrawal.store.ts`; `apiClient.delete`): one key per intent — the same on Try again after no answer (a 502 included), `/api/me` asked first, kept when the player leaves; wallet and history re-read on a 201, a cancel's 200 and any status change, never adjusted; reads every 10 s (60 s in review) while the screen is open; `paymentKeys` dropped with the player.
+- **Screens** (`AccountStep`, `WithdrawFlow`, `WithdrawalStatus`, `WithdrawAlert`, `WalletView` `?withdrawal=`, `TransactionRow`, `AmountStep`, `ConfirmStep`, `FlowHeader`; `PaymentOutcome` and `PaymentNotice` moved out of the deposit screens unchanged): saved accounts with Save and Remove, a new number in full on confirm, every status, Cancel only while requested or in review, each refusal's fix, the history row's link. The withdrawal mock is deleted.
+- **Risk**: the key's lifecycle (a second withdrawal after no answer); the cancel's answers (409, none); the money copy on every status; phone numbers as personal data; the new DELETE path through CSRF.
+- **User's decisions (plan gate)**: the status, refusal and confirm copy as proposed; payout accounts added and removed in the flow's account step; contract request 010 written now.
+- **Not done**: Confirm forfeit (BON-07, waits for request 008); a list of withdrawals (not in the contract); bank-account payouts; following a withdrawal outside its screen (SMS, push and inbox tell the player); fees, withholding tax and arrival times (not in the contract).
+
 ## Self-review
 
 - **Money moves:** a withdrawal moves money only by the API's answer — a 201 (cash → pending
@@ -34,6 +43,32 @@
 - **Found on the way:** the status screen in the flow is now keyed by the withdrawal's id, so another
   id can never show the last one's data while its own loads (`keepPreviousData` is for a change of
   language).
+
+## Automated gate
+
+| Check                   | Result | Command                                                                                        |
+| ----------------------- | ------ | ---------------------------------------------------------------------------------------------- |
+| Typecheck               | PASS   | `pnpm typecheck` (route types regenerated with `next typegen` for the four new route files)    |
+| Lint                    | PASS   | `pnpm lint`                                                                                    |
+| Format                  | PASS   | `pnpm format:check`                                                                            |
+| Unit + component tests  | PASS   | `pnpm test` — 59 files, 1,283 tests                                                            |
+| Generated API types     | PASS   | `pnpm api:check`                                                                               |
+| Contract and docs drift | PASS   | `node scripts/contract-sync.mjs --check`                                                       |
+| Build                   | PASS   | `pnpm build`                                                                                   |
+| UI screens              | PASS   | `pnpm ui` — 470 passed, none on a retry; 27 new withdrawal screens and `wallet-held` looked at |
+
+Final `pnpm verify` (at `72bdaf9`), summary:
+
+```
+ Test Files  59 passed (59)
+      Tests  1283 passed (1283)
+Generated API types match contracts/openapi.yaml.
+contracts/ matches the backend.
+docs/backend/ matches the backend.
+✓ Compiled successfully in 2.9s
+✓ Generating static pages using 11 workers (39/39) in 323ms
+  470 passed (3.6m)
+```
 
 ## Tests proven
 
