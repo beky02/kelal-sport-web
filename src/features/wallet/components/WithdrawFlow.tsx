@@ -347,6 +347,9 @@ export function WithdrawFlow({
 
       {display === "result" && shown && (
         <WithdrawalStatus
+          // One withdrawal per screen: another id is a fresh one, never the
+          // last one's data on its way out.
+          key={shown}
           id={shown}
           owner={owner}
           onDone={leave}

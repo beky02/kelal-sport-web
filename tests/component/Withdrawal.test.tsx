@@ -663,37 +663,40 @@ describe("where a withdrawal stands (AC-1)", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("opens the withdrawal the address names, and says when it isn't the player's", async () => {
-    reads = (id) =>
-      id === PAID.id
-        ? [200, PAID]
-        : [404, problem(404, "NOT_FOUND", { title: "Not found" })];
+  it("opens the withdrawal the address names, and leaving it takes it out of the address", async () => {
+    reads = () => [200, PAID];
     search = new URLSearchParams(`withdrawal=${PAID.id}`);
     api();
     render(<WalletView />);
+
     expect(
       await screen.findByRole("heading", { name: "Withdrawal paid" }),
     ).toBeInTheDocument();
     expect(
       screen.getByText("Withdrawal", { selector: "div" }),
     ).toBeInTheDocument();
-    // Back to the wallet takes the withdrawal out of the address.
     await user.click(screen.getByRole("button", { name: "Done" }));
     expect(replace).toHaveBeenCalledWith("/wallet");
     expect(
       await screen.findByRole("button", { name: "Withdraw" }),
     ).toBeInTheDocument();
+  });
 
+  it("says when the withdrawal the address names isn't the player's", async () => {
+    reads = () => [404, problem(404, "NOT_FOUND", { title: "Not found" })];
     search = new URLSearchParams("withdrawal=01J9A7Y0000000000000000009");
-    vi.restoreAllMocks();
     api();
     render(<WalletView />);
+
     expect(
       await screen.findByRole("heading", {
         name: "We couldn’t find this withdrawal",
       }),
     ).toBeInTheDocument();
     expect(screen.getByText("It isn’t on your account.")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Back to wallet" }),
+    ).toBeInTheDocument();
   });
 
   it("says when a withdrawal couldn't be checked, and Try again reads it", async () => {
@@ -1178,10 +1181,12 @@ describe("refusals and their fixes (AC-9)", () => {
     await user.click(
       within(alert).getByRole("button", { name: "Change amount" }),
     );
-    // The amount step's ceiling is the API's new balance.
-    expect(
-      screen.getByText("Available to withdraw").nextSibling,
-    ).toHaveTextContent("ETB 300.00");
+    // The amount step's ceiling is the API's new balance, once it has landed.
+    await waitFor(() =>
+      expect(
+        screen.getByText("Available to withdraw").nextSibling,
+      ).toHaveTextContent("ETB 300.00"),
+    );
     expect(
       screen.getByText("This is more than your withdrawable balance."),
     ).toBeInTheDocument();

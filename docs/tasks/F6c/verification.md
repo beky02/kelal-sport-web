@@ -1,5 +1,40 @@
 # F6c — verification
 
+## Self-review
+
+- **Money moves:** a withdrawal moves money only by the API's answer — a 201 (cash → pending
+  withdrawals), a cancel's 200 (back to cash) and any status change a later read shows each invalidate
+  `walletKeys.all` and `transactionKeys.all`; nothing is subtracted or patched in the browser
+  (`Withdrawal` AC-4 ×2, `WithdrawalPolling`). Bets are untouched by a withdrawal. The only cache writes
+  are the API's own answers: the 201 and the cancel's 200 seed the withdrawal's query, and a saved or
+  removed payout account is put in or taken out of the list before it is read again (not money).
+- **New values:** the confirm step's Account, its prompt and the amount step's "To" use the destination's
+  label (a saved account's `account_masked`, a new number through `formatPhone`); the status rows use
+  the withdrawal's own `account_masked`, `amount` and `id`; the ceiling and the offered amount use
+  `balances.cash` as the wallet passes it; Withdraw {amount} is the API's `errors[].limit`.
+- **Async tests:** every component test waits for what it asserts (`findBy…`, `waitFor`); one did not —
+  "reads the balance again when it is too low…" read the amount step's ceiling right after the re-read
+  was asked for, not answered — now it waits for the new balance on screen. The polling test advances a
+  fake clock and flushes before each check.
+- **Personal data:** payout accounts and withdrawals sit under `paymentKeys` (dropped by
+  `forgetPlayer`); the flow, its store and the withdrawal screen are the player's alone ("drops the payout
+  accounts and the withdrawal when another player signs in"). The route handlers log no account number.
+- **Route handlers:** all six read the session (401, nothing sent); bodies, keys and ids are checked
+  before anything goes upstream (422 / 400 / 404 tests); `no-store` asserted on GET, POST and DELETE
+  answers; `Prefer` only under `next dev` (tested on the withdrawal POST) and never to the real API (all
+  six); a DELETE needs the origin and CSRF checks but no JSON.
+- **Screens:** every state has a screenshot: the account step's loaded, empty (the number field open),
+  couldn't load (Try again), a new number and Remove's question; amount; confirm; no answer; each
+  refusal; every status; Cancel's three answers; couldn't check (Try again); not found. Loading is a
+  skeleton that keeps the layout, as on every screen; guest is `wallet-guest`.
+- **Docs:** the plan's AC→tests names now match the code (five renamed, one test split in two, the extras
+  listed); its Files list matches the diff (`deposit.test.ts` and `Wallet.test.tsx` needed no change,
+  `auth/lib/phone.ts` noted); 01, 02, 04, 05 and 09, the translation notes, contract request 010 and the
+  README status are current.
+- **Found on the way:** the status screen in the flow is now keyed by the withdrawal's id, so another
+  id can never show the last one's data while its own loads (`keepPreviousData` is for a change of
+  language).
+
 ## Tests proven
 
 Each new acceptance test was seen failing against the behaviour it guards, then restored.

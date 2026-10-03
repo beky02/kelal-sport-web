@@ -27,7 +27,7 @@ Engineering Decisions say differently. The order follows the Build Plan's fronte
 | [F6](F6-wallet.md)                            | Wallet: balances, deposits with `next_action`, withdrawals, payout accounts, history           | F4                 | B8            | in_progress |
 | [F6a](F6a-balances-history.md)                | Split from F6: balances and history from the contract, money as strings                        | F4                 | B8            | done        |
 | [F6b](F6b-deposits.md)                        | Split from F6: methods and limits, deposits driven by `next_action`, every deposit status      | F6a                | B8            | done        |
-| [F6c](F6c-withdrawals.md)                     | Split from F6: withdrawals with payout accounts, every withdrawal status, cancel               | F6b                | B8            | planned     |
+| [F6c](F6c-withdrawals.md)                     | Split from F6: withdrawals with payout accounts, every withdrawal status, cancel               | F6b                | B8            | verifying   |
 | [F7](F7-account-rg-inbox.md)                  | Account, limits, self-exclusion, reality check, promotions, inbox; delete the mocks            | F4                 | B8, B13       | todo        |
 | [F7a](F7a-responsible-gambling.md)            | Split from F7: limits, breaks and self-exclusion on the account; RG refusals everywhere        | F4, F6a            | B8            | todo        |
 | [F7b](F7b-account-reality-check.md)           | Split from F7: profile preferences, active devices, the reality check from the server          | F4                 | B5, B8        | todo        |

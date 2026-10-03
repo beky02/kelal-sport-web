@@ -1,7 +1,7 @@
 ---
 id: F6c
 title: Split from F6 — withdrawals with payout accounts, every withdrawal status, cancel
-status: planned
+status: verifying
 depends_on: [F6b]
 contract_tags: [Payments]
 touches_money: true
