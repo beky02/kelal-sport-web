@@ -95,28 +95,9 @@ export const HISTORY_FILTERS = [
 ] as const satisfies readonly ("all" | WalletTxnType)[];
 export type HistoryFilter = (typeof HISTORY_FILTERS)[number];
 
-/** The mock wallet's overview, until the wallet reads `/v1/wallet` (F6a). */
-export interface WalletOverview {
-  balance: number;
-  /**
-   * What can be taken out now. Lower than the balance when some of it is a
-   * bonus, or pending, or the account is not yet ID-verified.
-   */
-  withdrawable: number;
-  currency: string;
-  dailyDepositLimit: number;
-  depositedToday: number;
-}
-
 /** What the payment provider said. */
 export interface PaymentResult {
   reference: string;
   status: "pending" | "success" | "failed";
   amount: number;
-  /** The balance after it settles, as the server computed it. */
-  newBalance: number;
 }
-
-/** Headroom under today's deposit limit. */
-export const remainingDepositAllowance = (overview: WalletOverview): number =>
-  Math.max(0, overview.dailyDepositLimit - overview.depositedToday);

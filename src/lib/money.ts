@@ -86,12 +86,3 @@ export function scaleOdds(odds: string, percent: number): string {
   const price = hundredths < 101n ? 101n : hundredths;
   return `${price / 100n}.${(price % 100n).toString().padStart(2, "0")}`;
 }
-
-/**
- * A `number` amount from a part of the app not yet on strings, as a decimal
- * string rounded to the santim.
- *
- * @deprecated Bridge for `Wallet.balance`, which becomes a string in F6. Do not
- * use for anything new.
- */
-export const fromLegacyAmount = (amount: number): string => amount.toFixed(2);

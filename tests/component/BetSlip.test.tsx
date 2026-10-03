@@ -9,6 +9,8 @@ import {
 import type { BettingRules } from "@/features/config/types";
 import { useUiStore } from "@/stores/ui.store";
 import type { OutcomeRef } from "@/features/markets/types";
+import { toWalletBalances } from "@/lib/api/mappers/wallet";
+import { example } from "../contract";
 import { GOLDEN_RULES } from "../golden";
 import { render } from "./render";
 
@@ -52,6 +54,12 @@ describe("BetSlip", () => {
     useBetSlipStore.getState().clear();
     useBetSlipStore.setState({ mode: "multiple", stake: "100", systemK: 2 });
     useUiStore.setState({ lang: "en" });
+    // A player's slip reads the balance: Prism's player's, from `/api/wallet`.
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+      const url = new URL(String(input));
+      if (url.pathname !== "/api/wallet") throw new Error(`unexpected ${url}`);
+      return Response.json(toWalletBalances(example("/v1/wallet")));
+    });
   });
 
   afterEach(() => vi.restoreAllMocks());

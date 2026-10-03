@@ -5,25 +5,22 @@ import { mockRepository } from "@/lib/api/mock/repository";
 import {
   paymentMethodSchema,
   paymentResultSchema,
-  walletSchema,
+  walletBalancesSchema,
 } from "@/lib/api/schemas";
 import type {
   PaymentMethod,
   PaymentResult,
+  WalletBalances,
   WalletMode,
-  WalletOverview,
 } from "../types";
 
-export async function getWallet(signal?: AbortSignal): Promise<WalletOverview> {
-  if (env.useMocks) {
-    return assertContract(
-      "/wallet",
-      walletSchema,
-      await mockRepository.getWallet(),
-    );
-  }
-  return apiClient.get("/wallet", walletSchema, { signal });
-}
+/** The player's balances, as `/v1/wallet` states them (through `/api/wallet`). */
+export const getWallet = (signal?: AbortSignal): Promise<WalletBalances> =>
+  apiClient.get("/wallet", walletBalancesSchema, { signal });
+
+// Methods and payments stay on the mock until F6b (deposits) and F6c
+// (withdrawals) move them to `/v1/payment-methods`, `/v1/deposits` and
+// `/v1/withdrawals`.
 
 const methodsSchema = z.array(paymentMethodSchema);
 

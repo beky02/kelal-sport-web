@@ -9,10 +9,11 @@ import {
   useBetSlipStore,
 } from "@/features/bet-slip/stores/bet-slip.store";
 import { toBetReceipt } from "@/lib/api/mappers/bets";
+import { toWalletBalances } from "@/lib/api/mappers/wallet";
 import type { components } from "@/lib/api/schema";
 import { sessionKeys } from "@/lib/query/keys";
 import { useUiStore } from "@/stores/ui.store";
-import { responseExample } from "../contract";
+import { example, responseExample } from "../contract";
 import { CONTRACT_PLAYER, CONTRACT_RULES, render } from "./render";
 
 const push = vi.fn();
@@ -83,6 +84,10 @@ function bets(...answers: Answer[]) {
         );
       }
       return Response.json({ player: signedIn });
+    }
+    // The slip's balance check: Prism's player's balances.
+    if (url.pathname === "/api/wallet") {
+      return Response.json(toWalletBalances(example("/v1/wallet")));
     }
     if (url.pathname !== "/api/bets") throw new Error(`unexpected ${url}`);
     const headers = new Headers(init?.headers);

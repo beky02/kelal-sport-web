@@ -109,7 +109,13 @@ describe("logging in through the dialog", () => {
     });
     const { queryClient } = render(<AuthDialog />, { session: "guest" });
     // Whatever a previous player left in the cache goes before the new one is read.
-    queryClient.setQueryData(walletKeys.balance(), { balance: 999 });
+    queryClient.setQueryData(walletKeys.balance(), {
+      cash: "999.00",
+      bonus: "0.00",
+      locked: "0.00",
+      debt: null,
+      currency: "ETB",
+    });
 
     await fillLogin();
 

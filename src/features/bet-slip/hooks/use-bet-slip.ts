@@ -5,7 +5,6 @@ import { usePublicConfig } from "@/features/config/hooks/use-public-config";
 import type { BettingRules } from "@/features/config/types";
 import { useSession } from "@/features/auth/hooks/use-session";
 import { useWallet } from "@/features/wallet/hooks/use-wallet";
-import { fromLegacyAmount } from "@/lib/money";
 import {
   calculateBetSlip,
   resolveCta,
@@ -60,12 +59,9 @@ export function useBetSlip(): BetSlipView {
   // Until /api/me answers, nobody is called a guest and nothing is placeable.
   const isGuest = !session.isLoading && session.isGuest;
   const wallet = useWallet(!session.isLoading && !session.isGuest);
-  // Wallet amounts become strings in F6; until then, bridged here.
-  const walletBalance = wallet.data?.balance;
-  const balance =
-    isGuest || walletBalance === undefined
-      ? null
-      : fromLegacyAmount(walletBalance);
+  // Cash, as the API sends it: bets are paid from cash, and bonus money never
+  // counts here (`use_bonus` is false, F5a).
+  const balance = isGuest ? null : (wallet.data?.cash ?? null);
 
   const totals = useMemo(
     () =>

@@ -3,9 +3,10 @@
  *
  * The catalogue, auth, bookings and bets no longer come from here: they go
  * through the route handlers to the API, and Prism serves the contract's own
- * examples locally. What is left — wallet, transactions, responsible gaming,
- * session activity — moves to the contract task by task (F6–F7), after which
- * this folder is deleted.
+ * examples locally, as do the wallet's balances. What is left — payment
+ * methods and payments (F6b, F6c), transactions (F6a), responsible gaming and
+ * session activity (F7) — moves to the contract task by task, after which this
+ * folder is deleted.
  *
  * `listBoard` and `listMarkets` remain only as fixtures for the realtime tests,
  * which need live fixtures, scores and many lines per market — shapes the
@@ -27,16 +28,14 @@ import type {
   MarketType,
   Outcome,
 } from "@/features/markets/types";
-import {
-  remainingDepositAllowance,
-  type PaymentMethod,
-  type PaymentResult,
-  type WalletMode,
-  type WalletOverview,
+import type {
+  PaymentMethod,
+  PaymentResult,
+  WalletMode,
 } from "@/features/wallet/types";
 import type { Transaction, TransactionKind } from "@/features/bets/types";
 import { TRANSACTIONS, TRANSACTION_DAYS } from "./transactions";
-import { PAYMENT_METHODS, WALLET_OVERVIEW } from "./wallet";
+import { PAYMENT_METHODS } from "./wallet";
 import {
   CLUB_COLOUR,
   COUNTRIES,
@@ -503,11 +502,6 @@ export const mockRepository = {
     return { ...responsibleGaming };
   },
 
-  async getWallet(): Promise<WalletOverview> {
-    await delay(100);
-    return WALLET_OVERVIEW;
-  },
-
   async listPaymentMethods(mode: WalletMode): Promise<PaymentMethod[]> {
     await delay(100);
     return mode === "withdraw"
@@ -516,12 +510,13 @@ export const mockRepository = {
   },
 
   /**
-   * Starts a deposit or a withdrawal.
+   * Starts a deposit or a withdrawal, until F6b and F6c send them to the API.
    *
-   * Every limit is re-checked here, not just in the form: a client-side maximum
-   * is a hint to the user, never a control. Deposits come back `pending` because
-   * mobile money needs the customer to approve a prompt on their handset — the
-   * money has not moved when this returns.
+   * The method's limits are re-checked here, not just in the form: a
+   * client-side maximum is a hint to the user, never a control. Deposits come
+   * back `pending` because mobile money needs the customer to approve a prompt
+   * on their handset — the money has not moved when this returns. Balances are
+   * the API's (`/v1/wallet`): nothing here knows or changes one.
    */
   async createPayment(
     mode: WalletMode,
@@ -542,23 +537,10 @@ export const mockRepository = {
     if (amount < method.minAmount || amount > method.maxAmount)
       throw new ApiError("Amount outside limits", 422, "amount_out_of_range");
 
-    if (mode === "withdraw" && amount > WALLET_OVERVIEW.withdrawable)
-      throw new ApiError("More than withdrawable", 422, "exceeds_withdrawable");
-
-    if (
-      mode === "deposit" &&
-      amount > remainingDepositAllowance(WALLET_OVERVIEW)
-    )
-      throw new ApiError("Daily limit reached", 422, "deposit_limit_reached");
-
     return {
       reference: `TX-${Math.floor(1000 + Math.random() * 9000)}-${Math.floor(1000 + Math.random() * 9000)}`,
       status: "pending",
       amount,
-      newBalance:
-        mode === "withdraw"
-          ? WALLET_OVERVIEW.balance - amount
-          : WALLET_OVERVIEW.balance + amount,
     };
   },
 

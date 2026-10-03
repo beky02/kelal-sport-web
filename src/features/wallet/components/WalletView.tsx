@@ -2,7 +2,9 @@
 
 import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { TriangleAlert } from "lucide-react";
 import { useTranslation } from "@/lib/i18n/use-translation";
+import { StateMessage } from "@/components/feedback/StateMessage";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { routes } from "@/config/routes";
 import { useSession } from "@/features/auth/hooks/use-session";
@@ -24,6 +26,7 @@ import { ConfirmStep } from "./ConfirmStep";
 import { FlowHeader } from "./FlowHeader";
 import { MethodStep } from "./MethodStep";
 import { PaymentResultStep } from "./PaymentResultStep";
+import { WalletGuest } from "./WalletGuest";
 import { WalletHome } from "./WalletHome";
 
 /**
@@ -53,10 +56,12 @@ export function WalletView() {
 
   // Whether a withdrawal may start is the API's call (`can_withdraw`), read
   // with the session — never a flag kept in the browser.
-  const { isGuest, kycVerified, canWithdraw } = useSession();
+  const { isLoading, isGuest, kycVerified, canWithdraw } = useSession();
   const openAuth = useAuthStore((s) => s.open);
 
-  const { data: overview } = useWallet(!isGuest);
+  // Until /api/me answers, nobody is a guest and nothing is read.
+  const wallet = useWallet(!isLoading && !isGuest);
+  const balances = wallet.data;
   const createPayment = useCreatePayment();
 
   // While a payment sits with the provider, keep asking rather than making the
@@ -77,7 +82,24 @@ export function WalletView() {
   const currentResult =
     result && settled ? { ...result, status: settled } : result;
 
-  if (!overview) {
+  if (!isLoading && isGuest) return <WalletGuest />;
+
+  if (!balances) {
+    // A failed read with nothing shown yet; a refetch that fails later keeps
+    // the balances already on screen.
+    if (wallet.isError) {
+      return (
+        <StateMessage
+          icon={<TriangleAlert size={24} strokeWidth={1.5} />}
+          title={t.t("wallet.loadFailedTitle")}
+          body={t.t("wallet.loadFailedBody")}
+          action={{
+            label: t.t("common.retry"),
+            onClick: () => void wallet.refetch(),
+          }}
+        />
+      );
+    }
     return (
       <div className="flex flex-col gap-3 p-4">
         <Skeleton className="h-8 w-32" />
@@ -114,7 +136,7 @@ export function WalletView() {
   if (currentStep === "home") {
     return (
       <WalletHome
-        overview={overview}
+        balances={balances}
         onDeposit={() => start("deposit")}
         onWithdraw={() => start("withdraw")}
       />
@@ -148,7 +170,7 @@ export function WalletView() {
         <AmountStep
           mode={mode}
           method={method}
-          overview={overview}
+          available={balances.cash}
           amount={amount}
           onAmountChange={setAmount}
           onContinue={() => setStep("confirm")}

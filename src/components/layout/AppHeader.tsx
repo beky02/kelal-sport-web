@@ -122,7 +122,7 @@ export function AppHeader() {
             aria-label={
               wallet.data
                 ? t.t("header.walletBalance", {
-                    amount: t.money(wallet.data.balance),
+                    amount: t.money(wallet.data.cash),
                   })
                 : t.t("nav.wallet")
             }
@@ -134,7 +134,7 @@ export function AppHeader() {
               aria-hidden
               className="md:hidden"
             />
-            {wallet.data ? t.number(wallet.data.balance) : "—"}
+            {wallet.data ? t.number(wallet.data.cash) : "—"}
             <span className="text-muted text-[10px] font-semibold">
               {t.t("header.currency")}
             </span>

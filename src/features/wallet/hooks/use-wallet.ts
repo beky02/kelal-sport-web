@@ -12,8 +12,11 @@ import {
 import type { WalletMode } from "../types";
 
 /**
- * Balance and limits. Server-owned: the bet slip reads this to warn about an
- * unaffordable stake, but the backend is what actually refuses a bet.
+ * The player's balances, as the API states them. Server-owned: the header,
+ * the wallet and the slip's warning about an unaffordable stake read this one
+ * query, but the backend is what actually refuses a bet. Never adjusted in the
+ * browser — anything that moves money invalidates it instead. A signed-in
+ * player's only (`enabled`): a guest has no wallet to read.
  */
 export function useWallet(enabled: boolean) {
   return useQuery({

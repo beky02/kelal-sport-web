@@ -59,7 +59,6 @@ import {
   type WalletBalances,
   type WalletTxn,
   type WalletTxnPage,
-  type WalletOverview,
 } from "@/features/wallet/types";
 
 export const localizedSchema = z.object({
@@ -331,14 +330,6 @@ export const transactionDaysSchema = z.array(
   }),
 );
 
-export const walletSchema = z.object({
-  balance: z.number(),
-  withdrawable: z.number(),
-  currency: z.string(),
-  dailyDepositLimit: z.number(),
-  depositedToday: z.number(),
-}) satisfies z.ZodType<WalletOverview>;
-
 /** `/api/wallet`: the API's balances, each the contract's `Money` string. */
 export const walletBalancesSchema = z.object({
   cash: z.string().regex(MONEY_PATTERN),
@@ -383,7 +374,6 @@ export const paymentResultSchema = z.object({
   reference: z.string(),
   status: z.enum(["pending", "success", "failed"]),
   amount: z.number(),
-  newBalance: z.number(),
 }) satisfies z.ZodType<PaymentResult>;
 
 export type BoardSectionDto = z.infer<typeof boardSectionSchema>;

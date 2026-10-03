@@ -5,34 +5,33 @@ import { useTranslation } from "@/lib/i18n/use-translation";
 import { SubmitButton } from "@/components/ui/Field";
 import { cn } from "@/lib/utils/cn";
 import { PAYOUT_ACCOUNT } from "@/lib/api/mock/wallet";
-import {
-  remainingDepositAllowance,
-  type PaymentMethod,
-  type WalletMode,
-  type WalletOverview,
-} from "../types";
+import { compareMoney } from "@/lib/money";
+import type { PaymentMethod, WalletMode } from "../types";
 
 const CHIPS = [50, 100, 500, 1000];
 
 /**
  * How much.
  *
- * The ceiling shown is whichever one actually binds — the daily deposit limit on
- * the way in, the withdrawable balance on the way out — because a user who is
+ * On the way out the cash balance binds, and is shown, because a user who is
  * refused wants to know which rule stopped them, not that "a limit" exists.
- * Validated again on the server; this is only here to save a round trip.
+ * Validated again on the server; this is only here to save a round trip. (The
+ * method's limits and the amount become the contract's strings in F6b; a
+ * deposit limit is the API's to refuse until F7 shows it here.)
  */
 export function AmountStep({
   mode,
   method,
-  overview,
+  available,
   amount,
   onAmountChange,
   onContinue,
 }: {
   mode: WalletMode;
   method: PaymentMethod;
-  overview: WalletOverview;
+  /** The cash balance as the API sent it: what a withdrawal can take. */
+  available: string;
+  /** Whole birr: the field takes digits only. */
   amount: number;
   onAmountChange: (amount: number) => void;
   onContinue: () => void;
@@ -40,10 +39,10 @@ export function AmountStep({
   const t = useTranslation();
   const withdrawing = mode === "withdraw";
 
-  const ceiling = withdrawing
-    ? overview.withdrawable
-    : remainingDepositAllowance(overview);
-  const overCeiling = amount > ceiling;
+  // Compared as strings (FD4): the typed amount is whole birr, so `String`
+  // is its exact decimal form.
+  const overCeiling =
+    withdrawing && compareMoney(String(amount), available) > 0;
   const belowMinimum = amount > 0 && amount < method.minAmount;
   const blocked = overCeiling || belowMinimum || amount <= 0;
 
@@ -121,9 +120,7 @@ export function AmountStep({
             className="shrink-0"
           />
           {overCeiling
-            ? withdrawing
-              ? t.t("wallet.overWithdrawable")
-              : t.t("wallet.overLimit", { amount: t.money(ceiling) })
+            ? t.t("wallet.overWithdrawable")
             : t.t("wallet.belowMinimum", {
                 method: method.name,
                 amount: t.money(method.minAmount),
@@ -132,14 +129,14 @@ export function AmountStep({
       )}
 
       <div className="bg-surface numeric flex flex-col gap-1.5 rounded-md p-3 text-xs">
-        <div className="flex justify-between">
-          <span className="text-muted">
-            {t.t(
-              withdrawing ? "wallet.availableToWithdraw" : "wallet.remaining",
-            )}
-          </span>
-          <span className="font-semibold">{t.money(ceiling)}</span>
-        </div>
+        {withdrawing && (
+          <div className="flex justify-between">
+            <span className="text-muted">
+              {t.t("wallet.availableToWithdraw")}
+            </span>
+            <span className="font-semibold">{t.money(available)}</span>
+          </div>
+        )}
         <div className="flex justify-between">
           <span className="text-muted">{t.t("wallet.minMax")}</span>
           <span>
