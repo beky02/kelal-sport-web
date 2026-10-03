@@ -5,23 +5,26 @@ import { cn } from "@/lib/utils/cn";
 import { WALLET_FLOW, type FlowStep } from "../types";
 
 /**
- * Back, what we're doing, and how far through it we are. Back stays in the
- * tab order but does nothing while `locked` (a deposit on its way).
+ * Back, what we're doing, and how far through it we are — one bar per step
+ * of this flow (`steps`). Back stays in the tab order but does nothing while
+ * `locked` (a payment on its way).
  */
 export function FlowHeader({
   title,
   step,
+  steps = WALLET_FLOW,
   onBack,
   backLabel,
   locked = false,
 }: {
   title: string;
   step: FlowStep;
+  steps?: readonly FlowStep[];
   onBack: () => void;
   backLabel: string;
   locked?: boolean;
 }) {
-  const index = WALLET_FLOW.indexOf(step);
+  const index = steps.indexOf(step);
 
   return (
     <>
@@ -43,8 +46,13 @@ export function FlowHeader({
       </div>
 
       {index >= 0 && (
-        <div className="grid grid-cols-3 gap-1 px-4 pt-3">
-          {WALLET_FLOW.map((flowStep, i) => (
+        <div
+          className={cn(
+            "grid gap-1 px-4 pt-3",
+            steps.length === 4 ? "grid-cols-4" : "grid-cols-3",
+          )}
+        >
+          {steps.map((flowStep, i) => (
             <span
               key={flowStep}
               aria-hidden

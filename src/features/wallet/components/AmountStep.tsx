@@ -4,7 +4,6 @@ import { TriangleAlert } from "lucide-react";
 import { useTranslation } from "@/lib/i18n/use-translation";
 import { SubmitButton } from "@/components/ui/Field";
 import { cn } from "@/lib/utils/cn";
-import { PAYOUT_ACCOUNT } from "@/lib/api/mock/wallet";
 import { compareMoney, sanitiseAmount } from "@/lib/money";
 import { amountProblem, typedAmount } from "../lib/amount";
 import type { PaymentMethod, WalletMode } from "../types";
@@ -25,6 +24,7 @@ export function AmountStep({
   mode,
   method,
   available,
+  accountLabel,
   amount,
   onAmountChange,
   onContinue,
@@ -33,6 +33,8 @@ export function AmountStep({
   method: PaymentMethod;
   /** The cash balance as the API sent it: what a withdrawal can take. */
   available?: string;
+  /** Where a withdrawal goes, as the account step showed it. */
+  accountLabel?: string;
   /** As typed: digits, one point, two decimals at most. */
   amount: string;
   onAmountChange: (amount: string) => void;
@@ -71,9 +73,9 @@ export function AmountStep({
     <div className="flex flex-col gap-3.5 px-4 pt-4.5 pb-6">
       <div>
         <div className="font-bold">{method.name}</div>
-        {withdrawing && (
-          <div className="text-muted text-xs">
-            {t.t("wallet.toAccount", { account: PAYOUT_ACCOUNT })}
+        {withdrawing && accountLabel && (
+          <div className="text-muted numeric text-xs">
+            {t.t("wallet.toAccount", { account: accountLabel })}
           </div>
         )}
       </div>

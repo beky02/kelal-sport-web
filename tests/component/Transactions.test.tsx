@@ -122,7 +122,8 @@ describe("the wallet history (AC-6)", () => {
       "/my-bets/01J9A7V0000000000000000001",
     );
 
-    // A payment is not a link (F6c shows withdrawals); its label names it.
+    // A deposit's payment is not a link (only a withdrawal's is); its label
+    // names it.
     const deposit = screen.getByText("Deposit · telebirr").closest("li")!;
     expect(within(deposit).queryByRole("link")).not.toBeInTheDocument();
     expect(deposit).toHaveTextContent("+ ETB 500.00");
@@ -337,5 +338,40 @@ describe("the wallet history (AC-6)", () => {
     expect(
       screen.getByRole("heading", { name: "Log in to see your transactions" }),
     ).toBeInTheDocument();
+  });
+});
+
+describe("a withdrawal's row (F6c)", () => {
+  it("opens a withdrawal from its row in the history, whether the money went out or came back", async () => {
+    const id = "01J9A7Y0000000000000000001";
+    history(() =>
+      page([
+        txn({
+          id: "w2",
+          type: "withdrawal_released",
+          amount: "300.00",
+          reference: { type: "payment", id },
+        }),
+        txn({
+          id: "w1",
+          type: "withdrawal",
+          amount: "-300.00",
+          reference: { type: "payment", id },
+        }),
+        txn({ id: "d1", type: "deposit" }),
+      ]),
+    );
+    render(<TransactionsList />);
+
+    const out = await screen.findByRole("link", {
+      name: /Withdrawal · telebirr/,
+    });
+    expect(out).toHaveAttribute("href", `/wallet?withdrawal=${id}`);
+    expect(
+      screen.getByRole("link", { name: /Withdrawal returned · telebirr/ }),
+    ).toHaveAttribute("href", `/wallet?withdrawal=${id}`);
+    // A deposit's payment has no screen to open from here.
+    const deposit = screen.getByText("Deposit · telebirr").closest("li")!;
+    expect(within(deposit).queryByRole("link")).not.toBeInTheDocument();
   });
 });

@@ -18,3 +18,12 @@ export function maskPhone(e164: string): string {
   const digits = e164.replace(/\D/g, "").slice(3);
   return `+251 ${digits[0] ?? "•"}•• ••• ${digits.slice(-3)}`;
 }
+
+/**
+ * `+251 911 234 567`: a number in full, grouped so it can be checked at a
+ * glance — a payout to a mistyped number is money gone.
+ */
+export function formatPhone(e164: string): string {
+  const digits = e164.replace(/\D/g, "").slice(3);
+  return `+251 ${digits.slice(0, 3)} ${digits.slice(3, 6)} ${digits.slice(6)}`;
+}

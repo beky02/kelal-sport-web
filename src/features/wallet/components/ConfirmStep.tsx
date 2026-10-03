@@ -3,7 +3,6 @@
 import type { ReactNode } from "react";
 import { Info, Loader2 } from "lucide-react";
 import { useTranslation } from "@/lib/i18n/use-translation";
-import { PAYOUT_ACCOUNT } from "@/lib/api/mock/wallet";
 import { cn } from "@/lib/utils/cn";
 import type { PaymentMethod, WalletMode } from "../types";
 
@@ -11,11 +10,12 @@ import type { PaymentMethod, WalletMode } from "../types";
  * The last screen before money moves.
  *
  * Restates what the player chose and says what happens next — approve a
- * prompt on the phone, or continue to the provider's page — because being
- * told that after nothing appears to happen is a support call. A deposit
- * shows only what it puts in the wallet: the amount. No fee, account or
- * total charged is shown for it, since the API sends none of them — the
- * provider's own prompt or page says what it charges.
+ * prompt on the phone, continue to the provider's page, or have the request
+ * checked before it is paid — because being told that after nothing appears
+ * to happen is a support call. Only what the player asked for is shown: the
+ * amount, and for a withdrawal the account it goes to. No fee, total charged
+ * or amount received, since the API sends none of them — and a withdrawal
+ * may carry withholding tax (WDR-09) — and no time it takes to arrive.
  *
  * What went wrong last time, and its fix, is the caller's (`children`). The
  * buttons stay in the tab order while they can't act, so a keyboard keeps
@@ -25,6 +25,7 @@ export function ConfirmStep({
   mode,
   method,
   amount,
+  accountLabel,
   sending,
   disabled = false,
   confirmLabel,
@@ -37,6 +38,11 @@ export function ConfirmStep({
   method: PaymentMethod;
   /** The amount in the contract's form. */
   amount: string;
+  /**
+   * Where a withdrawal goes: a saved account masked as the API shows it, a
+   * new number in full, so a typo is caught before money goes to it.
+   */
+  accountLabel?: string;
   /** On its way: nothing here can act until it is answered. */
   sending: boolean;
   /** Nothing may be sent: the method can't take it now, or the API said no. */
@@ -53,12 +59,12 @@ export function ConfirmStep({
   const withdrawing = mode === "withdraw";
   const confirmOff = sending || disabled;
 
+  const account = accountLabel ?? t.t("withdraw.yourAccount");
   const rows = withdrawing
     ? [
         { label: t.t("wallet.method"), value: method.name },
-        { label: t.t("wallet.account"), value: PAYOUT_ACCOUNT },
+        { label: t.t("wallet.account"), value: account },
         { label: t.t("wallet.amount"), value: t.money(amount) },
-        { label: t.t("wallet.fee"), value: t.money("0.00") },
       ]
     : [
         { label: t.t("wallet.method"), value: method.name },
@@ -66,7 +72,7 @@ export function ConfirmStep({
       ];
 
   const prompt = withdrawing
-    ? t.t("wallet.promptWithdraw", { method: method.name })
+    ? t.t("withdraw.prompt", { account })
     : method.flow === "ussd_push"
       ? t.t("wallet.promptDeposit", { method: method.name })
       : t.t("deposit.promptWeb", { method: method.name });
@@ -87,7 +93,7 @@ export function ConfirmStep({
         ))}
         <div className="flex items-baseline justify-between gap-3 py-3">
           <span className="font-display text-[15px]">
-            {t.t(withdrawing ? "wallet.youReceive" : "deposit.youDeposit")}
+            {t.t(withdrawing ? "withdraw.youWithdraw" : "deposit.youDeposit")}
           </span>
           <span className="font-display text-xl">{t.money(amount)}</span>
         </div>

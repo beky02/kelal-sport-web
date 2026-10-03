@@ -11,9 +11,7 @@ import {
   TimerOff,
 } from "lucide-react";
 import { useTranslation } from "@/lib/i18n/use-translation";
-import { Skeleton } from "@/components/ui/Skeleton";
 import { ApiError } from "@/lib/api/errors";
-import { cn } from "@/lib/utils/cn";
 import { useDeposit } from "../hooks/use-payments";
 import { isFinal } from "../lib/deposit";
 import {
@@ -23,14 +21,12 @@ import {
 } from "../lib/provider-redirect";
 import { useDepositStore } from "../stores/deposit.store";
 import type { Deposit, DepositStatus as Status } from "../types";
-
-type Tone = "wait" | "good" | "bad";
-
-const TONE: Record<Tone, { tile: string; badge: string }> = {
-  wait: { tile: "text-muted", badge: "border-divider text-muted" },
-  good: { tile: "text-accent", badge: "border-accent text-accent" },
-  bad: { tile: "text-loss", badge: "border-loss text-loss" },
-};
+import {
+  OutcomeSkeleton,
+  PaymentOutcome,
+  type OutcomeAction,
+  type OutcomeTone,
+} from "./PaymentOutcome";
 
 const BADGE: Record<
   Status,
@@ -46,12 +42,6 @@ const BADGE: Record<
   failed: "wallet.statusFailed",
   expired: "deposit.statusExpired",
 };
-
-interface Action {
-  label: string;
-  onClick: () => void;
-  primary?: boolean;
-}
 
 /**
  * Where a deposit stands, as the API says it — read every 3 s while it is
@@ -107,7 +97,7 @@ export function DepositStatus({
     }
   };
 
-  const backToWallet: Action = {
+  const backToWallet: OutcomeAction = {
     label: t.t("deposit.backToWallet"),
     onClick: onDone,
   };
@@ -118,7 +108,7 @@ export function DepositStatus({
         query.error instanceof ApiError &&
         (query.error.status === 404 || query.error.status === 401);
       return (
-        <Outcome
+        <PaymentOutcome
           tone="bad"
           icon={<CircleAlert size={30} strokeWidth={1.5} aria-hidden />}
           badge={null}
@@ -145,25 +135,13 @@ export function DepositStatus({
         />
       );
     }
-    return (
-      <div className="flex flex-col items-center gap-3 px-5 pt-10 pb-7">
-        <Skeleton className="size-[68px] rounded-lg" />
-        <Skeleton className="h-6 w-48" />
-        <Skeleton className="h-4 w-64" />
-      </div>
-    );
+    return <OutcomeSkeleton />;
   }
 
   const method = methodName(deposit.method);
   if (method === null) {
     // The method's name is on its way: no half-named screen, read out twice.
-    return (
-      <div className="flex flex-col items-center gap-3 px-5 pt-10 pb-7">
-        <Skeleton className="size-[68px] rounded-lg" />
-        <Skeleton className="h-6 w-48" />
-        <Skeleton className="h-4 w-64" />
-      </div>
-    );
+    return <OutcomeSkeleton />;
   }
   const amount = t.money(deposit.amount);
   const action = deposit.nextAction;
@@ -173,22 +151,22 @@ export function DepositStatus({
     { label: t.t("wallet.reference"), value: deposit.id },
   ];
   const updates = t.t("deposit.updates");
-  const tryAgain: Action = {
+  const tryAgain: OutcomeAction = {
     label: t.t("wallet.tryAgain"),
     onClick: () => onRetry(deposit),
     primary: true,
   };
-  const chooseAnother: Action = {
+  const chooseAnother: OutcomeAction = {
     label: t.t("wallet.otherMethod"),
     onClick: () => onChooseAnother(deposit),
   };
 
   let view: {
-    tone: Tone;
+    tone: OutcomeTone;
     icon: ReactNode;
     title: string;
     lines: string[];
-    actions: Action[];
+    actions: OutcomeAction[];
   };
   switch (deposit.status) {
     case "completed":
@@ -280,7 +258,7 @@ export function DepositStatus({
   }
 
   return (
-    <Outcome
+    <PaymentOutcome
       tone={view.tone}
       icon={view.icon}
       badge={t.t(BADGE[deposit.status])}
@@ -290,101 +268,5 @@ export function DepositStatus({
       actions={view.actions}
       headingRef={focusOnce}
     />
-  );
-}
-
-/** The outcome's layout: what, in words; the deposit's rows; what next. */
-function Outcome({
-  tone,
-  icon,
-  badge,
-  title,
-  lines,
-  rows,
-  actions,
-  headingRef,
-}: {
-  tone: Tone;
-  icon: ReactNode;
-  badge: string | null;
-  title: string;
-  lines: string[];
-  rows: { label: string; value: string }[];
-  actions: Action[];
-  headingRef: (node: HTMLHeadingElement | null) => void;
-}) {
-  return (
-    <>
-      <div
-        role="status"
-        aria-live="polite"
-        className="flex flex-col items-center gap-2.5 px-5 pt-10 pb-7 text-center"
-      >
-        <div
-          className={cn(
-            "bg-surface grid size-[68px] place-items-center rounded-lg",
-            TONE[tone].tile,
-          )}
-        >
-          {icon}
-        </div>
-        {badge && (
-          <span
-            className={cn(
-              "rounded-full border px-2.5 py-[3px] text-xs font-bold",
-              TONE[tone].badge,
-            )}
-          >
-            {badge}
-          </span>
-        )}
-        <h2
-          ref={headingRef}
-          tabIndex={-1}
-          className="mt-1 text-2xl text-balance outline-none"
-        >
-          {title}
-        </h2>
-        {lines.map((line) => (
-          <p key={line} className="text-muted max-w-[320px] text-pretty">
-            {line}
-          </p>
-        ))}
-      </div>
-
-      {rows.length > 0 && (
-        <dl className="bg-surface numeric mx-4 rounded-md px-3.5 py-1">
-          {rows.map((row) => (
-            <div
-              key={row.label}
-              className="border-divider flex justify-between gap-3 border-b py-2.5 last:border-b-0"
-            >
-              <dt className="text-muted shrink-0">{row.label}</dt>
-              <dd className="min-w-0 text-right font-semibold break-all">
-                {row.value}
-              </dd>
-            </div>
-          ))}
-        </dl>
-      )}
-
-      <div className="flex flex-col gap-2 p-4 pb-6">
-        {actions.map((action) => (
-          <button
-            key={action.label}
-            type="button"
-            onClick={action.onClick}
-            className={cn(
-              "font-body cursor-pointer rounded-md px-3 font-bold",
-              action.primary
-                ? "bg-accent text-on-accent h-[52px] text-[15px]"
-                : "bg-raised text-text h-12 text-sm",
-            )}
-          >
-            {action.label}
-          </button>
-        ))}
-      </div>
-    </>
   );
 }

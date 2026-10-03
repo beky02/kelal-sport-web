@@ -35,3 +35,32 @@ Each new acceptance test was seen failing against the behaviour it guards, then 
 - `WithdrawalPolling` "stops reading a withdrawal the API says isn't this player's" — a 404 that keeps
   polling.
 - `WithdrawalPolling` "reads nothing while the tab is hidden…" — `refetchIntervalInBackground: true`.
+- `Withdrawal` "shows each withdrawal status in words, with what to do next (AC-1): approved" — Cancel
+  added to the approved screen. (Forcing `cancellable` to true alone changes nothing on screen: Cancel
+  is only ever added to the requested and review actions, so the rule is guarded twice.)
+- `Withdrawal` "…(AC-1): review" — the review reason's line dropped; every status case — the
+  `?withdrawal=` id ignored (15 fail).
+- `Withdrawal` "changes no balance until the server answers the withdrawal (AC-4)" and "shows the
+  withdrawal that started after the player left…" — no re-read of the wallet after a 201.
+- `Withdrawal` "changes no balance until the server answers the cancel (AC-4)" — no re-read after a
+  cancel's 200.
+- `Withdrawal` "sends the same Idempotency-Key on Try again after no answer…", "asks who is signed in
+  before Try again…", "keeps the key when the player leaves after no answer…" — a new key on every
+  confirm; the `/api/me` check before Try again dropped (two fail); no answer not kept in the store (four
+  fail).
+- `Withdrawal` "shows the withdrawal that started after the player left, instead of sending another
+  (AC-8)" — `started()` not recording the accepted withdrawal.
+- `Withdrawal` "offers Verify…", "explains a bonus still being wagered…", "offers the nearest allowed
+  amount…", "reads the balance again when it is too low…", "says this withdrawal can't go through during
+  a break, and offers help" — each fix made to do nothing (or only change the amount), and the wallet's
+  re-read after `WALLET_INSUFFICIENT_FUNDS` dropped.
+- `Withdrawal` "adds a number through /api/payout-accounts and chooses it (AC-10)" — Save not choosing
+  the API's account; "removes a saved account…" — Remove sending nothing.
+- `Withdrawal` "reads the status again when the API says it can no longer be cancelled (AC-10)" and
+  "says it couldn't confirm a cancel that had no answer…" — no re-read after a refused or unanswered
+  cancel.
+- `Withdrawal` "withdraws to a new number, sent as account, and reads the accounts again (AC-10)" — a
+  new number sent as a saved id; and the account list not marked stale after the 201.
+- `Withdrawal` "drops the payout accounts and the withdrawal when another player signs in" — the
+  accounts' key moved outside `paymentKeys`.
+- `Transactions` "opens a withdrawal from its row in the history…" — the withdrawal row's link removed.
