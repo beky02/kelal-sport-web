@@ -341,3 +341,54 @@ Added in the F5a review, round 2 (2026-10-03). `unconfirmed.changed` was reworde
 | `betSlip.unconfirmed.retryRefused` | እንደገና መሞከሩ አልተሳካም                                                                   | `common.retry`, `placeFailedBody` (አልተሳካም)                            |
 | `betSlip.unconfirmed.oddsChanged`  | ከዚያ በኋላ የዚያ ውርርድ ኦድ ተቀይሯል።                                                          | `alerts.oddsChangedTitle` (ኦድ ተቀይሯል)                                  |
 | `betSlip.unconfirmed.closed`       | በዚያ ውርርድ ውስጥ ያለ አንድ ምርጫ ከእንግዲህ አይገኝም።                                               | `refused.closedUnknown`                                               |
+
+## My bets and the ticket check (F5b, 2026-10-03)
+
+Composed, not from the design, for review. Statuses and results reuse the design's words where it had
+them (`ክፍት`, `አሸንፏል`, `ተሸንፏል`, `ቀድሞ ተከፍሏል`, and `ተሰርዟል` from the void leg). **Void and cancelled
+need distinct words**: void (every leg called off, the stake returned) keeps the design's `ተሰርዟል`;
+cancelled took `ተቋርጧል` ("discontinued") — please check both read right on a ticket.
+
+| Key                           | Amharic                                                        | Composed from                                         |
+| ----------------------------- | -------------------------------------------------------------- | ----------------------------------------------------- |
+| `bets.status.void`            | ተሰርዟል                                                          | `bets.voidLeg` (design)                               |
+| `bets.status.cancelled`       | ተቋርጧል                                                          | new — see above                                       |
+| `bets.status.paid`            | ተከፍሏል                                                          | `bets.statusCashed` (ቀድሞ ተከፍሏል) without "early"       |
+| `bets.status.expired`         | ጊዜው አልፏል                                                       | `booking.expiredTitle` (ይህ ኮድ ጊዜው አልፏል)               |
+| `bets.result.half_win`        | ግማሽ አሸንፏል                                                      | ግማሽ ("half") + `bets.statusWon`                       |
+| `bets.result.half_lose`       | ግማሽ ተሸንፏል                                                      | ግማሽ + `bets.statusLost`                               |
+| `bets.voidLeg`                | ተሰርዟል · ኦድ 1.00 ሆኖ ይቆጠራል                                       | design's copy without the reason ("match postponed")  |
+| `bets.payout`                 | ክፍያ                                                            | `bets.lostPayout` (design), renamed                   |
+| `bets.stakeBonus`             | ከቦነስ ቀሪ ሂሳብ                                                    | `betSlip.accaBonus` (ቦነስ), `betSlip.balance` (ቀሪ ሂሳብ) |
+| `bets.placedAt`               | የተያዘበት {date}                                                  | `bets.placed` (design) + the date                     |
+| `bets.settledAt`              | የተጠናቀቀበት {date}                                                | `bets.tabSettled` (የተጠናቀቁ)                            |
+| `bets.showMore`               | ተጨማሪ አሳይ                                                       | new                                                   |
+| `bets.loadFailedTitle`        | ውርርዶችዎን መጫን አልተሳካም                                             | `board.error.title`                                   |
+| `bets.loadFailedBody`         | ግንኙነትዎን ያረጋግጡ እና እንደገና ይሞክሩ።                                   | `board.error.body`                                    |
+| `bets.moreFailed`             | ተጨማሪ ውርርዶችን መጫን አልተሳካም።                                        | as above                                              |
+| `bets.emptyOpenTitle`         | ክፍት ውርርድ የለም                                                   | `bets.tabOpen` + `bets.emptyTitle` (…ውርርድ የለም)        |
+| `bets.emptySettledTitle`      | እስካሁን የተጠናቀቀ ውርርድ የለም                                          | `bets.emptyTitle` (እስካሁን ውርርድ የለም)                    |
+| `bets.emptySettledBody`       | የውርርዶቹ ጨዋታዎች በሙሉ ሲጠናቀቁ እዚህ ይታያሉ።                               | `bets.emptyBody` (እዚህ ይታያሉ)                           |
+| `bets.guestTitle`             | ውርርዶችዎን ለማየት ይግቡ                                               | `header.login` (ግባ), polite                           |
+| `bets.guestBody`              | ክፍትና የተጠናቀቁ ውርርዶችዎ እዚህ ይታያሉ።                                   | the tabs + `bets.emptyBody`                           |
+| `bets.ticketFailedTitle`      | ይህን ትኬት መጫን አልተሳካም                                             | `booking.failedTitle`                                 |
+| `bets.ticketFailedBody`       | አሁን መጫን አልተቻለም። እንደገና ይሞክሩ።                                    | `booking.failedBody`                                  |
+| `bets.backToBets`             | ወደ ውርርዶቼ ተመለስ                                                  | `bets.title` + `common.backToSportsbook` (ተመለስ)       |
+| `ticket.checkTitle`           | ትኬት ያረጋግጡ                                                      | `betSlip.ticket` + ያረጋግጡ (`booking.notFoundBody`)     |
+| `ticket.checkBody`            | ሁኔታውን ለማየት በትኬቱ ላይ ያለውን ቁጥር ያስገቡ።                              | new                                                   |
+| `ticket.numberLabel`          | የትኬት ቁጥር                                                       | `bets.ticketId` (design)                              |
+| `ticket.numberPlaceholder`    | ለምሳሌ K7Q2-M9XP-M                                               | `booking.invalidCode` (ለምሳሌ)                          |
+| `ticket.check`                | አረጋግጥ                                                          | imperative, as the slip's buttons                     |
+| `ticket.invalid`              | የትኬት ቁጥር 9 ፊደላትና ቁጥሮች ነው፤ ለምሳሌ K7Q2-M9XP-M። ያረጋግጡና እንደገና ይሞክሩ። | `booking.invalidCode`, `booking.notFoundBodyNoCode`   |
+| `ticket.pageTitle`            | ትኬት {ticket}                                                   | `betSlip.ticket`                                      |
+| `ticket.notFoundTitle`        | በዚህ ቁጥር የተመዘገበ ትኬት የለም                                         | `booking.notFoundTitle`, ኮድ → ቁጥር                     |
+| `ticket.notFoundBody`         | ቁጥር {ticket}ን ያረጋግጡና እንደገና ይሞክሩ።                               | `booking.notFoundBody`                                |
+| `ticket.notFoundBodyNoNumber` | ቁጥሩን ያረጋግጡና እንደገና ይሞክሩ።                                        | `booking.notFoundBodyNoCode`                          |
+| `ticket.failedTitle`          | ይህን ትኬት ማረጋገጥ አልተሳካም                                           | `booking.failedTitle`, መጫን → ማረጋገጥ                    |
+| `ticket.failedBody`           | አሁን ማረጋገጥ አልተቻለም። እንደገና ይሞክሩ።                                  | `booking.failedBody`, as above                        |
+| `ticket.checkAnother`         | ሌላ ትኬት ያረጋግጡ                                                   | `ticket.checkTitle`                                   |
+| `ticket.shareText`            | ትኬት {ticket}                                                   | `booking.shareText`'s shape                           |
+| `ticket.og.notFound`          | በዚህ ቁጥር የተመዘገበ ትኬት የለም።                                        | `ticket.notFoundTitle`                                |
+
+`ticket.og.description` is `{status} · {matches}` in both languages (symbolic in `i18n.test.ts`): the
+status is filled from `bets.status.*`, the matches are the API's names.

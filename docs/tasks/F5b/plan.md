@@ -244,3 +244,22 @@ Kept green: `golden.test.ts` (366 rows, untouched), `PlaceBet.test.tsx`, `BetSli
 None. F5b is already the reading half of F5's split (F5/plan.md decision 1). It is over the ~1,500-line
 guide mostly in tests; splitting My bets from `/t` would put Share on Telegram in one PR and the page it
 links to in the other, and both read the same domain `Bet` legs, results and ticket number.
+
+## Changes during implementation
+
+- **No `<Suspense>` around the shell on `/t`, `/t/[ticket]` and its 404.** The first no-JS run failed:
+  on a cold render `next dev` loads client modules lazily, React suspended, and the page's boundary
+  streamed the whole shell into a hidden `<div>` for a script to reveal — never, without JavaScript.
+  These pages are dynamic (they read the request), so they need no boundary; without one the server
+  sends the page whole. Re-checked after forcing a recompile. docs/design/08 says so.
+- **`BetsGuest.tsx`** (new): the guest state, shared by My bets and the ticket detail, which also only
+  reads for a player (`useBet(id, enabled)`).
+- **`TicketCheckForm` has two variants** (`start` with the page's `<h1>`, `another` under a ticket or
+  its 404) instead of a separate intro component. `toTicketCheck`'s tests live in `ticket-page.test.ts`
+  with the page's other server-side parts.
+- **Screens**: `my-bets-error` waits for the failure (the app retries a 5xx twice first);
+  `ticket-check-failed` allows `next dev`'s replay of the server's log of that failure in the browser
+  console; the ticket 404 screenshot settles and hides the dev badge, as `screens.spec.ts` does.
+- **Outside the file list**: `tests/unit/session.test.ts` (F4a) — "opens a tampered cookie to nothing"
+  failed about 1 run in 64, when the character it "flipped" already was its replacement. It now changes
+  the character for certain and asserts it did (40 runs green). It failed once in this task's gate.

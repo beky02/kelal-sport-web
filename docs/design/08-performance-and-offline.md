@@ -24,7 +24,7 @@ one icon set, fonts subset and swapped.
 | -------------------------- | -------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------- |
 | Home, sport, league        | Server Components                                  | ISR 15 s on the server; the edge caches the API 10 s; the client refetches odds every 30 s while visible and stops while hidden | F2b (today client-fetched, polling built) |
 | Match                      | Main group on the server, other groups on tab open | ISR 15 s                                                                                                                        | F2b                                       |
-| `/b/[code]`, `/t/[ticket]` | Dynamic server render                              | Never cached; Open Graph in the head                                                                                            | Built / F5                                |
+| `/b/[code]`, `/t/[ticket]` | Dynamic server render                              | Never cached; Open Graph in the head                                                                                            | Built                                     |
 | Account pages              | Client, behind login                               | `no-store`; TanStack Query with deliberate `staleTime` per data kind (`STALE_TIME`)                                             | Built                                     |
 | `/api/*`                   | Route handlers                                     | `Cache-Control: no-store` on every answer                                                                                       | Built                                     |
 
@@ -47,7 +47,10 @@ The server holds it five minutes per tenant.
 
 The ticket check `/t/[ticket]` and the booking page `/b/[code]` render as plain HTML and work in proxy
 browsers such as Opera Mini and in Telegram's preview; the public lists are readable as HTML. Placing a
-bet needs JavaScript.
+bet needs JavaScript. The ticket check's pages have no `<Suspense>` around the shell: a boundary that
+suspends during the server render streams its content hidden until a script reveals it, which without
+JavaScript is never. `/t`'s form is a plain GET (`next/form`), and every action on those pages is a link
+(`tests/e2e/ticket.spec.ts` runs them with JavaScript off).
 
 ## Offline
 

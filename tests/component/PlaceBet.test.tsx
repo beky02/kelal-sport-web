@@ -223,10 +223,14 @@ describe("placing the slip", () => {
     // No winnings tax on the ticket: the API decides it at settlement.
     expect(figures).not.toHaveTextContent("Winnings tax");
     expect(screen.getByRole("heading", { name: "Bet placed" })).toHaveFocus();
-    // Sharing comes with `/t/{ticket}` (F5b): no button that does nothing.
+    // Shared as the public ticket check, `/t/{ticket}` (F5b).
+    const url = `${window.location.origin}/t/K7Q2-M9XP-M`;
     expect(
-      screen.queryByRole("button", { name: "Share on Telegram" }),
-    ).not.toBeInTheDocument();
+      within(ticket).getByRole("link", { name: /Share on Telegram/ }),
+    ).toHaveAttribute(
+      "href",
+      `https://t.me/share/url?url=${encodeURIComponent(url)}&text=${encodeURIComponent("Ticket K7Q2-M9XP-M")}`,
+    );
   });
 
   it("counts the bets of a several-line ticket instead of quoting odds it doesn't have", async () => {

@@ -1,11 +1,13 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Check } from "lucide-react";
+import { Check, Send } from "lucide-react";
 import { useTranslation } from "@/lib/i18n/use-translation";
 import { Barcode } from "@/components/ui/Barcode";
 import { Button } from "@/components/ui/Button";
+import { routes } from "@/config/routes";
 import { compareMoney } from "@/lib/money";
+import { absoluteUrl, telegramShareUrl } from "@/lib/share";
 import type { BetReceipt } from "../types";
 
 /**
@@ -84,13 +86,29 @@ export function BetPlacedConfirmation({
           {receipt.ticketId}
         </div>
         <Barcode code={receipt.ticketId} label={t.t("betSlip.ticket")} />
-        <button
-          type="button"
-          onClick={copy}
-          className="bg-raised text-text font-body h-11 cursor-pointer rounded-md text-[13px] font-bold"
-        >
-          {t.t(copied ? "betSlip.copied" : "betSlip.copyCode")}
-        </button>
+        <div className="grid grid-cols-2 gap-2">
+          <button
+            type="button"
+            onClick={copy}
+            className="bg-raised text-text font-body h-11 cursor-pointer rounded-md text-[13px] font-bold"
+          >
+            {t.t(copied ? "betSlip.copied" : "betSlip.copyCode")}
+          </button>
+          {/* The public ticket check (D7): anyone given the link sees its
+              status, never who placed it. */}
+          <a
+            href={telegramShareUrl(
+              absoluteUrl(routes.ticket(receipt.ticketId)),
+              t.t("ticket.shareText", { ticket: receipt.ticketId }),
+            )}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="bg-telegram font-body flex h-11 items-center justify-center gap-2 rounded-md text-[13px] font-bold text-white no-underline"
+          >
+            <Send size={15} strokeWidth={1.5} aria-hidden />
+            {t.t("betSlip.shareTelegram")}
+          </a>
+        </div>
       </div>
 
       <div
@@ -122,9 +140,6 @@ export function BetPlacedConfirmation({
           </span>
         </div>
       </div>
-
-      {/* Share on Telegram comes back in F5b, with the public `/t/{ticket}`
-          page to share: until then it would be a button that does nothing. */}
 
       <div className="grid grid-cols-2 gap-2">
         <Button size="lg" onClick={onKeepSelections}>

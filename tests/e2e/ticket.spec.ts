@@ -90,8 +90,13 @@ test("answers 404 for an unknown number, in the ticket's words (AC-9)", async ({
   // The way on: check another number.
   await expect(page.getByLabel("Ticket number")).toBeVisible();
   // A 404 can't join screens.spec (its console always has the document's
-  // 404), so its screenshot is taken here for review, at the desktop width.
+  // 404), so its screenshot is taken here for review, at the desktop width,
+  // settled and without the dev server's badge, as screens.spec takes them.
   await page.setViewportSize({ width: 1440, height: 900 });
+  await page.waitForLoadState("networkidle");
+  await page.addStyleTag({
+    content: "nextjs-portal { display: none !important; }",
+  });
   await page.screenshot({
     path: "test-results/ui/ticket-not-found-en-desktop.png",
     fullPage: true,
