@@ -31,6 +31,7 @@ import type {
   BookingRequest,
 } from "@/features/bookings/types";
 import { BOOKING_CODE } from "@/features/bookings/lib/code";
+import type { TicketCheck } from "@/features/tickets/types";
 import type {
   FaydaChallengeView,
   FaydaStartForm,
@@ -268,6 +269,32 @@ export const betPageSchema = z.object({
   items: z.array(betSchema),
   nextCursor: z.string().min(1).nullable(),
 }) satisfies z.ZodType<BetPage>;
+
+/**
+ * The public check's ticket. It never passes through `apiClient` — the page
+ * is rendered on the server — so the loader checks it here: an answer that
+ * isn't a ticket is a failure, not a broken page.
+ */
+export const ticketCheckSchema = z.object({
+  ticketId: z.string().regex(TICKET_NUMBER_PATTERN),
+  status: z.enum([...betStatusSchema.options, "paid", "expired"]),
+  betType: z.enum(["single", "multiple", "system"]),
+  placedAt: z.string(),
+  settledAt: z.string().nullable(),
+  stake: z.string().regex(MONEY_PATTERN),
+  payout: z.string().regex(MONEY_PATTERN).nullable(),
+  legs: z
+    .array(
+      z.object({
+        match: localizedSchema,
+        market: localizedSchema,
+        pick: localizedSchema,
+        odds: z.string().regex(ODDS_PATTERN),
+        result: legResultSchema,
+      }),
+    )
+    .min(1),
+}) satisfies z.ZodType<TicketCheck>;
 
 export const transactionSchema = z.object({
   id: z.string(),

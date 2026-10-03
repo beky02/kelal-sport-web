@@ -690,6 +690,23 @@
     "openSlip": "Open bet slip"
   },
   "ticket": {
-    "shareText": "Ticket {ticket}"
+    "checkTitle": "Check a ticket",
+    "checkBody": "Enter the number on a ticket to see its status.",
+    "numberLabel": "Ticket number",
+    "numberPlaceholder": "e.g. K7Q2-M9XP-M",
+    "check": "Check",
+    "invalid": "A ticket number has 9 letters and numbers, like K7Q2-M9XP-M. Check it and try again.",
+    "pageTitle": "Ticket {ticket}",
+    "notFoundTitle": "No ticket with this number",
+    "notFoundBody": "Check number {ticket} and try again.",
+    "notFoundBodyNoNumber": "Check the number and try again.",
+    "failedTitle": "Couldn’t check this ticket",
+    "failedBody": "It couldn’t be checked just now. Try again.",
+    "checkAnother": "Check another ticket",
+    "shareText": "Ticket {ticket}",
+    "og": {
+      "description": "{status} · {matches}",
+      "notFound": "No ticket with this number."
+    }
   }
 }
