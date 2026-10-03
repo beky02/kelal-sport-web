@@ -13,9 +13,16 @@ import { problemResponse } from "./respond";
  * body must be JSON, which an HTML form cannot send. The session cookie riding
  * along on a cross-site request therefore buys an attacker nothing.
  *
+ * A `DELETE` has no body, so it passes `{ json: false }` and skips that last
+ * check: it is never a CORS-simple method, so another origin can't send one
+ * without a preflight this app never answers, and no form can send one at all.
+ *
  * Returns the refusal, or `null` when the request may proceed.
  */
-export function assertSameOrigin(request: Request): Response | null {
+export function assertSameOrigin(
+  request: Request,
+  { json = true }: { json?: boolean } = {},
+): Response | null {
   const refuse = () =>
     problemResponse(403, "PERMISSION_DENIED", "Not from this site");
 
@@ -37,6 +44,7 @@ export function assertSameOrigin(request: Request): Response | null {
   if (request.headers.get(CSRF_HEADER) !== CSRF_VALUE) return refuse();
 
   if (
+    json &&
     !request.headers
       .get("content-type")
       ?.toLowerCase()

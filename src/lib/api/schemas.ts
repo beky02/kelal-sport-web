@@ -52,6 +52,7 @@ import { isIsoDate } from "@/features/auth/lib/birth-date";
 import { toE164 } from "@/features/auth/lib/phone";
 import { compareMoney } from "@/lib/money";
 import {
+  API_ID_PATTERN,
   MONEY_PATTERN,
   ODDS_PATTERN,
   PHONE_PATTERN,
@@ -436,13 +437,8 @@ export const depositRequestSchema = z.strictObject({
 
 // ── withdrawals and payout accounts (F6c) ─────────────────────────────────
 
-/**
- * What an API id can be before this app puts it in an upstream path or body:
- * ids are opaque (D3), but only UUIDv7 and the contract's ULID-like examples
- * are ever sent. `abort`, so nothing else is checked against a value that
- * isn't one.
- */
-const apiIdSchema = z.string().regex(/^[A-Za-z0-9_-]{1,64}$/, { abort: true });
+/** An id this app will send on (`API_ID_PATTERN`). */
+const apiIdSchema = z.string().regex(API_ID_PATTERN);
 
 /** A mobile number in the contract's `Phone` form. */
 const phoneSchema = z.string().regex(PHONE_PATTERN);

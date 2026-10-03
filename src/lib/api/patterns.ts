@@ -18,3 +18,10 @@ export const PHONE_PATTERN = /^\+251[79]\d{8}$/;
  */
 export const TICKET_NUMBER_PATTERN =
   /^[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]$/;
+
+/**
+ * Not the contract's: API ids are opaque strings (D3). What this app lets one
+ * be before it goes into an upstream path or body — UUIDv7, the contract's
+ * ULID-like examples — so nothing else is ever sent on.
+ */
+export const API_ID_PATTERN = /^[A-Za-z0-9_-]{1,64}$/;
