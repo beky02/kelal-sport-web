@@ -15,8 +15,9 @@ admin APIs (B10); F10c–F10g build on this shell.
 
 ## Goal
 
-Operator staff sign in with email, password and TOTP to a Refine back office that shows only what their
-roles allow; today's dashboard, the audit log, and staff and roles management.
+A brand's staff sign in with email, password and TOTP to a Refine back office that shows only what their
+roles allow; today's dashboard, the audit log, and staff and roles management. The back office belongs to
+one brand (its host decides which); platform staff use the platform console instead (F11, FD6).
 
 ## Read first
 

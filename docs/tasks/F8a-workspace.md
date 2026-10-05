@@ -36,7 +36,7 @@ In:
 - `contracts/` stays at the root; `pnpm contract:sync`, `api:types`, `check`, `verify`, `ui` work from the
   root through Turborepo; `.claude` hooks, skills and `CLAUDE.md` updated to the new paths.
 
-Out: any new app (F8–F10); behaviour changes.
+Out: any new app (F8–F11, including the platform console `apps/console`, FD6); behaviour changes.
 
 ## Acceptance criteria
 

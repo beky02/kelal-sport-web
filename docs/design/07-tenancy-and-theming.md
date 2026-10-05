@@ -3,6 +3,16 @@
 One build, many brands (C16, C18 §4.3, PRD G8). Nothing brand-specific is in the code: the host picks
 the tenant, the tenant's public configuration supplies the rest.
 
+## Platform, brands and their hosts (FD6)
+
+A tenant is a **brand**: a licensed operator, below the **platform** that runs them all (00-overview, "Who
+owns what"). Each brand has a host per app (C16 `tenant_domain.kind`): the player web, the API, the back
+office (`admin`), the terminal, the POS and the agent portal. Every one of those apps reads its tenant from
+the host, as the player web does below. The **platform console** (F11) is the exception: it belongs to no
+brand, lives on the platform's own host, and its staff sign in with their own token audience, which can't
+call a brand's back-office or player operations (contract request 013). Platform staff don't see a
+brand's players, bets or money unless that is decided otherwise (proposal 001, Q4).
+
 ## Host → tenant (D3)
 
 | Step                | Where                                                                                                                                                             | Status      |

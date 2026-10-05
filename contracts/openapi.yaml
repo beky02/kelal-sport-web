@@ -254,6 +254,8 @@ paths:
           $ref: '#/components/responses/NotFound'
         '422':
           $ref: '#/components/responses/Unprocessable'
+        '503':
+          $ref: '#/components/responses/Unavailable'
       security: []
       parameters:
       - $ref: '#/components/parameters/TenantId'
@@ -370,6 +372,8 @@ paths:
           $ref: '#/components/responses/NotFound'
         '422':
           $ref: '#/components/responses/Unprocessable'
+        '503':
+          $ref: '#/components/responses/Unavailable'
       parameters:
       - $ref: '#/components/parameters/TenantId'
       - $ref: '#/components/parameters/RequestId'

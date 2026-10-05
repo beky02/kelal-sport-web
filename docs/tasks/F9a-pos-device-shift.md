@@ -15,8 +15,9 @@ first.
 
 ## Goal
 
-The counter PC is activated once; a cashier or shop manager logs in with a PIN from that device only; a
-shift opens with the counted cash, shows its running totals, records cash in and out, and closes with a
+The counter PC is activated once; a cashier or shop manager logs in with a PIN from that device only (the
+shop manager is the contract's `shop_manager` role; whether it stays in Phase 1 is open, FD6 and
+proposal 001 Q3); a shift opens with the counted cash, shows its running totals, records cash in and out, and closes with a
 count by denomination and a Z report.
 
 ## Read first
