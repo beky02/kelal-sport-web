@@ -293,6 +293,37 @@ describe("logging in through the dialog", () => {
     expect(screen.getByRole("button", { name: "Back" })).toBeInTheDocument();
   });
 
+  it("logging in on another device takes the account's language (AC-8)", async () => {
+    // This browser reads English; the account was saved in Amharic.
+    api((call) => {
+      if (call.path === "/api/auth/login") return [200, OK];
+      if (call.path === "/api/me") return [200, { player: PLAYER() }];
+      return [404, problem(404, "NOT_FOUND", "Not found")];
+    });
+    render(<AuthDialog />, { session: "guest" });
+
+    await fillLogin();
+
+    await waitFor(() => expect(useUiStore.getState().lang).toBe("am"));
+    expect(PLAYER().language).toBe("am");
+  });
+
+  it("keeps the page's language when the account couldn't be read after login", async () => {
+    api((call) => {
+      if (call.path === "/api/auth/login") return [200, OK];
+      if (call.path === "/api/me") {
+        return [503, problem(503, "SERVICE_UNAVAILABLE", "Down")];
+      }
+      return [404, problem(404, "NOT_FOUND", "Not found")];
+    });
+    render(<AuthDialog />, { session: "guest" });
+
+    await fillLogin();
+
+    await waitFor(() => expect(useAuthStore.getState().entry).toBeNull());
+    expect(useUiStore.getState().lang).toBe("en");
+  });
+
   it("still closes when the login worked but reading the profile failed: the cookie is set", async () => {
     api((call) => {
       if (call.path === "/api/auth/login") return [200, OK];
@@ -342,6 +373,8 @@ describe("logging in through the dialog", () => {
     first.unmount();
 
     replace.mockReset();
+    // The first login took the account's Amharic; this is another visit.
+    useUiStore.setState({ lang: "en" });
     useAuthStore.setState({
       entry: "login",
       next: "https://evil.example/wallet",

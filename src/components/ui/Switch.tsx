@@ -8,6 +8,7 @@ export function Switch({
   label,
   note,
   size = "md",
+  pending = false,
   className,
 }: {
   checked: boolean;
@@ -16,6 +17,8 @@ export function Switch({
   /** Secondary line under the label, for settings that need explaining. */
   note?: string;
   size?: "md" | "lg";
+  /** Waiting for the server to say what the setting now is: not pressable. */
+  pending?: boolean;
   className?: string;
 }) {
   return (
@@ -23,9 +26,11 @@ export function Switch({
       type="button"
       role="switch"
       aria-checked={checked}
+      aria-busy={pending || undefined}
+      disabled={pending}
       onClick={() => onChange(!checked)}
       className={cn(
-        "font-body flex min-h-12 w-full cursor-pointer items-center justify-between gap-3 text-left text-[13px]",
+        "font-body flex min-h-12 w-full cursor-pointer items-center justify-between gap-3 text-left text-[13px] disabled:cursor-wait disabled:opacity-60",
         className,
       )}
     >

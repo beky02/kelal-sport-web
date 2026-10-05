@@ -4,6 +4,7 @@ import { Dialog } from "radix-ui";
 import { useTranslation } from "@/lib/i18n/use-translation";
 import { Segmented } from "@/components/ui/Segmented";
 import { LICENCE } from "@/config/constants";
+import { useChangeLanguage } from "@/features/profile/hooks/use-account";
 import { LANG_LABEL } from "@/lib/i18n";
 import { useUiStore } from "@/stores/ui.store";
 import type { Lang } from "@/types/common";
@@ -37,7 +38,7 @@ export function FullScreenNotice({
 }) {
   const t = useTranslation();
   const lang = useUiStore((s) => s.lang);
-  const setLang = useUiStore((s) => s.setLang);
+  const setLang = useChangeLanguage();
 
   return (
     <Dialog.Root open={open}>
