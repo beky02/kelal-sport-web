@@ -12,7 +12,7 @@ interface RealityCheckState {
   startedAt: number | null;
   /** When the last check was answered; null before the first. */
   answeredAt: number | null;
-  /** When the check on screen came due, for the time it reports. */
+  /** When the check on screen opened, for the time it reports. */
   shownAt: number | null;
   /** Starts a visit for this player, unless theirs is already running. */
   begin: (playerId: string, now: number) => void;

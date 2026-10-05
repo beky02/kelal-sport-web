@@ -20,7 +20,7 @@ const MAX_DELAY = 2 ** 31 - 1;
  * closes if it came due meanwhile.
  */
 export function RealityCheckWatcher() {
-  const { player, isLoading } = useSession();
+  const { player, isLoading, isError } = useSession();
   const playerId = player?.id ?? null;
   const minutes = player?.flags.realityCheckMinutes ?? null;
 
@@ -33,11 +33,13 @@ export function RealityCheckWatcher() {
   const overlay = useSystemStore((s) => s.overlay);
   const show = useSystemStore((s) => s.show);
 
+  // Only an answer ends the visit: a read of `/api/me` that failed (a weak
+  // connection after a reload) says nothing about who is signed in.
   useEffect(() => {
     if (isLoading) return;
     if (playerId) begin(playerId, Date.now());
-    else end();
-  }, [isLoading, playerId, begin, end]);
+    else if (!isError) end();
+  }, [isLoading, isError, playerId, begin, end]);
 
   useEffect(() => {
     if (!playerId || visitOf !== playerId || startedAt === null) return;
@@ -58,9 +60,9 @@ export function RealityCheckWatcher() {
 }
 
 /**
- * The open check: how long the player had been playing when it came due, and
+ * The open check: how long the player had been playing when it opened, and
  * the answer every one of its actions gives — the next check is an interval
- * later.
+ * after it.
  */
 export function useRealityCheck() {
   const startedAt = useRealityCheckStore((s) => s.startedAt);

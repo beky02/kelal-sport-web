@@ -29,6 +29,8 @@ type Answer = [number, unknown] | "drop" | Promise<[number, unknown]>;
  * Starts as the contract's player, reading English.
  */
 let account: ApiMe;
+/** The session was ended at the API: `/api/me` answers nobody. */
+let signedOut = false;
 /** Every `/api/…` call made, as `METHOD /path`, in order. */
 let asked: string[] = [];
 /** Every body sent to `PATCH /api/me`. */
@@ -71,7 +73,7 @@ function api() {
             },
           });
     if (url.pathname === "/api/me" && method === "GET") {
-      return reply([200, view()]);
+      return reply([200, signedOut ? { player: null } : view()]);
     }
     if (url.pathname === "/api/me" && method === "PATCH") {
       const change = JSON.parse(String(init?.body));
@@ -116,6 +118,7 @@ beforeEach(() => {
   asked = [];
   patches = [];
   patchAnswers = [];
+  signedOut = false;
   devices = example("/v1/me/sessions").items;
   listAnswers = [];
   revokeAnswers = [];
@@ -176,6 +179,57 @@ describe("language on the account (AC-8)", () => {
   });
 });
 
+describe("language saves in a hurry (review Q2, SEC1)", () => {
+  it("switching back before the first save answers leaves the account on the language shown", async () => {
+    let first!: (reply: [number, unknown]) => void;
+    patchAnswers = [new Promise((resolve) => (first = resolve))];
+    const { queryClient } = render(<ProfileView />, { session: player() });
+
+    await userEvent.click(screen.getByRole("button", { name: "አማርኛ" }));
+    await waitFor(() => expect(patches).toEqual([{ language: "am" }]));
+    // Back to English while the first save is still out.
+    await userEvent.click(screen.getByRole("button", { name: "English" }));
+
+    account.language = "am";
+    first([200, view()]);
+
+    // The saves run in order, so the last one sent is the account's.
+    await waitFor(() =>
+      expect(patches).toEqual([{ language: "am" }, { language: "en" }]),
+    );
+    await waitFor(() =>
+      expect(
+        queryClient.getQueryData<{ player: Player }>(sessionKeys.me())?.player
+          .language,
+      ).toBe("en"),
+    );
+    expect(account.language).toBe("en");
+    expect(useUiStore.getState().lang).toBe("en");
+    expect(screen.queryByText(en.profile.languageNotSaved)).toBeNull();
+  });
+
+  it("a save answered after logout doesn't bring the player back", async () => {
+    let answer!: (reply: [number, unknown]) => void;
+    patchAnswers = [new Promise((resolve) => (answer = resolve))];
+    const { queryClient } = render(<ProfileView />, { session: player() });
+
+    await userEvent.click(screen.getByRole("switch", { name: /Offers/ }));
+    await waitFor(() => expect(patches).toHaveLength(1));
+    // Logged out (another tab, say) before the save answered.
+    signedOut = true;
+    act(() => {
+      queryClient.setQueryData(sessionKeys.me(), { player: null });
+    });
+
+    answer([200, { player: { ...player(), marketingConsent: true } }]);
+
+    await waitFor(() => expect(queryClient.isMutating()).toBe(0));
+    expect(queryClient.getQueryData(sessionKeys.me())).toEqual({
+      player: null,
+    });
+  });
+});
+
 describe("marketing consent on the account (AC-8)", () => {
   const offers = () => screen.getByRole("switch", { name: /Offers/ });
 
@@ -191,14 +245,21 @@ describe("marketing consent on the account (AC-8)", () => {
     await waitFor(() => expect(patches).toEqual([{ marketingConsent: true }]));
     expect(offers()).toHaveAttribute("aria-checked", "false");
     expect(offers()).toHaveAttribute("aria-busy", "true");
-    expect(offers()).toBeDisabled();
+    // Waiting, but still focusable (review Q3): a second press sends nothing.
+    expect(offers()).toHaveAttribute("aria-disabled", "true");
+    expect(offers()).not.toBeDisabled();
+    await userEvent.click(offers());
+    expect(patches).toHaveLength(1);
 
     answer([200, { player: { ...player(), marketingConsent: true } }]);
 
     await waitFor(() =>
       expect(offers()).toHaveAttribute("aria-checked", "true"),
     );
-    expect(offers()).not.toBeDisabled();
+    expect(offers()).not.toHaveAttribute("aria-disabled");
+    // The press while it waited was never sent, not even afterwards.
+    await act(() => new Promise((resolve) => setTimeout(resolve, 50)));
+    expect(patches).toEqual([{ marketingConsent: true }]);
   });
 
   it("shows the consent the API kept, not the one asked for", async () => {
@@ -210,7 +271,7 @@ describe("marketing consent on the account (AC-8)", () => {
 
     await userEvent.click(offers());
 
-    await waitFor(() => expect(offers()).not.toBeDisabled());
+    await waitFor(() => expect(offers()).not.toHaveAttribute("aria-busy"));
     expect(patches).toEqual([{ marketingConsent: true }]);
     expect(offers()).toHaveAttribute("aria-checked", "false");
     expect(screen.queryByRole("alert")).toBeNull();
@@ -310,7 +371,12 @@ describe("devices signed in (AC-9)", () => {
       expect(asked).toContain(`DELETE /api/me/sessions/${PHONE}`),
     );
     expect(screen.getByText("App 1.0.3")).toBeInTheDocument();
-    expect(signOut("App 1.0.3")).toBeDisabled();
+    expect(signOut("App 1.0.3")).toHaveAttribute("aria-disabled", "true");
+    expect(signOut("App 1.0.3")).not.toBeDisabled();
+    await userEvent.click(signOut("App 1.0.3"));
+    expect(
+      asked.filter((call) => call === `DELETE /api/me/sessions/${PHONE}`),
+    ).toHaveLength(1);
 
     devices = devices.filter((d) => d.id !== PHONE);
     answer([204, null]);

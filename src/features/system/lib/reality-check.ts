@@ -3,24 +3,25 @@
  * and won is the API's to say (contract request 012), never added up here.
  *
  * A visit starts when this tab first shows the signed-in player (plan
- * decision 2, until the API owns the play session). Checks come due at whole
- * intervals of it: one interval in, two, three…
+ * decision 2, until the API owns the play session). The first check comes one
+ * interval in, each next one an interval after the player answered the last.
  */
 
 const MINUTE = 60_000;
 
 /**
- * When the next check comes due: the first whole interval of the visit after
- * the last one answered, or after the start when none has been.
+ * When the next check comes due: one interval after the visit started, then
+ * one interval after the last answer — so a check that opened late (it waited
+ * behind another dialog) is never followed by another moments later.
  */
 export function nextCheckAt(
   startedAt: number,
   intervalMinutes: number,
   answeredAt: number | null,
 ): number {
-  const step = intervalMinutes * MINUTE;
-  const from = Math.max(answeredAt ?? startedAt, startedAt);
-  return startedAt + (Math.floor((from - startedAt) / step) + 1) * step;
+  return (
+    Math.max(answeredAt ?? startedAt, startedAt) + intervalMinutes * MINUTE
+  );
 }
 
 /** Whole minutes since the visit started. */

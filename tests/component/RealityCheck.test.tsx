@@ -139,6 +139,13 @@ describe("the reality check (AC-10)", () => {
     act(() => useSystemStore.getState().dismiss());
     play(0);
     expect(dialog()).toHaveTextContent("You’ve been playing for 1 h 30 min.");
+
+    // Answered at 90: the next one an interval after the answer, not at 120.
+    press(en.system.realityKeepPlaying);
+    play(59);
+    expect(dialog()).toBeNull();
+    play(1);
+    expect(dialog()).toHaveTextContent("You’ve been playing for 2 h 30 min.");
   });
 
   it("never opens without an interval or for a guest", () => {
@@ -171,6 +178,49 @@ describe("the reality check (AC-10)", () => {
     mount();
     play(0);
     expect(dialog()).toHaveTextContent(en.system.realityTitle);
+  });
+
+  it("a failed read of who is signed in neither ends the visit nor restarts it (review Q1)", async () => {
+    const first = mount();
+    play(40);
+    first.unmount();
+    await reload();
+
+    // After the reload `/api/me` fails once (a weak connection), then answers.
+    let reads = 0;
+    vi.mocked(globalThis.fetch).mockImplementation(async (input) => {
+      if (!String(input).endsWith("/api/me")) {
+        throw new Error(`unexpected fetch ${String(input)}`);
+      }
+      reads += 1;
+      return reads === 1
+        ? Response.json(
+            { title: "Down", status: 503, code: "SERVICE_UNAVAILABLE" },
+            {
+              status: 503,
+              headers: { "Content-Type": "application/problem+json" },
+            },
+          )
+        : Response.json({ player: every(60) });
+    });
+    const { queryClient } = render(
+      <>
+        <RealityCheckWatcher />
+        <SystemOverlays />
+      </>,
+      { session: null },
+    );
+    await act(() => vi.advanceTimersByTimeAsync(0));
+    expect(reads).toBe(1);
+    expect(useRealityCheckStore.getState().startedAt).toBe(T0);
+
+    await act(() => queryClient.refetchQueries({ queryKey: sessionKeys.me() }));
+    await act(() => vi.advanceTimersByTimeAsync(0));
+
+    play(19);
+    expect(dialog()).toBeNull();
+    play(1);
+    expect(dialog()).toHaveTextContent("You’ve been playing for 1 h.");
   });
 
   it("another player signing in starts a visit of their own", () => {

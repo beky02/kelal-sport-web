@@ -112,13 +112,13 @@ RealityCheck:
       description: When the next check is due; null when there is none
     staked:
       $ref: "#/components/schemas/Money"
-      description: Stakes placed in this play session (state whether before or after stake tax)
+      description: Stakes placed in this play session (state whether before or after stake tax, and whether stakes on bets not yet settled are included)
     won:
       $ref: "#/components/schemas/Money"
       description: Returns credited in this play session (state whether before or after win tax)
     net:
       $ref: "#/components/schemas/Money"
-      description: won − staked, signed ("-230.00" is a loss)
+      description: won − staked, signed ("-230.00" is a loss); say whether open stakes count as lost until they settle
     currency: { $ref: "#/components/schemas/Currency" }
 
 Me:

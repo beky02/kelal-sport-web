@@ -32,7 +32,9 @@ interval where the tenant allows it.
 In:
 
 - The figures from the operation 012 adds, through a route handler, read fresh each time the check opens;
-  money as the API's strings (FD4), the net's sign and loss tint from the API's value.
+  money as the API's strings (FD4), the net's sign and loss tint from the API's value: split the leading
+  `-` off the `Money` string and show it as "−" (`formatMoney` takes the sign as it comes), never
+  `Math.abs`/`Number` (F7b money review, m2).
 - Timing from the API's play session (`started_at` / `next_check_at`); the browser's visit clock and its
   `sessionStorage` store removed.
 - The player's interval on the session-reminder card, if `MePatch` takes one.

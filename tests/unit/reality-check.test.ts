@@ -13,12 +13,11 @@ describe("the reality check's clock (AC-10)", () => {
     expect(nextCheckAt(START, 30, null)).toBe(START + 30 * MIN);
   });
 
-  it("after an answer, comes due at the next whole interval of the visit", () => {
-    // Answered as it opened, or a little after: an interval later.
+  it("after an answer, comes due one interval after it", () => {
     expect(nextCheckAt(START, 60, START + 60 * MIN)).toBe(START + 120 * MIN);
-    expect(nextCheckAt(START, 60, START + 61 * MIN)).toBe(START + 120 * MIN);
-    // Answered late (it waited behind another dialog): the next one after.
-    expect(nextCheckAt(START, 60, START + 150 * MIN)).toBe(START + 180 * MIN);
+    expect(nextCheckAt(START, 60, START + 61 * MIN)).toBe(START + 121 * MIN);
+    // Answered late (it waited behind another dialog): never moments later.
+    expect(nextCheckAt(START, 60, START + 119 * MIN)).toBe(START + 179 * MIN);
   });
 
   it("follows a changed interval from the last answer", () => {

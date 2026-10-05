@@ -4,6 +4,7 @@ import { useCallback } from "react";
 import {
   useIsMutating,
   useMutation,
+  useMutationState,
   useQuery,
   useQueryClient,
 } from "@tanstack/react-query";
@@ -18,21 +19,32 @@ import {
   revokeDeviceSession,
   updateAccount,
 } from "../api/account";
+import type { AccountChange } from "../types";
 
 /**
  * Saves a preference on the account (`PATCH /api/me`, AC-8). Nothing is
  * patched here: the API's answer — the account as it now is — becomes
  * `/api/me`'s entry, so every screen shows what was saved, not what was
- * asked. A 401 means the session is gone: `/api/me` is read again and the
- * session-ended path follows.
+ * asked. Saves run one after another (`scope`), so the last one sent is the
+ * one the account keeps. An answer for a player no longer signed in (a logout
+ * while it was out) is not put back: `/api/me` is read instead. A 401 means
+ * the session is gone: `/api/me` is read again and the session-ended path
+ * follows.
  */
 export function useUpdateAccount() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationKey: accountKeys.update(),
+    scope: { id: "account" },
     mutationFn: updateAccount,
     onSuccess: (view) => {
-      queryClient.setQueryData<SessionView>(sessionKeys.me(), view);
+      const signedIn = queryClient.getQueryData<SessionView>(sessionKeys.me())
+        ?.player?.id;
+      if (signedIn !== undefined && signedIn === view.player?.id) {
+        queryClient.setQueryData<SessionView>(sessionKeys.me(), view);
+      } else {
+        void queryClient.invalidateQueries({ queryKey: sessionKeys.me() });
+      }
     },
     onError: (error) => {
       if (error instanceof ApiError && error.status === 401) {
@@ -48,20 +60,28 @@ export const useAccountSaving = (): boolean =>
 
 /**
  * Switches the language. The page changes at once — it is how this device
- * reads — and for a signed-in player whose account says otherwise, the
- * choice is saved on the account, so their other devices and their next
- * sign-in follow it (plan decision 5). A guest's choice stays here.
+ * reads — and for a signed-in player the choice is saved on the account, so
+ * their other devices and their next sign-in follow it (plan decision 5). It
+ * is compared with the last language sent, not the account's until it
+ * answers: a quick switch back is saved too (review Q2). A guest's choice
+ * stays here.
  */
 export function useChangeLanguage(): (lang: Lang) => void {
   const setLang = useUiStore((s) => s.setLang);
   const { player } = useSession();
   const { mutate } = useUpdateAccount();
+  const sending = useMutationState({
+    filters: { mutationKey: accountKeys.update(), status: "pending" },
+    select: (mutation) =>
+      (mutation.state.variables as AccountChange | undefined)?.language,
+  }).filter((lang) => lang !== undefined);
+  const latest = sending.at(-1) ?? player?.language;
   return useCallback(
     (lang: Lang) => {
       setLang(lang);
-      if (player && player.language !== lang) mutate({ language: lang });
+      if (player && latest !== lang) mutate({ language: lang });
     },
-    [setLang, player, mutate],
+    [setLang, player, latest, mutate],
   );
 }
 

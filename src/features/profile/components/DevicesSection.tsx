@@ -117,9 +117,11 @@ function DeviceRow({ device }: { device: DeviceSession }) {
             type="button"
             aria-label={t.t("profile.signOutDeviceAria", { device: name })}
             aria-busy={revoke.isPending || undefined}
-            disabled={revoke.isPending}
-            onClick={() => revoke.mutate(device.id)}
-            className="bg-raised text-text font-body min-h-11 shrink-0 cursor-pointer rounded-lg px-3 text-xs font-bold disabled:cursor-wait disabled:opacity-60"
+            aria-disabled={revoke.isPending || undefined}
+            onClick={() => {
+              if (!revoke.isPending) revoke.mutate(device.id);
+            }}
+            className="bg-raised text-text font-body min-h-11 shrink-0 cursor-pointer rounded-lg px-3 text-xs font-bold aria-disabled:cursor-wait aria-disabled:opacity-60"
           >
             {t.t("profile.signOutDevice")}
           </button>
