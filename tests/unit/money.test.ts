@@ -8,6 +8,7 @@ import {
   maxMoney,
   mulMoney,
   normaliseMoney,
+  percentOf,
   roundUpToMultiple,
   share,
   toSantim,
@@ -56,6 +57,19 @@ describe("lib/money (FD4)", () => {
   it("takes a share floored to the santim", () => {
     expect(share("142.30", 1, 4)).toBe("35.57");
     expect(share("142.30", 1, 1)).toBe("142.30");
+  });
+
+  it("says how much of a limit is used as a whole percentage, for a bar only", () => {
+    expect(percentOf("500.00", "1000.00")).toBe(50);
+    expect(percentOf("0.00", "1000.00")).toBe(0);
+    // Floored: a bar never shows more used than there is.
+    expect(percentOf("999.99", "1000.00")).toBe(99);
+    expect(percentOf("0.01", "1000.00")).toBe(0);
+    // Past the limit (a limit lowered below what is used) fills the bar, no more.
+    expect(percentOf("1500.00", "1000.00")).toBe(100);
+    // No limit to measure against: an empty bar, never a division by zero.
+    expect(percentOf("10.00", "0.00")).toBe(0);
+    expect(percentOf("-5.00", "100.00")).toBe(0);
   });
 
   it("compares odds by value, not spelling", () => {
