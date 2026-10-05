@@ -30,7 +30,7 @@ function buildUrl(path: string, params?: Params): string {
  * clear message instead of rendering `NaN` inside an odds button.
  */
 async function request<T>(
-  method: "GET" | "POST" | "DELETE",
+  method: "GET" | "POST" | "PUT" | "DELETE",
   path: string,
   schema: z.ZodType<T>,
   options: {
@@ -112,6 +112,14 @@ export const apiClient = {
     body: unknown,
     options?: { signal?: AbortSignal; headers?: Record<string, string> },
   ) => request("POST", path, schema, { ...options, body }),
+
+  /** Sets something to the value sent (a limit): repeating it changes nothing more. */
+  put: <T>(
+    path: string,
+    schema: z.ZodType<T>,
+    body: unknown,
+    options?: { signal?: AbortSignal },
+  ) => request("PUT", path, schema, { ...options, body }),
 
   /** Removes or cancels something; a 204 parses with `z.undefined()`. */
   delete: <T>(
