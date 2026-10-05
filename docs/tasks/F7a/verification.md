@@ -38,6 +38,25 @@ docs/backend/ matches the backend.
   521 passed (5.2m)
 ```
 
+Run 2, after review round 1 (`c643570`), the full gate once more:
+
+| Check                                           | Command                                   | Result                        |
+| ----------------------------------------------- | ----------------------------------------- | ----------------------------- |
+| Typecheck, lint, format, unit + component tests | `pnpm check`                              | PASS — 63 files, 1,383 tests  |
+| Generated types, contract and backend docs      | `pnpm api:check`, `contract-sync --check` | PASS                          |
+| Production build                                | `pnpm build`                              | PASS                          |
+| Every screen, both widths, both languages       | `pnpm ui`                                 | PASS — 554 passed, none flaky |
+
+```
+ Test Files  63 passed (63)
+      Tests  1383 passed (1383)
+Generated API types match contracts/openapi.yaml.
+contracts/ matches the backend.
+docs/backend/ matches the backend.
+✓ Compiled successfully in 1699ms
+  554 passed (4.2m)
+```
+
 ## Acceptance criteria
 
 | AC                                                                                 | Status | Evidence                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |

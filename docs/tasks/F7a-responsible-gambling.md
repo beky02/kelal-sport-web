@@ -1,7 +1,7 @@
 ---
 id: F7a
 title: Split from F7 — limits, breaks and self-exclusion on the account; RG refusals everywhere
-status: verifying
+status: done
 depends_on: [F4, F6a]
 contract_tags: [Responsible gambling, Me]
 touches_money: true
@@ -46,13 +46,13 @@ Out: the reality check (F7b); AML.
 
 ## Acceptance criteria
 
-- [ ] **AC-1** A limit set on one device is in force on another (it comes from `/v1/me/limits`).
-- [ ] **AC-2** `RG_SELF_EXCLUDED` locks the slip and shows the end date.
-- [ ] **AC-5** Raising a limit shows it pending with the API's effective time; lowering it applies at
+- [x] **AC-1** A limit set on one device is in force on another (it comes from `/v1/me/limits`).
+- [x] **AC-2** `RG_SELF_EXCLUDED` locks the slip and shows the end date.
+- [x] **AC-5** Raising a limit shows it pending with the API's effective time; lowering it applies at
       once (route and component tests; `pnpm ui` `responsible-gaming`).
-- [ ] **AC-6** Taking a break asks once, sends `POST /v1/me/self-exclusion` and leaves the player signed
+- [x] **AC-6** Taking a break asks once, sends `POST /v1/me/self-exclusion` and leaves the player signed
       out with the end date shown; a reload changes nothing (component test).
-- [ ] **AC-7** The wallet's deposit-limit card shows the deposit limit's `used` and `amount` from
+- [x] **AC-7** The wallet's deposit-limit card shows the deposit limit's `used` and `amount` from
       `/v1/me/limits` (component test; `pnpm ui` `wallet`).
 
 ## Notes
