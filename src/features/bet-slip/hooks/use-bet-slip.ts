@@ -4,6 +4,7 @@ import { useMemo } from "react";
 import { usePublicConfig } from "@/features/config/hooks/use-public-config";
 import type { BettingRules } from "@/features/config/types";
 import { useSession } from "@/features/auth/hooks/use-session";
+import { useBreak } from "@/features/responsible-gaming/hooks/use-responsible-gaming";
 import { useWallet } from "@/features/wallet/hooks/use-wallet";
 import {
   calculateBetSlip,
@@ -58,6 +59,8 @@ export function useBetSlip(): BetSlipView {
   const session = useSession();
   // Until /api/me answers, nobody is called a guest and nothing is placeable.
   const isGuest = !session.isLoading && session.isGuest;
+  // A break the player took, as /api/me reports it: nothing new is placed.
+  const paused = useBreak() !== null;
   const wallet = useWallet(!session.isLoading && !session.isGuest);
   // Cash, as the API sends it: bets are paid from cash, and bonus money never
   // counts here (`use_bonus` is false, F5a).
@@ -81,7 +84,7 @@ export function useBetSlip(): BetSlipView {
     totals,
     cta: session.isLoading
       ? { action: "place", disabled: true }
-      : resolveCta(totals, isGuest),
+      : resolveCta(totals, isGuest, paused),
     isGuest,
     balance,
     rules,

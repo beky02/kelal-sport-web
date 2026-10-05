@@ -23,7 +23,7 @@ import { useTranslation } from "@/lib/i18n/use-translation";
 import { toDeposit, toPaymentMethods } from "@/lib/api/mappers/payments";
 import { toWalletBalances } from "@/lib/api/mappers/wallet";
 import type { components } from "@/lib/api/schema";
-import { paymentKeys, sessionKeys } from "@/lib/query/keys";
+import { paymentKeys, rgKeys, sessionKeys } from "@/lib/query/keys";
 import { useUiStore } from "@/stores/ui.store";
 import { example, responseExample } from "../contract";
 import { CONTRACT_PLAYER, render } from "./render";
@@ -87,6 +87,12 @@ const CONTRACT_WALLET = toWalletBalances(example("/v1/wallet"));
 const OTHER_PLAYER: Player = {
   ...CONTRACT_PLAYER,
   id: "01J9A7R0000000000000000099",
+};
+
+/** The contract's player on a break until 10 Oct, 18:00 EAT, as `/v1/me` reports it. */
+const ON_BREAK: Player = {
+  ...CONTRACT_PLAYER,
+  flags: { ...CONTRACT_PLAYER.flags, excludedUntil: "2026-10-10T15:00:00Z" },
 };
 
 const problem = (
@@ -696,6 +702,26 @@ describe("the balance (AC-4)", () => {
     expect(asked.filter((path) => path === "/api/wallet")).toHaveLength(2);
     expect(screen.queryByText(/1,708\.95/)).not.toBeInTheDocument();
   });
+
+  it("reads the limits again when a deposit completes: the deposit limit's used has moved (F7a)", async () => {
+    starts = [[201, PHONE]];
+    reads = () => [200, COMPLETED];
+    api();
+    const { queryClient } = render(<WalletView />);
+    queryClient.setQueryData(rgKeys.limits(), []);
+    await toConfirm(/CBE Birr/);
+    await confirmAndPay();
+
+    await screen.findByRole("heading", { name: "Money added" });
+    await waitFor(() =>
+      expect(
+        queryClient
+          .getQueryCache()
+          .find({ queryKey: rgKeys.limits(), exact: true })?.state
+          .isInvalidated,
+      ).toBe(true),
+    );
+  });
 });
 
 describe("refusals and their fixes (AC-9)", () => {
@@ -838,27 +864,69 @@ describe("refusals and their fixes (AC-9)", () => {
     expect(push).toHaveBeenCalledWith("/responsible-gaming");
   });
 
-  it("says deposits are paused during a break, until when (AC-9)", async () => {
-    const onBreak: Player = {
-      ...CONTRACT_PLAYER,
-      flags: {
-        ...CONTRACT_PLAYER.flags,
-        excludedUntil: "2026-10-10T15:00:00Z",
-      },
-    };
-    signedIn = onBreak;
+  it("says deposits are paused during a break, until when, once /api/me reports it (AC-9)", async () => {
+    // The break began elsewhere: the refusal says so, and /api/me — read
+    // again — gives the end, after which no deposit can be started here.
+    signedIn = ON_BREAK;
     starts = [[403, problem(403, "RG_COOLING_OFF")]];
     api();
-    render(<WalletView />, { session: onBreak });
+    render(<WalletView />);
     await toConfirm(/CBE Birr/);
     await confirmAndPay();
 
-    const alert = await screen.findByRole("alert");
-    expect(alert).toHaveTextContent("You’re taking a break");
-    expect(alert).toHaveTextContent("Deposits are paused until 10/10 · 18:00.");
-    expect(within(alert).queryByRole("button")).not.toBeInTheDocument();
-    // A break is server state: who is signed in is read again.
-    await waitFor(() => expect(asked).toContain("/api/me"));
+    // A break is server state: who is signed in is read again, and the end
+    // it gives is said — 15:00 UTC is 18:00 in East Africa Time, with its year.
+    const status = await screen.findByRole("status");
+    await waitFor(() =>
+      expect(status).toHaveTextContent(
+        "Deposits are paused until 10 Oct 2026, 18:00.",
+      ),
+    );
+    expect(status).toHaveTextContent("You’re taking a break");
+    expect(asked).toContain("/api/me");
+    // Nothing more can be sent: Confirm is gone with the step.
+    expect(
+      screen.queryByRole("button", { name: "Confirm and pay" }),
+    ).not.toBeInTheDocument();
+    expect(posted).toHaveLength(1);
+  });
+
+  it("pauses deposits during a break /api/me reports: the flow starts nothing, and the wallet's Deposit is off (F7a)", async () => {
+    signedIn = ON_BREAK;
+    api();
+    render(<WalletView />, { session: ON_BREAK });
+
+    // The header's Deposit or the slip's Deposit to continue land here.
+    expect(
+      await screen.findByRole("heading", { name: "You’re taking a break" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("Deposits are paused until 10 Oct 2026, 18:00."),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /CBE Birr/ }),
+    ).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Back to wallet" }));
+    const deposit = await screen.findByRole("button", { name: "Deposit" });
+    expect(deposit).toBeDisabled();
+    expect(deposit).toHaveAccessibleDescription(
+      "Deposits are paused until 10 Oct 2026, 18:00.",
+    );
+    // Funds stay withdrawable during a break (RG-02).
+    expect(screen.getByRole("button", { name: "Withdraw" })).toBeEnabled();
+    expect(posted).toHaveLength(0);
+  });
+
+  it("pauses deposits for a permanent self-exclusion, with no end date (F7a)", async () => {
+    const excluded: Player = { ...CONTRACT_PLAYER, status: "self_excluded" };
+    signedIn = excluded;
+    api();
+    render(<WalletView />, { session: excluded });
+
+    expect(
+      await screen.findByText("Deposits are paused during your break."),
+    ).toBeInTheDocument();
   });
 
   it("offers Verify when the API wants the ID checked (AC-9)", async () => {

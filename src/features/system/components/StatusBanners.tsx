@@ -4,7 +4,8 @@ import { useRouter } from "next/navigation";
 import { Lock, WifiOff } from "lucide-react";
 import { useTranslation } from "@/lib/i18n/use-translation";
 import { routes } from "@/config/routes";
-import { useCoolOffUntil } from "@/features/responsible-gaming/hooks/use-responsible-gaming";
+import { useBreak } from "@/features/responsible-gaming/hooks/use-responsible-gaming";
+import { useLongDateTimeText } from "@/lib/i18n/use-long-date-time-text";
 import { useIsOnline } from "@/stores/system.store";
 
 /**
@@ -46,20 +47,23 @@ export function OfflineBanner() {
 }
 
 /**
- * Shown above the board while a responsible-gaming break is running.
+ * Shown above the board while a responsible-gaming break is running, as
+ * `/api/me` reports it — so a reload brings it straight back.
  *
  * Accent-bordered rather than red: a break is the user's own decision being
- * honoured, not a fault. It states when it ends and links to the limits, and
- * there is deliberately no way to dismiss it.
+ * honoured, not a fault. It states when it ends (a permanent self-exclusion
+ * has no end) and links to the limits, and there is deliberately no way to
+ * dismiss it.
  */
 export function CoolOffBanner() {
   const t = useTranslation();
   const router = useRouter();
-  const coolOffUntil = useCoolOffUntil();
+  const pause = useBreak();
+  const endText = useLongDateTimeText();
   const online = useIsOnline();
 
   // The offline banner already says betting is paused; two would be noise.
-  if (coolOffUntil === null || !online) return null;
+  if (pause === null || !online) return null;
 
   return (
     <div
@@ -73,8 +77,16 @@ export function CoolOffBanner() {
         className="text-accent shrink-0"
       />
       <span className="flex-1 text-[13px]">
-        <b>{t.t("system.coolOffTitle", { until: coolOffUntil })}</b>{" "}
-        {t.t("system.coolOffBody")}
+        {pause.until ? (
+          <>
+            <b>{t.t("system.coolOffTitle", { until: endText(pause.until) })}</b>{" "}
+            {t.t("system.coolOffBody")}
+          </>
+        ) : (
+          <>
+            <b>{t.t("system.excludedTitle")}</b> {t.t("system.excludedBody")}
+          </>
+        )}
       </span>
       <button
         type="button"

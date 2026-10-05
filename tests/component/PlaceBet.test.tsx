@@ -11,7 +11,7 @@ import {
 import { toBetReceipt } from "@/lib/api/mappers/bets";
 import { toWalletBalances } from "@/lib/api/mappers/wallet";
 import type { components } from "@/lib/api/schema";
-import { sessionKeys, transactionKeys } from "@/lib/query/keys";
+import { rgKeys, sessionKeys, transactionKeys } from "@/lib/query/keys";
 import { useUiStore } from "@/stores/ui.store";
 import { example, responseExample } from "../contract";
 import { CONTRACT_PLAYER, CONTRACT_RULES, render } from "./render";
@@ -36,6 +36,12 @@ const OTHER_PLAYER: Player = {
   ...CONTRACT_PLAYER,
   id: "01J9A7R0000000000000000099",
 };
+
+/** The contract's player on a break until `until`, as `/v1/me` reports it. */
+const onBreakUntil = (until: string): Player => ({
+  ...CONTRACT_PLAYER,
+  flags: { ...CONTRACT_PLAYER.flags, excludedUntil: until },
+});
 
 interface Sent {
   key: string | null;
@@ -407,6 +413,37 @@ describe("the wallet history after placing (F6a)", () => {
     await placeAndLoseTheAnswer();
 
     expect(historyInvalidated(queryClient)).toEqual([true, true]);
+  });
+
+  /** The limits read earlier — the RG page or the wallet's card (F7a). */
+  const limitsInvalidated = (
+    queryClient: ReturnType<typeof render>["queryClient"],
+  ) => {
+    const query = queryClient
+      .getQueryCache()
+      .find({ queryKey: rgKeys.limits(), exact: true });
+    return query?.state.isInvalidated;
+  };
+
+  it("reads the limits again once a bet is placed: the stake limit's used has moved (F7a)", async () => {
+    bets([201, TICKET()]);
+    const { queryClient } = render(<BetSlip />);
+    queryClient.setQueryData(rgKeys.limits(), []);
+
+    await placeBet();
+    await screen.findByTestId("ticket-code");
+
+    expect(limitsInvalidated(queryClient)).toBe(true);
+  });
+
+  it("reads the limits again when a bet had no answer, since it may have gone (F7a)", async () => {
+    bets("drop");
+    const { queryClient } = render(<BetSlip />);
+    queryClient.setQueryData(rgKeys.limits(), []);
+
+    await placeAndLoseTheAnswer();
+
+    expect(limitsInvalidated(queryClient)).toBe(true);
   });
 });
 
@@ -1067,23 +1104,23 @@ describe("when the engine refuses", () => {
     expect(push).toHaveBeenCalledWith("/responsible-gaming");
   });
 
-  it("says betting is paused during a break, until the end the API gives (AC-7)", async () => {
-    signedIn = {
-      ...CONTRACT_PLAYER,
-      flags: {
-        ...CONTRACT_PLAYER.flags,
-        excludedUntil: "2026-10-09T09:00:00Z",
-      },
-    };
+  it("says betting is paused during a break, until the end the API gives, once /api/me reports it (AC-7)", async () => {
+    // The break began elsewhere: this slip learns of it from the refusal,
+    // and /api/me — read again — gives the end.
+    signedIn = onBreakUntil("2026-10-09T09:00:00Z");
     bets(problem(403, "RG_COOLING_OFF"));
-    render(<BetSlip />, { session: signedIn });
+    render(<BetSlip />);
 
     await placeBet();
 
-    const alert = await screen.findByRole("alert");
+    // 09:00 UTC is 12:00 in East Africa Time; a break's end carries its year.
+    await waitFor(() =>
+      expect(screen.getByRole("alert")).toHaveTextContent(
+        "Betting is paused until 9 Oct 2026, 12:00.",
+      ),
+    );
+    const alert = screen.getByRole("alert");
     expect(alert).toHaveTextContent("You’re taking a break");
-    // 09:00 UTC is 12:00 in East Africa Time.
-    expect(alert).toHaveTextContent("Betting is paused until 09/10 · 12:00.");
     expect(within(alert).queryByRole("button")).not.toBeInTheDocument();
   });
 
@@ -1097,6 +1134,84 @@ describe("when the engine refuses", () => {
     expect(alert).toHaveTextContent("You’re taking a break");
     expect(alert).toHaveTextContent("Betting is paused during your break.");
     expect(within(alert).queryByRole("button")).not.toBeInTheDocument();
+  });
+
+  it("locks the slip and shows the end date when a bet comes back RG_SELF_EXCLUDED (AC-2)", async () => {
+    // Excluded on another device: /api/me, read again after the refusal,
+    // reports the end. 15:00 UTC is 18:00 in East Africa Time.
+    signedIn = onBreakUntil("2026-10-10T15:00:00Z");
+    bets(
+      problem(403, "RG_SELF_EXCLUDED", {
+        detail: "You excluded yourself on 3 Oct.",
+      }),
+    );
+    render(<BetSlip />);
+
+    await placeBet();
+
+    await waitFor(() =>
+      expect(mainButton()).toHaveTextContent("Betting paused"),
+    );
+    expect(mainButton()).toBeDisabled();
+    // One message, announced: the refusal and the break it reports.
+    const alert = screen.getByRole("alert");
+    expect(alert).toHaveTextContent("You’re taking a break");
+    expect(alert).toHaveTextContent(
+      "Betting is paused until 10 Oct 2026, 18:00.",
+    );
+    expect(alert).toHaveTextContent("You excluded yourself on 3 Oct.");
+    expect(screen.getAllByText("You’re taking a break")).toHaveLength(1);
+    expect(meReads).toBeGreaterThan(0);
+
+    // Nothing more goes, however the button is pressed.
+    await userEvent.click(mainButton());
+    expect(sent).toHaveLength(1);
+  });
+
+  it("a break /api/me reports pauses the slip before anything is placed (AC-2)", async () => {
+    render(<BetSlip />, { session: onBreakUntil("2026-10-10T15:00:00Z") });
+
+    expect(mainButton()).toHaveTextContent("Betting paused");
+    expect(mainButton()).toBeDisabled();
+    const line = screen.getByRole("status");
+    expect(line).toHaveTextContent("You’re taking a break");
+    expect(line).toHaveTextContent(
+      "Betting is paused until 10 Oct 2026, 18:00.",
+    );
+    expect(
+      screen.queryByRole("button", { name: /Place bet/ }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("a permanent self-exclusion pauses the slip with no end date (AC-2)", async () => {
+    render(<BetSlip />, {
+      session: { ...CONTRACT_PLAYER, status: "self_excluded" },
+    });
+
+    expect(mainButton()).toHaveTextContent("Betting paused");
+    expect(screen.getByRole("status")).toHaveTextContent(
+      "Betting is paused during your break.",
+    );
+  });
+
+  it("keeps Try again of a bet that had no answer during a break: it says whether that bet went through (AC-2)", async () => {
+    bets("drop", [201, TICKET()]);
+    const { queryClient } = render(<BetSlip />);
+    await placeAndLoseTheAnswer();
+
+    // The break /api/me reports now: no new bet, but the unconfirmed one can
+    // still be asked after — C08 answers a known key before it checks the player.
+    act(() => {
+      queryClient.setQueryData(sessionKeys.me(), {
+        player: onBreakUntil("2026-10-10T15:00:00Z"),
+      });
+    });
+    expect(mainButton()).toHaveTextContent("Try again");
+    await userEvent.click(mainButton());
+
+    await screen.findByTestId("ticket-code");
+    expect(sent).toHaveLength(2);
+    expect(sent[1].key).toBe(sent[0].key);
   });
 
   it("offers Verify when the API needs the player's ID first (AC-7)", async () => {

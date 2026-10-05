@@ -1,8 +1,23 @@
 "use client";
 
+import { useMemo } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useSession } from "@/features/auth/hooks/use-session";
 import { rgKeys } from "@/lib/query/keys";
 import { getResponsibleGamingStatus, startBreak } from "../api/status";
+import { breakOf } from "../lib/break";
+import type { Break } from "../types";
+
+/**
+ * A break or self-exclusion in force, from `/api/me` — read on every load and
+ * when the tab comes back, never from anything the browser keeps, so a
+ * reload, another tab or another device can't end it. Null when there is
+ * none, and while `/api/me` hasn't answered.
+ */
+export function useBreak(): Break | null {
+  const { player } = useSession();
+  return useMemo(() => breakOf(player), [player]);
+}
 
 const KEY = rgKeys.all;
 

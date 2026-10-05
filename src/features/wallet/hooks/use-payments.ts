@@ -60,10 +60,14 @@ export function usePaymentMethods(enabled: boolean) {
   });
 }
 
-/** The money arrived: the balance and the history are read again, never adjusted here. */
+/**
+ * The money arrived: the balance, the history and the limits (a deposit
+ * limit's used) are read again, never adjusted here.
+ */
 function moneyArrived(queryClient: QueryClient): void {
   void queryClient.invalidateQueries({ queryKey: walletKeys.all });
   void queryClient.invalidateQueries({ queryKey: transactionKeys.all });
+  void queryClient.invalidateQueries({ queryKey: rgKeys.all });
 }
 
 /** An answer that ends the reading: not this player's deposit, or no session. */

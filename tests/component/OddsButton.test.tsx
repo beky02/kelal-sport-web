@@ -1,14 +1,15 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { screen, waitFor } from "@testing-library/react";
+import { act, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { OddsButtonView } from "@/features/odds/components/OddsButtonView";
 import { OddsButton } from "@/features/odds/components/OddsButton";
 import { useBetSlipStore } from "@/features/bet-slip/stores/bet-slip.store";
 import { useUiStore } from "@/stores/ui.store";
 import type { Market } from "@/features/markets/types";
-// The connected button reads the responsible-gaming lock from the server, so it
-// needs the query provider.
-import { render } from "./render";
+import { sessionKeys } from "@/lib/query/keys";
+// The connected button reads a break from /api/me, so it needs the query
+// provider.
+import { CONTRACT_PLAYER, render } from "./render";
 
 const market: Market = {
   id: "m3:1x2:",
@@ -204,7 +205,7 @@ describe("OddsButton → responsible-gaming break", () => {
     useUiStore.setState({ lang: "en" });
   });
 
-  it("locks an otherwise open price while a break is running", async () => {
+  it("locks an otherwise open price while /api/me reports a break", async () => {
     const { queryClient } = render(
       <OddsButton
         market={market}
@@ -215,12 +216,18 @@ describe("OddsButton → responsible-gaming break", () => {
 
     expect(screen.getByRole("button")).toBeEnabled();
 
-    // The status is read on mount: stop that read, or it can land after the
-    // break set here and put the old status back.
-    await queryClient.cancelQueries({ queryKey: ["responsible-gaming"] });
-    queryClient.setQueryData(["responsible-gaming"], {
-      coolOffUntil: "Wed 30 Sep, 14:00",
-      selfExcludedUntil: null,
+    // The break comes from the account (`flags.excluded_until`), never from
+    // anything this browser keeps.
+    act(() => {
+      queryClient.setQueryData(sessionKeys.me(), {
+        player: {
+          ...CONTRACT_PLAYER,
+          flags: {
+            ...CONTRACT_PLAYER.flags,
+            excludedUntil: "2026-10-10T15:00:00Z",
+          },
+        },
+      });
     });
 
     await waitFor(() => expect(screen.getByRole("button")).toBeDisabled());
@@ -228,19 +235,16 @@ describe("OddsButton → responsible-gaming break", () => {
   });
 
   it("refuses the selection even if the click gets through", async () => {
-    const { queryClient } = render(
+    // A permanent self-exclusion: no end date, the status says it.
+    render(
       <OddsButton
         market={market}
         outcome={market.outcomes[0]}
         eventName={eventName}
       />,
+      { session: { ...CONTRACT_PLAYER, status: "self_excluded" } },
     );
 
-    await queryClient.cancelQueries({ queryKey: ["responsible-gaming"] });
-    queryClient.setQueryData(["responsible-gaming"], {
-      coolOffUntil: null,
-      selfExcludedUntil: "Permanent",
-    });
     await waitFor(() => expect(screen.getByRole("button")).toBeDisabled());
 
     await userEvent.click(screen.getByRole("button"), {

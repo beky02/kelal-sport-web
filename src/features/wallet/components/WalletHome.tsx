@@ -5,9 +5,11 @@ import Link from "next/link";
 import { CircleAlert } from "lucide-react";
 import { useTranslation } from "@/lib/i18n/use-translation";
 import { useDateTimeText } from "@/lib/i18n/use-date-time-text";
+import { useLongDateTimeText } from "@/lib/i18n/use-long-date-time-text";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { routes } from "@/config/routes";
 import { compareMoney } from "@/lib/money";
+import { useBreak } from "@/features/responsible-gaming/hooks/use-responsible-gaming";
 import { useRecentTransactions } from "../hooks/use-wallet";
 import type { WalletBalances } from "../types";
 import { TransactionRow } from "./TransactionRow";
@@ -23,7 +25,8 @@ const aboveZero = (amount: string | null): amount is string =>
  * is said right under it, so nobody finds out at the withdrawal screen: bonus
  * money is for bets only, a pending withdrawal is already out of the balance,
  * and a debt is repaid first. Each line shows only when there is something to
- * say; none of them is computed here.
+ * say; none of them is computed here. During a break (`/api/me`) Deposit is
+ * off and says until when; Withdraw stays (RG-02).
  */
 export function WalletHome({
   balances,
@@ -39,6 +42,9 @@ export function WalletHome({
   // The wallet is only shown to a signed-in player.
   const recent = useRecentTransactions(true);
   const recentId = useId();
+  const pausedId = useId();
+  const pause = useBreak();
+  const endText = useLongDateTimeText();
 
   const lines = [
     aboveZero(balances.bonus) && {
@@ -107,7 +113,9 @@ export function WalletHome({
               <button
                 type="button"
                 onClick={onDeposit}
-                className="bg-accent text-on-accent font-body h-12 cursor-pointer rounded-md text-[15px] font-bold"
+                disabled={pause !== null}
+                aria-describedby={pause ? pausedId : undefined}
+                className="bg-accent text-on-accent font-body disabled:bg-raised disabled:text-muted h-12 cursor-pointer rounded-md text-[15px] font-bold disabled:cursor-not-allowed"
               >
                 {t.t("wallet.deposit")}
               </button>
@@ -119,6 +127,15 @@ export function WalletHome({
                 {t.t("wallet.withdraw")}
               </button>
             </div>
+            {pause && (
+              <p id={pausedId} className="text-muted -mt-1.5 text-xs">
+                {pause.until
+                  ? t.t("deposit.refused.breakUntil", {
+                      date: endText(pause.until),
+                    })
+                  : t.t("deposit.refused.break")}
+              </p>
+            )}
           </div>
         </div>
 

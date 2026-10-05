@@ -343,7 +343,8 @@ describe("resolveCta", () => {
     input: Partial<BetSlipInput>,
     guest = false,
     selections = designDefault,
-  ) => resolveCta(run(selections, input), guest);
+    paused = false,
+  ) => resolveCta(run(selections, input), guest, paused);
 
   it("places a clean slip", () => {
     expect(cta({})).toEqual({ action: "place", disabled: false });
@@ -385,6 +386,43 @@ describe("resolveCta", () => {
 
   it("asks a guest to log in", () => {
     expect(cta({}, true)).toEqual({ action: "login", disabled: false });
+  });
+
+  it("pauses the slip during a break, ahead of every other action (AC-2)", () => {
+    const paused = { action: "paused", disabled: true };
+    // A clean slip, one short of money, one with a move to accept, one with
+    // a suspended pick, one with a clash: nothing is placed during a break.
+    expect(cta({}, false, designDefault, true)).toEqual(paused);
+    expect(cta({ balance: "10.00" }, false, designDefault, true)).toEqual(
+      paused,
+    );
+    expect(
+      cta(
+        {},
+        false,
+        [
+          sel("a", "m1", "2.00", { initialOdds: "1.90" }),
+          sel("b", "m2", "2.00"),
+        ],
+        true,
+      ),
+    ).toEqual(paused);
+    expect(
+      cta(
+        {},
+        false,
+        [...designDefault, sel("d", "m9", "2.00", { suspended: true })],
+        true,
+      ),
+    ).toEqual(paused);
+    expect(
+      cta({}, false, [sel("a", "m3", "1.62"), sel("b", "m3", "2.00")], true),
+    ).toEqual(paused);
+    // A guest has no break /api/me can report: still asked to log in.
+    expect(cta({}, true, designDefault, true)).toEqual({
+      action: "login",
+      disabled: false,
+    });
   });
 });
 

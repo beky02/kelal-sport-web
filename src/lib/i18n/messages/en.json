@@ -209,7 +209,8 @@
       "oddsChanged": "The odds on that bet have changed since.",
       "closed": "A selection in that bet is no longer available."
     },
-    "taxRateStakeOver": "{tax} · {rate} of the whole stake once it’s over {amount}"
+    "taxRateStakeOver": "{tax} · {rate} of the whole stake once it’s over {amount}",
+    "paused": "Betting paused"
   },
   "clock": {
     "eat": "EAT · UTC+3",
@@ -221,7 +222,8 @@
     "dataSaver": "Data saver",
     "comingTitle": "Not built yet",
     "comingBody": "This screen arrives in a later phase. The sportsbook and bet slip are what work today.",
-    "backToSportsbook": "Back to the sportsbook"
+    "backToSportsbook": "Back to the sportsbook",
+    "dateAtTime": "{date}, {time}"
   },
   "a11y": {
     "oddsRising": "odds rising",
@@ -382,6 +384,8 @@
     "retry": "Retry",
     "coolOffTitle": "Break active until {until}.",
     "coolOffBody": "Betting and deposits are paused.",
+    "excludedTitle": "Self-exclusion active.",
+    "excludedBody": "Betting and deposits are stopped.",
     "viewLimits": "View limits",
     "realityTitle": "Reality check",
     "realityBody": "You’ve been playing for {duration}. Here’s this session so far:",
@@ -395,9 +399,6 @@
     "sessionBody": "Your session has ended. Log in again to continue. Your bet slip is saved.",
     "sessionLogIn": "Log in again",
     "sessionKeepBrowsing": "Keep browsing",
-    "limitTitle": "Daily deposit limit reached",
-    "limitBody": "You’ve deposited {amount} today, your full daily limit. You can deposit again after {resetTime}. Betting with your current balance is still possible.",
-    "limitOk": "OK",
     "ageBadge": "21+ ONLY",
     "ageTitle": "Are you 21 or older?",
     "ageBody": "Kelal Sport is licensed for adults aged 21 and over. We’ll verify your age with your Fayda ID before any withdrawal.",

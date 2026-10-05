@@ -2,8 +2,8 @@
 
 import { CircleAlert } from "lucide-react";
 import type { RuleSetJson } from "@golden/slipcalc";
-import { useSession } from "@/features/auth/hooks/use-session";
-import { useDateTimeText } from "@/lib/i18n/use-date-time-text";
+import { useBreak } from "@/features/responsible-gaming/hooks/use-responsible-gaming";
+import { useLongDateTimeText } from "@/lib/i18n/use-long-date-time-text";
 import { useTranslation, type Translator } from "@/lib/i18n/use-translation";
 import { normaliseMoney } from "@/lib/money";
 import { cn } from "@/lib/utils/cn";
@@ -215,8 +215,10 @@ export function SlipAlerts({
   fixes: PlacementFixes;
 }) {
   const t = useTranslation();
-  const dateTime = useDateTimeText();
-  const excludedUntil = useSession().player?.flags.excludedUntil ?? null;
+  const endText = useLongDateTimeText();
+  // A break the player took, as /api/me reports it: the slip is paused.
+  const pause = useBreak();
+  const breakUntil = pause?.until ? endText(pause.until) : null;
   const stake = useBetSlipStore((s) => s.stake);
   const setStake = useBetSlipStore((s) => s.setStake);
   const setMode = useBetSlipStore((s) => s.setMode);
@@ -283,10 +285,31 @@ export function SlipAlerts({
         pickChanged: totals.pendingOddsChanges.length > 0,
         pickClosed: totals.suspendedSelection !== null,
         retried,
-        breakUntil: excludedUntil ? dateTime(excludedUntil) : null,
+        breakUntil,
       })
     : null;
-  if (notice) alerts.push(refusalAlert(notice, t, { ...fixes, setStake }));
+  // During a break the slip says so once: a first try refused for the break
+  // is that same message, announced, with the API's own detail. A Try again's
+  // refusal keeps its own title — it says nothing about the first try.
+  const refusedForBreak =
+    firstTry &&
+    (refused.problem.code === "RG_SELF_EXCLUDED" ||
+      refused.problem.code === "RG_COOLING_OFF");
+  if (pause) {
+    alerts.unshift({
+      id: "paused",
+      tone: "warn",
+      urgent: refusedForBreak,
+      title: t.t("betSlip.refused.breakTitle"),
+      body: breakUntil
+        ? t.t("betSlip.refused.breakUntil", { date: breakUntil })
+        : t.t("betSlip.refused.break"),
+      detail: refusedForBreak ? notice?.detail : null,
+    });
+  }
+  if (notice && !(pause && refusedForBreak)) {
+    alerts.push(refusalAlert(notice, t, { ...fixes, setStake }));
+  }
 
   if (totals.hasConflict) {
     alerts.push({

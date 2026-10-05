@@ -209,7 +209,8 @@
       "oddsChanged": "ከዚያ በኋላ የዚያ ውርርድ ኦድ ተቀይሯል።",
       "closed": "በዚያ ውርርድ ውስጥ ያለ አንድ ምርጫ ከእንግዲህ አይገኝም።"
     },
-    "taxRateStakeOver": "{tax} · ጠቅላላ የውርርድ መጠኑ ከ{amount} ሲበልጥ {rate}"
+    "taxRateStakeOver": "{tax} · ጠቅላላ የውርርድ መጠኑ ከ{amount} ሲበልጥ {rate}",
+    "paused": "ውርርድ ቆሟል"
   },
   "clock": {
     "eat": "EAT (UTC+3)",
@@ -221,7 +222,8 @@
     "dataSaver": "ዳታ ቆጣቢ",
     "comingTitle": "እስካሁን አልተገነባም",
     "comingBody": "ይህ ገጽ በሚቀጥለው ደረጃ ይመጣል። አሁን የሚሠሩት የስፖርት ዝርዝሩና ትኬቱ ናቸው።",
-    "backToSportsbook": "ወደ ስፖርት ዝርዝር ተመለስ"
+    "backToSportsbook": "ወደ ስፖርት ዝርዝር ተመለስ",
+    "dateAtTime": "{date}፣ {time}"
   },
   "a11y": {
     "oddsRising": "ኦድ እየጨመረ",
@@ -382,6 +384,8 @@
     "retry": "እንደገና",
     "coolOffTitle": "ዕረፍት እስከ {until} ድረስ።",
     "coolOffBody": "ውርርድና ገቢ ቆመዋል።",
+    "excludedTitle": "ራስን ማግለል ንቁ ነው።",
+    "excludedBody": "ውርርድና ገቢ ቆመዋል።",
     "viewLimits": "ገደቦችን እይ",
     "realityTitle": "የቆይታ ማስታወሻ",
     "realityBody": "ለ{duration} ተጫውተዋል። የዚህ ቆይታ ማጠቃለያ፦",
@@ -395,9 +399,6 @@
     "sessionBody": "ቆይታዎ አብቅቷል። ለመቀጠል እንደገና ይግቡ። ትኬትዎ ተቀምጧል።",
     "sessionLogIn": "እንደገና ግባ",
     "sessionKeepBrowsing": "ማሰስ ቀጥል",
-    "limitTitle": "የዕለት ገቢ ገደብ ደርሷል",
-    "limitBody": "ዛሬ {amount} አስገብተዋል፤ ይህ ሙሉ የዕለት ገደብዎ ነው። ከ{resetTime} በኋላ እንደገና ማስገባት ይችላሉ። ባለዎት ቀሪ ሂሳብ መወራረድ ይችላሉ።",
-    "limitOk": "እሺ",
     "ageBadge": "21+ ብቻ",
     "ageTitle": "ዕድሜዎ 21 ወይም ከዚያ በላይ ነው?",
     "ageBody": "ቀለል ስፖርት ዕድሜያቸው 21 እና ከዚያ በላይ ለሆኑ ፈቃድ ያለው ነው። ገንዘብ ከማውጣትዎ በፊት ዕድሜዎን በፋይዳ እናረጋግጣለን።",
