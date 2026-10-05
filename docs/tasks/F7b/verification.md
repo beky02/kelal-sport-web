@@ -144,3 +144,8 @@ example (12000 − 35000 santim = "-230.00"), both agree.
   for every earlier screen).
 - **Follow-up (Q3)**: keep the "Not saved to your account" row mounted while it saves, so focus stays on
   its Save button.
+- **Timeouts under machine load**: after the final commit, `pnpm check` failed three times while the
+  machine's load average was 38–52. `RegisterFlow` › walks phone → … → verified hit its 5 s limit, and once
+  `Withdrawal` › lists the player's saved accounts did too. Alone, the walk-through takes 533 ms on this
+  branch and 666 ms on main, so it isn't slower here. At load 9, `pnpm check` passes 1446/1446, and both
+  full `pnpm verify` runs passed. Nothing in this task changed those flows.
