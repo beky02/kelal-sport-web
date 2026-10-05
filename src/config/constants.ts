@@ -38,8 +38,6 @@ export const SYSTEM = {
     startedAt: "04:00 EAT",
     duration: "about 2 hours",
   },
-  /** The responsible-gaming page's mock break, until F7a rewires it (step 4). */
-  coolOff: { until: "Wed 30 Sep, 14:00" },
   realityCheck: { after: "1 hour" },
 } as const;
 
@@ -59,6 +57,8 @@ export const STALE_TIME = {
   events: 30 * 1000,
   eventDetail: 30 * 1000,
   wallet: 15 * 1000,
+  /** The player's limits: read again on focus and after a bet or a deposit. */
+  limits: 30 * 1000,
   /** `/v1/config/public` says `max-age=60`. */
   config: 60 * 1000,
 } as const;

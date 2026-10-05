@@ -329,11 +329,6 @@ export const ticketCheckSchema = z.object({
     .min(1),
 }) satisfies z.ZodType<TicketCheck>;
 
-export const responsibleGamingStatusSchema = z.object({
-  coolOffUntil: z.string().nullable(),
-  selfExcludedUntil: z.string().nullable(),
-});
-
 export const sessionActivitySchema = z.object({
   staked: z.number(),
   won: z.number(),

@@ -10,12 +10,12 @@ const schema = z.object({
   wsUrl: z.string().url(),
   appEnv: z.enum(["development", "staging", "production"]),
   /**
-   * Serve the in-repo mock repository for the features not yet rewired to the
-   * contract (responsible gaming and session activity, until F7). The
-   * catalogue, auth, bookings, placing a bet, My bets, the ticket check, the
-   * wallet's balances and history, payment methods, deposits, payout accounts
-   * and withdrawals always go through the API — point API_BASE_URL at Prism
-   * to mock them.
+   * Serve the in-repo mock repository for the one feature not yet rewired to
+   * the contract (session activity, until F7b). The catalogue, auth,
+   * bookings, placing a bet, My bets, the ticket check, the wallet's balances
+   * and history, payment methods, deposits, payout accounts, withdrawals,
+   * limits, breaks and self-exclusion always go through the API — point
+   * API_BASE_URL at Prism to mock them.
    */
   useMocks: z.boolean(),
   /**
