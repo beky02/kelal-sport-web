@@ -27,13 +27,14 @@ refresh clears it.
 
 ## CSRF (C18 §4.4)
 
-Every POST route handler, bookings included, refuses unless all of: `Sec-Fetch-Site` is absent,
+Every POST and PUT route handler, bookings included, refuses unless all of: `Sec-Fetch-Site` is absent,
 `same-origin` or `none`; `Origin`, when present, is this request's own host; the request carries
 `X-Requested-With: KelalSport` (which forces a preflight this app never answers, so no other origin can
 send it); the body is JSON. A DELETE (removing a payout account, cancelling a withdrawal — F6c) passes
 the same checks but the last, `assertSameOrigin(request, { json: false })`: it has no body, it is never a
 CORS-simple method, so no other origin can send one without that preflight, and no form can send one at
-all. `apiClient` adds the header to every request that isn't a GET. This is the custom-header
+all. A PUT (setting a limit, F7a) passes all four: it carries a JSON body, and it is never CORS-simple
+either. `apiClient` adds the header to every request that isn't a GET. This is the custom-header
 defence rather than a per-session token: the browser cannot read the httpOnly cookie to derive one, and a
 double-submit cookie would add nothing over SameSite=Lax plus these checks. GETs need none. A per-session
 token is not planned; if a reviewer or the regulator asks for one, the place to add it is `csrf.ts` and
@@ -78,6 +79,11 @@ on; a malformed code never reaches an upstream path. `POST /api/bets` (F5a) and 
 otherwise), forward it unchanged and never make one, and require a session for this tenant (401) — all
 before the body goes upstream. Prism's `Prefer` (`code=NNN`, `example=name` or
 both) is forwarded only under `next dev` and never to the real API (route test with `API_REAL_TAGS`).
+`PUT /api/me/limits` and `POST /api/me/self-exclusion` (F7a) take a 4 KiB strict body — a contract limit
+type and period with an amount above zero or whole minutes (never `amount: null`, which removes a limit),
+or a contract kind and duration — and a session for this tenant, all before anything goes upstream. The
+API revokes every session as it starts a break, so the route handler clears the session cookie with its
+201; a refusal keeps it.
 
 ## Logging
 

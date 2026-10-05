@@ -135,7 +135,7 @@ export function DepositLimitCard() {
                         style={{ width: `${share}%` }}
                       />
                     </div>
-                    <span className="text-muted numeric text-[11px]">
+                    <span className="text-muted numeric text-xs">
                       {t.t(USED[limit.period], {
                         used: t.money(limit.used),
                         limit: t.money(amount),
@@ -143,12 +143,12 @@ export function DepositLimitCard() {
                     </span>
                   </>
                 ) : (
-                  <span className="numeric text-[11px]">
+                  <span className="numeric text-xs">
                     {t.t("rg.limitValue", { value: t.money(amount) })}
                   </span>
                 )}
                 {limit.pending && (
-                  <span className="text-muted numeric text-[11px]">
+                  <span className="text-muted numeric text-xs">
                     {limit.pending.amount !== null
                       ? t.t("rg.pendingChange", {
                           value: t.money(limit.pending.amount),

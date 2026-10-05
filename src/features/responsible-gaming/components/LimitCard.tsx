@@ -105,6 +105,9 @@ export function LimitCard({
       "minutes" in value
         ? { type: "session_minutes", period, minutes: value.minutes }
         : { type: moneyType(type), period, amount: value.amount },
+      // Saved: the value is the account's now, said under the button. A
+      // refusal or no answer keeps it typed, to change or send again.
+      { onSuccess: () => setTyped("") },
     );
   };
 
@@ -259,7 +262,7 @@ function UsedBar({
           style={{ width: `${share}%` }}
         />
       </div>
-      <p className="text-muted numeric text-[11px]">{label}</p>
+      <p className="text-muted numeric text-xs">{label}</p>
     </div>
   );
 }

@@ -376,6 +376,8 @@ describe("setting a limit (AC-5)", () => {
     expect(
       await within(deposit).findByText("Saved. Your limit is now ETB 600.00."),
     ).toBeInTheDocument();
+    // The value is the account's now: the field is ready for the next one.
+    expect(within(deposit).getByLabelText(/New limit/)).toHaveValue("");
     await waitFor(() => expect(deposit).toHaveTextContent("Limit: ETB 600.00"));
     expect(deposit).not.toHaveTextContent("Changes to");
   });
@@ -446,6 +448,10 @@ describe("setting a limit (AC-5)", () => {
     const alert = await within(card("Deposit limit")).findByRole("alert");
     expect(alert).toHaveTextContent("We couldn’t save your limit");
     expect(alert).toHaveTextContent("Check your connection and try again.");
+    // Kept, to send again.
+    expect(
+      within(card("Deposit limit")).getByLabelText(/New limit/),
+    ).toHaveValue("2000");
 
     await user.click(
       within(card("Deposit limit")).getByRole("button", { name: "Save limit" }),
