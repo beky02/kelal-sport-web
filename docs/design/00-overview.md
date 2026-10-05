@@ -3,8 +3,8 @@
 ## What we build
 
 Every browser-facing surface of the sportsbook is a Next.js app in this repo (FD1): the **player web**
-now; the **shop terminal**, **cashier POS**, **agent portal** and **back office** later (F8–F10), as a
-pnpm + Turborepo workspace converted in F8a. One build serves every tenant (brand): the host picks the
+now; the **shop terminal**, **cashier POS**, **agent portal** and **back office** later (F8–F10), and the
+**platform console** above the brands (F11, FD6), as a pnpm + Turborepo workspace converted in F8a. One build serves every tenant (brand): the host picks the
 tenant, `/v1/config/public` supplies its name, colours, languages, features and betting rules
 (C18 §4.3, D7). The Android app is Flutter and lives elsewhere; it calls the same API and runs the same
 golden slip tests, and it shares our deep links (D7).
@@ -16,16 +16,36 @@ calculator (D1), everything else is displayed state and collected actions (AGENT
 
 ## Apps and users
 
-| App           | Stack and runtime                                                           | Users                        | Status                                 |
-| ------------- | --------------------------------------------------------------------------- | ---------------------------- | -------------------------------------- |
-| Player web    | Next.js App Router, responsive 360 px → desktop, installable as a PWA later | Online players               | Built; F1–F7 rewire it to the contract |
-| Shop terminal | Next.js, Chrome kiosk on shop PCs                                           | Walk-in customers (no login) | F8                                     |
-| Cashier POS   | Next.js, Chrome kiosk with silent printing                                  | Cashiers, shop managers      | F9                                     |
-| Agent portal  | Next.js, any browser                                                        | Agents                       | F10                                    |
-| Back office   | Next.js + Refine                                                            | Operator staff               | F10                                    |
+| App              | Stack and runtime                                                           | Users                                            | Status                                 |
+| ---------------- | --------------------------------------------------------------------------- | ------------------------------------------------ | -------------------------------------- |
+| Player web       | Next.js App Router, responsive 360 px → desktop, installable as a PWA later | Online players                                   | Built; F1–F7 rewire it to the contract |
+| Shop terminal    | Next.js, Chrome kiosk on shop PCs                                           | Walk-in customers (no login)                     | F8                                     |
+| Cashier POS      | Next.js, Chrome kiosk with silent printing                                  | Cashiers (and shop managers: open question, FD6) | F9                                     |
+| Agent portal     | Next.js, any browser                                                        | Agents, brand and partner (FD6)                  | F10a                                   |
+| Back office      | Next.js + Refine                                                            | A brand's own staff                              | F10b–F10g                              |
+| Platform console | Next.js, any browser                                                        | Platform staff, above the brands (FD6)           | F11, waits for the backend             |
 
 The player persona (PRD): an adult football fan on an Android phone, telebirr, patchy 3G, Amharic first.
 Every budget and default follows from that (08-performance, 06-language).
+
+## Who owns what (FD6)
+
+The Phase 1 chain, fixed by the product owner
+([backend proposal 001](../backend-proposals/001-platform-and-retail-hierarchy.md)):
+
+```
+Platform            platform staff: create, run and suspend brands      → platform console (F11)
+└─ Brand            a licensed operator, one tenant                     → back office (F10b–F10g), player web
+   └─ Agent         brand agent (the brand's own shops) or partner      → agent portal (F10a)
+      └─ Shop       every shop has an agent
+         ├─ Terminals   shop PCs, no login, activated once             → terminal (F8)
+         └─ Cashiers    PIN on an activated counter PC                 → cashier POS (F9)
+```
+
+There are no master agents and no shops without an agent. Everything below the platform belongs to one
+brand: its players, agents, shops, tickets and money are never seen by another brand, and a ticket is
+paid only in that brand's shops (where exactly is the brand's `payout_where`, C19 §4.4). How a brand pays
+the platform, and what platform staff may see inside a brand, are open (proposal 001, Q1 and Q4).
 
 ## Route map (FD3, D7)
 

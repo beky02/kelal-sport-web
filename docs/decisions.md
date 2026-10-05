@@ -21,6 +21,9 @@ Converting now would move code that F1–F7 are about to rewrite; converting aft
 which is mechanical (`git mv`, package boundaries, Turborepo pipeline). The backend README already settles
 that the web code is its own repo with a synced `contracts/` copy.
 
+**Added 2026-10-05 (FD6).** A sixth app, `apps/console` — the platform console above the brands — joins
+the workspace when the backend docs and the contract describe it (F11).
+
 ## FD2. Language in the URL; the tenant's default language (2026-10-01)
 
 **Question.** C18 §4.3: `next-intl`, Amharic by default, the language in the URL (`/am/…`, `/en/…`) so each
@@ -92,3 +95,43 @@ players find a match by team name. It needs no new API (`/v1/search` is already 
 language — a tab and a results list that reuses the header's rows. Wallet was ruled out (the balance chip
 in the app bar is its entry point, by design) and Promotions (not built until F7, and a weaker reason to
 open the app). **Carried out in F2**, with the search screen.
+
+## FD6. Phase 1 chain: Platform → Brand → Agent → Shop; the platform layer (2026-10-05)
+
+**Question.** C19 §3 lets a brand's retail network have master agents (a regional level above agents) and
+shops the operator runs with no agent, and the contract allows both (`Agent.level: master_agent`,
+`Agent.parent_id`, `Shop.agent_id` nullable). Nothing in the backend docs describes the company above the
+brands: who creates a brand, what it can see, how a brand pays for the platform.
+
+**Decision.** The product owner fixed the Phase 1 chain
+([backend proposal 001](backend-proposals/001-platform-and-retail-hierarchy.md)):
+
+```
+Platform → Brand (tenant) → Agent → Shop (terminals, cashiers)
+```
+
+- **Every shop has an agent.** A shop the brand runs itself sits under an agent the brand owns (a
+  **brand agent**); a **partner agent** is a business running shops for the brand.
+- **One agent level.** No master agents in Phase 1.
+- **The platform layer** is a separate app, the **platform console** (`apps/console`, F11), for platform
+  staff: create, run and suspend brands. A brand's own staff keep their back office (F10b–F10g).
+
+What the frontend does now, within what the contract already allows:
+
+- The back office's retail administration (F10g) offers no master agents and no shop without an agent:
+  creating a shop starts with choosing its agent.
+- The agent portal (F10a) shows one agent's own shops; there are no sub-agent or subtree views.
+- Agents are labelled brand or partner once the contract has `Agent.kind`
+  ([contract request 013](contract-requests/013-platform-and-retail-chain.md)); until then, nothing in the
+  UI depends on the difference.
+
+What waits for the backend: `Agent.kind`, `Shop.agent_id` required, the `Platform` operations (request
+013), and the proposal's open questions — how a brand pays the platform (Q1), several brand agents (Q2),
+the shop manager (Q3; F9a keeps the contract's `shop_manager` role meanwhile), platform access to brand
+data (Q4), how many brands at launch (Q5), regulator reporting (Q6) and the brand agent's portal login
+(Q7).
+
+**Why.** One shape for every shop makes payout rules (`same_agent`), settlement, commission and every
+agent-portal and retail-admin screen one case instead of two, and one agent level drops the subtree views
+and roll-ups Phase 1 doesn't need. Leaving master agents and agentless shops out of the UI is a choice the
+contract leaves open; it doesn't override it. **Carried out in F10a, F10g and F11.**

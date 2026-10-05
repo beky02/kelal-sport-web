@@ -49,6 +49,7 @@ Engineering Decisions say differently. The order follows the Build Plan's fronte
 | [F10e](F10e-backoffice-trading.md)            | Split from F10: trading, risk and settlement                                                   | F10b, F10d         | B10           | todo   |
 | [F10f](F10f-backoffice-marketing-settings.md) | Split from F10: marketing and tenant settings                                                  | F10b, F10d         | B10           | todo   |
 | [F10g](F10g-backoffice-retail.md)             | Split from F10: retail administration                                                          | F10b, F10d         | B10           | todo   |
+| [F11](F11-platform-console.md)                | Platform console: platform staff create, run and suspend brands (FD6)                          | F8a, F10b          | —             | todo   |
 
 F1, F2a, F3 and F4 only need F0 and can go in any order. Recommended order: **F3** (every slip number is
 currently a float estimate that differs from the backend), F1, F2a, F2b, F4, F5, F6, F7, F8a, F8–F10.
@@ -68,7 +69,9 @@ The open questions found while writing these tasks are decided in [`docs/decisio
 (2026-10-01): **FD1** one web workspace, converted in F8a · **FD2** language in the URL, tenant default
 (Amharic for `demo`), in-house i18n kept · **FD3** D7 deep links and C18 route names with redirects ·
 **FD4** no `decimal.js`; strings in, BigInt santim when computed · **FD5** Search takes Live's tab slot
-until Release 2. Each task's "Read first" names the decisions it carries out.
+until Release 2 · **FD6** (2026-10-05) the Phase 1 chain Platform → Brand → Agent → Shop: every shop has an
+agent, no master agents, a platform console above the brands (F11). Each task's "Read first" names the
+decisions it carries out.
 
 ## Status values
 

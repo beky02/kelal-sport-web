@@ -31,7 +31,7 @@ Arsenal v Chelsea, Real Madrid v Barcelona). Ask for an error or a named example
 ## Sources of truth (higher wins)
 
 1. `contracts/openapi.yaml` + `contracts/golden/` → 2. `docs/backend/engineering-decisions.md`
-   (D1–D9) → 3. `docs/decisions.md` (FD1–FD5, this repo's decisions where the sources above leave a
+   (D1–D9) → 3. `docs/decisions.md` (FD1–FD6, this repo's decisions where the sources above leave a
    choice) → 4. `docs/backend/design/` (C18 is the web client) → 5. the claude.ai design
    project (look and copy) → 6. `docs/backend/product/`.
 
