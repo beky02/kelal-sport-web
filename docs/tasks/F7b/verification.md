@@ -21,6 +21,14 @@
 
 Final `pnpm verify`: `Tests 1443 passed (1443)` · `contracts/ matches the backend.` · `✓ Compiled successfully` · `570 passed (4.1m)`.
 
+## Acceptance criteria
+
+| AC    | Status                                                                        | Evidence                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| ----- | ----------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| AC-8  | MET                                                                           | `account-route.test.ts` › PATCH /api/me (6 tests: sends only the changed fields, answers what the API kept, refuses a bad body, cross-site requests and a guest, passes refusals through); `account-mappers` › toMePatch; `Profile.test.tsx` › 3 language tests, 5 consent tests (incl. "the saved consent is the one shown after a reload"), 2 tests on saves in a hurry; `AuthDialog` › "logging in on another device takes the account's language"; `RegisterFlow` › "registering keeps the language just chosen"; e2e `auth.spec` › "logging in on another device takes the language saved on the account" — all pass. Screens `profile`, `profile-language-unsaved`. |
+| AC-9  | MET                                                                           | `account-route.test.ts` › GET /api/me/sessions (2), DELETE (4: 204, id checked before upstream, cross-site/guest refused, 404 passed through); `account-mappers` › toDeviceSessions (2, the contract's example); `Profile.test.tsx` › devices (8: this device marked with no Sign out, DELETE then removed only after the API answered and the list re-read, 404 without an error, a row's failure with Try again, a failed list, a guest, dropped on a player switch) — all pass. Screens `profile`, `profile-devices-failed`.                                                                                                                                           |
+| AC-10 | MET as decided at the plan gate (time only; figures in F7e after request 012) | `reality-check.test.ts` (4); `RealityCheck.test.tsx` (11, fake timers: opens at the account's interval and not a minute before, Keep playing → an interval later, the account's 30 min, never without an interval or for a guest, a reload neither restarts nor skips, a failed `/api/me` read keeps the visit, another player and signing out start a new one, Take a break and View my limits answer it and open Responsible gaming, no money figures and no fetch); `ResponsibleGaming` › the session reminder shows the account's interval, and Off — all pass. Screen `reality-check`.                                                                               |
+
 ## Tests proven
 
 Each new acceptance test was seen failing against the behaviour it guards, then the code was restored.
@@ -86,3 +94,53 @@ Each new acceptance test was seen failing against the behaviour it guards, then 
   Its rows were seen in the component render.
 - **Docs:** plan Files and AC→tests updated under "Changes during implementation"; design pages 01, 02, 03,
   05, 07; translation notes; contract request 012 and its index; the F7e task and README rows.
+
+### Review fixes, each proven
+
+Each fix's test failed against the code before the fix (run before fixing: 7 failing, each for its own
+reason) and again with only that fix reverted afterwards; it passes with the fix.
+
+- Q2 — `Profile` › switching back before the first save answers leaves the account on the language shown: fails with the mutation `scope` removed, and with the comparison against `player.language` restored.
+- SEC1 — `Profile` › a save answered after logout doesn't bring the player back: fails with the answer always written into `/api/me`'s entry.
+- Q1 — `RealityCheck` › a failed read of who is signed in neither ends the visit nor restarts it: fails with `end()` called on an error.
+- S3/Q4 — `reality-check` › after an answer, comes due one interval after it; `RealityCheck` › says hours and minutes when it opened late (answered at 90, next at 150): failed against the whole-interval grid before the fix.
+- Q3 — `Profile` › Offers shows the account's consent, waits… (a press while waiting is never sent); › signing another device out… (one DELETE however often pressed): each fails with its pending guard removed. The Offers check first stayed green, because scoped saves queue a second press rather than send it; it now waits and checks nothing was sent afterwards.
+
+After the fixes: `pnpm check` PASS (1446 tests); `pnpm ui --grep "profile|reality-check"` PASS (20).
+
+## Review findings
+
+Panel: spec-verifier, quality-reviewer, money-reviewer (`touches_money: true`), security-reviewer (route
+handlers, `lib/server`), ui-checker. Verdicts: spec PASS, quality FAIL (2 MAJOR), money PASS, security PASS,
+UI PASS. No BLOCKER, so no re-review round.
+
+| ID      | Reviewer                       | Severity | Summary                                                                                                                                          | Decision                                                                                                                                                            |
+| ------- | ------------------------------ | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Q1      | quality (also spec S2)         | MAJOR    | A failed `/api/me` read after a reload ended the reality-check visit, so the next successful read restarted the clock                            | Fixed in de06e1d: only an answer ends the visit (`!isError`); test added                                                                                            |
+| Q2      | quality (also spec S1)         | MAJOR    | Switching language back before the first save answered sent nothing, leaving the account on the language turned away from; saves weren't ordered | Fixed in de06e1d: saves share a mutation `scope` and compare with the last language sent (`useMutationState`); test added                                           |
+| SEC1    | security                       | MINOR    | A save answered after logout wrote the previous player back into `/api/me`'s entry                                                               | Fixed in de06e1d: written only for the player still signed in, else `/api/me` is read; test added                                                                   |
+| S3 / Q4 | spec, quality (money noted it) | MINOR    | The plan says "one interval later"; the code used whole intervals of the visit, so a late answer could be followed by a check within minutes     | Fixed in de06e1d: the next check is one interval after the answer, matching the plan and 02-journeys                                                                |
+| Q3      | quality                        | MINOR    | Disabling a pressed control drops focus                                                                                                          | Fixed in de06e1d for the Offers switch and Sign out (`aria-disabled`, press ignored). The "Not saved" row still unmounts while saving: follow-up                    |
+| m1      | money                          | MINOR    | 012 doesn't ask whether open stakes count in `staked`/`net`                                                                                      | Fixed: added to 012's `staked` and `net` descriptions                                                                                                               |
+| m2      | money                          | MINOR    | F7e must take the net's sign from the `Money` string, not `Math.abs`                                                                             | Follow-up: written into F7e's scope                                                                                                                                 |
+| m3      | money                          | MINOR    | The translation note names the removed `system.realityBody`                                                                                      | Rejected: it is a provenance note (where the new Amharic came from), and the F7b section says the key was removed                                                   |
+| Q5      | quality                        | MINOR    | A failed language save shows no reason                                                                                                           | Rejected: the "Not saved to your account" row is the failure notice with its retry (Save); a language PATCH has no fix to offer, and the header has no room for one |
+| SEC2    | security                       | MINOR    | The player's opaque id sits in `sessionStorage`                                                                                                  | Rejected: the id carries nothing, is cleared on sign-out, and a marker in its place would need the same comparison to tell players apart                            |
+| U1      | ui                             | MINOR    | "1 h." reads clipped; "1 hour" would read better                                                                                                 | Rejected: matches the app's abbreviated units (`rg.minutes` "{n} min"); "hour/hours" needs plural forms the in-house i18n doesn't have                              |
+
+Notes: U2 and U3 (the fixed tab bar drawn over a row in full-page phone shots) are how full-page
+screenshots render a fixed bar, the same before this task. Security's note that a guest with a bad body gets
+422 before 401 is the same order as `PUT /api/me/limits` (F7a). Money worked the time arithmetic and 012's
+example (12000 − 35000 santim = "-230.00"), both agree.
+
+## Gaps
+
+- **The reality check's figures** (staked, won, net) aren't shown: the contract has none (request 012,
+  task F7e). Time played is the browser's visit clock until then.
+- **Prism can't hold state**: `PATCH /v1/me` has no 200 example, so in development a saved preference
+  brings back Prism's generated player (with `excluded_until` in 2019) until `/api/me` is read again
+  (request 012, item 6). Tests stub the route handler's answers instead.
+- **The devices' loading skeleton** has no screenshot (the harness waits for the network to go quiet, as
+  for every earlier screen).
+- **Follow-up (Q3)**: keep the "Not saved to your account" row mounted while it saves, so focus stays on
+  its Save button.

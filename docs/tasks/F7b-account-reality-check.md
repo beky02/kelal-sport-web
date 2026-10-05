@@ -1,7 +1,7 @@
 ---
 id: F7b
 title: Split from F7 — profile preferences on the account, active devices, the reality check from the server
-status: verifying
+status: done
 depends_on: [F4]
 contract_tags: [Me, Config]
 touches_money: true
@@ -39,9 +39,13 @@ Out: password change (no operation); push registration (`/v1/devices`, the app's
 
 ## Acceptance criteria
 
-- [ ] **AC-8** Language and marketing consent saved through `PATCH /v1/me` survive a reload and another
+- [x] **AC-8** Language and marketing consent saved through `PATCH /v1/me` survive a reload and another
       device (route and component tests).
-- [ ] **AC-9** Active devices come from `/v1/me/sessions` with the current one marked; signing another
+- [x] **AC-9** Active devices come from `/v1/me/sessions` with the current one marked; signing another
       out calls `DELETE /v1/me/sessions/{id}` and removes it (component test; `pnpm ui` `profile`).
-- [ ] **AC-10** The reality check opens every `rg.reality_check_minutes` of play with the API's figures
+- [x] **AC-10** The reality check opens every `rg.reality_check_minutes` of play with the API's figures
       only; Keep playing, Take a break, My limits (hook test with fake timers; `pnpm ui`).
+
+Done 2026-10-05 (`docs/tasks/F7b/verification.md`). AC-10 as decided at the plan gate: the reality check
+shows time played on the account's interval; the session's staked, won and net wait for contract request
+[012](../contract-requests/012-reality-check-and-account.md) and are [F7e](F7e-reality-check-figures.md).
