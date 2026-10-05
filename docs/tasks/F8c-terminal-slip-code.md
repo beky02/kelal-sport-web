@@ -19,6 +19,7 @@ A customer at the kiosk browses matches, builds a slip priced with the retail ru
 
 ## Read first
 
+- `docs/decisions.md` **FD1** (the `(terminal)` group reuses `src/features/*`), **FD4** (money)
 - `docs/backend/design/components/c19-retail-network.md` §4.2, §9.1, §13; `c18-client-apps.md` §5
 - `docs/backend/engineering-decisions.md` D1 (the slip), D7
 - `contracts/openapi.yaml`: `POST /v1/retail/slip-codes` (30 per terminal per 10 minutes), the retail
@@ -26,8 +27,9 @@ A customer at the kiosk browses matches, builds a slip priced with the retail ru
 
 ## Scope
 
-In: the kiosk layout (large targets, no account); the shared catalogue and slip packages; slip codes with
-a QR; idle reset; the rate limit.
+In: the kiosk pages under `/terminal/*` (large targets, no account); the catalogue and the slip from
+`src/features/*`, the slip in a `terminal` mode (no login, no balance, the retail rule set, a stake typed on
+an on-screen keypad); slip codes with a QR; idle reset; the rate limit.
 
 ## Acceptance criteria
 

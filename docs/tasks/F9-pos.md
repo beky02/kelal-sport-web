@@ -2,13 +2,15 @@
 id: F9
 title: Cashier POS app
 status: todo
-depends_on: [F8a]
+depends_on: [F12]
 contract_tags: [Retail - cashier]
 touches_money: true
 touches_ui: true
 ---
 
 # F9 — Cashier POS
+
+Built in **`kelalsport-ops`**, not this repo (FD1, 2026-10-05); this file moves there when F12 creates it.
 
 Split (2026-10-03, before planning) into [F9a — POS device, login and shift](F9a-pos-device-shift.md)
 (AC-4, AC-5), [F9b — sell and print](F9b-pos-sell-print.md) (AC-1, AC-3 for Sell, AC-6) and
@@ -23,8 +25,8 @@ cash in and out, close the shift with a Z report.
 
 ## Read first
 
-- `docs/decisions.md` **FD1** — this app is `apps/<name>` in the workspace F8a creates, built on its
-  shared packages.
+- `docs/decisions.md` **FD1** — built in `kelalsport-ops` (F12), on its conventions and the conditions FD1
+  sets (slipcalc only from the synced contract, the golden test and drift check in CI).
 - `docs/backend/design/components/c19-retail-network.md`, `c18-client-apps.md` §5 (receipt
   printing, keyboard shortcuts, scanner input)
 - `contracts/openapi.yaml`: the `Retail - cashier` operations (`/v1/retail/auth/*`, `/shifts/*`,

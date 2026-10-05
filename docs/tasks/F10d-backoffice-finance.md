@@ -10,6 +10,8 @@ touches_ui: true
 
 # F10d — Finance and approvals
 
+Built in **`kelalsport-ops`**, not this repo (FD1, 2026-10-05); this file moves there when F12 creates it.
+
 Split from [F10](F10-agent-backoffice.md) (2026-10-03, before planning). The approvals queue built here
 also decides the requests F10e, F10f and F10g create.
 

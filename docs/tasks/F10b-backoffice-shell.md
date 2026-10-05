@@ -2,13 +2,15 @@
 id: F10b
 title: Split from F10 — back office shell, staff sign-in, dashboard, audit, staff and roles
 status: todo
-depends_on: [F8a]
+depends_on: [F12]
 contract_tags: [Admin]
 touches_money: false
 touches_ui: true
 ---
 
 # F10b — Back office shell
+
+Built in **`kelalsport-ops`**, not this repo (FD1, 2026-10-05); this file moves there when F12 creates it.
 
 Split from [F10](F10-agent-backoffice.md) (2026-10-03, before planning). The back office waits for the
 admin APIs (B10); F10c–F10g build on this shell.
