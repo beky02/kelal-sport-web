@@ -829,7 +829,8 @@
     "startingBreak": "Starting…",
     "breakNotStartedTitle": "Your break didn’t start",
     "breakUnconfirmedTitle": "We couldn’t confirm your break",
-    "breakUnconfirmedBody": "It may have started. If it did, you’ll be signed out."
+    "breakUnconfirmedBody": "It may have started. If it did, you’ll be signed out.",
+    "refusedBody": "Something went wrong. Try again in a moment."
   },
   "booking": {
     "validUntil": "Valid until {day} {date}, {time}",

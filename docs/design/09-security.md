@@ -94,8 +94,11 @@ message.
 ## Rendering
 
 No `dangerouslySetInnerHTML` except the static theme script; every string from the API is rendered as
-text. CSP with nonces, HSTS, `X-Frame-Options: DENY` and `Referrer-Policy` are set at the edge and in
-`next.config.ts` when the deployment is built (C18 §7). Dependencies are kept current (Renovate) and
+text. CSP with nonces, HSTS, `X-Frame-Options: DENY` and `Referrer-Policy` are to be set at the edge and in
+`next.config.ts` when the deployment is built (C18 §7) — not yet: `next.config.ts` sends none today
+(F3b SEC6). Framing matters most since F7a: a permanent self-exclusion is a few clicks on
+`/responsible-gaming`, so `frame-ancestors 'none'` / `X-Frame-Options: DENY` should come first
+(SameSite=Lax keeps the session out of a cross-site frame in current browsers, not in every WebView). Dependencies are kept current (Renovate) and
 Next.js and React security releases are applied within 48 hours (C18 §2).
 
 ## Known limits and follow-ups

@@ -16,7 +16,7 @@ import { LimitCard } from "./LimitCard";
  */
 export function LimitsSection() {
   const t = useTranslation();
-  const limits = useLimits(true);
+  const limits = useLimits();
 
   if (limits.isPending) {
     return (

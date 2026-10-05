@@ -405,6 +405,18 @@ describe("POST /api/me/self-exclusion (AC-6)", () => {
     });
   });
 
+  it("clears the session cookie once the API has started the break, even when its answer can't be read (SEC2)", async () => {
+    const mod = await load();
+    // A 201 the mapper can't read: the break started, and the API revoked
+    // the session with it.
+    upstreamAnswers(() => ({ status: 201, body: null }));
+
+    const response = await exclude(mod);
+
+    expect(response.status).toBe(503);
+    expect(sessionCookieOf(mod, response)).toMatch(/; Max-Age=0/);
+  });
+
   it("keeps the session when the API refused the break: nothing started", async () => {
     const mod = await load();
     const refused = problem(422, "VALIDATION_FAILED");

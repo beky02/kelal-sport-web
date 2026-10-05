@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import Link from "next/link";
 
 const ACTION =
@@ -15,6 +16,7 @@ export function StateMessage({
   body,
   action,
   level = 2,
+  focusOnMount = false,
 }: {
   icon: React.ReactNode;
   title: string;
@@ -24,14 +26,29 @@ export function StateMessage({
     { label: string; onClick: () => void } | { label: string; href: string };
   /** 1 when the message is the page itself (a public page's 404). */
   level?: 1 | 2;
+  /**
+   * Take focus when it appears, so it is read out — for a message that
+   * replaces what the player was just using.
+   */
+  focusOnMount?: boolean;
 }) {
   const Heading = level === 1 ? "h1" : "h2";
+  const heading = useRef<HTMLHeadingElement>(null);
+  useEffect(() => {
+    if (focusOnMount) heading.current?.focus();
+  }, [focusOnMount]);
   return (
     <div className="flex flex-col items-center gap-1.5 px-6 py-12 text-center">
       <div className="bg-raised text-muted grid size-13 place-items-center rounded-lg">
         {icon}
       </div>
-      <Heading className="font-display mt-2 text-lg">{title}</Heading>
+      <Heading
+        ref={heading}
+        tabIndex={focusOnMount ? -1 : undefined}
+        className="font-display mt-2 text-lg outline-none"
+      >
+        {title}
+      </Heading>
       <p className="text-muted max-w-[280px] text-pretty">{body}</p>
       {action &&
         ("href" in action ? (

@@ -19,18 +19,18 @@ export function DepositPaused({
 }) {
   const t = useTranslation();
   return (
-    // Announced: it may replace the confirm step the player just pressed.
-    <div role="status">
-      <StateMessage
-        icon={<Lock size={24} strokeWidth={1.5} />}
-        title={t.t("deposit.refused.breakTitle")}
-        body={
-          until
-            ? t.t("deposit.refused.breakUntil", { date: until })
-            : t.t("deposit.refused.break")
-        }
-        action={{ label: t.t("deposit.backToWallet"), onClick: onBack }}
-      />
-    </div>
+    // Focus comes here: it may replace the confirm step the player just
+    // pressed, and a screen reader reads where focus lands.
+    <StateMessage
+      icon={<Lock size={24} strokeWidth={1.5} />}
+      title={t.t("deposit.refused.breakTitle")}
+      body={
+        until
+          ? t.t("deposit.refused.breakUntil", { date: until })
+          : t.t("deposit.refused.break")
+      }
+      action={{ label: t.t("deposit.backToWallet"), onClick: onBack }}
+      focusOnMount
+    />
   );
 }

@@ -1,4 +1,3 @@
-import { ApiError } from "@/lib/api/errors";
 import { MONEY_PATTERN } from "@/lib/api/patterns";
 import { compareMoney, normaliseMoney } from "@/lib/money";
 import {
@@ -61,21 +60,4 @@ export function limitValue(type: LimitType, typed: string): LimitValue {
   const amount = normaliseMoney(value);
   if (!MONEY_PATTERN.test(amount)) return "tooHigh";
   return compareMoney(amount, "0.00") > 0 ? { amount } : "tooLow";
-}
-
-/**
- * What a break that didn't come back means. `session`: the session is gone
- * (the route handler has refreshed once already). `unanswered`: no answer —
- * the network, 30 s, a rate limit, a 5xx or a reply this app couldn't read —
- * so it may have started; a second request can't start another, since a
- * break revokes the session the request rides on. `refused`: the API said
- * no; nothing started.
- */
-export type ExclusionOutcome = "unanswered" | "session" | "refused";
-
-export function exclusionOutcome(error: unknown): ExclusionOutcome {
-  if (!(error instanceof ApiError) || error.status === 0) return "unanswered";
-  if (error.status === 401) return "session";
-  if (error.status === 429 || error.status >= 500) return "unanswered";
-  return "refused";
 }

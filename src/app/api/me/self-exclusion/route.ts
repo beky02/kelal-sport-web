@@ -3,11 +3,7 @@ import { readForm } from "@/lib/server/body";
 import { assertSameOrigin } from "@/lib/server/csrf";
 import { respond } from "@/lib/server/respond";
 import { selfExclude } from "@/lib/server/responsible-gambling";
-import {
-  clearSessionCookie,
-  readSession,
-  SessionGoneError,
-} from "@/lib/server/session";
+import { readSession, SessionGoneError } from "@/lib/server/session";
 import { mockPreference } from "@/lib/server/upstream";
 
 /**
@@ -15,9 +11,9 @@ import { mockPreference } from "@/lib/server/upstream";
  * runs before anything is sent upstream: this site's own page (origin, CSRF
  * header, JSON), one of the contract's kinds and durations and nothing else,
  * and a session. The API revokes every session of the player as it answers,
- * so a 201 also clears this one's cookie: the player leaves signed out, and
- * nothing in the browser can bring the session back (AC-6). A refusal keeps
- * the session — no break started.
+ * so its yes also clears this one's cookie (`selfExclude`): the player leaves
+ * signed out, and nothing in the browser can bring the session back (AC-6). A
+ * refusal keeps the session — no break started.
  */
 export async function POST(request: Request) {
   const refused = assertSameOrigin(request);
@@ -35,13 +31,11 @@ export async function POST(request: Request) {
     async (ctx) => {
       const session = readSession(request, ctx.tenant);
       if (!session) throw new SessionGoneError();
-      const started = await selfExclude(
+      return selfExclude(
         { ...ctx, prefer: mockPreference(request.headers.get("prefer")) },
         session,
         exclusion,
       );
-      ctx.setCookie(clearSessionCookie(request));
-      return started;
     },
     { status: 201 },
   );

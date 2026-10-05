@@ -1,4 +1,5 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { Profiler } from "react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { OddsButtonView } from "@/features/odds/components/OddsButtonView";
@@ -200,6 +201,8 @@ describe("OddsButton → bet slip", () => {
  * by reloading would not be a break at all.
  */
 describe("OddsButton → responsible-gaming break", () => {
+  afterEach(() => vi.restoreAllMocks());
+
   beforeEach(() => {
     useBetSlipStore.getState().clear();
     useUiStore.setState({ lang: "en" });
@@ -251,5 +254,50 @@ describe("OddsButton → responsible-gaming break", () => {
       pointerEventsCheck: 0,
     });
     expect(useBetSlipStore.getState().selections).toHaveLength(0);
+  });
+
+  it("re-renders a price only when the break changes, not when a read of /api/me fails (Q5)", async () => {
+    // Every read of /api/me fails from here: a focus refetch on a flaky line.
+    vi.spyOn(globalThis, "fetch").mockImplementation(async () =>
+      Response.json(
+        {
+          type: "about:blank",
+          title: "The sportsbook API could not be reached",
+          status: 503,
+          code: "SERVICE_UNAVAILABLE",
+        },
+        {
+          status: 503,
+          headers: { "Content-Type": "application/problem+json" },
+        },
+      ),
+    );
+    let renders = 0;
+    const { queryClient } = render(
+      <Profiler
+        id="price"
+        onRender={() => {
+          renders += 1;
+        }}
+      >
+        <OddsButton
+          market={market}
+          outcome={market.outcomes[0]}
+          eventName={eventName}
+        />
+      </Profiler>,
+    );
+    const before = renders;
+
+    await act(async () => {
+      await queryClient.refetchQueries({ queryKey: sessionKeys.me() });
+    });
+
+    await waitFor(() =>
+      expect(queryClient.getQueryState(sessionKeys.me())?.status).toBe("error"),
+    );
+    // Still the player's data, no break either way: the price stays as it was.
+    expect(renders).toBe(before);
+    expect(screen.getByRole("button")).toBeEnabled();
   });
 });

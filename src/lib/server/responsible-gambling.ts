@@ -12,7 +12,12 @@ import {
   toLimits,
   toSelfExclusionRequest,
 } from "@/lib/api/mappers/responsible-gambling";
-import { withSession, type Session, type SessionContext } from "./session";
+import {
+  clearSessionCookie,
+  withSession,
+  type Session,
+  type SessionContext,
+} from "./session";
 import { upstream } from "./upstream";
 
 /**
@@ -55,7 +60,10 @@ export async function changeLimit(
 
 /**
  * Starts a break or a self-exclusion (`POST /v1/me/self-exclusion`). The API
- * revokes every session of the player as it answers, this one included.
+ * revokes every session of the player as it answers, this one included, so
+ * the session cookie is cleared the moment it says yes — before its answer is
+ * read, which can't then leave a dead session behind (SEC2). A refusal keeps
+ * it: nothing started.
  */
 export async function selfExclude(
   ctx: SessionContext,
@@ -68,5 +76,6 @@ export async function selfExclude(
       { body: toSelfExclusionRequest(request) },
     ),
   );
+  ctx.setCookie(clearSessionCookie(ctx.request));
   return toExclusion(exclusion);
 }

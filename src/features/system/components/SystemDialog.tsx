@@ -1,5 +1,6 @@
 "use client";
 
+import { useRef } from "react";
 import { Dialog } from "radix-ui";
 import { cn } from "@/lib/utils/cn";
 
@@ -23,6 +24,7 @@ export function SystemActions({ actions }: { actions: SystemAction[] }) {
         <button
           key={action.label}
           type="button"
+          data-kind={action.kind}
           onClick={action.onClick}
           className={cn(
             "font-body h-[46px] cursor-pointer rounded-md text-sm font-bold",
@@ -42,7 +44,9 @@ export function SystemActions({ actions }: { actions: SystemAction[] }) {
  * Deliberately not dismissible by clicking away or pressing Escape: each of
  * these exists because something needs acknowledging, and the actions are the
  * only way out. `alertdialog` rather than `dialog`, so a screen reader announces
- * it rather than waiting to be explored.
+ * it rather than waiting to be explored. Focus opens on the first action unless
+ * `initialFocus` names another kind — the safe answer of a question that can't
+ * be undone, so a stray Enter never confirms it.
  */
 export function SystemDialog({
   open,
@@ -52,6 +56,7 @@ export function SystemDialog({
   body,
   stats,
   actions,
+  initialFocus,
 }: {
   open: boolean;
   tone?: "accent" | "loss";
@@ -61,13 +66,26 @@ export function SystemDialog({
   /** Three figures, shown side by side. The last is tinted as a loss. */
   stats?: Array<{ label: string; value: string }>;
   actions: SystemAction[];
+  /** The kind of action focus opens on; the first action when not given. */
+  initialFocus?: SystemAction["kind"];
 }) {
+  const content = useRef<HTMLDivElement>(null);
   return (
     <Dialog.Root open={open}>
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-[45] bg-black/60" />
         <Dialog.Content
+          ref={content}
           role="alertdialog"
+          onOpenAutoFocus={(event) => {
+            if (!initialFocus) return;
+            event.preventDefault();
+            content.current
+              ?.querySelector<HTMLButtonElement>(
+                `[data-kind="${initialFocus}"]`,
+              )
+              ?.focus();
+          }}
           onEscapeKeyDown={(event) => event.preventDefault()}
           onPointerDownOutside={(event) => event.preventDefault()}
           onInteractOutside={(event) => event.preventDefault()}

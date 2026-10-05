@@ -219,8 +219,10 @@ export function DepositFlow({
   const breakUntil = pause?.until ? endText(pause.until) : null;
 
   // During a break nothing new starts here — the header's Deposit and the
-  // slip's land on this — but a deposit already on its way is still shown.
-  if (pause && display !== "result") {
+  // slip's land on this — but a deposit already on its way is still shown,
+  // and one that had no answer keeps its Try again: the same key only asks
+  // after that deposit, as the slip's Try again does for a bet.
+  if (pause && display !== "result" && !(display === "confirm" && unanswered)) {
     return (
       <>
         <FlowHeader

@@ -305,6 +305,8 @@ export function SlipAlerts({
         ? t.t("betSlip.refused.breakUntil", { date: breakUntil })
         : t.t("betSlip.refused.break"),
       detail: refusedForBreak ? notice?.detail : null,
+      // On a phone the open slip covers the banner: its own way to the limits.
+      action: { label: t.t("system.viewLimits"), onClick: fixes.viewLimits },
     });
   }
   if (notice && !(pause && refusedForBreak)) {

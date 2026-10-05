@@ -8,12 +8,13 @@ import { Card } from "@/components/ui/Card";
 import { Segmented } from "@/components/ui/Segmented";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { Switch } from "@/components/ui/Switch";
+import { cn } from "@/lib/utils/cn";
 import { routes } from "@/config/routes";
 import { useSession } from "@/features/auth/hooks/use-session";
 import { useAuthStore } from "@/features/auth/stores/auth.store";
 import { SystemDialog } from "@/features/system/components/SystemDialog";
 import { useSelfExclude } from "../hooks/use-responsible-gaming";
-import { exclusionOutcome } from "../lib/limits";
+import { exclusionOutcome, isProblem } from "../lib/break";
 import type { ExclusionKind, SelfExclusionRequest } from "../types";
 import { BreakStarted } from "./BreakStarted";
 import { ChoiceTiles } from "./ChoiceTiles";
@@ -134,10 +135,8 @@ export function ResponsibleGamingView() {
             <AskButton
               label={t.t("rg.startBreak")}
               onClick={() => setAsking("time_out")}
-              busy={
-                selfExclusion.isPending &&
-                selfExclusion.request?.kind === "time_out"
-              }
+              pending={selfExclusion.isPending}
+              busy={selfExclusion.request?.kind === "time_out"}
             />
             {selfExclusion.request?.kind === "time_out" && (
               <ExclusionProblem
@@ -171,10 +170,8 @@ export function ResponsibleGamingView() {
             <AskButton
               label={t.t("rg.selfExclude")}
               onClick={() => setAsking("self_exclusion")}
-              busy={
-                selfExclusion.isPending &&
-                selfExclusion.request?.kind === "self_exclusion"
-              }
+              pending={selfExclusion.isPending}
+              busy={selfExclusion.request?.kind === "self_exclusion"}
             />
             {selfExclusion.request?.kind === "self_exclusion" && (
               <ExclusionProblem
@@ -281,6 +278,9 @@ export function ResponsibleGamingView() {
               : "rg.excludeConfirmBody"
             : "rg.breakConfirmBody",
         )}
+        // A question that can't be undone opens on its safe answer: a stray
+        // Enter goes back, it never confirms.
+        initialFocus="quiet"
         actions={[
           { label: t.t("rg.confirm"), kind: "primary", onClick: confirm },
           {
@@ -294,27 +294,40 @@ export function ResponsibleGamingView() {
   );
 }
 
-/** Opens the question; while the answer is on its way it says so and waits. */
+/**
+ * Opens the question. While a break is on its way both buttons wait — the one
+ * that sent it says so — so a second question can't be asked and dropped.
+ */
 function AskButton({
   label,
   onClick,
+  pending,
   busy,
 }: {
   label: string;
   onClick: () => void;
+  /** A break or self-exclusion is on its way. */
+  pending: boolean;
+  /** …and it is this button's. */
   busy: boolean;
 }) {
   const t = useTranslation();
+  const sending = pending && busy;
   return (
     <button
       type="button"
-      onClick={busy ? undefined : onClick}
-      aria-disabled={busy || undefined}
-      aria-busy={busy || undefined}
-      className="bg-raised text-text font-body flex h-11 cursor-pointer items-center justify-center gap-2 rounded-md text-sm font-bold aria-disabled:cursor-wait"
+      onClick={pending ? undefined : onClick}
+      aria-disabled={pending || undefined}
+      aria-busy={sending || undefined}
+      className={cn(
+        "bg-raised text-text font-body flex h-11 cursor-pointer items-center justify-center gap-2 rounded-md text-sm font-bold",
+        sending
+          ? "aria-disabled:cursor-wait"
+          : "aria-disabled:cursor-not-allowed aria-disabled:opacity-45",
+      )}
     >
-      {busy && <Loader2 size={16} className="animate-spin" aria-hidden />}
-      {busy ? t.t("rg.startingBreak") : label}
+      {sending && <Loader2 size={16} className="animate-spin" aria-hidden />}
+      {sending ? t.t("rg.startingBreak") : label}
     </button>
   );
 }
@@ -347,7 +360,13 @@ function ExclusionProblem({
         )}
       </p>
       <p className="text-text/80 text-xs">
-        {outcome === "refused" ? error.message : t.t("rg.breakUnconfirmedBody")}
+        {outcome === "unanswered"
+          ? t.t("rg.breakUnconfirmedBody")
+          : // The API's own title — unless the answer wasn't a Problem, whose
+            // only words are this app's technical ones.
+            isProblem(error)
+            ? error.message
+            : t.t("rg.refusedBody")}
       </p>
       {outcome === "unanswered" && (
         <button

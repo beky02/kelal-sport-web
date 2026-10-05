@@ -879,13 +879,12 @@ describe("refusals and their fixes (AC-9)", () => {
 
     // A break is server state: who is signed in is read again, and the end
     // it gives is said — 15:00 UTC is 18:00 in East Africa Time, with its year.
-    const status = await screen.findByRole("status");
-    await waitFor(() =>
-      expect(status).toHaveTextContent(
-        "Deposits are paused until 10 Oct 2026, 18:00.",
-      ),
-    );
-    expect(status).toHaveTextContent("You’re taking a break");
+    expect(
+      await screen.findByText("Deposits are paused until 10 Oct 2026, 18:00."),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "You’re taking a break" }),
+    ).toHaveFocus();
     expect(asked).toContain("/api/me");
     // Nothing more can be sent: Confirm is gone with the step.
     expect(
@@ -899,10 +898,11 @@ describe("refusals and their fixes (AC-9)", () => {
     api();
     render(<WalletView />, { session: ON_BREAK });
 
-    // The header's Deposit or the slip's Deposit to continue land here.
+    // The header's Deposit or the slip's Deposit to continue land here, and
+    // the screen takes focus, so it is read out (Q3).
     expect(
       await screen.findByRole("heading", { name: "You’re taking a break" }),
-    ).toBeInTheDocument();
+    ).toHaveFocus();
     expect(
       screen.getByText("Deposits are paused until 10 Oct 2026, 18:00."),
     ).toBeInTheDocument();
@@ -919,6 +919,28 @@ describe("refusals and their fixes (AC-9)", () => {
     // Funds stay withdrawable during a break (RG-02).
     expect(screen.getByRole("button", { name: "Withdraw" })).toBeEnabled();
     expect(posted).toHaveLength(0);
+  });
+
+  it("keeps Try again of a deposit that had no answer during a break: the same key (M1)", async () => {
+    starts = ["drop", [201, PHONE]];
+    api();
+    const { queryClient } = render(<WalletView />);
+    await toConfirm(/CBE Birr/);
+    await confirmAndPay();
+    await screen.findByText("We couldn’t confirm your deposit");
+
+    // A break /api/me now reports: no new deposit, but the one that may have
+    // started can still be asked after, under its key.
+    act(() => {
+      queryClient.setQueryData(sessionKeys.me(), { player: ON_BREAK });
+    });
+    await user.click(
+      screen.getByRole("button", { name: /^Try again · ETB\s500\.00$/ }),
+    );
+
+    await screen.findByRole("heading", { name: "Check your phone" });
+    expect(posted).toHaveLength(2);
+    expect(posted[1].key).toBe(posted[0].key);
   });
 
   it("pauses deposits for a permanent self-exclusion, with no end date (F7a)", async () => {

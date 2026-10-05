@@ -646,9 +646,14 @@ const BREAK_UNTIL = "2026-10-10T15:00:00Z";
 /**
  * `/api/me` as the API reports a player on a break (F7a) — from the start, or
  * only once a request to `after` has gone (the refusal that reveals a break
- * taken on another device). Prism's player has none.
+ * taken on another device); `permanent` is a self-exclusion with no end
+ * (`status: self_excluded`, no date). Prism's player has none.
  */
-const onBreak = async (page: Page, after?: string) => {
+const onBreak = async (
+  page: Page,
+  after?: string,
+  { permanent = false }: { permanent?: boolean } = {},
+) => {
   let revealed = after === undefined;
   if (after) {
     page.on("request", (request) => {
@@ -658,9 +663,12 @@ const onBreak = async (page: Page, after?: string) => {
   await page.route("**/api/me", async (route) => {
     const response = await route.fetch();
     const body = (await response.json()) as {
-      player: { flags: Record<string, unknown> } | null;
+      player: { status: string; flags: Record<string, unknown> } | null;
     };
-    if (revealed && body.player) body.player.flags.excludedUntil = BREAK_UNTIL;
+    if (revealed && body.player) {
+      if (permanent) body.player.status = "self_excluded";
+      else body.player.flags.excludedUntil = BREAK_UNTIL;
+    }
     await route.fulfill({ response, json: body });
   });
 };
@@ -740,6 +748,42 @@ const askFor =
     if (!confirm) return;
     await dialog.getByRole("button", { name: t.rg.confirm }).click();
     await page.getByRole("heading", { name: t.rg.breakStartedTitle }).waitFor();
+  };
+
+/** Logged in, with starting a break answered in the browser — `"abort"` for no answer. */
+const exclusionAnswers =
+  (answer: [number, unknown] | "abort") => async (page: Page) => {
+    await loginViaApi(page);
+    await page.route("**/api/me/self-exclusion", (route) =>
+      answer === "abort"
+        ? route.abort("failed")
+        : route.fulfill({
+            status: answer[0],
+            contentType:
+              answer[0] >= 400
+                ? "application/problem+json"
+                : "application/json",
+            json: answer[1],
+          }),
+    );
+  };
+
+/** A length chosen and its question confirmed; waits for `text`. */
+const confirmBreak =
+  (
+    group: (t: (typeof MESSAGES)[Lang]) => string,
+    length: (t: (typeof MESSAGES)[Lang]) => string,
+    button: (t: (typeof MESSAGES)[Lang]) => string,
+    text: (t: (typeof MESSAGES)[Lang]) => string,
+  ) =>
+  async (page: Page, device: Device, lang: Lang) => {
+    const t = MESSAGES[lang];
+    await askFor(group, length, button)(page, device, lang);
+    await page
+      .getByRole("alertdialog")
+      .getByRole("button", { name: t.rg.confirm })
+      .click();
+    await page.getByText(text(t), { exact: true }).first().waitFor();
   };
 
 /** Waits for a heading, by its message. */
@@ -1053,6 +1097,27 @@ const SCREENS: Array<{
     prepare: placeAnd("alert", {
       answer: refuse(403, {
         title: "You’re self-excluded",
+        code: "RG_SELF_EXCLUDED",
+      }),
+      then: (page, lang) =>
+        page
+          .getByRole("button", { name: MESSAGES[lang].betSlip.paused })
+          .filter({ visible: true })
+          .waitFor(),
+    }),
+    allowConsole: /status of 403/,
+  },
+  {
+    // A permanent self-exclusion revealed by a refusal: no end date.
+    name: "home-slip-excluded",
+    path: "/",
+    before: async (page) => {
+      await loginViaApi(page);
+      await onBreak(page, "/api/bets", { permanent: true });
+    },
+    prepare: placeAnd("alert", {
+      answer: refuse(403, {
+        title: "You’ve excluded yourself",
         code: "RG_SELF_EXCLUDED",
       }),
       then: (page, lang) =>
@@ -1982,6 +2047,100 @@ const SCREENS: Array<{
         .waitFor();
     },
     allowConsole: /ERR_FAILED/,
+  },
+  {
+    // A permanent self-exclusion: no end date anywhere (F7a).
+    name: "responsible-gaming-excluded",
+    path: "/responsible-gaming",
+    before: async (page) => {
+      await loginViaApi(page);
+      await onBreak(page, undefined, { permanent: true });
+    },
+    prepare: headingShows((t) => t.rg.depositLimit),
+  },
+  {
+    // Prism's PUT answer: a raise held back until the API's time (AC-5).
+    name: "responsible-gaming-raised",
+    path: "/responsible-gaming",
+    before: loginViaApi,
+    prepare: saveDepositLimit("2000"),
+  },
+  {
+    name: "responsible-gaming-save-unconfirmed",
+    path: "/responsible-gaming",
+    before: async (page) => {
+      await loginViaApi(page);
+      await page.route("**/api/me/limits", (route) =>
+        route.request().method() === "PUT"
+          ? route.abort("failed")
+          : route.continue(),
+      );
+    },
+    prepare: async (page, _device, lang) => {
+      const t = MESSAGES[lang];
+      const card = page.getByRole("region", { name: t.rg.depositLimit });
+      await card.getByLabel(t.rg.newLimit).fill("2000");
+      await card.getByRole("button", { name: t.rg.saveLimit }).click();
+      await card.getByRole("alert").waitFor();
+    },
+    allowConsole: /ERR_FAILED/,
+  },
+  {
+    // The break's question, asked once (AC-6).
+    name: "responsible-gaming-confirm-break",
+    path: "/responsible-gaming",
+    before: loginViaApi,
+    prepare: askFor(
+      (t) => t.rg.takeBreak,
+      (t) => t.rg.break24h,
+      (t) => t.rg.startBreak,
+    ),
+  },
+  {
+    name: "responsible-gaming-confirm-permanent",
+    path: "/responsible-gaming",
+    before: loginViaApi,
+    prepare: askFor(
+      (t) => t.rg.selfExclusion,
+      (t) => t.rg.excludePermanent,
+      (t) => t.rg.selfExclude,
+    ),
+  },
+  {
+    // A permanent self-exclusion started: signed out, no end (AC-6).
+    name: "responsible-gaming-excluded-started",
+    path: "/responsible-gaming",
+    before: exclusionAnswers([
+      201,
+      {
+        kind: "self_exclusion",
+        startsAt: "2026-10-05T09:00:00Z",
+        endsAt: null,
+      },
+    ]),
+    prepare: confirmBreak(
+      (t) => t.rg.selfExclusion,
+      (t) => t.rg.excludePermanent,
+      (t) => t.rg.selfExclude,
+      (t) => t.rg.exclusionStartedTitle,
+    ),
+  },
+  {
+    name: "responsible-gaming-break-refused",
+    path: "/responsible-gaming",
+    before: exclusionAnswers([
+      422,
+      problemJson(422, "VALIDATION_FAILED", {
+        title: "This break can’t be started",
+      }),
+    ]),
+    prepare: confirmBreak(
+      (t) => t.rg.takeBreak,
+      (t) => t.rg.break30d,
+      (t) => t.rg.startBreak,
+      (t) => t.rg.breakNotStartedTitle,
+    ),
+    allowConsole: /422/,
   },
   {
     // Logged in again during the break: the banner, from /api/me.

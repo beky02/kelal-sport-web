@@ -829,7 +829,8 @@
     "startingBreak": "በመጀመር ላይ…",
     "breakNotStartedTitle": "ዕረፍትዎ አልጀመረም",
     "breakUnconfirmedTitle": "ዕረፍትዎን ማረጋገጥ አልቻልንም",
-    "breakUnconfirmedBody": "ጀምሮ ሊሆን ይችላል። ከጀመረ ከመለያዎ ይወጣሉ።"
+    "breakUnconfirmedBody": "ጀምሮ ሊሆን ይችላል። ከጀመረ ከመለያዎ ይወጣሉ።",
+    "refusedBody": "ችግር ተፈጥሯል። ትንሽ ቆይተው እንደገና ይሞክሩ።"
   },
   "booking": {
     "validUntil": "እስከ {day} {date}፣ {time} ያገለግላል",

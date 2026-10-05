@@ -192,12 +192,14 @@ export function refusalNotice(
 
     case "RG_SELF_EXCLUDED":
     case "RG_COOLING_OFF":
-      // Nothing to offer: a break cannot be ended from here.
+      // A break can't be ended from here; the way on is the limits page,
+      // where it is shown with the player's limits and the helpline (F7a).
       return notice(
         { key: "betSlip.refused.breakTitle" },
         ctx.breakUntil
           ? { key: "betSlip.refused.breakUntil", date: ctx.breakUntil }
           : { key: "betSlip.refused.break" },
+        { kind: "viewLimits" },
       );
 
     case "REAL_MONEY_DISABLED":

@@ -1,8 +1,8 @@
 "use client";
 
-import { useCallback, useMemo, useRef } from "react";
+import { useCallback, useRef } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { forgetPlayer, useSession } from "@/features/auth/hooks/use-session";
+import { forgetPlayer, sessionQuery } from "@/features/auth/hooks/use-session";
 import type { SessionView } from "@/features/auth/types";
 import { STALE_TIME } from "@/config/constants";
 import { ApiError } from "@/lib/api/errors";
@@ -10,8 +10,7 @@ import { rgKeys, sessionKeys } from "@/lib/query/keys";
 import { useSystemStore } from "@/stores/system.store";
 import { changeLimit, getLimits } from "../api/limits";
 import { selfExclude } from "../api/self-exclusion";
-import { breakOf } from "../lib/break";
-import { exclusionOutcome } from "../lib/limits";
+import { breakOf, exclusionOutcome } from "../lib/break";
 import type { Break, SelfExclusionRequest } from "../types";
 
 /**
@@ -19,10 +18,16 @@ import type { Break, SelfExclusionRequest } from "../types";
  * when the tab comes back, never from anything the browser keeps, so a
  * reload, another tab or another device can't end it. Null when there is
  * none, and while `/api/me` hasn't answered.
+ *
+ * Only the break is selected: every odds button reads this, and a read of
+ * `/api/me` that fails or refreshes must not re-render the board (Q5).
  */
 export function useBreak(): Break | null {
-  const { player } = useSession();
-  return useMemo(() => breakOf(player), [player]);
+  const { data } = useQuery({
+    ...sessionQuery,
+    select: (view) => breakOf(view.player),
+  });
+  return data ?? null;
 }
 
 /**
@@ -30,13 +35,12 @@ export function useBreak(): Break | null {
  * the one shown (AC-1). Read again when the tab comes back, and after
  * anything that moves a limit's `used` — a bet, a deposit, an RG refusal.
  */
-export function useLimits(enabled: boolean) {
+export function useLimits() {
   return useQuery({
     queryKey: rgKeys.limits(),
     queryFn: ({ signal }) => getLimits(signal),
     staleTime: STALE_TIME.limits,
     refetchOnWindowFocus: true,
-    enabled,
   });
 }
 

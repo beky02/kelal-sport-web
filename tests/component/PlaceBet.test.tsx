@@ -1121,10 +1121,14 @@ describe("when the engine refuses", () => {
     );
     const alert = screen.getByRole("alert");
     expect(alert).toHaveTextContent("You’re taking a break");
-    expect(within(alert).queryByRole("button")).not.toBeInTheDocument();
+    // The way on: the limits page (F7a's scope), never a way to end the break.
+    await userEvent.click(
+      within(alert).getByRole("button", { name: "View limits" }),
+    );
+    expect(push).toHaveBeenCalledWith("/responsible-gaming");
   });
 
-  it("says betting is paused for a self-exclusion, with nothing to offer (AC-7)", async () => {
+  it("says betting is paused for a self-exclusion, and offers View limits (AC-7, F7a)", async () => {
     bets(problem(403, "RG_SELF_EXCLUDED"));
     render(<BetSlip />);
 
@@ -1133,7 +1137,10 @@ describe("when the engine refuses", () => {
     const alert = await screen.findByRole("alert");
     expect(alert).toHaveTextContent("You’re taking a break");
     expect(alert).toHaveTextContent("Betting is paused during your break.");
-    expect(within(alert).queryByRole("button")).not.toBeInTheDocument();
+    await userEvent.click(
+      within(alert).getByRole("button", { name: "View limits" }),
+    );
+    expect(push).toHaveBeenCalledWith("/responsible-gaming");
   });
 
   it("locks the slip and shows the end date when a bet comes back RG_SELF_EXCLUDED (AC-2)", async () => {
@@ -1178,6 +1185,11 @@ describe("when the engine refuses", () => {
     expect(line).toHaveTextContent(
       "Betting is paused until 10 Oct 2026, 18:00.",
     );
+    // On a phone the slip covers the banner: its own way to the limits (U3).
+    await userEvent.click(
+      within(line).getByRole("button", { name: "View limits" }),
+    );
+    expect(push).toHaveBeenCalledWith("/responsible-gaming");
     expect(
       screen.queryByRole("button", { name: /Place bet/ }),
     ).not.toBeInTheDocument();

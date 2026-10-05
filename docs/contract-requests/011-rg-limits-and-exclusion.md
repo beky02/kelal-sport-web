@@ -17,7 +17,8 @@ deposits are server state. Seven things are missing or undefined.
    A `session_minutes` limit has no `amount` at all (C12: "null for session_minutes (use minutes)"), and
    `minutes` says nothing, so the web can't tell how a time limit is removed — or whether a time limit
    sent with `amount: null` is read as its removal. The web sends only the field that applies (`amount`
-   for deposit, stake and loss; `minutes` for time) and **offers no Remove**; a pending removal set
+   for deposit, stake and loss; `minutes` for time) — a time limit is sent with no `amount` key at all,
+   which the backend must not read as `amount: null` (a default of `None` would) — and **offers no Remove**; a pending removal set
    elsewhere is shown ("No limit from {date}").
 2. **Minutes used.** `RgLimit.used` is `Money`, so a time limit can't say how much of it the current
    period has used. The web shows the time limit without a used line.

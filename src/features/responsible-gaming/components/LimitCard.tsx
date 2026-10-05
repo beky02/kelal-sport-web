@@ -7,12 +7,14 @@ import { Segmented } from "@/components/ui/Segmented";
 import { ApiError } from "@/lib/api/errors";
 import { useDateTimeText } from "@/lib/i18n/use-date-time-text";
 import type { MessageKey } from "@/lib/i18n";
-import { useTranslation, type Translator } from "@/lib/i18n/use-translation";
-import { percentOf, sanitiseAmount } from "@/lib/money";
+import { useTranslation } from "@/lib/i18n/use-translation";
+import { sanitiseAmount } from "@/lib/money";
 import { cn } from "@/lib/utils/cn";
 import { useChangeLimit } from "../hooks/use-responsible-gaming";
+import { isProblem } from "../lib/break";
 import { limitFor, limitValue, moneyType, openingPeriod } from "../lib/limits";
-import type { LimitPeriod, LimitType, PendingLimit, RgLimit } from "../types";
+import type { LimitPeriod, LimitType, RgLimit } from "../types";
+import { PERIOD_LABEL, UsedBar, pendingText, valueText } from "./LimitLines";
 
 const TITLE: Record<LimitType, MessageKey> = {
   deposit: "rg.depositLimit",
@@ -28,35 +30,6 @@ const BODY: Record<LimitType, MessageKey> = {
   session_minutes: "rg.timeLimitBody",
 };
 
-const USED: Record<LimitPeriod, MessageKey> = {
-  day: "rg.usedDay",
-  week: "rg.usedWeek",
-  month: "rg.usedMonth",
-};
-
-/** A limit's value as the API states it: money, or minutes. */
-function valueText(
-  limit: { amount: string | null; minutes: number | null },
-  t: Translator,
-): string | null {
-  if (limit.amount !== null) return t.money(limit.amount);
-  if (limit.minutes !== null) return t.t("rg.minutes", { n: limit.minutes });
-  return null;
-}
-
-/** A change the API holds back, and when it applies — its time, never ours. */
-function pendingText(
-  pending: PendingLimit,
-  t: Translator,
-  when: (iso: string) => string,
-): string {
-  const value = valueText(pending, t);
-  const date = when(pending.effectiveFrom);
-  return value === null
-    ? t.t("rg.pendingRemoved", { date })
-    : t.t("rg.pendingChange", { value, date });
-}
-
 /**
  * One kind of limit — deposit, stake, loss or time — per day, week or month,
  * exactly as the account holds it (AC-1): the limit, what the current period
@@ -64,8 +37,10 @@ function pendingText(
  *
  * Saving sends the new value and shows what the API answered: in force at
  * once, or pending until the API's time (AC-5). Whether a change is a rise or
- * a cut is never worked out here — the API decides, and says so. The bar
- * turns red past 90% rather than at 100%: a limit is a warning system.
+ * a cut is never worked out here — the API decides, and says so. The period
+ * stays put while a save is on its way, so its answer is never lost; Save
+ * keeps focus, and what the API said goes into a region already on the page,
+ * so it is read out.
  */
 export function LimitCard({
   type,
@@ -89,7 +64,9 @@ export function LimitCard({
   const change = useChangeLimit();
 
   const limit = limitFor(limits, type, period);
+  const shown = limit ? valueText(limit, t) : null;
   const value = limitValue(type, typed);
+  const sendable = typeof value === "object";
   const minutes = type === "session_minutes";
 
   const hint =
@@ -100,7 +77,7 @@ export function LimitCard({
         : null;
 
   const save = () => {
-    if (typeof value !== "object" || change.isPending) return;
+    if (!sendable || change.isPending) return;
     change.mutate(
       "minutes" in value
         ? { type: "session_minutes", period, minutes: value.minutes }
@@ -112,6 +89,7 @@ export function LimitCard({
   };
 
   const switchTo = (next: LimitPeriod) => {
+    if (change.isPending) return;
     setPeriod(next);
     setTyped("");
     change.reset();
@@ -147,28 +125,26 @@ export function LimitCard({
         <Segmented<LimitPeriod>
           value={period}
           onChange={switchTo}
-          options={[
-            { value: "day", label: t.t("rg.daily") },
-            { value: "week", label: t.t("rg.weekly") },
-            { value: "month", label: t.t("rg.monthly") },
-          ]}
+          options={(["day", "week", "month"] as const).map((option) => ({
+            value: option,
+            label: t.t(PERIOD_LABEL[option]),
+            // Its answer belongs to this period: wait for it before another.
+            disabled: change.isPending,
+          }))}
         />
 
-        {limit === null || valueText(limit, t) === null ? (
+        {limit === null || shown === null ? (
           <p className="text-muted text-sm">{t.t("rg.noLimit")}</p>
         ) : (
           <div className="flex flex-col gap-2">
             <p className="numeric font-semibold">
-              {t.t("rg.limitValue", { value: valueText(limit, t)! })}
+              {t.t("rg.limitValue", { value: shown })}
             </p>
             {limit.used !== null && limit.amount !== null && (
               <UsedBar
                 used={limit.used}
                 amount={limit.amount}
-                label={t.t(USED[period], {
-                  used: t.money(limit.used),
-                  limit: t.money(limit.amount),
-                })}
+                period={period}
               />
             )}
             {limit.pending && (
@@ -187,7 +163,7 @@ export function LimitCard({
           >
             {t.t("rg.newLimit")}
           </label>
-          <div className="bg-raised flex h-12 rounded-md">
+          <div className="bg-raised focus-within:outline-accent flex h-12 rounded-md focus-within:outline-2 focus-within:outline-offset-2">
             <span className="border-divider text-muted flex items-center border-r px-3 font-semibold">
               {minutes ? t.t("rg.minutesUnit") : t.t("header.currency")}
             </span>
@@ -216,54 +192,39 @@ export function LimitCard({
           )}
         </div>
 
-        <button
-          type="button"
-          onClick={save}
-          disabled={typeof value !== "object"}
-          aria-busy={change.isPending || undefined}
-          aria-disabled={change.isPending || undefined}
-          className="bg-raised text-text font-body flex h-11 cursor-pointer items-center justify-center gap-2 rounded-md text-sm font-bold disabled:cursor-not-allowed disabled:opacity-45"
-        >
-          {change.isPending && (
-            <Loader2 size={16} className="animate-spin" aria-hidden />
-          )}
-          {change.isPending ? t.t("rg.saving") : t.t("rg.saveLimit")}
-        </button>
-
-        {saved && (
-          <p role="status" className="numeric text-xs font-semibold">
+        <div className="flex flex-col">
+          {/* Off by aria-disabled, never disabled: the player who just saved
+              keeps their focus here. */}
+          <button
+            type="button"
+            onClick={save}
+            aria-busy={change.isPending || undefined}
+            aria-disabled={!sendable || change.isPending || undefined}
+            className={cn(
+              "bg-raised text-text font-body flex h-11 cursor-pointer items-center justify-center gap-2 rounded-md text-sm font-bold",
+              change.isPending
+                ? "cursor-wait"
+                : !sendable && "cursor-not-allowed opacity-45",
+            )}
+          >
+            {change.isPending && (
+              <Loader2 size={16} className="animate-spin" aria-hidden />
+            )}
+            {change.isPending ? t.t("rg.saving") : t.t("rg.saveLimit")}
+          </button>
+          {/* Always rendered — empty, it takes no room — so what it says
+              next is announced. */}
+          <p
+            role="status"
+            className="numeric mt-2 text-xs font-semibold empty:mt-0"
+          >
             {saved}
           </p>
-        )}
+        </div>
+
         {failure && <SaveFailed error={failure} />}
       </section>
     </Card>
-  );
-}
-
-/** How much of the limit the current period has used, as the API counts it. */
-function UsedBar({
-  used,
-  amount,
-  label,
-}: {
-  used: string;
-  amount: string;
-  label: string;
-}) {
-  const share = percentOf(used, amount);
-  return (
-    <div className="flex flex-col gap-1.5">
-      {/* Recessed track: the fill is accent, and a track the same colour as
-          the card it sits in would leave the bar floating. */}
-      <div className="bg-ground h-1.5 overflow-hidden rounded-full" aria-hidden>
-        <div
-          className={cn("h-full", share >= 90 ? "bg-loss" : "bg-accent")}
-          style={{ width: `${share}%` }}
-        />
-      </div>
-      <p className="text-muted numeric text-xs">{label}</p>
-    </div>
   );
 }
 
@@ -290,7 +251,13 @@ function SaveFailed({ error }: { error: Error }) {
         {t.t(refused ? "rg.notSavedTitle" : "rg.saveFailedTitle")}
       </p>
       <p className="text-text/80">
-        {refused ? error.message : t.t("rg.saveFailedBody")}
+        {!refused
+          ? t.t("rg.saveFailedBody")
+          : // The API's own title — unless the answer wasn't a Problem,
+            // whose only words are this app's technical ones.
+            isProblem(error)
+            ? error.message
+            : t.t("rg.refusedBody")}
       </p>
       {typeof detail === "string" && <p className="text-text/80">{detail}</p>}
     </div>

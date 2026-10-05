@@ -71,7 +71,8 @@ const STARTED = toExclusion(
   ) as components["schemas"]["Exclusion"],
 );
 
-type Answer = [number, unknown] | "drop";
+/** An answer now, never (`"drop"`), or later (a promise the test settles). */
+type Answer = [number, unknown] | "drop" | Promise<[number, unknown]>;
 
 /** Every `/api/…` call made, as `METHOD /path`, in order. */
 let asked: string[] = [];
@@ -106,10 +107,10 @@ function api() {
             status >= 400 ? "application/problem+json" : "application/json",
         },
       });
-    const answer = (queue: Answer[]) => {
+    const answer = async (queue: Answer[]) => {
       const next = queue.shift() ?? [500, problem(500, "SERVICE_UNAVAILABLE")];
       if (next === "drop") throw new TypeError("Failed to fetch");
-      return reply(next);
+      return reply(await next);
     };
     if (url.pathname === "/api/me") return reply([200, { player: signedIn }]);
     if (url.pathname === "/api/me/limits" && method === "GET") {
@@ -198,11 +199,10 @@ describe("the break banner", () => {
     });
 
     // 18:00 EAT is 12 in the evening on the Ethiopian clock; 10 Oct 2026 is
-    // Tikimt 1, 2019.
-    const banner = screen.getByRole("status");
-    expect(banner).toHaveTextContent("ዕረፍት እስከ");
-    expect(banner).toHaveTextContent("2019");
-    expect(banner).toHaveTextContent("12:00");
+    // Meskerem 30, 2019 (the year began on 11 Sep).
+    expect(screen.getByRole("status")).toHaveTextContent(
+      "ዕረፍት እስከ መስከረም 30 2019፣ ምሽት 12:00 ድረስ። ውርርድና ገቢ ቆመዋል።",
+    );
   });
 
   it("shows nothing without a break, and nothing for a guest", () => {
@@ -405,13 +405,77 @@ describe("setting a limit (AC-5)", () => {
     render(<ResponsibleGamingView />);
     const stake = await screen.findByRole("region", { name: "Stake limit" });
     const save = within(stake).getByRole("button", { name: "Save limit" });
-    expect(save).toBeDisabled();
+    // Off, but still where the keyboard can find it.
+    expect(save).toHaveAttribute("aria-disabled", "true");
 
     await user.type(within(stake).getByLabelText(/New limit/), "0");
 
     expect(stake).toHaveTextContent("Enter an amount above 0.");
-    expect(save).toBeDisabled();
+    expect(save).toHaveAttribute("aria-disabled", "true");
+    await user.click(save);
     expect(saved).toHaveLength(0);
+  });
+
+  it("keeps focus on Save, and says the save in a region that was already there (Q3)", async () => {
+    const lowered: RgLimit = {
+      ...WEEKLY_DEPOSIT,
+      amount: "600.00",
+      pending: null,
+    };
+    saves = [[200, lowered]];
+    api();
+    render(<ResponsibleGamingView />);
+    const deposit = await screen.findByRole("region", {
+      name: "Deposit limit",
+    });
+    // Mounted empty, so what it says next is announced.
+    const status = within(deposit).getByRole("status");
+    expect(status).toBeEmptyDOMElement();
+
+    await setLimit("Deposit limit", "600");
+
+    await waitFor(() =>
+      expect(status).toHaveTextContent("Saved. Your limit is now ETB 600.00."),
+    );
+    expect(
+      within(deposit).getByRole("button", { name: "Save limit" }),
+    ).toHaveFocus();
+  });
+
+  it("keeps the period while a save is on its way (Q2)", async () => {
+    let answerSave!: (answer: [number, unknown]) => void;
+    saves = [
+      new Promise((resolve) => {
+        answerSave = resolve;
+      }),
+    ];
+    api();
+    render(<ResponsibleGamingView />);
+    await screen.findByRole("region", { name: "Deposit limit" });
+
+    await setLimit("Deposit limit", "2000");
+
+    const daily = within(card("Deposit limit")).getByRole("button", {
+      name: "Daily",
+    });
+    expect(daily).toBeDisabled();
+    answerSave([200, RAISED]);
+    expect(
+      await within(card("Deposit limit")).findByText(
+        "Saved. Your new limit of ETB 2,000.00 starts on 04/10 · 13:00.",
+      ),
+    ).toBeInTheDocument();
+    expect(daily).toBeEnabled();
+  });
+
+  it("shows where the keyboard is in a limit field (Q8)", async () => {
+    api();
+    render(<ResponsibleGamingView />);
+    const stake = await screen.findByRole("region", { name: "Stake limit" });
+
+    expect(within(stake).getByLabelText(/New limit/).parentElement).toHaveClass(
+      "focus-within:outline-2",
+    );
   });
 
   it("says a limit wasn't saved, in the API's words", async () => {
@@ -436,6 +500,22 @@ describe("setting a limit (AC-5)", () => {
       "A limit can't be lowered below what you've already used.",
     );
     expect(count("GET /api/me/limits")).toBe(1);
+  });
+
+  it("says a limit wasn't saved in its own words when the answer isn't a Problem (Q4)", async () => {
+    saves = [[422, "Bad gateway"]];
+    api();
+    render(<ResponsibleGamingView />);
+    await screen.findByRole("region", { name: "Deposit limit" });
+
+    await setLimit("Deposit limit", "100");
+
+    const alert = await within(card("Deposit limit")).findByRole("alert");
+    expect(alert).toHaveTextContent("Your limit wasn’t saved");
+    expect(alert).toHaveTextContent(
+      "Something went wrong. Try again in a moment.",
+    );
+    expect(alert).not.toHaveTextContent("failed with");
   });
 
   it("says it couldn't save without an answer; saving again sends the same limit", async () => {
@@ -483,10 +563,11 @@ describe("taking a break (AC-6)", () => {
       "You’ll be signed out on every device, and you won’t be able to bet or deposit until it ends. It can’t be cancelled early.",
     );
     expect(excluded).toHaveLength(0);
-    // Pressed twice in a hurry: one break.
-    await user.dblClick(
-      within(dialog).getByRole("button", { name: "Confirm" }),
-    );
+    // The question opens on the safe answer: a stray Enter goes back (Q1).
+    expect(
+      within(dialog).getByRole("button", { name: "Go back" }),
+    ).toHaveFocus();
+    await user.click(within(dialog).getByRole("button", { name: "Confirm" }));
 
     const heading = await screen.findByRole("heading", {
       name: "Your break has started",
@@ -569,6 +650,9 @@ describe("taking a break (AC-6)", () => {
 
     const dialog = await ask("Self-exclusion", "Permanent", "Self-exclude");
     expect(dialog).toHaveAccessibleName("Exclude yourself permanently?");
+    expect(
+      within(dialog).getByRole("button", { name: "Go back" }),
+    ).toHaveFocus();
     expect(dialog).toHaveTextContent(
       "You’ll be signed out on every device, and you won’t be able to bet or deposit again. This can’t be undone. Open bets settle as normal.",
     );
@@ -641,6 +725,49 @@ describe("taking a break (AC-6)", () => {
     expect(queryClient.getQueryData(sessionKeys.me())).toEqual({
       player: CONTRACT_PLAYER,
     });
+  });
+
+  it("says a break didn't start in its own words when the answer isn't a Problem (Q4)", async () => {
+    exclusions = [[422, "Bad gateway"]];
+    api();
+    render(<ResponsibleGamingView />);
+    await screen.findByRole("region", { name: "Deposit limit" });
+
+    const dialog = await ask("Take a break", "24 hours", "Start break");
+    await user.click(within(dialog).getByRole("button", { name: "Confirm" }));
+
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent("Your break didn’t start");
+    expect(alert).toHaveTextContent(
+      "Something went wrong. Try again in a moment.",
+    );
+    expect(alert).not.toHaveTextContent("failed with");
+  });
+
+  it("won't ask the other question while a break is on its way", async () => {
+    let answerBreak!: (answer: [number, unknown]) => void;
+    exclusions = [
+      new Promise((resolve) => {
+        answerBreak = resolve;
+      }),
+    ];
+    api();
+    render(<ResponsibleGamingView />);
+    await screen.findByRole("region", { name: "Deposit limit" });
+
+    const dialog = await ask("Take a break", "7 days", "Start break");
+    await user.click(within(dialog).getByRole("button", { name: "Confirm" }));
+
+    const exclude = screen.getByRole("button", { name: "Self-exclude" });
+    expect(exclude).toHaveAttribute("aria-disabled", "true");
+    await user.click(exclude);
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+
+    answerBreak([201, STARTED]);
+    expect(
+      await screen.findByRole("heading", { name: "Your break has started" }),
+    ).toBeInTheDocument();
+    expect(excluded).toEqual([{ kind: "time_out", duration: "7d" }]);
   });
 
   it("says a break that may have started without an answer, and Try again sends it again", async () => {

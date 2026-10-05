@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { breakOf } from "@/features/responsible-gaming/lib/break";
 import {
+  breakOf,
   exclusionOutcome,
+  isProblem,
+} from "@/features/responsible-gaming/lib/break";
+import {
   limitFor,
   limitValue,
   openingPeriod,
@@ -124,5 +127,22 @@ describe("exclusionOutcome: what an unfinished break means (plan decision 8)", (
   it("knows it didn't start when the API said no", () => {
     expect(exclusionOutcome(answer(422, "VALIDATION_FAILED"))).toBe("refused");
     expect(exclusionOutcome(answer(403, "PERMISSION_DENIED"))).toBe("refused");
+  });
+});
+
+describe("isProblem: whose words a refusal is in (Q4)", () => {
+  it("is the API's for a Problem, and this app's technical ones otherwise", () => {
+    expect(
+      isProblem(new ApiError("Limit too low", 422, "VALIDATION_FAILED")),
+    ).toBe(true);
+    expect(
+      isProblem(
+        new ApiError("PUT /me/limits failed with 422", 422, "http_error"),
+      ),
+    ).toBe(false);
+    expect(isProblem(new ApiError("Failed to fetch", 0, "network"))).toBe(
+      false,
+    );
+    expect(isProblem(new Error("x"))).toBe(false);
   });
 });
