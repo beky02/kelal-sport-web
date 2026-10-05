@@ -28,9 +28,9 @@ export const CURRENCY = { code: "ETB", amharic: "ብር" } as const;
  * Copy for the system states, all **placeholders**.
  *
  * In production every one of these comes from the backend: a maintenance window
- * from a status endpoint, the reality check's interval from the account (F7b).
- * They sit here so the states can be built and reviewed before those endpoints
- * exist. A break's end and the limits are the account's already (F7a).
+ * from a status endpoint. They sit here so the state can be built and reviewed
+ * before that endpoint exists. A break's end and the limits are the account's
+ * already (F7a), and so is the reality check's interval (F7b).
  */
 export const SYSTEM = {
   maintenance: {
@@ -38,7 +38,6 @@ export const SYSTEM = {
     startedAt: "04:00 EAT",
     duration: "about 2 hours",
   },
-  realityCheck: { after: "1 hour" },
 } as const;
 
 /** Placeholder licence copy shown in the sidebar footer. */

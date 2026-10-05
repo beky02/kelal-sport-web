@@ -24,3 +24,14 @@ Each new acceptance test was seen failing against the behaviour it guards, then 
 - `Profile` › a failed sign-out says so on that row with Try again — the row's `SaveProblem` given no error.
 - `Profile` › a guest sees no devices and nothing is read — the section mounted for a guest.
 - `Profile` › drops the devices when another player signs in — `accountKeys.all` left out of `forgetPlayer`.
+- `reality-check` (unit) › comes due one interval after the visit starts; after an answer…; follows a changed interval — `nextCheckAt` an interval early.
+- `RealityCheck` › opens after the account's interval of play, not a minute before; Keep playing… one interval later — the same.
+- `RealityCheck` › follows the account's interval (30 min) — a fixed 60 minutes instead of `flags.realityCheckMinutes`.
+- `RealityCheck` › never opens without an interval or for a guest — `null` taken as 60.
+- `RealityCheck` › says hours and minutes when it opened late — the check opened over another dialog instead of waiting for it.
+- `RealityCheck` › a reload neither restarts the clock nor skips a check that came due — the visit not kept in `sessionStorage`; `begin` restarting a running visit.
+- `RealityCheck` › Keep playing…, follows…, Take a break… — `answer` not recording when.
+- `RealityCheck` › Take a break and View my limits answer it and open Responsible gaming — those buttons only dismissing.
+- `RealityCheck` › follows the account's interval (30 min) — minutes said as hours.
+- `RealityCheck` › signing out and in again starts a new visit — the visit not ended for a guest (added after this break first stayed green).
+- `ResponsibleGaming` › the session reminder shows the account's interval, and Off without one — the card showing a fixed 60.

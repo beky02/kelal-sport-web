@@ -330,12 +330,6 @@ export const ticketCheckSchema = z.object({
     .min(1),
 }) satisfies z.ZodType<TicketCheck>;
 
-export const sessionActivitySchema = z.object({
-  staked: z.number(),
-  won: z.number(),
-  net: z.number(),
-});
-
 /** `/api/wallet`: the API's balances, each the contract's `Money` string. */
 export const walletBalancesSchema = z.object({
   cash: z.string().regex(MONEY_PATTERN),
