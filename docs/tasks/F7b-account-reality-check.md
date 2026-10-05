@@ -1,7 +1,7 @@
 ---
 id: F7b
 title: Split from F7 — profile preferences on the account, active devices, the reality check from the server
-status: todo
+status: planned
 depends_on: [F4]
 contract_tags: [Me, Config]
 touches_money: true
