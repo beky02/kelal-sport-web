@@ -528,7 +528,11 @@
     "kycLock": "ገንዘብ ለማውጣት የፋይዳ መታወቂያዎን ያረጋግጡ።",
     "verifyNow": "አረጋግጥ",
     "withdrawUnavailable": "በመለያዎ ላይ ገንዘብ ማውጣት አሁን አይቻልም።",
-    "withdrawalTitle": "ወጪ"
+    "withdrawalTitle": "ወጪ",
+    "manage": "አስተዳድር",
+    "noDepositLimit": "የገቢ ገደብ አልተቀመጠም።",
+    "setLimit": "ገደብ ያስቀምጡ",
+    "depositLimitFailed": "የገቢ ገደብዎን መጫን አልቻልንም።"
   },
   "deposit": {
     "flowPhone": "በስልክዎ ያጽድቁ",

@@ -12,6 +12,7 @@ import { compareMoney } from "@/lib/money";
 import { useBreak } from "@/features/responsible-gaming/hooks/use-responsible-gaming";
 import { useRecentTransactions } from "../hooks/use-wallet";
 import type { WalletBalances } from "../types";
+import { DepositLimitCard } from "./DepositLimitCard";
 import { TransactionRow } from "./TransactionRow";
 
 const aboveZero = (amount: string | null): amount is string =>
@@ -137,6 +138,8 @@ export function WalletHome({
               </p>
             )}
           </div>
+
+          <DepositLimitCard />
         </div>
 
         <section aria-labelledby={recentId} className="min-w-0">

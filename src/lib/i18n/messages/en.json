@@ -528,7 +528,11 @@
     "kycLock": "Verify your Fayda ID to unlock withdrawals.",
     "verifyNow": "Verify",
     "withdrawUnavailable": "Withdrawals aren’t available on your account right now.",
-    "withdrawalTitle": "Withdrawal"
+    "withdrawalTitle": "Withdrawal",
+    "manage": "Manage",
+    "noDepositLimit": "No deposit limit set.",
+    "setLimit": "Set a limit",
+    "depositLimitFailed": "We couldn’t load your deposit limit."
   },
   "deposit": {
     "flowPhone": "Approve on your phone",
