@@ -187,3 +187,11 @@ Try again. Unknown codes: the API's title and Try again.
 ## Sub-tasks
 
 None beyond F7e (the figures, which need 012).
+
+## Steps
+
+1. Server, mappers and route handlers for `PATCH /v1/me` and the sessions (route and mapper tests).
+2. Language and Offers on the account; login takes the account's language (AC-8).
+3. The devices section (AC-9).
+4. The reality check's clock and dialog; the read-only session-reminder card; the mock removed (AC-10).
+5. Strings, translation notes, `pnpm ui` screens, design pages, contract request 012, the F7e task file.
