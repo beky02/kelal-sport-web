@@ -68,11 +68,12 @@ export function usePlaceBet(owner: string | null) {
     },
     onSuccess: (receipt, { attempt }) => {
       useBetSlipStore.getState().placementPlaced(attempt.key, receipt);
-      // The stake left the wallet: the balance, the history and the bets are
-      // read again, never adjusted here.
+      // The stake left the wallet: the balance, the history, the bets and the
+      // limits (a stake limit's used) are read again, never adjusted here.
       void queryClient.invalidateQueries({ queryKey: walletKeys.all });
       void queryClient.invalidateQueries({ queryKey: transactionKeys.all });
       void queryClient.invalidateQueries({ queryKey: betKeys.all });
+      void queryClient.invalidateQueries({ queryKey: rgKeys.all });
     },
     onError: (error, { attempt: { request, key } }) => {
       const slip = useBetSlipStore.getState();
@@ -86,13 +87,14 @@ export function usePlaceBet(owner: string | null) {
       const outcome = placementOutcome(error);
       switch (outcome.kind) {
         case "unanswered":
-          // The bet may exist. The wallet and bets are read again, so a stake
-          // that did go shows in the balance and My bets; only Try again with
-          // the same key settles it.
+          // The bet may exist. The wallet, bets and limits are read again, so
+          // a stake that did go shows in the balance, My bets and the stake
+          // limit; only Try again with the same key settles it.
           slip.placementUnanswered(key);
           void queryClient.invalidateQueries({ queryKey: walletKeys.all });
           void queryClient.invalidateQueries({ queryKey: transactionKeys.all });
           void queryClient.invalidateQueries({ queryKey: betKeys.all });
+          void queryClient.invalidateQueries({ queryKey: rgKeys.all });
           return;
         case "session":
           // The session-ended dialog and Log in to bet take over from /api/me.

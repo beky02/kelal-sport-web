@@ -180,11 +180,13 @@ export function depositRefusal(
 
     case "RG_SELF_EXCLUDED":
     case "RG_COOLING_OFF":
+      // A break can't be ended from here; the way on is the limits page (F7a).
       return notice(
         { key: "deposit.refused.breakTitle" },
         ctx.breakUntil
           ? { key: "deposit.refused.breakUntil", date: ctx.breakUntil }
           : { key: "deposit.refused.break" },
+        [{ kind: "viewLimits" }],
       );
 
     case "KYC_REQUIRED":

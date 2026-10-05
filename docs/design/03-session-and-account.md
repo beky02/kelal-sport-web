@@ -49,17 +49,20 @@ other job is public: `/t/{x}` with no ticket number in it gets a 404 rendered wh
 
 ## Caches and identity
 
-Everything only a player may see — wallet, bets, transactions, the break status — is removed from the
+Everything only a player may see — wallet, bets, transactions, payments, limits — is removed from the
 query cache whenever the session changes hands: on logout, on a successful login before `/api/me` is
-read, and when the watcher sees a player become a guest. However fresh the cache, the next player never
-sees the previous one's balance.
+read, after a break or self-exclusion is started (F7a), and when the watcher sees a player become a guest.
+However fresh the cache, the next player never sees the previous one's balance. Whether a break is in
+force is `/api/me`'s own answer (`flags.excluded_until`, `status`), read with who is signed in.
 
 ## Session ended
 
 When a player becomes a guest without having logged out, the session-ended dialog says so once over
 whatever page they are on ("Your session has ended. Log in again to continue. Your bet slip is saved."),
 with Log in again or Keep browsing. The slip underneath is untouched. The copy makes no claim about
-why — the API decides session validity (expiry, rotation reuse, self-exclusion, password reset).
+why — the API decides session validity (expiry, rotation reuse, self-exclusion, password reset). A break
+or self-exclusion started on this device counts as a logout (F7a): the player just asked for it, and the
+page says the break started instead.
 
 ## The auth dialog
 

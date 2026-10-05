@@ -3,10 +3,11 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslation } from "@/lib/i18n/use-translation";
-import { useDateTimeText } from "@/lib/i18n/use-date-time-text";
+import { useLongDateTimeText } from "@/lib/i18n/use-long-date-time-text";
 import { routes } from "@/config/routes";
 import { useSession } from "@/features/auth/hooks/use-session";
 import { useAuthStore } from "@/features/auth/stores/auth.store";
+import { useBreak } from "@/features/responsible-gaming/hooks/use-responsible-gaming";
 import {
   useDepositAttempt,
   useDepositIntents,
@@ -26,6 +27,7 @@ import { WALLET_FLOW } from "../types";
 import { AmountStep } from "./AmountStep";
 import { ConfirmStep } from "./ConfirmStep";
 import { DepositRefused, DepositUnanswered } from "./DepositAlert";
+import { DepositPaused } from "./DepositPaused";
 import { DepositStatus } from "./DepositStatus";
 import { FlowHeader } from "./FlowHeader";
 import { MethodStep } from "./MethodStep";
@@ -59,8 +61,10 @@ export function DepositFlow({
 }) {
   const t = useTranslation();
   const router = useRouter();
-  const dateTime = useDateTimeText();
-  const { kycVerified, canWithdraw, player } = useSession();
+  const endText = useLongDateTimeText();
+  const { kycVerified, canWithdraw } = useSession();
+  // A break the player took, as /api/me reports it: no deposit starts.
+  const pause = useBreak();
   const openAuth = useAuthStore((s) => s.open);
   const methods = usePaymentMethods(true);
   const attempt = useDepositAttempt(owner);
@@ -212,7 +216,25 @@ export function DepositFlow({
     attempt.refusal && isThis(attempt.refusal.attempt.request)
       ? attempt.refusal
       : null;
-  const breakUntil = player?.flags.excludedUntil ?? null;
+  const breakUntil = pause?.until ? endText(pause.until) : null;
+
+  // During a break nothing new starts here — the header's Deposit and the
+  // slip's land on this — but a deposit already on its way is still shown,
+  // and one that had no answer keeps its Try again: the same key only asks
+  // after that deposit, as the slip's Try again does for a bet.
+  if (pause && display !== "result" && !(display === "confirm" && unanswered)) {
+    return (
+      <>
+        <FlowHeader
+          title={t.t("wallet.deposit")}
+          step="result"
+          onBack={leave}
+          backLabel={t.t("auth.back")}
+        />
+        <DepositPaused until={breakUntil} onBack={leave} />
+      </>
+    );
+  }
 
   return (
     <>
@@ -272,7 +294,7 @@ export function DepositFlow({
               notice={depositRefusal(refusal.error, {
                 method,
                 amount: request.amount,
-                breakUntil: breakUntil ? dateTime(breakUntil) : null,
+                breakUntil,
                 retried: refusal.retried,
               })}
               onFix={fix}

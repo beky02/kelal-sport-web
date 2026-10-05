@@ -1,0 +1,128 @@
+"use client";
+
+import { useId } from "react";
+import Link from "next/link";
+import { CircleAlert } from "lucide-react";
+import { Skeleton } from "@/components/ui/Skeleton";
+import { routes } from "@/config/routes";
+import {
+  PERIOD_LABEL,
+  UsedBar,
+  pendingText,
+} from "@/features/responsible-gaming/components/LimitLines";
+import { useLimits } from "@/features/responsible-gaming/hooks/use-responsible-gaming";
+import { LIMIT_PERIODS } from "@/features/responsible-gaming/types";
+import { useDateTimeText } from "@/lib/i18n/use-date-time-text";
+import { useTranslation } from "@/lib/i18n/use-translation";
+
+/**
+ * The player's deposit limits, from the account (AC-7): for each — a day, a
+ * week, a month — what the current period has used of it and any change the
+ * API holds back, exactly as `/v1/me/limits` states them. Nothing is worked
+ * out here: no "left", which would be a sum the API doesn't make (and a
+ * lowered limit can sit below what is already used). Manage leads to where a
+ * limit is set; a limit the player set is not an obstacle to hide. It reads
+ * as the responsible-gaming page does (`LimitLines`).
+ */
+export function DepositLimitCard() {
+  const t = useTranslation();
+  const when = useDateTimeText();
+  const titleId = useId();
+  // The wallet is only shown to a signed-in player.
+  const limits = useLimits();
+
+  // Each deposit limit, day before week before month, its amount a string.
+  const deposits = limits.data
+    ? LIMIT_PERIODS.flatMap((period) =>
+        limits.data.flatMap(({ amount, ...limit }) =>
+          limit.type === "deposit" && limit.period === period && amount !== null
+            ? [{ ...limit, amount }]
+            : [],
+        ),
+      )
+    : null;
+
+  return (
+    <section
+      aria-labelledby={titleId}
+      className="bg-surface mx-4 mt-3.5 flex flex-col gap-2.5 rounded-md p-3"
+    >
+      <div className="flex items-center justify-between gap-3 text-xs">
+        <h3 id={titleId} className="font-display text-[15px]">
+          {t.t("rg.depositLimit")}
+        </h3>
+        {deposits !== null && deposits.length > 0 && (
+          <Link
+            href={routes.responsibleGaming}
+            // A 44 px target that doesn't push the heading row apart.
+            className="text-accent -my-3 inline-flex min-h-11 items-center px-1 font-semibold"
+          >
+            {t.t("wallet.manage")}
+          </Link>
+        )}
+      </div>
+
+      {limits.isPending ? (
+        <div className="flex flex-col gap-2">
+          <Skeleton className="h-1.5 w-full rounded-full" />
+          <Skeleton className="h-2.5 w-48" />
+        </div>
+      ) : deposits === null ? (
+        <div className="flex items-center gap-2.5">
+          <CircleAlert
+            size={17}
+            strokeWidth={1.5}
+            aria-hidden
+            className="text-loss shrink-0"
+          />
+          <p className="min-w-0 flex-1 text-xs">
+            {t.t("wallet.depositLimitFailed")}
+          </p>
+          <button
+            type="button"
+            onClick={() => void limits.refetch()}
+            className="bg-raised text-text font-body min-h-11 shrink-0 cursor-pointer rounded-lg px-3 text-xs font-bold"
+          >
+            {t.t("common.retry")}
+          </button>
+        </div>
+      ) : deposits.length === 0 ? (
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-muted text-xs">{t.t("wallet.noDepositLimit")}</p>
+          <Link
+            href={routes.responsibleGaming}
+            className="text-accent -my-3 inline-flex min-h-11 shrink-0 items-center px-1 text-xs font-semibold"
+          >
+            {t.t("wallet.setLimit")}
+          </Link>
+        </div>
+      ) : (
+        <ul className="flex flex-col gap-3">
+          {deposits.map((limit) => (
+            <li key={limit.period} className="flex flex-col gap-1.5">
+              <span className="text-xs font-semibold">
+                {t.t(PERIOD_LABEL[limit.period])}
+              </span>
+              {limit.used !== null ? (
+                <UsedBar
+                  used={limit.used}
+                  amount={limit.amount}
+                  period={limit.period}
+                />
+              ) : (
+                <span className="numeric text-xs">
+                  {t.t("rg.limitValue", { value: t.money(limit.amount) })}
+                </span>
+              )}
+              {limit.pending && (
+                <span className="text-muted numeric text-xs">
+                  {pendingText(limit.pending, t, when)}
+                </span>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}

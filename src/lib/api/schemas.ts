@@ -75,6 +75,17 @@ import {
   type Withdrawal,
   type WithdrawalRequest,
 } from "@/features/wallet/types";
+import {
+  EXCLUSION_DURATIONS,
+  EXCLUSION_KINDS,
+  LIMIT_PERIODS,
+  LIMIT_TYPES,
+  MONEY_LIMIT_TYPES,
+  type Exclusion,
+  type LimitChange,
+  type RgLimit,
+  type SelfExclusionRequest,
+} from "@/features/responsible-gaming/types";
 
 export const localizedSchema = z.object({
   en: z.string(),
@@ -318,11 +329,6 @@ export const ticketCheckSchema = z.object({
     .min(1),
 }) satisfies z.ZodType<TicketCheck>;
 
-export const responsibleGamingStatusSchema = z.object({
-  coolOffUntil: z.string().nullable(),
-  selfExcludedUntil: z.string().nullable(),
-});
-
 export const sessionActivitySchema = z.object({
   staked: z.number(),
   won: z.number(),
@@ -494,6 +500,68 @@ export const withdrawalRequestSchema = z.strictObject({
     z.strictObject({ kind: z.literal("new"), account: phoneSchema }),
   ]),
 }) satisfies z.ZodType<WithdrawalRequest>;
+
+// ── responsible gambling (F7a) ────────────────────────────────────────────
+
+const limitPeriodSchema = z.enum(LIMIT_PERIODS);
+
+/** `/api/me/limits`: one of the player's limits, the API's strings and times. */
+export const rgLimitSchema = z.object({
+  type: z.enum(LIMIT_TYPES),
+  period: limitPeriodSchema,
+  amount: z.string().regex(MONEY_PATTERN).nullable(),
+  minutes: z.number().int().nullable(),
+  effectiveFrom: z.iso.datetime({ offset: true }),
+  used: z.string().regex(MONEY_PATTERN).nullable(),
+  pending: z
+    .object({
+      amount: z.string().regex(MONEY_PATTERN).nullable(),
+      minutes: z.number().int().nullable(),
+      effectiveFrom: z.iso.datetime({ offset: true }),
+    })
+    .nullable(),
+}) satisfies z.ZodType<RgLimit>;
+
+export const rgLimitsSchema = z.array(rgLimitSchema);
+
+/**
+ * What `PUT /api/me/limits` accepts from the browser: a money limit in the
+ * contract's form above zero, or a time limit in whole minutes from one —
+ * each with its own field only, strict, so nothing else rides along (a time
+ * limit with `amount: null` would remove it). Whether the API takes the
+ * value is the API's to say.
+ */
+export const limitChangeSchema = z.union([
+  z.strictObject({
+    type: z.enum(MONEY_LIMIT_TYPES),
+    period: limitPeriodSchema,
+    amount: contractMoneySchema.refine(
+      (amount) => compareMoney(amount, "0.00") > 0,
+      "Not an amount",
+    ),
+  }),
+  z.strictObject({
+    type: z.literal("session_minutes"),
+    period: limitPeriodSchema,
+    minutes: z.number().int().min(1).max(999_999),
+  }),
+]) satisfies z.ZodType<LimitChange>;
+
+/**
+ * What `POST /api/me/self-exclusion` accepts from the browser: one of the
+ * contract's kinds and durations, nothing else.
+ */
+export const selfExclusionRequestSchema = z.strictObject({
+  kind: z.enum(EXCLUSION_KINDS),
+  duration: z.enum(EXCLUSION_DURATIONS),
+}) satisfies z.ZodType<SelfExclusionRequest>;
+
+/** `/api/me/self-exclusion`: the exclusion the API started. */
+export const exclusionSchema = z.object({
+  kind: z.enum([...EXCLUSION_KINDS, "operator_exclusion"]),
+  startsAt: z.iso.datetime({ offset: true }),
+  endsAt: z.iso.datetime({ offset: true }).nullable(),
+}) satisfies z.ZodType<Exclusion>;
 
 export type BoardSectionDto = z.infer<typeof boardSectionSchema>;
 

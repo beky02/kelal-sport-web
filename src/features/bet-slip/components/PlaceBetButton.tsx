@@ -12,7 +12,8 @@ import type { BetSlipTotals, CtaAction } from "../lib/calculate";
  * One button with one job at a time: if the slip cannot be placed, it does the
  * next thing that would make it placeable instead of sitting greyed out with no
  * explanation. Only an unresolvable conflict actually disables it, because the
- * user has to choose which pick to drop. While a bet is unconfirmed its job is
+ * user has to choose which pick to drop — and a break the player took, which
+ * nothing on the slip can end. While a bet is unconfirmed its job is
  * Try again — the same bet with the same key — as long as the slip above it
  * still is that bet; once it is another, it places that as a new bet. Every
  * job that charges shows the amount it charges (`amount`).
@@ -57,6 +58,7 @@ export function PlaceBetButton({
     "remove-suspended": t.t("betSlip.removeSuspended"),
     deposit: t.t("betSlip.alerts.deposit"),
     "blocked-conflict": t.t("betSlip.removeSameMatch"),
+    paused: t.t("betSlip.paused"),
     login: t.t("betSlip.loginToBet"),
   };
 
@@ -80,6 +82,7 @@ export function PlaceBetButton({
       case "login":
         return onLogin();
       case "blocked-conflict":
+      case "paused":
         return undefined;
     }
   };

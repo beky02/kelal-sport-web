@@ -1,12 +1,11 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { CircleAlert, Clock, Lock } from "lucide-react";
+import { Clock, Lock } from "lucide-react";
 import { useTranslation } from "@/lib/i18n/use-translation";
 import { SYSTEM } from "@/config/constants";
 import { routes } from "@/config/routes";
 import { useLogout } from "@/features/auth/hooks/use-session";
-import { useStartBreak } from "@/features/responsible-gaming/hooks/use-responsible-gaming";
 import { useSystemStore } from "@/stores/system.store";
 import { FullScreenNotice } from "./FullScreenNotice";
 import { SystemDialog } from "./SystemDialog";
@@ -25,7 +24,6 @@ export function SystemOverlays() {
 
   const overlay = useSystemStore((s) => s.overlay);
   const dismiss = useSystemStore((s) => s.dismiss);
-  const startBreak = useStartBreak();
   const logout = useLogout();
 
   const activity = useSessionActivity(overlay === "reality");
@@ -71,15 +69,11 @@ export function SystemOverlays() {
             onClick: dismiss,
           },
           {
+            // A break needs its length, and the question asked once in full
+            // sentences: both are on the responsible-gaming page.
             label: t.t("system.realityTakeBreak"),
             kind: "secondary",
-            onClick: () => {
-              startBreak.mutate({
-                kind: "cool-off",
-                until: SYSTEM.coolOff.until,
-              });
-              toLimits();
-            },
+            onClick: toLimits,
           },
           {
             label: t.t("system.realityMyLimits"),
@@ -112,25 +106,6 @@ export function SystemOverlays() {
               logout.mutate();
               dismiss();
             },
-          },
-        ]}
-      />
-
-      <SystemDialog
-        open={overlay === "limit"}
-        tone="loss"
-        icon={<CircleAlert size={22} strokeWidth={1.6} />}
-        title={t.t("system.limitTitle")}
-        body={t.t("system.limitBody", {
-          amount: t.money(SYSTEM.depositLimit.dailyLimit),
-          resetTime: SYSTEM.depositLimit.resetTime,
-        })}
-        actions={[
-          { label: t.t("system.limitOk"), kind: "primary", onClick: dismiss },
-          {
-            label: t.t("system.viewLimits"),
-            kind: "secondary",
-            onClick: toLimits,
           },
         ]}
       />

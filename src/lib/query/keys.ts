@@ -74,9 +74,13 @@ export const transactionKeys = {
   recent: (lang: string) => [...transactionKeys.all, "recent", lang] as const,
 };
 
-/** A break or self-exclusion in force — server state, read like the balance. */
+/**
+ * The player's limits (F7a) — personal data, under one root the session
+ * watcher drops when the player changes. A break in force is `/api/me`'s.
+ */
 export const rgKeys = {
   all: ["responsible-gaming"] as const,
+  limits: () => [...rgKeys.all, "limits"] as const,
 };
 
 export const walletKeys = {

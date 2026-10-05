@@ -640,6 +640,159 @@ const problemJson = (status: number, code: string, extra = {}) => ({
   ...extra,
 });
 
+/** When the break `onBreak` reports ends: 10 Oct, 18:00 EAT. */
+const BREAK_UNTIL = "2026-10-10T15:00:00Z";
+
+/**
+ * `/api/me` as the API reports a player on a break (F7a) — from the start, or
+ * only once a request to `after` has gone (the refusal that reveals a break
+ * taken on another device); `permanent` is a self-exclusion with no end
+ * (`status: self_excluded`, no date). Prism's player has none.
+ */
+const onBreak = async (
+  page: Page,
+  after?: string,
+  { permanent = false }: { permanent?: boolean } = {},
+) => {
+  let revealed = after === undefined;
+  if (after) {
+    page.on("request", (request) => {
+      if (new URL(request.url()).pathname === after) revealed = true;
+    });
+  }
+  await page.route("**/api/me", async (route) => {
+    const response = await route.fetch();
+    const body = (await response.json()) as {
+      player: { status: string; flags: Record<string, unknown> } | null;
+    };
+    if (revealed && body.player) {
+      if (permanent) body.player.status = "self_excluded";
+      else body.player.flags.excludedUntil = BREAK_UNTIL;
+    }
+    await route.fulfill({ response, json: body });
+  });
+};
+
+/** A weekly deposit limit lowered to 600.00: in force at once, as the API answers it. */
+const LOWERED_LIMIT = {
+  type: "deposit",
+  period: "week",
+  amount: "600.00",
+  minutes: null,
+  effectiveFrom: "2026-10-05T09:00:00Z",
+  used: "500.00",
+  pending: null,
+};
+
+/** Logged in, with saving a limit answered in the browser — and every read after it. */
+const limitLowered = async (page: Page) => {
+  await loginViaApi(page);
+  let lowered = false;
+  await page.route("**/api/me/limits", async (route) => {
+    if (route.request().method() === "PUT") {
+      lowered = true;
+      return route.fulfill({ json: LOWERED_LIMIT });
+    }
+    if (!lowered) return route.continue();
+    const response = await route.fetch();
+    const limits = (await response.json()) as Array<{ type: string }>;
+    await route.fulfill({
+      response,
+      json: [LOWERED_LIMIT, ...limits.filter((l) => l.type !== "deposit")],
+    });
+  });
+};
+
+/** The limits answered in the browser: none set, or a failure. */
+const limitsAnswer = (status: number, json: unknown) => async (page: Page) => {
+  await loginViaApi(page);
+  await page.route("**/api/me/limits", (route) =>
+    route.request().method() === "GET"
+      ? route.fulfill({
+          status,
+          contentType:
+            status >= 400 ? "application/problem+json" : "application/json",
+          json,
+        })
+      : route.continue(),
+  );
+};
+
+/** The deposit card's New limit, typed and saved. */
+const saveDepositLimit =
+  (amount: string) => async (page: Page, _device: Device, lang: Lang) => {
+    const t = MESSAGES[lang];
+    const card = page.getByRole("region", { name: t.rg.depositLimit });
+    await card.getByLabel(t.rg.newLimit).fill(amount);
+    await card.getByRole("button", { name: t.rg.saveLimit }).click();
+    await card.getByRole("status").waitFor();
+  };
+
+/** A length chosen in a group, its button pressed: the question asked once. */
+const askFor =
+  (
+    group: (t: (typeof MESSAGES)[Lang]) => string,
+    length: (t: (typeof MESSAGES)[Lang]) => string,
+    button: (t: (typeof MESSAGES)[Lang]) => string,
+    confirm = false,
+  ) =>
+  async (page: Page, _device: Device, lang: Lang) => {
+    const t = MESSAGES[lang];
+    await page
+      .getByRole("radiogroup", { name: group(t) })
+      .getByRole("radio", { name: length(t) })
+      .click();
+    await page.getByRole("button", { name: button(t) }).click();
+    const dialog = page.getByRole("alertdialog");
+    await dialog.waitFor();
+    if (!confirm) return;
+    await dialog.getByRole("button", { name: t.rg.confirm }).click();
+    await page.getByRole("heading", { name: t.rg.breakStartedTitle }).waitFor();
+  };
+
+/** Logged in, with starting a break answered in the browser — `"abort"` for no answer. */
+const exclusionAnswers =
+  (answer: [number, unknown] | "abort") => async (page: Page) => {
+    await loginViaApi(page);
+    await page.route("**/api/me/self-exclusion", (route) =>
+      answer === "abort"
+        ? route.abort("failed")
+        : route.fulfill({
+            status: answer[0],
+            contentType:
+              answer[0] >= 400
+                ? "application/problem+json"
+                : "application/json",
+            json: answer[1],
+          }),
+    );
+  };
+
+/** A length chosen and its question confirmed; waits for `text`. */
+const confirmBreak =
+  (
+    group: (t: (typeof MESSAGES)[Lang]) => string,
+    length: (t: (typeof MESSAGES)[Lang]) => string,
+    button: (t: (typeof MESSAGES)[Lang]) => string,
+    text: (t: (typeof MESSAGES)[Lang]) => string,
+  ) =>
+  async (page: Page, device: Device, lang: Lang) => {
+    const t = MESSAGES[lang];
+    await askFor(group, length, button)(page, device, lang);
+    await page
+      .getByRole("alertdialog")
+      .getByRole("button", { name: t.rg.confirm })
+      .click();
+    await page.getByText(text(t), { exact: true }).first().waitFor();
+  };
+
+/** Waits for a heading, by its message. */
+const headingShows =
+  (text: (t: (typeof MESSAGES)[Lang]) => string) =>
+  async (page: Page, _device: Device, lang: Lang) => {
+    await page.getByRole("heading", { name: text(MESSAGES[lang]) }).waitFor();
+  };
+
 /**
  * Logged in, with starting a deposit answered in the browser — `"abort"` for
  * no answer at all — and, when given, every read of it.
@@ -933,6 +1086,49 @@ const SCREENS: Array<{
     allowConsole: /status of 403/,
   },
   {
+    // Excluded on another device: the refusal, then /api/me's end — the slip
+    // locked with it (AC-2).
+    name: "home-slip-break",
+    path: "/",
+    before: async (page) => {
+      await loginViaApi(page);
+      await onBreak(page, "/api/bets");
+    },
+    prepare: placeAnd("alert", {
+      answer: refuse(403, {
+        title: "You’re self-excluded",
+        code: "RG_SELF_EXCLUDED",
+      }),
+      then: (page, lang) =>
+        page
+          .getByRole("button", { name: MESSAGES[lang].betSlip.paused })
+          .filter({ visible: true })
+          .waitFor(),
+    }),
+    allowConsole: /status of 403/,
+  },
+  {
+    // A permanent self-exclusion revealed by a refusal: no end date.
+    name: "home-slip-excluded",
+    path: "/",
+    before: async (page) => {
+      await loginViaApi(page);
+      await onBreak(page, "/api/bets", { permanent: true });
+    },
+    prepare: placeAnd("alert", {
+      answer: refuse(403, {
+        title: "You’ve excluded yourself",
+        code: "RG_SELF_EXCLUDED",
+      }),
+      then: (page, lang) =>
+        page
+          .getByRole("button", { name: MESSAGES[lang].betSlip.paused })
+          .filter({ visible: true })
+          .waitFor(),
+    }),
+    allowConsole: /status of 403/,
+  },
+  {
     name: "home-slip-insufficient",
     path: "/",
     before: loginViaApi,
@@ -1128,6 +1324,32 @@ const SCREENS: Array<{
   },
   { name: "transactions-guest", path: "/transactions", before: staleSession },
   { name: "wallet", path: "/wallet", before: loginViaApi },
+  {
+    name: "wallet-no-limit",
+    path: "/wallet",
+    before: limitsAnswer(200, []),
+  },
+  {
+    // Retried twice, as every read is, before it says so.
+    name: "wallet-limit-failed",
+    path: "/wallet",
+    before: limitsAnswer(503, problemJson(503, "SERVICE_UNAVAILABLE")),
+    prepare: async (page, _device, lang) => {
+      await page
+        .getByText(MESSAGES[lang].wallet.depositLimitFailed, { exact: true })
+        .waitFor();
+    },
+    allowConsole: /503/,
+  },
+  {
+    // Deposit off with its reason; Withdraw stays (RG-02).
+    name: "wallet-break",
+    path: "/wallet",
+    before: async (page) => {
+      await loginViaApi(page);
+      await onBreak(page);
+    },
+  },
   { name: "wallet-held", path: "/wallet", before: walletHeld },
   {
     name: "wallet-error",
@@ -1255,20 +1477,22 @@ const SCREENS: Array<{
     path: "/wallet?action=deposit",
     before: async (page) => {
       await depositAnswers([403, problemJson(403, "RG_COOLING_OFF")])(page);
-      // On a break until 10 Oct, 18:00 EAT: the date the refusal names.
-      await page.route("**/api/me", async (route) => {
-        const response = await route.fetch();
-        const body = (await response.json()) as {
-          player: { flags: Record<string, unknown> } | null;
-        };
-        if (body.player) {
-          body.player.flags.excludedUntil = "2026-10-10T15:00:00Z";
-        }
-        await route.fulfill({ response, json: body });
-      });
+      // A break taken elsewhere: the refusal reveals it, and /api/me — read
+      // again — says until 10 Oct, 18:00 EAT. No deposit starts after that.
+      await onBreak(page, "/api/deposits");
     },
     prepare: depositShows((t) => t.deposit.refused.breakTitle),
     allowConsole: /403/,
+  },
+  {
+    // On a break /api/me reports: the header's Deposit lands on this (F7a).
+    name: "deposit-paused",
+    path: "/wallet?action=deposit",
+    before: async (page) => {
+      await loginViaApi(page);
+      await onBreak(page);
+    },
+    prepare: headingShows((t) => t.deposit.refused.breakTitle),
   },
   {
     name: "deposit-kyc",
@@ -1722,7 +1946,212 @@ const SCREENS: Array<{
   },
   { name: "profile", path: "/profile", before: loginViaApi },
   { name: "profile-guest", path: "/profile" },
-  { name: "responsible-gaming", path: "/responsible-gaming" },
+  {
+    // Prism's limits: a weekly deposit limit with a raise pending (AC-5).
+    name: "responsible-gaming",
+    path: "/responsible-gaming",
+    before: loginViaApi,
+    prepare: headingShows((t) => t.rg.depositLimit),
+  },
+  { name: "responsible-gaming-guest", path: "/responsible-gaming" },
+  {
+    name: "responsible-gaming-failed",
+    path: "/responsible-gaming",
+    before: limitsAnswer(503, problemJson(503, "SERVICE_UNAVAILABLE")),
+    // Retried twice, as every read is, before it says so.
+    prepare: headingShows((t) => t.rg.limitsFailedTitle),
+    allowConsole: /503/,
+  },
+  {
+    // A cut, in force at once (AC-5).
+    name: "responsible-gaming-saved",
+    path: "/responsible-gaming",
+    before: limitLowered,
+    prepare: saveDepositLimit("600"),
+  },
+  {
+    // The API's no to a limit, in its words (AC-5).
+    name: "responsible-gaming-not-saved",
+    path: "/responsible-gaming",
+    before: async (page) => {
+      await loginViaApi(page);
+      await page.route("**/api/me/limits", (route) =>
+        route.request().method() === "PUT"
+          ? route.fulfill({
+              status: 422,
+              contentType: "application/problem+json",
+              json: problemJson(422, "VALIDATION_FAILED", {
+                title: "This limit can’t be set",
+                detail:
+                  "A limit can’t be lowered below what you’ve already used.",
+              }),
+            })
+          : route.continue(),
+      );
+    },
+    prepare: async (page, device, lang) => {
+      const t = MESSAGES[lang];
+      const card = page.getByRole("region", { name: t.rg.depositLimit });
+      await card.getByLabel(t.rg.newLimit).fill("100");
+      await card.getByRole("button", { name: t.rg.saveLimit }).click();
+      await card.getByRole("alert").waitFor();
+    },
+    allowConsole: /422/,
+  },
+  {
+    // Asked once, in full sentences (AC-6).
+    name: "responsible-gaming-confirm",
+    path: "/responsible-gaming",
+    before: loginViaApi,
+    prepare: askFor(
+      (t) => t.rg.selfExclusion,
+      (t) => t.rg.exclude1y,
+      (t) => t.rg.selfExclude,
+    ),
+  },
+  {
+    // Prism's 7-day break: signed out, the end shown (AC-6).
+    name: "responsible-gaming-started",
+    path: "/responsible-gaming",
+    before: loginViaApi,
+    prepare: askFor(
+      (t) => t.rg.takeBreak,
+      (t) => t.rg.break7d,
+      (t) => t.rg.startBreak,
+      true,
+    ),
+  },
+  {
+    // No answer to the break: it may have started (AC-6).
+    name: "responsible-gaming-unconfirmed",
+    path: "/responsible-gaming",
+    before: async (page) => {
+      await loginViaApi(page);
+      await page.route("**/api/me/self-exclusion", (route) =>
+        route.abort("failed"),
+      );
+    },
+    prepare: async (page, device, lang) => {
+      const t = MESSAGES[lang];
+      await askFor(
+        (m) => m.rg.takeBreak,
+        (m) => m.rg.break7d,
+        (m) => m.rg.startBreak,
+      )(page, device, lang);
+      await page
+        .getByRole("alertdialog")
+        .getByRole("button", { name: t.rg.confirm })
+        .click();
+      await page
+        .getByText(t.rg.breakUnconfirmedTitle, { exact: true })
+        .waitFor();
+    },
+    allowConsole: /ERR_FAILED/,
+  },
+  {
+    // A permanent self-exclusion: no end date anywhere (F7a).
+    name: "responsible-gaming-excluded",
+    path: "/responsible-gaming",
+    before: async (page) => {
+      await loginViaApi(page);
+      await onBreak(page, undefined, { permanent: true });
+    },
+    prepare: headingShows((t) => t.rg.depositLimit),
+  },
+  {
+    // Prism's PUT answer: a raise held back until the API's time (AC-5).
+    name: "responsible-gaming-raised",
+    path: "/responsible-gaming",
+    before: loginViaApi,
+    prepare: saveDepositLimit("2000"),
+  },
+  {
+    name: "responsible-gaming-save-unconfirmed",
+    path: "/responsible-gaming",
+    before: async (page) => {
+      await loginViaApi(page);
+      await page.route("**/api/me/limits", (route) =>
+        route.request().method() === "PUT"
+          ? route.abort("failed")
+          : route.continue(),
+      );
+    },
+    prepare: async (page, _device, lang) => {
+      const t = MESSAGES[lang];
+      const card = page.getByRole("region", { name: t.rg.depositLimit });
+      await card.getByLabel(t.rg.newLimit).fill("2000");
+      await card.getByRole("button", { name: t.rg.saveLimit }).click();
+      await card.getByRole("alert").waitFor();
+    },
+    allowConsole: /ERR_FAILED/,
+  },
+  {
+    // The break's question, asked once (AC-6).
+    name: "responsible-gaming-confirm-break",
+    path: "/responsible-gaming",
+    before: loginViaApi,
+    prepare: askFor(
+      (t) => t.rg.takeBreak,
+      (t) => t.rg.break24h,
+      (t) => t.rg.startBreak,
+    ),
+  },
+  {
+    name: "responsible-gaming-confirm-permanent",
+    path: "/responsible-gaming",
+    before: loginViaApi,
+    prepare: askFor(
+      (t) => t.rg.selfExclusion,
+      (t) => t.rg.excludePermanent,
+      (t) => t.rg.selfExclude,
+    ),
+  },
+  {
+    // A permanent self-exclusion started: signed out, no end (AC-6).
+    name: "responsible-gaming-excluded-started",
+    path: "/responsible-gaming",
+    before: exclusionAnswers([
+      201,
+      {
+        kind: "self_exclusion",
+        startsAt: "2026-10-05T09:00:00Z",
+        endsAt: null,
+      },
+    ]),
+    prepare: confirmBreak(
+      (t) => t.rg.selfExclusion,
+      (t) => t.rg.excludePermanent,
+      (t) => t.rg.selfExclude,
+      (t) => t.rg.exclusionStartedTitle,
+    ),
+  },
+  {
+    name: "responsible-gaming-break-refused",
+    path: "/responsible-gaming",
+    before: exclusionAnswers([
+      422,
+      problemJson(422, "VALIDATION_FAILED", {
+        title: "This break can’t be started",
+      }),
+    ]),
+    prepare: confirmBreak(
+      (t) => t.rg.takeBreak,
+      (t) => t.rg.break30d,
+      (t) => t.rg.startBreak,
+      (t) => t.rg.breakNotStartedTitle,
+    ),
+    allowConsole: /422/,
+  },
+  {
+    // Logged in again during the break: the banner, from /api/me.
+    name: "responsible-gaming-break",
+    path: "/responsible-gaming",
+    before: async (page) => {
+      await loginViaApi(page);
+      await onBreak(page);
+    },
+    prepare: headingShows((t) => t.rg.depositLimit),
+  },
   { name: "login", path: "/login" },
   { name: "login-otp", path: "/login", prepare: loginAnswering("code=202") },
   {

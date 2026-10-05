@@ -1,14 +1,16 @@
-import { beforeEach, describe, expect, it } from "vitest";
-import { screen, waitFor } from "@testing-library/react";
+import { Profiler } from "react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { act, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { OddsButtonView } from "@/features/odds/components/OddsButtonView";
 import { OddsButton } from "@/features/odds/components/OddsButton";
 import { useBetSlipStore } from "@/features/bet-slip/stores/bet-slip.store";
 import { useUiStore } from "@/stores/ui.store";
 import type { Market } from "@/features/markets/types";
-// The connected button reads the responsible-gaming lock from the server, so it
-// needs the query provider.
-import { render } from "./render";
+import { sessionKeys } from "@/lib/query/keys";
+// The connected button reads a break from /api/me, so it needs the query
+// provider.
+import { CONTRACT_PLAYER, render } from "./render";
 
 const market: Market = {
   id: "m3:1x2:",
@@ -199,12 +201,14 @@ describe("OddsButton → bet slip", () => {
  * by reloading would not be a break at all.
  */
 describe("OddsButton → responsible-gaming break", () => {
+  afterEach(() => vi.restoreAllMocks());
+
   beforeEach(() => {
     useBetSlipStore.getState().clear();
     useUiStore.setState({ lang: "en" });
   });
 
-  it("locks an otherwise open price while a break is running", async () => {
+  it("locks an otherwise open price while /api/me reports a break", async () => {
     const { queryClient } = render(
       <OddsButton
         market={market}
@@ -215,12 +219,18 @@ describe("OddsButton → responsible-gaming break", () => {
 
     expect(screen.getByRole("button")).toBeEnabled();
 
-    // The status is read on mount: stop that read, or it can land after the
-    // break set here and put the old status back.
-    await queryClient.cancelQueries({ queryKey: ["responsible-gaming"] });
-    queryClient.setQueryData(["responsible-gaming"], {
-      coolOffUntil: "Wed 30 Sep, 14:00",
-      selfExcludedUntil: null,
+    // The break comes from the account (`flags.excluded_until`), never from
+    // anything this browser keeps.
+    act(() => {
+      queryClient.setQueryData(sessionKeys.me(), {
+        player: {
+          ...CONTRACT_PLAYER,
+          flags: {
+            ...CONTRACT_PLAYER.flags,
+            excludedUntil: "2026-10-10T15:00:00Z",
+          },
+        },
+      });
     });
 
     await waitFor(() => expect(screen.getByRole("button")).toBeDisabled());
@@ -228,24 +238,66 @@ describe("OddsButton → responsible-gaming break", () => {
   });
 
   it("refuses the selection even if the click gets through", async () => {
-    const { queryClient } = render(
+    // A permanent self-exclusion: no end date, the status says it.
+    render(
       <OddsButton
         market={market}
         outcome={market.outcomes[0]}
         eventName={eventName}
       />,
+      { session: { ...CONTRACT_PLAYER, status: "self_excluded" } },
     );
 
-    await queryClient.cancelQueries({ queryKey: ["responsible-gaming"] });
-    queryClient.setQueryData(["responsible-gaming"], {
-      coolOffUntil: null,
-      selfExcludedUntil: "Permanent",
-    });
     await waitFor(() => expect(screen.getByRole("button")).toBeDisabled());
 
     await userEvent.click(screen.getByRole("button"), {
       pointerEventsCheck: 0,
     });
     expect(useBetSlipStore.getState().selections).toHaveLength(0);
+  });
+
+  it("re-renders a price only when the break changes, not when a read of /api/me fails (Q5)", async () => {
+    // Every read of /api/me fails from here: a focus refetch on a flaky line.
+    vi.spyOn(globalThis, "fetch").mockImplementation(async () =>
+      Response.json(
+        {
+          type: "about:blank",
+          title: "The sportsbook API could not be reached",
+          status: 503,
+          code: "SERVICE_UNAVAILABLE",
+        },
+        {
+          status: 503,
+          headers: { "Content-Type": "application/problem+json" },
+        },
+      ),
+    );
+    let renders = 0;
+    const { queryClient } = render(
+      <Profiler
+        id="price"
+        onRender={() => {
+          renders += 1;
+        }}
+      >
+        <OddsButton
+          market={market}
+          outcome={market.outcomes[0]}
+          eventName={eventName}
+        />
+      </Profiler>,
+    );
+    const before = renders;
+
+    await act(async () => {
+      await queryClient.refetchQueries({ queryKey: sessionKeys.me() });
+    });
+
+    await waitFor(() =>
+      expect(queryClient.getQueryState(sessionKeys.me())?.status).toBe("error"),
+    );
+    // Still the player's data, no break either way: the price stays as it was.
+    expect(renders).toBe(before);
+    expect(screen.getByRole("button")).toBeEnabled();
   });
 });

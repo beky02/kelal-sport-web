@@ -97,7 +97,10 @@ from the stake, void refunds) stay the backend's to answer.
 
 Other refusals and their fixes: 05-errors. `BET_STAKE_TOO_HIGH` offers the limit from `errors[].limit`;
 `WALLET_INSUFFICIENT_FUNDS` offers Deposit; `KYC_REQUIRED` offers Verify; RG blocks say a limit is
-reached (View limits) or that betting is paused during a break.
+reached (View limits) or that betting is paused during a break. During a break `/api/me` reports (F7a)
+nothing new is placed: the main button is Betting paused, with the break's end; only Try again of an
+unconfirmed bet still goes, since it only asks whether that bet went through (C08 answers a known key
+before it checks the player).
 
 ## Booking codes (built in F3b; C09)
 
@@ -116,7 +119,7 @@ booked, marks started or suspended legs, and loads what it can.
 | Pending withdrawals       | `/v1/wallet` `locked`                      | Under the balance when above zero; already out of `cash` (a withdrawal the API accepted moves its amount here, WDR-03)                                                                                                                                                                                                                       |
 | Owed                      | `/v1/wallet` `debt`                        | Under the balance when above zero, with C03's rule: "repaid first from your next deposits and wins"; absent means not shown, never 0.00                                                                                                                                                                                                      |
 | Each movement             | `/v1/wallet/transactions`                  | The API's signed `amount` and `balance_after`; no status (a ledger movement is posted, C03 §2). The balance-after line is left out for `bonus` and `bonus_converted` (a bonus grant posts only to the bonus account, C03 §6, and the contract doesn't say which balance it reports) and for a kind the contract adds later, shown as "Other" |
-| Daily deposit limit       | `/v1/me/limits` (F7)                       | Used and remaining, with Manage — the wallet's card returns with F7; until then the API's `RG_LIMIT_REACHED` is the only limit a deposit meets                                                                                                                                                                                               |
+| Deposit limits            | `/v1/me/limits` (F7a)                      | Each deposit limit's `used` of `amount` and any pending change with its time, exactly as sent, with Manage; no "left" figure (it would be a sum the API doesn't make, and a lowered limit can sit below what is used). Read again after a completed deposit, a bet and an RG refusal; the API's `RG_LIMIT_REACHED` is what refuses           |
 | Potential win on the slip | slipcalc on the current rule set           | A preview; the ticket shows the API's figure                                                                                                                                                                                                                                                                                                 |
 
 The only comparison anywhere near a balance is `lib/money.ts`'s, on strings: which lines show (above

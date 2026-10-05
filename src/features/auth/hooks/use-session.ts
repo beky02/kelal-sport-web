@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import {
+  queryOptions,
   useMutation,
   useQuery,
   useQueryClient,
@@ -33,6 +34,17 @@ export interface SessionState {
 }
 
 /**
+ * How `/api/me` is read, wherever: every observer of who is signed in reads it
+ * the same way (a hook that needs one fact of it adds a `select`).
+ */
+export const sessionQuery = queryOptions({
+  queryKey: sessionKeys.me(),
+  queryFn: ({ signal }) => getMe(signal),
+  staleTime: 60_000,
+  refetchOnWindowFocus: true,
+});
+
+/**
  * Who is signed in, from `/api/me`.
  *
  * Safety state is server state: whether someone may bet, withdraw or see their
@@ -41,12 +53,7 @@ export interface SessionState {
  * caller treats the visitor as a guest for gating and shows neither state.
  */
 export function useSession(): SessionState {
-  const query = useQuery({
-    queryKey: sessionKeys.me(),
-    queryFn: ({ signal }) => getMe(signal),
-    staleTime: 60_000,
-    refetchOnWindowFocus: true,
-  });
+  const query = useQuery(sessionQuery);
   const player = query.data?.player ?? null;
   return {
     isLoading: query.isPending,

@@ -278,21 +278,27 @@ export type CtaAction =
   | "remove-suspended"
   | "deposit"
   | "blocked-conflict"
+  /** A break or self-exclusion is in force (`/api/me`): nothing new is placed. */
+  | "paused"
   | "login";
 
 /**
  * What the primary button does right now.
  *
- * Order matters: a conflict is unfixable by the button (the user has to choose
- * which pick to drop), so it blocks. Everything below it is actionable. A slip
- * without a quote — no rule set yet, no stake, or a stake slipcalc refused —
- * cannot be placed; the alert above it carries the fix.
+ * Order matters: a break the player took pauses every bet, so nothing else on
+ * the slip is worth offering until it ends. A conflict is unfixable by the
+ * button (the user has to choose which pick to drop), so it blocks. Everything
+ * below it is actionable. A slip without a quote — no rule set yet, no stake,
+ * or a stake slipcalc refused — cannot be placed; the alert above it carries
+ * the fix.
  */
 export function resolveCta(
   totals: BetSlipTotals,
   isGuest: boolean,
+  paused: boolean,
 ): { action: CtaAction; disabled: boolean } {
   if (isGuest) return { action: "login", disabled: false };
+  if (paused) return { action: "paused", disabled: true };
   if (totals.hasConflict) return { action: "blocked-conflict", disabled: true };
   if (totals.suspendedSelection)
     return { action: "remove-suspended", disabled: false };

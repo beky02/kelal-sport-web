@@ -165,6 +165,9 @@ function api() {
         return reply(wallet());
       case "/api/wallet/transactions":
         return reply([200, { items: [], nextCursor: null }]);
+      // The wallet's deposit-limit card (F7a): none set.
+      case "/api/me/limits":
+        return reply([200, []]);
       case "/api/payment-methods":
         return reply(methods());
       case "/api/payout-accounts":

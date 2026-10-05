@@ -14,7 +14,7 @@ Split (2026-10-03, before planning) into [F7a — responsible gambling](F7a-resp
 AC-2, AC-5–AC-7), [F7b — account and reality check](F7b-account-reality-check.md) (AC-8–AC-10),
 [F7c — promotions and inbox](F7c-promotions-inbox.md) (AC-11–AC-13) and
 [F7d — content pages and the mocks' removal](F7d-content-mocks.md) (AC-3, AC-4): one reviewable PR each.
-F7 is done when all four are.
+F7 is done when all four are. F7a is done (2026-10-05): AC-1, AC-2, AC-5, AC-6, AC-7 ticked below.
 
 ## Goal
 
@@ -47,17 +47,17 @@ In:
 
 ## Acceptance criteria
 
-- [ ] **AC-1** A limit set on one device is in force on another (it comes from `/v1/me/limits`).
-- [ ] **AC-2** `RG_SELF_EXCLUDED` locks the slip and shows the end date.
+- [x] **AC-1** A limit set on one device is in force on another (it comes from `/v1/me/limits`).
+- [x] **AC-2** `RG_SELF_EXCLUDED` locks the slip and shows the end date.
 - [ ] **AC-3** `src/lib/api/mock/` no longer exists and `pnpm verify` passes.
 - [ ] **AC-4** Content pages render from `/v1/pages/{slug}`.
 
 Added at the split (2026-10-03) so every scope item has an observable criterion:
 
-- [ ] **AC-5** Raising a limit shows it pending with the API's effective time; lowering it applies at once.
-- [ ] **AC-6** Taking a break asks once, sends `POST /v1/me/self-exclusion` and leaves the player signed
+- [x] **AC-5** Raising a limit shows it pending with the API's effective time; lowering it applies at once.
+- [x] **AC-6** Taking a break asks once, sends `POST /v1/me/self-exclusion` and leaves the player signed
       out with the end date shown; a reload changes nothing.
-- [ ] **AC-7** The wallet's deposit-limit card shows the deposit limit's `used` and `amount` from
+- [x] **AC-7** The wallet's deposit-limit card shows the deposit limit's `used` and `amount` from
       `/v1/me/limits`.
 - [ ] **AC-8** Language and marketing consent saved through `PATCH /v1/me` survive a reload and another
       device.

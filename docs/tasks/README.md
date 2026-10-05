@@ -29,7 +29,7 @@ Engineering Decisions say differently. The order follows the Build Plan's fronte
 | [F6b](F6b-deposits.md)                        | Split from F6: methods and limits, deposits driven by `next_action`, every deposit status      | F6a                | B8            | done   |
 | [F6c](F6c-withdrawals.md)                     | Split from F6: withdrawals with payout accounts, every withdrawal status, cancel               | F6b                | B8            | done   |
 | [F7](F7-account-rg-inbox.md)                  | Account, limits, self-exclusion, reality check, promotions, inbox; delete the mocks            | F4                 | B8, B13       | todo   |
-| [F7a](F7a-responsible-gambling.md)            | Split from F7: limits, breaks and self-exclusion on the account; RG refusals everywhere        | F4, F6a            | B8            | todo   |
+| [F7a](F7a-responsible-gambling.md)            | Split from F7: limits, breaks and self-exclusion on the account; RG refusals everywhere        | F4, F6a            | B8            | done   |
 | [F7b](F7b-account-reality-check.md)           | Split from F7: profile preferences, active devices, the reality check from the server          | F4                 | B5, B8        | todo   |
 | [F7c](F7c-promotions-inbox.md)                | Split from F7: promotions, my bonus and free bets, promo codes, the inbox                      | F4                 | —             | todo   |
 | [F7d](F7d-content-mocks.md)                   | Split from F7: content pages from the API; the mock repository deleted                         | F6c, F7a, F7b, F7c | B1            | todo   |

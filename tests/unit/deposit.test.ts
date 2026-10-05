@@ -194,10 +194,11 @@ describe("depositRefusal (AC-9)", () => {
     });
 
     for (const code of ["RG_SELF_EXCLUDED", "RG_COOLING_OFF"]) {
+      // F7a's scope: the RG refusals come with View limits, wherever they appear.
       expect(refuse(problem(403, code))).toMatchObject({
         title: { key: "deposit.refused.breakTitle" },
         body: { key: "deposit.refused.break" },
-        fixes: [],
+        fixes: [{ kind: "viewLimits" }],
       });
       expect(
         refuse(problem(403, code), "500.00", "Fri 10 Oct, 18:00").body,

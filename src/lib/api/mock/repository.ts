@@ -4,9 +4,9 @@
  * The catalogue, auth, bookings and bets no longer come from here: they go
  * through the route handlers to the API, and Prism serves the contract's own
  * examples locally, as do the wallet's balances and history, payment methods,
- * deposits, payout accounts and withdrawals. What is left — responsible
- * gaming and session activity (F7) — moves to the contract task by task,
- * after which this folder is deleted.
+ * deposits, payout accounts and withdrawals, and — since F7a — limits, breaks
+ * and self-exclusion. What is left — session activity (F7b) — moves to the
+ * contract next, after which this folder is deleted (F7d).
  *
  * `listBoard` and `listMarkets` remain only as fixtures for the realtime tests,
  * which need live fixtures, scores and many lines per market — shapes the
@@ -281,31 +281,12 @@ function boardMarkets(event: SportEvent, raw: RawMatch): BoardMarkets {
 
 // ── queries ─────────────────────────────────────────────────────────────────
 
-export interface ResponsibleGamingStatus {
-  /** Human-readable end of an active break, or null if there is none. */
-  coolOffUntil: string | null;
-  selfExcludedUntil: string | null;
-}
-
 export interface SessionActivity {
   staked: number;
   won: number;
   /** Won minus staked. Negative is the usual case and is shown in the loss tint. */
   net: number;
 }
-
-/**
- * Responsible-gaming state for this session.
- *
- * Deliberately server-side, not a client store: a break the user can end by
- * refreshing the page is not a break. In production this comes from the account
- * on every load; here it lives in module state so it behaves the same way while
- * navigating.
- */
-const responsibleGaming: ResponsibleGamingStatus = {
-  coolOffUntil: null,
-  selfExcludedUntil: null,
-};
 
 export const mockRepository = {
   async listBoard(
@@ -445,26 +426,5 @@ export const mockRepository = {
   async getSessionActivity(): Promise<SessionActivity> {
     await delay(100);
     return { staked: 350, won: 120, net: -230 };
-  },
-
-  async getResponsibleGamingStatus(): Promise<ResponsibleGamingStatus> {
-    await delay(80);
-    return { ...responsibleGaming };
-  },
-
-  /**
-   * Starts a break or a self-exclusion.
-   *
-   * One-way: there is no endpoint to end one early, because the whole value of
-   * the tool is that it cannot be undone in a weak moment.
-   */
-  async startResponsibleGamingBreak(
-    kind: "cool-off" | "self-exclusion",
-    until: string,
-  ): Promise<ResponsibleGamingStatus> {
-    await delay(400);
-    if (kind === "cool-off") responsibleGaming.coolOffUntil = until;
-    else responsibleGaming.selfExcludedUntil = until;
-    return { ...responsibleGaming };
   },
 };

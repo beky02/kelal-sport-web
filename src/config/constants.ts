@@ -28,9 +28,9 @@ export const CURRENCY = { code: "ETB", amharic: "ብር" } as const;
  * Copy for the system states, all **placeholders**.
  *
  * In production every one of these comes from the backend: a maintenance window
- * from a status endpoint, a cool-off end from the user's responsible-gaming
- * settings, a deposit-limit reset from their limits. They sit here so the states
- * can be built and reviewed before those endpoints exist.
+ * from a status endpoint, the reality check's interval from the account (F7b).
+ * They sit here so the states can be built and reviewed before those endpoints
+ * exist. A break's end and the limits are the account's already (F7a).
  */
 export const SYSTEM = {
   maintenance: {
@@ -38,8 +38,6 @@ export const SYSTEM = {
     startedAt: "04:00 EAT",
     duration: "about 2 hours",
   },
-  coolOff: { until: "Wed 30 Sep, 14:00" },
-  depositLimit: { dailyLimit: 2000, resetTime: "00:00 EAT" },
   realityCheck: { after: "1 hour" },
 } as const;
 
@@ -59,6 +57,8 @@ export const STALE_TIME = {
   events: 30 * 1000,
   eventDetail: 30 * 1000,
   wallet: 15 * 1000,
+  /** The player's limits: read again on focus and after a bet or a deposit. */
+  limits: 30 * 1000,
   /** `/v1/config/public` says `max-age=60`. */
   config: 60 * 1000,
 } as const;

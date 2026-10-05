@@ -178,12 +178,13 @@ describe("refusalNotice: money and the player (AC-7)", () => {
     });
   });
 
-  it("says betting is paused during a break, until its end when known, with nothing to offer", () => {
+  it("says betting is paused during a break, until its end when known, and offers View limits (F7a)", () => {
     for (const code of ["RG_SELF_EXCLUDED", "RG_COOLING_OFF"]) {
       expect(notice(refusal(code, { status: 403 }))).toMatchObject({
         title: { key: "betSlip.refused.breakTitle" },
         body: { key: "betSlip.refused.break" },
-        fix: null,
+        // F7a's scope: the RG refusals come with View limits, wherever they appear.
+        fix: { kind: "viewLimits" },
       });
       expect(
         notice(refusal(code, { status: 403 }), {

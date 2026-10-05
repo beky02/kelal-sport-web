@@ -78,6 +78,19 @@ export const share = (
 ): string =>
   fromSantim((toSantim(amount) * BigInt(numerator)) / BigInt(denominator));
 
+/**
+ * How much of `whole` `part` is, as a whole percentage from 0 to 100, floored
+ * — a limit's bar never shows more used than there is. Display only: what a
+ * limit allows is the API's to say.
+ */
+export function percentOf(part: string, whole: string): number {
+  const of = toSantim(whole);
+  const used = toSantim(part);
+  if (of <= 0n || used <= 0n) return 0;
+  const percent = (used * 100n) / of;
+  return percent > 100n ? 100 : Number(percent);
+}
+
 /** Odds have at most three decimals; compared in thousandths. */
 function toThousandths(odds: string): bigint {
   if (!DECIMAL.test(odds)) throw new RangeError(`Not odds: "${odds}"`);

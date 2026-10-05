@@ -55,12 +55,35 @@ back to Log in with the phone kept and a notice. Every session of that account i
 | 5   | Transactions | Finds it again                                 | The withdrawal's row (out, or back again) opens `/wallet?withdrawal={id}`                                                                                                                                                                                                                                                       | 404: "We couldn't find this withdrawal"                                                                                                                                                                                                                                             |
 | 6   | Notification | Paid or rejected with the reason               | Push, SMS and inbox (C14); the balance updates from the server, never before                                                                                                                                                                                                                                                    |                                                                                                                                                                                                                                                                                     |
 
-## Take a break or self-exclude (RG-02, RG-03, F7)
+## Set a limit (RG-01, built in F7a)
 
-Responsible gaming → choose the break or the exclusion period → confirm (self-exclusion is irreversible
-until it ends) → `POST /v1/me/self-exclusion` → the API revokes every session; the slip locks, deposits
-stop, the cool-off banner shows the end date; marketing stops. Funds stay withdrawable. Because the state
-is read from the server (`/v1/me` `flags.excluded_until`, the RG status query), a reload cannot end it.
+Responsible gaming → a card (Deposit, Stake, Loss, Time limit) → Daily, Weekly or Monthly → New limit →
+Save limit → `/api/me/limits` (`PUT`, CSRF, a strict 4 KiB body: a contract type and period with an
+amount above 0.00 or whole minutes from 1) → `PUT /v1/me/limits`. The answer says what the API did: in
+force at once ("Saved. Your limit is now {amount}"), or held back until its `pending.effective_from`
+("Saved. Your new limit of {amount} starts on {date}") — the browser never decides which. The limits are
+read again (the wallet's card shares them), and again on focus, after a bet, a completed deposit or an RG
+refusal. Can fail with: a 422 → "Your limit wasn't saved" and the API's title and `detail`; no answer →
+"We couldn't save your limit" (saving again sends the same value); 401 → the session-ended path.
+
+## Take a break or self-exclude (RG-02, RG-03, built in F7a)
+
+Responsible gaming → choose the break (24 h, 7 d, 30 d) or the exclusion (6 m, 1 y, 5 y, permanent) →
+the question, once, in full sentences (it can't be ended early; open bets settle as normal) → Confirm,
+which sends one request however quickly it is pressed → `/api/me/self-exclusion` → `POST
+/v1/me/self-exclusion`. The API revokes every session as it answers: the route handler clears the
+session cookie with the 201, the browser notes a logout (no "session ended" dialog), sets the session to
+a guest and drops everything only a player may see, and the page says the break started and when it ends
+(the API's `ends_at`, with its year). Funds stay withdrawable (RG-02); marketing stops (C14).
+
+Nothing about the break is kept in the browser. After a reload the player is a guest; logging in again
+(RG-02 allows it, to withdraw), `/api/me` reports the break (`flags.excluded_until`, or `status:
+self_excluded` with no date for a permanent one) and every screen follows: the banner with the end, the
+odds locked, the slip's Betting paused, the wallet's Deposit off and the deposit flow paused. No clock in
+the browser ends it: the API does. Can fail with: a refusal → "Your break didn't start" and the API's
+title (the session stays); no answer → "We couldn't confirm your break — It may have started. If it did,
+you'll be signed out." with Try again (a second request after a first that went through finds the
+session revoked: 401); 401 → the session-ended path.
 
 ## Reality check (RG-04, F7)
 

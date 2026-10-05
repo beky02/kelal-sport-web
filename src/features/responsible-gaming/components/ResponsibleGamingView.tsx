@@ -1,63 +1,53 @@
 "use client";
 
 import { useState } from "react";
-import { BookOpen, Phone, Send, ShieldCheck } from "lucide-react";
+import Link from "next/link";
+import { BookOpen, Loader2, Phone, Send, ShieldCheck } from "lucide-react";
 import { useTranslation } from "@/lib/i18n/use-translation";
 import { Card } from "@/components/ui/Card";
 import { Segmented } from "@/components/ui/Segmented";
+import { Skeleton } from "@/components/ui/Skeleton";
 import { Switch } from "@/components/ui/Switch";
+import { cn } from "@/lib/utils/cn";
 import { routes } from "@/config/routes";
-import { SYSTEM } from "@/config/constants";
-import {
-  useResponsibleGamingStatus,
-  useStartBreak,
-} from "../hooks/use-responsible-gaming";
-import Link from "next/link";
-import { ChoiceTiles } from "./ChoiceTiles";
-import { LimitCard } from "./LimitCard";
+import { useSession } from "@/features/auth/hooks/use-session";
+import { useAuthStore } from "@/features/auth/stores/auth.store";
 import { SystemDialog } from "@/features/system/components/SystemDialog";
+import { useSelfExclude } from "../hooks/use-responsible-gaming";
+import { exclusionOutcome, isProblem } from "../lib/break";
+import type { ExclusionKind, SelfExclusionRequest } from "../types";
+import { BreakStarted } from "./BreakStarted";
+import { ChoiceTiles } from "./ChoiceTiles";
+import { LimitsSection } from "./LimitsSection";
 
-type Period = "daily" | "weekly" | "monthly";
 type BreakLength = "24h" | "7d" | "30d";
-type ExclusionLength = "6m" | "1y" | "permanent";
+type ExclusionLength = "6m" | "1y" | "5y" | "permanent";
 
 /**
- * The limits, breaks and exclusions.
+ * The limits, breaks and exclusions — all of them the account's, none of them
+ * this browser's.
  *
- * Nothing here is buried behind a confirmation the user can click through by
- * habit: a break or an exclusion asks once, in full sentences, and says plainly
- * that it cannot be undone early. Taking a break switches on the same cool-off
- * the reality check uses, so the banner appears and every price locks.
- *
- * The limits are local state for now. They belong to the account and must move to
- * the backend before launch — a limit that lives in one browser is not a limit.
+ * The limits are read from `/v1/me/limits` and changed through it, and the
+ * API decides when a change applies (AC-1, AC-5). Nothing here is buried
+ * behind a confirmation the user can click through by habit: a break or an
+ * exclusion asks once, in full sentences, and says plainly that it cannot be
+ * undone early. The API revokes every session as it starts one, so the player
+ * leaves signed out, shown when it ends (AC-6); whether one is in force is
+ * `/api/me`'s to say, so the banner, the locked slip and the paused deposits
+ * come back after any reload.
  */
 export function ResponsibleGamingView() {
   const t = useTranslation();
-  const { data: status } = useResponsibleGamingStatus();
-  const startBreak = useStartBreak();
-
-  const [period, setPeriod] = useState<Period>("daily");
-  const [depositLimits, setDepositLimits] = useState<Record<Period, number>>({
-    daily: 2000,
-    weekly: 5000,
-    monthly: 15000,
-  });
-  const [saved, setSaved] = useState(false);
-  const [lossLimit, setLossLimit] = useState(1500);
+  const session = useSession();
+  const openAuth = useAuthStore((s) => s.open);
+  const selfExclusion = useSelfExclude();
 
   const [sessionReminder, setSessionReminder] = useState(true);
   const [interval, setInterval] = useState("60");
 
   const [breakLength, setBreakLength] = useState<BreakLength>("24h");
   const [exclusion, setExclusion] = useState<ExclusionLength>("6m");
-  const [asking, setAsking] = useState<"break" | "exclusion" | null>(null);
-
-  const usedByPeriod: Record<Period, number> = {
-    daily: 500,
-    weekly: 1450,
-    monthly: 2450,
-  };
+  const [asking, setAsking] = useState<ExclusionKind | null>(null);
 
   const breakLabel: Record<BreakLength, string> = {
     "24h": t.t("rg.break24h"),
@@ -67,23 +57,21 @@ export function ResponsibleGamingView() {
   const exclusionLabel: Record<ExclusionLength, string> = {
     "6m": t.t("rg.exclude6m"),
     "1y": t.t("rg.exclude1y"),
+    "5y": t.t("rg.exclude5y"),
     permanent: t.t("rg.excludePermanent"),
   };
 
   const confirm = () => {
-    if (asking !== null) {
-      // Recorded on the account, not in this tab: the same lock the reality check
-      // sets, and the same one the board reads.
-      startBreak.mutate({
-        kind: asking === "exclusion" ? "self-exclusion" : "cool-off",
-        until:
-          asking === "exclusion"
-            ? exclusionLabel[exclusion]
-            : SYSTEM.coolOff.until,
-      });
-    }
+    if (asking === null) return;
+    const request: SelfExclusionRequest =
+      asking === "self_exclusion"
+        ? { kind: "self_exclusion", duration: exclusion }
+        : { kind: "time_out", duration: breakLength };
     setAsking(null);
+    selfExclusion.start(request);
   };
+
+  const started = selfExclusion.started;
 
   return (
     <div className="grid w-full items-start xl:grid-cols-2">
@@ -100,163 +88,126 @@ export function ResponsibleGamingView() {
         <p className="text-muted text-pretty">{t.t("rg.intro")}</p>
       </div>
 
-      {/* Read from the account, so it is still here after a reload — and it says
-          which of the two is running, since they are not the same commitment. */}
-      {(status?.selfExcludedUntil ?? status?.coolOffUntil) != null && (
-        <div
-          role="status"
-          className="border-accent bg-surface mx-4 mt-3.5 rounded-md border px-3 py-2.5 font-semibold xl:col-span-2"
-        >
-          {status?.selfExcludedUntil
-            ? t.t("rg.activeExclusion", { period: status.selfExcludedUntil })
-            : t.t("rg.activeBreak", { period: status!.coolOffUntil! })}
+      {started ? (
+        // The API started it and revoked the session: this is what is left
+        // to say, whoever is signed in now.
+        <BreakStarted exclusion={started} />
+      ) : session.isLoading ? (
+        <div className="flex flex-col gap-3 p-4 xl:col-span-2">
+          <Skeleton className="h-56 rounded-lg" />
+          <Skeleton className="h-40 rounded-lg" />
         </div>
+      ) : session.isGuest ? (
+        <div className="mx-4 mt-4 flex flex-col items-start gap-2 xl:col-span-2">
+          <h3 className="font-display text-base">{t.t("rg.guestTitle")}</h3>
+          <p className="text-muted text-sm text-pretty">
+            {t.t("rg.guestBody")}
+          </p>
+          <button
+            type="button"
+            onClick={() => openAuth("login")}
+            className="bg-accent text-on-accent font-body mt-1 h-11 cursor-pointer rounded-md px-5 text-sm font-bold"
+          >
+            {t.t("auth.logIn")}
+          </button>
+        </div>
+      ) : (
+        <>
+          <LimitsSection />
+
+          <Card className="mx-4 mt-4.5 flex flex-col gap-3 p-3.5">
+            <div>
+              <h3 className="font-display text-base">{t.t("rg.takeBreak")}</h3>
+              <p className="text-muted text-xs text-pretty">
+                {t.t("rg.takeBreakBody")}
+              </p>
+            </div>
+            <ChoiceTiles<BreakLength>
+              label={t.t("rg.takeBreak")}
+              value={breakLength}
+              onChange={setBreakLength}
+              options={[
+                { value: "24h", label: breakLabel["24h"] },
+                { value: "7d", label: breakLabel["7d"] },
+                { value: "30d", label: breakLabel["30d"] },
+              ]}
+            />
+            <AskButton
+              label={t.t("rg.startBreak")}
+              onClick={() => setAsking("time_out")}
+              pending={selfExclusion.isPending}
+              busy={selfExclusion.request?.kind === "time_out"}
+            />
+            {selfExclusion.request?.kind === "time_out" && (
+              <ExclusionProblem
+                error={selfExclusion.error}
+                pending={selfExclusion.isPending}
+                onRetry={() => selfExclusion.start(selfExclusion.request!)}
+              />
+            )}
+          </Card>
+
+          <Card className="mx-4 mt-4.5 flex flex-col gap-3 p-3.5">
+            <div>
+              <h3 className="font-display text-base">
+                {t.t("rg.selfExclusion")}
+              </h3>
+              <p className="text-muted text-xs text-pretty">
+                {t.t("rg.selfExclusionBody")}
+              </p>
+            </div>
+            <ChoiceTiles<ExclusionLength>
+              label={t.t("rg.selfExclusion")}
+              value={exclusion}
+              onChange={setExclusion}
+              options={[
+                { value: "6m", label: exclusionLabel["6m"] },
+                { value: "1y", label: exclusionLabel["1y"] },
+                { value: "5y", label: exclusionLabel["5y"] },
+                { value: "permanent", label: exclusionLabel.permanent },
+              ]}
+            />
+            <AskButton
+              label={t.t("rg.selfExclude")}
+              onClick={() => setAsking("self_exclusion")}
+              pending={selfExclusion.isPending}
+              busy={selfExclusion.request?.kind === "self_exclusion"}
+            />
+            {selfExclusion.request?.kind === "self_exclusion" && (
+              <ExclusionProblem
+                error={selfExclusion.error}
+                pending={selfExclusion.isPending}
+                onRetry={() => selfExclusion.start(selfExclusion.request!)}
+              />
+            )}
+          </Card>
+
+          {/* The reality check's interval: F7b moves it to the account. */}
+          <Card className="mx-4 mt-4.5 flex flex-col gap-3 p-3.5">
+            <Switch
+              checked={sessionReminder}
+              onChange={setSessionReminder}
+              size="lg"
+              label={
+                <span className="font-display text-base">
+                  {t.t("rg.sessionReminder")}
+                </span>
+              }
+              note={t.t("rg.sessionReminderBody")}
+            />
+            {sessionReminder && (
+              <Segmented
+                value={interval}
+                onChange={setInterval}
+                options={["30", "60", "90", "120"].map((n) => ({
+                  value: n,
+                  label: t.t("rg.minutes", { n }),
+                }))}
+              />
+            )}
+          </Card>
+        </>
       )}
-
-      <Card className="mx-4 mt-4 flex flex-col gap-2.5 p-3.5 xl:col-span-2">
-        <div className="text-muted text-[11px] font-semibold tracking-[0.1em] uppercase">
-          {t.t("rg.thisMonth")}
-        </div>
-        <div className="numeric grid grid-cols-2 gap-3">
-          <div>
-            <div className="text-muted text-[11px]">{t.t("rg.deposited")}</div>
-            <div className="font-display text-xl leading-[1.1]">
-              {t.money(2450)}
-            </div>
-          </div>
-          <div>
-            <div className="text-muted text-[11px]">{t.t("rg.netLoss")}</div>
-            <div className="font-display text-loss text-xl leading-[1.1]">
-              {t.money(610)}
-            </div>
-          </div>
-        </div>
-        <div className="text-muted text-[11px]">{t.t("rg.monthSummary")}</div>
-      </Card>
-
-      <div className="mx-4 mt-4.5">
-        <LimitCard
-          title={t.t("rg.depositLimit")}
-          amount={depositLimits[period]}
-          used={usedByPeriod[period]}
-          onAmountChange={(amount) => {
-            setDepositLimits((current) => ({ ...current, [period]: amount }));
-            setSaved(false);
-          }}
-          note={t.t("rg.increaseNote")}
-          footer={
-            <button
-              type="button"
-              onClick={() => setSaved(true)}
-              className="bg-raised text-text font-body h-11 cursor-pointer rounded-md text-sm font-bold"
-            >
-              {t.t(saved ? "rg.saved" : "rg.saveLimit")}
-            </button>
-          }
-        >
-          <Segmented<Period>
-            value={period}
-            onChange={(next) => {
-              setPeriod(next);
-              setSaved(false);
-            }}
-            options={[
-              { value: "daily", label: t.t("rg.daily") },
-              { value: "weekly", label: t.t("rg.weekly") },
-              { value: "monthly", label: t.t("rg.monthly") },
-            ]}
-          />
-        </LimitCard>
-      </div>
-
-      <div className="mx-4 mt-4.5">
-        <LimitCard
-          title={t.t("rg.lossLimit")}
-          aside={t.t("rg.monthly")}
-          amount={lossLimit}
-          used={610}
-          onAmountChange={setLossLimit}
-          note={t.t("rg.lossNote")}
-        />
-      </div>
-
-      <Card className="mx-4 mt-4.5 flex flex-col gap-3 p-3.5">
-        <Switch
-          checked={sessionReminder}
-          onChange={setSessionReminder}
-          size="lg"
-          label={
-            <span className="font-display text-base">
-              {t.t("rg.sessionReminder")}
-            </span>
-          }
-          note={t.t("rg.sessionReminderBody")}
-        />
-        {sessionReminder && (
-          <Segmented
-            value={interval}
-            onChange={setInterval}
-            options={["30", "60", "90", "120"].map((n) => ({
-              value: n,
-              label: t.t("rg.minutes", { n }),
-            }))}
-          />
-        )}
-      </Card>
-
-      <Card className="mx-4 mt-4.5 flex flex-col gap-3 p-3.5">
-        <div>
-          <div className="font-display text-base">{t.t("rg.takeBreak")}</div>
-          <p className="text-muted text-xs text-pretty">
-            {t.t("rg.takeBreakBody")}
-          </p>
-        </div>
-        <ChoiceTiles<BreakLength>
-          label={t.t("rg.takeBreak")}
-          value={breakLength}
-          onChange={setBreakLength}
-          options={[
-            { value: "24h", label: breakLabel["24h"] },
-            { value: "7d", label: breakLabel["7d"] },
-            { value: "30d", label: breakLabel["30d"] },
-          ]}
-        />
-        <button
-          type="button"
-          onClick={() => setAsking("break")}
-          className="bg-raised text-text font-body h-11 cursor-pointer rounded-md text-sm font-bold"
-        >
-          {t.t("rg.startBreak")}
-        </button>
-      </Card>
-
-      <Card className="mx-4 mt-4.5 flex flex-col gap-3 p-3.5">
-        <div>
-          <div className="font-display text-base">
-            {t.t("rg.selfExclusion")}
-          </div>
-          <p className="text-muted text-xs text-pretty">
-            {t.t("rg.selfExclusionBody")}
-          </p>
-        </div>
-        <ChoiceTiles<ExclusionLength>
-          label={t.t("rg.selfExclusion")}
-          value={exclusion}
-          onChange={setExclusion}
-          options={[
-            { value: "6m", label: exclusionLabel["6m"] },
-            { value: "1y", label: exclusionLabel["1y"] },
-            { value: "permanent", label: exclusionLabel.permanent },
-          ]}
-        />
-        <button
-          type="button"
-          onClick={() => setAsking("exclusion")}
-          className="bg-raised text-text font-body h-11 cursor-pointer rounded-md text-sm font-bold"
-        >
-          {t.t("rg.selfExclude")}
-        </button>
-      </Card>
 
       <div className="mx-4 mt-5.5 mb-7 flex flex-col xl:col-span-2">
         <div className="font-display mb-1.5 text-base">
@@ -312,7 +263,7 @@ export function ResponsibleGamingView() {
         open={asking !== null}
         icon={<ShieldCheck size={22} strokeWidth={1.6} />}
         title={
-          asking === "exclusion"
+          asking === "self_exclusion"
             ? exclusion === "permanent"
               ? t.t("rg.excludeConfirmTitlePermanent")
               : t.t("rg.excludeConfirmTitle", {
@@ -321,10 +272,15 @@ export function ResponsibleGamingView() {
             : t.t("rg.breakConfirmTitle", { period: breakLabel[breakLength] })
         }
         body={t.t(
-          asking === "exclusion"
-            ? "rg.excludeConfirmBody"
+          asking === "self_exclusion"
+            ? exclusion === "permanent"
+              ? "rg.excludeConfirmBodyPermanent"
+              : "rg.excludeConfirmBody"
             : "rg.breakConfirmBody",
         )}
+        // A question that can't be undone opens on its safe answer: a stray
+        // Enter goes back, it never confirms.
+        initialFocus="quiet"
         actions={[
           { label: t.t("rg.confirm"), kind: "primary", onClick: confirm },
           {
@@ -334,6 +290,93 @@ export function ResponsibleGamingView() {
           },
         ]}
       />
+    </div>
+  );
+}
+
+/**
+ * Opens the question. While a break is on its way both buttons wait — the one
+ * that sent it says so — so a second question can't be asked and dropped.
+ */
+function AskButton({
+  label,
+  onClick,
+  pending,
+  busy,
+}: {
+  label: string;
+  onClick: () => void;
+  /** A break or self-exclusion is on its way. */
+  pending: boolean;
+  /** …and it is this button's. */
+  busy: boolean;
+}) {
+  const t = useTranslation();
+  const sending = pending && busy;
+  return (
+    <button
+      type="button"
+      onClick={pending ? undefined : onClick}
+      aria-disabled={pending || undefined}
+      aria-busy={sending || undefined}
+      className={cn(
+        "bg-raised text-text font-body flex h-11 cursor-pointer items-center justify-center gap-2 rounded-md text-sm font-bold",
+        sending
+          ? "aria-disabled:cursor-wait"
+          : "aria-disabled:cursor-not-allowed aria-disabled:opacity-45",
+      )}
+    >
+      {sending && <Loader2 size={16} className="animate-spin" aria-hidden />}
+      {sending ? t.t("rg.startingBreak") : label}
+    </button>
+  );
+}
+
+/**
+ * A break that didn't come back started: the API said no (nothing started),
+ * or no answer came (it may have — if so, the session is gone and `/api/me`
+ * turns the page to the guest's). A lost session says nothing here.
+ */
+function ExclusionProblem({
+  error,
+  pending,
+  onRetry,
+}: {
+  error: Error | null;
+  pending: boolean;
+  onRetry: () => void;
+}) {
+  const t = useTranslation();
+  if (!error || pending) return null;
+  const outcome = exclusionOutcome(error);
+  if (outcome === "session") return null;
+  return (
+    <div role="alert" className="bg-loss-bg flex flex-col gap-2 rounded-md p-3">
+      <p className="text-xs font-bold">
+        {t.t(
+          outcome === "refused"
+            ? "rg.breakNotStartedTitle"
+            : "rg.breakUnconfirmedTitle",
+        )}
+      </p>
+      <p className="text-text/80 text-xs">
+        {outcome === "unanswered"
+          ? t.t("rg.breakUnconfirmedBody")
+          : // The API's own title — unless the answer wasn't a Problem, whose
+            // only words are this app's technical ones.
+            isProblem(error)
+            ? error.message
+            : t.t("rg.refusedBody")}
+      </p>
+      {outcome === "unanswered" && (
+        <button
+          type="button"
+          onClick={onRetry}
+          className="bg-raised text-text font-body min-h-11 cursor-pointer self-start rounded-lg px-3 text-xs font-bold"
+        >
+          {t.t("common.retry")}
+        </button>
+      )}
     </div>
   );
 }

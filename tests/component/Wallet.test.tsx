@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { screen, within } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { BetSlip } from "@/features/bet-slip/components/BetSlip";
 import {
@@ -10,6 +10,7 @@ import { AmountStep } from "@/features/wallet/components/AmountStep";
 import { WalletView } from "@/features/wallet/components/WalletView";
 import type { WalletBalances } from "@/features/wallet/types";
 import { toPaymentMethods } from "@/lib/api/mappers/payments";
+import { toLimits } from "@/lib/api/mappers/responsible-gambling";
 import { toWalletBalances, toWalletTxnPage } from "@/lib/api/mappers/wallet";
 import { useUiStore } from "@/stores/ui.store";
 import { example } from "../contract";
@@ -26,6 +27,14 @@ const CONTRACT_WALLET = toWalletBalances(example("/v1/wallet"));
 
 /** Every `/api/…` path and query asked for, in order. */
 let asked: string[] = [];
+
+/**
+ * What `/api/me/limits` answers: by default Prism's player's — a weekly
+ * deposit limit of 1,000.00 with 500.00 used and 2,000.00 pending from
+ * 4 Oct, 13:00 EAT, and a daily time limit.
+ */
+const CONTRACT_LIMITS = toLimits(example("/v1/me/limits").items);
+let limits: () => [number, unknown] = () => [200, CONTRACT_LIMITS];
 
 const json = ([status, body]: [number, unknown]) =>
   Response.json(body, {
@@ -51,6 +60,7 @@ function api(
     asked.push(`${url.pathname}${url.search}`);
     if (url.pathname === "/api/wallet") return json(wallet());
     if (url.pathname === "/api/wallet/transactions") return json(history());
+    if (url.pathname === "/api/me/limits") return json(limits());
     throw new Error(`unexpected ${url}`);
   });
 }
@@ -78,7 +88,8 @@ function line(label: string): string | null {
 
 beforeEach(() => {
   asked = [];
-  useUiStore.setState({ lang: "en" });
+  limits = () => [200, CONTRACT_LIMITS];
+  useUiStore.setState({ lang: "en", clock: "eat", calendar: "gregorian" });
 });
 
 afterEach(() => vi.restoreAllMocks());
@@ -140,6 +151,7 @@ describe("the wallet's balances (AC-5)", () => {
     ).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Log in" })).toBeInTheDocument();
     expect(asked).not.toContain("/api/wallet");
+    expect(asked).not.toContain("/api/me/limits");
   });
 
   it("says when the wallet couldn't load, and Try again reads it again", async () => {
@@ -157,6 +169,106 @@ describe("the wallet's balances (AC-5)", () => {
       "ETB 1,208.95",
     );
     expect(asked.filter((path) => path === "/api/wallet")).toHaveLength(2);
+  });
+});
+
+describe("the wallet's deposit limit (F7a AC-7)", () => {
+  it("shows the deposit limit's used and amount from /v1/me/limits, with Manage (AC-7)", async () => {
+    api(answering(CONTRACT_WALLET));
+    render(<WalletView />);
+
+    const card = await screen.findByRole("region", { name: "Deposit limit" });
+    await waitFor(() =>
+      expect(card).toHaveTextContent(
+        "ETB 500.00 of ETB 1,000.00 used this week",
+      ),
+    );
+    expect(card).toHaveTextContent("Weekly");
+    // The API's pending raise, at its time: 10:00 UTC is 13:00 EAT.
+    expect(card).toHaveTextContent("Changes to ETB 2,000.00 on 04/10 · 13:00.");
+    // A time limit is not the deposit's.
+    expect(card).not.toHaveTextContent("120");
+    // Nothing worked out here: no "left" figure (1,000.00 − 500.00).
+    expect(card).not.toHaveTextContent(/left|remaining/i);
+    expect(within(card).getByRole("link", { name: "Manage" })).toHaveAttribute(
+      "href",
+      "/responsible-gaming",
+    );
+    expect(asked).toContain("/api/me/limits");
+  });
+
+  it("lists each deposit limit the player has, day before week before month", async () => {
+    const [weekly] = CONTRACT_LIMITS;
+    limits = () => [
+      200,
+      [
+        {
+          ...weekly,
+          period: "month",
+          amount: "5000.00",
+          used: "1200.00",
+          pending: null,
+        },
+        { ...weekly, pending: null },
+        {
+          ...weekly,
+          period: "day",
+          amount: "300.00",
+          used: "300.00",
+          pending: null,
+        },
+      ],
+    ];
+    api(answering(CONTRACT_WALLET));
+    render(<WalletView />);
+
+    const card = await screen.findByRole("region", { name: "Deposit limit" });
+    await waitFor(() =>
+      expect(within(card).getAllByRole("listitem")).toHaveLength(3),
+    );
+    const rows = within(card)
+      .getAllByRole("listitem")
+      // Money keeps its currency on one line with a no-break space.
+      .map((row) => row.textContent?.replace(/\s+/g, " "));
+    expect(rows[0]).toContain("ETB 300.00 of ETB 300.00 used today");
+    expect(rows[1]).toContain("ETB 500.00 of ETB 1,000.00 used this week");
+    expect(rows[2]).toContain("ETB 1,200.00 of ETB 5,000.00 used this month");
+  });
+
+  it("says there is no deposit limit and offers to set one", async () => {
+    limits = () => [200, [CONTRACT_LIMITS[1]]];
+    api(answering(CONTRACT_WALLET));
+    render(<WalletView />);
+
+    const card = await screen.findByRole("region", { name: "Deposit limit" });
+    expect(
+      await within(card).findByText("No deposit limit set."),
+    ).toBeInTheDocument();
+    expect(
+      within(card).getByRole("link", { name: "Set a limit" }),
+    ).toHaveAttribute("href", "/responsible-gaming");
+  });
+
+  it("says the deposit limit couldn't load, with Try again", async () => {
+    let fails = true;
+    limits = () => (fails ? [503, UNAVAILABLE] : [200, CONTRACT_LIMITS]);
+    api(answering(CONTRACT_WALLET));
+    render(<WalletView />);
+
+    const card = await screen.findByRole("region", { name: "Deposit limit" });
+    expect(
+      await within(card).findByText("We couldn’t load your deposit limit."),
+    ).toBeInTheDocument();
+    fails = false;
+    await userEvent.click(
+      within(card).getByRole("button", { name: "Try again" }),
+    );
+
+    await waitFor(() =>
+      expect(card).toHaveTextContent(
+        "ETB 500.00 of ETB 1,000.00 used this week",
+      ),
+    );
   });
 });
 

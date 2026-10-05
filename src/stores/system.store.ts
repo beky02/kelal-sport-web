@@ -6,11 +6,10 @@ import { create } from "zustand";
  * Interruptions the product can show over the page.
  *
  * `age` and `maintenance` take the whole screen — there is nothing useful to do
- * behind them. `reality`, `session` and `limit` are dialogs over a page the user
- * can return to, and the bet slip survives all of them.
+ * behind them. `reality` and `session` are dialogs over a page the user can
+ * return to, and the bet slip survives both.
  */
-export type OverlayKind =
-  "age" | "maintenance" | "reality" | "session" | "limit";
+export type OverlayKind = "age" | "maintenance" | "reality" | "session";
 
 interface SystemState {
   overlay: OverlayKind | null;

@@ -3,7 +3,7 @@
 import { cn } from "@/lib/utils/cn";
 
 /**
- * Three mutually exclusive durations.
+ * Mutually exclusive durations: three in a row, four in two rows.
  *
  * Tiles rather than a dropdown: these are irreversible choices and the options
  * should be visible side by side before one is picked.
@@ -23,7 +23,10 @@ export function ChoiceTiles<T extends string>({
     <div
       role="radiogroup"
       aria-label={label}
-      className="grid grid-cols-3 gap-1.5"
+      className={cn(
+        "grid gap-1.5",
+        options.length === 4 ? "grid-cols-2" : "grid-cols-3",
+      )}
     >
       {options.map((option) => {
         const on = option.value === value;
