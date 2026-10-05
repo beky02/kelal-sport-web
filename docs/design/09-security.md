@@ -94,12 +94,19 @@ message.
 ## Rendering
 
 No `dangerouslySetInnerHTML` except the static theme script; every string from the API is rendered as
-text. CSP with nonces, HSTS, `X-Frame-Options: DENY` and `Referrer-Policy` are to be set at the edge and in
-`next.config.ts` when the deployment is built (C18 §7) — not yet: `next.config.ts` sends none today
-(F3b SEC6). Framing matters most since F7a: a permanent self-exclusion is a few clicks on
-`/responsible-gaming`, so `frame-ancestors 'none'` / `X-Frame-Options: DENY` should come first
-(SameSite=Lax keeps the session out of a cross-site frame in current browsers, not in every WebView). Dependencies are kept current (Renovate) and
-Next.js and React security releases are applied within 48 hours (C18 §2).
+text. No page can be framed, by another site or by this one: `next.config.ts` sends
+`Content-Security-Policy: frame-ancestors 'none'` and `X-Frame-Options: DENY` with every response —
+pages, route handlers, the proxy's redirects and 404s, static files (F3b SEC6). `frame-ancestors` is
+what current browsers obey, `X-Frame-Options` what older WebViews do. It matters most since F7a: a
+permanent self-exclusion is a few clicks on `/responsible-gaming`, and SameSite=Lax keeps the session
+out of a cross-site frame only in current browsers — not in every old Android WebView, and never for a
+same-site page. A unit test holds the rule to Next's own path matcher (`pnpm check`); a Playwright check
+reads the headers from the dev server and watches Chrome refuse the frame, from another site and from
+this one. The rest of C18 §7 is still to come (SEC6), at the edge and in `next.config.ts` when the
+deployment is built: CSP with nonces, which must keep `frame-ancestors 'none'`, HSTS and
+`Referrer-Policy`. C18 §7's one exception, for Release 2's virtual-games provider, is not made.
+Dependencies are kept current (Renovate) and Next.js and React security releases are applied within
+48 hours (C18 §2).
 
 ## Known limits and follow-ups
 
