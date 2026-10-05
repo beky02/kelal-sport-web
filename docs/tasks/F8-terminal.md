@@ -12,7 +12,7 @@ touches_ui: true
 
 Split (2026-10-03, before planning), following C19 §16's order, into
 [F8b — terminal activation and signed requests](F8b-terminal-activation.md) (AC-2, AC-4, AC-5) and
-[F8c — terminal slip to code](F8c-terminal-slip-code.md) (AC-1, AC-3, AC-6). F8a, the workspace, comes
+[F8c — terminal slip to code](F8c-terminal-slip-code.md) (AC-1, AC-3, AC-6). F8a, the host split, comes
 first and is not part of the terminal. F8 is done when F8b and F8c are.
 
 ## Goal
@@ -22,8 +22,9 @@ the counter, and reset when idle.
 
 ## Read first
 
-- `docs/decisions.md` **FD1** — this app is `apps/<name>` in the workspace F8a creates, built on its
-  shared packages.
+- `docs/decisions.md` **FD1** — the terminal is the `(terminal)` route group of this app, on
+  `terminal.{brand}`, set up by F8a; it reuses `src/features/*` and its route handlers live under
+  `/api/terminal/*`.
 - `docs/backend/design/components/c19-retail-network.md` §4.1, `c18-client-apps.md` §5
 - `docs/backend/engineering-decisions.md` D3 (device signatures)
 - `contracts/openapi.yaml`: `POST /v1/retail/terminals/activate`, `GET /v1/retail/terminal`,

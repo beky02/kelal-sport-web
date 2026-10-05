@@ -2,13 +2,15 @@
 id: F11
 title: Platform console — platform staff create, run and suspend brands
 status: todo
-depends_on: [F8a, F10b]
+depends_on: [F12, F10b]
 contract_tags: [Platform]
 touches_money: false
 touches_ui: true
 ---
 
 # F11 — Platform console
+
+Built in **`kelalsport-ops`**, not this repo (FD1, 2026-10-05); this file moves there when F12 creates it.
 
 Added 2026-10-05 with **FD6**. No backend build step names it yet (the build plan has none for the
 platform layer). **Waits for the backend:** proposal
@@ -26,7 +28,7 @@ decides otherwise.
 
 ## Read first
 
-- `docs/decisions.md` **FD1** (`apps/console` in the workspace), **FD6**
+- `docs/decisions.md` **FD1** (the console is built in `kelalsport-ops`, F12), **FD6**
 - Backend proposal 001 §4–§5 and its open questions (Q1 how a brand pays the platform; Q4 access to brand
   data; Q5 how many brands at launch)
 - `docs/backend/design/components/c16-config-tenancy.md` §3 (tenants, domains, config versions), §7
@@ -35,7 +37,7 @@ decides otherwise.
 
 ## Scope
 
-In: the console app (`apps/console`) on the platform's own host, built on the workspace's packages;
+In: the console app in `kelalsport-ops` on the platform's own host;
 platform staff sign-in (password and TOTP; the token in an httpOnly cookie, D3); the brands list; create a
 brand; its domains; invite its first admin; suspend and reactivate; its config history (read only).
 
