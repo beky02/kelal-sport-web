@@ -17,3 +17,10 @@ Each new acceptance test was seen failing against the behaviour it guards, then 
 - `Profile` › a refused save says so with the API's words and offers Try again; an unanswered save asks to check the connection — `SaveProblem` rendering nothing.
 - `AuthDialog` › logging in on another device takes the account's language — `useLogin` not taking it.
 - `RegisterFlow` › registering keeps the language just chosen — registration taking `/api/me`'s language too.
+- `Profile` › lists the devices from /api/me/sessions with this one marked — Sign out offered on this device too; this device sorted last.
+- `Profile` › offers no sign-out for this device — the `current` check removed.
+- `Profile` › signing another device out sends DELETE and removes it once the API answers — the row removed from the cache when the request starts; the list not read again after a 204.
+- `Profile` › a device already gone leaves the list without an error — the 404 settling before the list is read again (it first stayed green against a broken 404 guard, because the row had already gone by the assertion; rewritten to hold the re-read and check no alert flashes; the guard it targeted could never show and was removed).
+- `Profile` › a failed sign-out says so on that row with Try again — the row's `SaveProblem` given no error.
+- `Profile` › a guest sees no devices and nothing is read — the section mounted for a guest.
+- `Profile` › drops the devices when another player signs in — `accountKeys.all` left out of `forgetPlayer`.

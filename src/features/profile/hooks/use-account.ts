@@ -80,8 +80,10 @@ export function useDeviceSessions(enabled: boolean) {
 
 /**
  * Signs one device out. Nothing leaves the list until the API has answered:
- * then the list is read again. A 404 means it is gone already — signed out
- * elsewhere, or expired — so the list is read again too, with no error.
+ * then the list is read again, and the sign-out counts as done only once that
+ * read is back, so the row never shows a state the list then contradicts. A
+ * 404 means it is gone already — signed out elsewhere, or expired — so the
+ * list is read again the same way and the row leaves with it, no error shown.
  */
 export function useRevokeDeviceSession() {
   const queryClient = useQueryClient();

@@ -1,11 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { screen, waitFor, within } from "@testing-library/react";
+import { act, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { SessionWatcher } from "@/features/auth/hooks/use-session";
 import type { Player } from "@/features/auth/types";
 import { ProfileView } from "@/features/profile/components/ProfileView";
+import { toDeviceSessions } from "@/lib/api/mappers/account";
 import { toPlayer } from "@/lib/api/mappers/auth";
 import type { components } from "@/lib/api/schema";
-import { sessionKeys } from "@/lib/query/keys";
+import { accountKeys, sessionKeys } from "@/lib/query/keys";
 import { useUiStore } from "@/stores/ui.store";
 import am from "@/lib/i18n/messages/am.json";
 import en from "@/lib/i18n/messages/en.json";
@@ -33,6 +35,15 @@ let asked: string[] = [];
 let patches: unknown[] = [];
 /** Answers to `PATCH /api/me`, in order; when empty, the account is changed. */
 let patchAnswers: Answer[] = [];
+/** The devices signed in, as the API holds them; a sign-out removes one. */
+let devices: components["schemas"]["Session"][];
+/** Answers to `GET /api/me/sessions`, in order; when empty, `devices`. */
+let listAnswers: Answer[] = [];
+/** Answers to `DELETE /api/me/sessions/{id}`, in order; when empty, 204. */
+let revokeAnswers: Answer[] = [];
+
+/** Prism's two devices: this browser, and the Android app. */
+const PHONE = "01J9A7S0000000000000000002";
 
 const problem = (status: number, code: string) => ({
   type: "about:blank",
@@ -75,7 +86,23 @@ function api() {
       return reply([200, view()]);
     }
     if (url.pathname === "/api/me/sessions" && method === "GET") {
-      return reply([200, []]);
+      const next = listAnswers.shift();
+      if (next === "drop") throw new TypeError("Failed to fetch");
+      if (next) return reply(await next);
+      return reply([200, toDeviceSessions(devices)]);
+    }
+    const one = url.pathname.match(/^\/api\/me\/sessions\/([^/]+)$/);
+    if (one && method === "DELETE") {
+      const next = revokeAnswers.shift();
+      if (next === "drop") throw new TypeError("Failed to fetch");
+      if (next) {
+        const [status, body] = await next;
+        // A 404: it was gone already.
+        if (status === 404) devices = devices.filter((d) => d.id !== one[1]);
+        return reply([status, body]);
+      }
+      devices = devices.filter((d) => d.id !== one[1]);
+      return reply([204, null]);
     }
     throw new Error(`unexpected ${method} ${url}`);
   });
@@ -89,6 +116,9 @@ beforeEach(() => {
   asked = [];
   patches = [];
   patchAnswers = [];
+  devices = example("/v1/me/sessions").items;
+  listAnswers = [];
+  revokeAnswers = [];
   useUiStore.setState({ lang: "en" });
   api();
 });
@@ -236,5 +266,155 @@ describe("marketing consent on the account (AC-8)", () => {
 
     const alert = await screen.findByRole("alert");
     expect(alert).toHaveTextContent(en.profile.saveFailedBody);
+  });
+});
+
+describe("devices signed in (AC-9)", () => {
+  const rows = () => screen.getAllByRole("listitem");
+  const signOut = (device: string) =>
+    screen.getByRole("button", { name: `Sign out ${device}` });
+
+  it("lists the devices from /api/me/sessions with this one marked", async () => {
+    render(<ProfileView />, { session: player() });
+
+    const list = await screen.findByRole("list", { name: en.profile.devices });
+    const [current, phone] = within(list).getAllByRole("listitem");
+    expect(current).toHaveTextContent("Chrome 129 on Windows");
+    expect(current).toHaveTextContent(en.profile.thisDevice);
+    expect(current).toHaveTextContent("196.188.x.x");
+    expect(phone).toHaveTextContent("App 1.0.3");
+    expect(phone).not.toHaveTextContent(en.profile.thisDevice);
+    // Last used 2 Oct at 20:41 UTC: 23:41 East Africa Time.
+    expect(phone).toHaveTextContent(/2 Oct.*23:41/);
+    expect(asked).toContain("GET /api/me/sessions");
+  });
+
+  it("offers no sign-out for this device: Log out is the way out of it", async () => {
+    render(<ProfileView />, { session: player() });
+
+    const list = await screen.findByRole("list", { name: en.profile.devices });
+    const [current] = within(list).getAllByRole("listitem");
+    expect(within(current).queryByRole("button")).toBeNull();
+  });
+
+  it("signing another device out sends DELETE and removes it once the API answers", async () => {
+    let answer!: (reply: [number, unknown]) => void;
+    revokeAnswers = [new Promise((resolve) => (answer = resolve))];
+    render(<ProfileView />, { session: player() });
+    await screen.findByText("App 1.0.3");
+
+    await userEvent.click(signOut("App 1.0.3"));
+
+    // Nothing leaves the list until the API has answered.
+    await waitFor(() =>
+      expect(asked).toContain(`DELETE /api/me/sessions/${PHONE}`),
+    );
+    expect(screen.getByText("App 1.0.3")).toBeInTheDocument();
+    expect(signOut("App 1.0.3")).toBeDisabled();
+
+    devices = devices.filter((d) => d.id !== PHONE);
+    answer([204, null]);
+
+    await waitFor(() => expect(screen.queryByText("App 1.0.3")).toBeNull());
+    expect(rows()).toHaveLength(1);
+    expect(
+      asked.filter((call) => call === "GET /api/me/sessions"),
+    ).toHaveLength(2);
+  });
+
+  it("a device already gone leaves the list without an error", async () => {
+    revokeAnswers = [[404, problem(404, "NOT_FOUND")]];
+    render(<ProfileView />, { session: player() });
+    await screen.findByText("App 1.0.3");
+    // The list is read again after the 404: held, so the row is still there.
+    let reread!: (reply: [number, unknown]) => void;
+    listAnswers = [new Promise((resolve) => (reread = resolve))];
+
+    await userEvent.click(signOut("App 1.0.3"));
+
+    await waitFor(() =>
+      expect(
+        asked.filter((call) => call === "GET /api/me/sessions"),
+      ).toHaveLength(2),
+    );
+    // Gone already is what was asked for: never an error, even before the
+    // list has come back without it.
+    expect(screen.getByText("App 1.0.3")).toBeInTheDocument();
+    expect(screen.queryByRole("alert")).toBeNull();
+
+    reread([200, toDeviceSessions(devices)]);
+
+    await waitFor(() => expect(screen.queryByText("App 1.0.3")).toBeNull());
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+
+  it("a failed sign-out says so on that row with Try again", async () => {
+    revokeAnswers = [[503, problem(503, "SERVICE_UNAVAILABLE")]];
+    render(<ProfileView />, { session: player() });
+    await screen.findByText("App 1.0.3");
+
+    await userEvent.click(signOut("App 1.0.3"));
+
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent(en.profile.signOutFailed);
+    expect(alert.closest("li")).toHaveTextContent("App 1.0.3");
+    expect(screen.getByText("App 1.0.3")).toBeInTheDocument();
+
+    await userEvent.click(
+      within(alert).getByRole("button", { name: en.common.retry }),
+    );
+
+    await waitFor(() => expect(screen.queryByText("App 1.0.3")).toBeNull());
+    expect(
+      asked.filter((call) => call === `DELETE /api/me/sessions/${PHONE}`),
+    ).toHaveLength(2);
+  });
+
+  it("a failed list offers Try again", async () => {
+    listAnswers = [[503, problem(503, "SERVICE_UNAVAILABLE")]];
+    render(<ProfileView />, { session: player() });
+
+    const failed = await screen.findByText(en.profile.devicesFailed);
+    await userEvent.click(
+      within(failed.closest("div")!).getByRole("button", {
+        name: en.common.retry,
+      }),
+    );
+
+    expect(await screen.findByText("App 1.0.3")).toBeInTheDocument();
+  });
+
+  it("a guest sees no devices and nothing is read", async () => {
+    render(<ProfileView />, { session: "guest" });
+
+    await screen.findByRole("button", { name: "Log in" });
+    expect(screen.queryByText(en.profile.devices)).toBeNull();
+    expect(asked).not.toContain("GET /api/me/sessions");
+  });
+
+  it("drops the devices when another player signs in", async () => {
+    const { queryClient } = render(
+      <>
+        <SessionWatcher />
+        <ProfileView />
+      </>,
+      { session: player() },
+    );
+    await screen.findByText("App 1.0.3");
+    expect(queryClient.getQueryData(accountKeys.sessions())).toHaveLength(2);
+
+    // Someone else signs in (another tab): the first player's devices go,
+    // and the next player's are read for them.
+    devices = devices.filter((d) => d.current);
+    act(() => {
+      queryClient.setQueryData(sessionKeys.me(), {
+        player: { ...player(), id: "01J9A7R0000000000000000099" },
+      });
+    });
+
+    await waitFor(() => expect(screen.queryByText("App 1.0.3")).toBeNull());
+    expect(
+      asked.filter((call) => call === "GET /api/me/sessions"),
+    ).toHaveLength(2);
   });
 });

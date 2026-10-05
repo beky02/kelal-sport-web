@@ -29,6 +29,7 @@ import {
   useChangeLanguage,
   useUpdateAccount,
 } from "../hooks/use-account";
+import { DevicesSection } from "./DevicesSection";
 import { SaveProblem } from "./SaveProblem";
 import { InfoRow, SettingsRow, SettingsSection } from "./SettingsRow";
 
@@ -211,6 +212,8 @@ export function ProfileView() {
           </div>
         </>
       )}
+
+      {player && <DevicesSection />}
 
       <SettingsSection>{t.t("profile.preferences")}</SettingsSection>
       <div className="border-divider border-t">
