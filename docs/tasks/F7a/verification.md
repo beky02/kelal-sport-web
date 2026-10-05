@@ -38,3 +38,31 @@ Each acceptance test, once green, was run against the behaviour broken once and 
 | `Wallet` "shows the deposit limit's used and amount from /v1/me/limits, with Manage (AC-7)"                                                                                                                                                   | the card swapped `used` and `amount`                                |
 | `Wallet` "lists each deposit limit the player has, day before week before month"                                                                                                                                                              | the card kept the API's order                                       |
 | `Wallet` "says the deposit limit couldn't load, with Try again"                                                                                                                                                                               | a failed read was shown as no limit                                 |
+
+## Self-review
+
+- **Money moves:** a ticket and an unanswered bet now also re-read `rgKeys.all` (the stake limit's
+  `used`), a completed deposit too (`moneyArrived`, the deposit limit's `used`); RG refusals already
+  re-read `/api/me` and `rgKeys.all`. Nothing is patched: a limit save re-reads the limits, a break drops
+  every cache. No money moves in F7a itself.
+- **New values:** `used`/`amount` are each shown where they belong in `LimitCard` and
+  `DepositLimitCard` (a swap fails `Wallet` AC-7); `pending.*` only in the pending line and the saved
+  message; a break's end is `pause.until` (banner, slip, deposit flow, wallet) or the 201's `endsAt`
+  (started screen) — always through `useLongDateTimeText`; `percentOf(used, amount)` in that order.
+- **Async tests:** every RG/wallet assertion waits for its data: the limit regions render only with the
+  limits (the wallet card's heading renders at once, so its tests `waitFor` the text); the AC-2 test waits
+  for "Betting paused" before reading the alert; the deposit test waits on the live region's text.
+- **Personal data:** limits under `rgKeys.limits()` (root `rgKeys.all`, dropped by `forgetPlayer`);
+  "drops the limits when another player signs in" switches the player and sees the re-read; a started
+  break drops every cache (asserted in AC-6's test).
+- **Route handlers:** each of `GET`/`PUT /api/me/limits` and `POST /api/me/self-exclusion` reads the
+  session for this tenant first (401 with nothing sent, tested), validates its body before upstream
+  (422/413/415/403, tested), answers `no-store` (tested on all three) and forwards `Prefer` only under
+  `next dev`, never to the real API (tested).
+- **Screens:** every state has a screenshot — RG: limits (pending), saved, not saved, failed, guest,
+  confirm, started, unconfirmed, break in force; wallet: card, no limit, card failed, break; deposit:
+  paused, break revealed by a refusal; slip: locked after `RG_SELF_EXCLUDED`. Loading skeletons are not
+  captured (the shots wait for the network), as in earlier tasks.
+- **Docs:** the plan's Files and AC→tests names now match the code (updated after implementation);
+  01, 02, 03, 04, 05 and 09 updated; translation notes list every composed Amharic string; README status
+  `verifying`.

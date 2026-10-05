@@ -1265,6 +1265,18 @@ const SCREENS: Array<{
     before: limitsAnswer(200, []),
   },
   {
+    // Retried twice, as every read is, before it says so.
+    name: "wallet-limit-failed",
+    path: "/wallet",
+    before: limitsAnswer(503, problemJson(503, "SERVICE_UNAVAILABLE")),
+    prepare: async (page, _device, lang) => {
+      await page
+        .getByText(MESSAGES[lang].wallet.depositLimitFailed, { exact: true })
+        .waitFor();
+    },
+    allowConsole: /503/,
+  },
+  {
     // Deposit off with its reason; Withdraw stays (RG-02).
     name: "wallet-break",
     path: "/wallet",
@@ -1893,6 +1905,35 @@ const SCREENS: Array<{
     prepare: saveDepositLimit("600"),
   },
   {
+    // The API's no to a limit, in its words (AC-5).
+    name: "responsible-gaming-not-saved",
+    path: "/responsible-gaming",
+    before: async (page) => {
+      await loginViaApi(page);
+      await page.route("**/api/me/limits", (route) =>
+        route.request().method() === "PUT"
+          ? route.fulfill({
+              status: 422,
+              contentType: "application/problem+json",
+              json: problemJson(422, "VALIDATION_FAILED", {
+                title: "This limit can’t be set",
+                detail:
+                  "A limit can’t be lowered below what you’ve already used.",
+              }),
+            })
+          : route.continue(),
+      );
+    },
+    prepare: async (page, device, lang) => {
+      const t = MESSAGES[lang];
+      const card = page.getByRole("region", { name: t.rg.depositLimit });
+      await card.getByLabel(t.rg.newLimit).fill("100");
+      await card.getByRole("button", { name: t.rg.saveLimit }).click();
+      await card.getByRole("alert").waitFor();
+    },
+    allowConsole: /422/,
+  },
+  {
     // Asked once, in full sentences (AC-6).
     name: "responsible-gaming-confirm",
     path: "/responsible-gaming",
@@ -1914,6 +1955,33 @@ const SCREENS: Array<{
       (t) => t.rg.startBreak,
       true,
     ),
+  },
+  {
+    // No answer to the break: it may have started (AC-6).
+    name: "responsible-gaming-unconfirmed",
+    path: "/responsible-gaming",
+    before: async (page) => {
+      await loginViaApi(page);
+      await page.route("**/api/me/self-exclusion", (route) =>
+        route.abort("failed"),
+      );
+    },
+    prepare: async (page, device, lang) => {
+      const t = MESSAGES[lang];
+      await askFor(
+        (m) => m.rg.takeBreak,
+        (m) => m.rg.break7d,
+        (m) => m.rg.startBreak,
+      )(page, device, lang);
+      await page
+        .getByRole("alertdialog")
+        .getByRole("button", { name: t.rg.confirm })
+        .click();
+      await page
+        .getByText(t.rg.breakUnconfirmedTitle, { exact: true })
+        .waitFor();
+    },
+    allowConsole: /ERR_FAILED/,
   },
   {
     // Logged in again during the break: the banner, from /api/me.

@@ -1,7 +1,7 @@
 ---
 id: F7a
 title: Split from F7 — limits, breaks and self-exclusion on the account; RG refusals everywhere
-status: planned
+status: verifying
 depends_on: [F4, F6a]
 contract_tags: [Responsible gambling, Me]
 touches_money: true
