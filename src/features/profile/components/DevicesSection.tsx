@@ -104,12 +104,12 @@ function DeviceRow({ device }: { device: DeviceSession }) {
         />
         <span className="min-w-0 flex-1">
           <span className="block font-semibold break-words">{name}</span>
-          <span className="text-muted block text-[11px]">
+          <span className="text-muted block text-xs">
             {revoke.isPending ? t.t("profile.signingOut") : lastActive}
           </span>
         </span>
         {device.current ? (
-          <span className="border-accent text-accent shrink-0 rounded-full border px-2.5 py-[3px] text-[11px] font-bold">
+          <span className="border-accent text-accent shrink-0 rounded-full border px-2.5 py-[3px] text-xs font-bold">
             {t.t("profile.thisDevice")}
           </span>
         ) : (

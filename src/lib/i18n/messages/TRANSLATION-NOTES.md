@@ -575,3 +575,28 @@ Removed with the mock (no source any more): `rg.thisMonth`, `deposited`, `netLos
 `used`, `saved`, `lossNote`, `activeBreak`, `activeExclusion`, and the deposit-limit dialog's
 `system.limitTitle`, `limitBody`, `limitOk` (question 2). The provenance notes above that name them
 still say where an older string came from.
+
+## Account and reality check (F7b, 2026-10-05)
+
+None of this copy is about money: the reality check shows time only until F7e. The Amharic was composed from
+vocabulary already in `am.json`: መለያ (account, `auth.*`), መሣሪያ (device, `rg.takeBreakBody`), አስቀምጥ /
+በማስቀመጥ ላይ… (save / saving, `withdraw.save`, `rg.saving`), ማስቀመጥ አልተቻለም (`withdraw.saveFailed`), and
+the reality check's ለ{…} ተጫውተዋል። from the old `system.realityBody`. `{time}` is the long date and time
+(`common.dateAtTime`); `{ip}` and `{device}` are the API's own text (`196.188.x.x`, `Chrome 129 on
+Windows`), so the Amharic puts them after a colon rather than suffixing them.
+
+| Key                                                                              | Amharic                                                                             | Composed from                                                                                |
+| -------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| `profile.languageSaving`, `languageNotSaved`, `languageSave`                     | በመለያዎ ላይ በማስቀመጥ ላይ… / በመለያዎ ላይ አልተቀመጠም። / አስቀምጥ                                     | `bets.notFoundBody` (በመለያዎ ላይ), `rg.saving`, `withdraw.save`                                 |
+| `profile.saveFailed`, `saveFailedBody`                                           | ይህን በመለያዎ ላይ ማስቀመጥ አልተቻለም። / ግንኙነትዎን ያረጋግጡ እና እንደገና ይሞክሩ።                           | `withdraw.saveFailed`; `wallet.loadFailedBody` verbatim                                      |
+| `profile.devices`, `devicesBody`, `thisDevice`                                   | የገቡ መሣሪያዎች / የማያውቁትን ማንኛውንም መሣሪያ ያስወጡ። / ይህ መሣሪያ                                    | `rg.takeBreakBody` (መሣሪያ, ያስወጣዎታል)                                                           |
+| `profile.platformAndroid`, `platformIos`, `platformWeb`                          | አንድሮይድ ስልክ / አይፎን / የድር አሳሽ                                                         | Transliterated names; ስልክ (`profile.phone`)                                                  |
+| `profile.lastActive`, `lastActiveFrom`                                           | መጨረሻ የተጠቀሙበት፦ {time} / መጨረሻ የተጠቀሙበት፦ {time} · {ip}                                  | New; the colon form of `withdraw.removeLabel`                                                |
+| `profile.signOutDevice`, `signOutDeviceAria`, `signingOut`                       | አስወጣ / ከመለያው አስወጣ፦ {device} / በማስወጣት ላይ…                                            | `rg.takeBreakBody` (ያስወጣዎታል); the colon form of `withdraw.removeLabel`                       |
+| `profile.signOutFailed`, `devicesFailed`                                         | ይህን መሣሪያ ማስወጣት አልተቻለም። / መሣሪያዎችዎን መጫን አልተቻለም።                                       | `withdraw.removeFailed`, `rg.limitsFailedTitle`                                              |
+| `system.realityPlayedMinutes`, `realityPlayedHours`, `realityPlayedHoursMinutes` | ለ{minutes} ደቂቃ ተጫውተዋል። / ለ{hours} ሰዓት ተጫውተዋል። / ለ{hours} ሰዓት ከ{minutes} ደቂቃ ተጫውተዋል። | The old `system.realityBody` (ለ{duration} ተጫውተዋል።); ደቂቃ (`rg.minutes`)                       |
+| `rg.sessionReminderBody` (changed), `sessionReminderEvery`, `sessionReminderOff` | በመለያዎ ላይ በተቀመጠው ጊዜ ልዩነት የተጫወቱበትን ጊዜ ያሳያል። / በየ{n} ደቂቃው / ጠፍቷል                       | The old `rg.sessionReminderBody`, without ወጪ (money spent); `profile.notifOffersBody` (ጠፍቷል) |
+
+Removed with the mock figures (no source until F7e): `system.realityBody`, `realityStaked`, `realityWon`,
+`realityNet`. The provenance note above that names `system.realityBody` still says where an older string
+came from.

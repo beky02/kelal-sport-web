@@ -35,3 +35,4 @@ Each new acceptance test was seen failing against the behaviour it guards, then 
 - `RealityCheck` › follows the account's interval (30 min) — minutes said as hours.
 - `RealityCheck` › signing out and in again starts a new visit — the visit not ended for a guest (added after this break first stayed green).
 - `ResponsibleGaming` › the session reminder shows the account's interval, and Off without one — the card showing a fixed 60.
+- `auth.spec` (e2e) › logging in on another device takes the language saved on the account — `useLogin` not taking it (first written without waiting for the login, it failed for the wrong reason; rewritten to wait on `<html lang>`).

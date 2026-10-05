@@ -1,4 +1,5 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
+import am from "../../src/lib/i18n/messages/am.json";
 import en from "../../src/lib/i18n/messages/en.json";
 
 /**
@@ -14,6 +15,21 @@ const TOKEN_MARKERS = [
 ];
 
 const CREDENTIALS = { phone: "911234567", password: "correct horse battery" };
+
+/**
+ * An account saved in English. Logging in takes the account's language (F7b),
+ * and Prism's player is saved in Amharic: the tests about the session itself
+ * read English throughout.
+ */
+async function accountReadsEnglish(page: Page) {
+  await page.route("**/api/me", async (route) => {
+    if (route.request().method() !== "GET") return route.continue();
+    const response = await route.fetch();
+    const json = await response.json();
+    if (json.player) json.player.language = "en";
+    await route.fulfill({ response, json });
+  });
+}
 
 /** The dialog's own form — a guest's header has a "Log in" button of its own. */
 async function logInThroughTheDialog(page: import("@playwright/test").Page) {
@@ -40,6 +56,7 @@ test("logs in through the dialog and leaves no token in the browser (AC-3)", asy
     }
   });
 
+  await accountReadsEnglish(page);
   await page.goto("/login");
   await logInThroughTheDialog(page);
   // Signed in: the header shows the balance instead of Log in / Register.
@@ -133,6 +150,7 @@ test("says guest without a cookie, and never caches who is signed in (AC-8)", as
 test("sends a visitor without a session from the wallet to log in, and back afterwards", async ({
   page,
 }) => {
+  await accountReadsEnglish(page);
   await page.goto("/wallet");
   await expect(page).toHaveURL(/\/login\?next=%2Fwallet$/);
 
@@ -143,9 +161,29 @@ test("sends a visitor without a session from the wallet to log in, and back afte
   ).toBeVisible();
 });
 
+test("logging in on another device takes the language saved on the account (F7b AC-8)", async ({
+  page,
+}) => {
+  // This browser reads English; Prism's player saved Amharic on the account.
+  await page.goto("/login");
+  await expect(page.locator("html")).toHaveAttribute("lang", "en");
+
+  await logInThroughTheDialog(page);
+
+  // Signed in, the page reads the account's language…
+  await expect(page.locator("html")).toHaveAttribute("lang", "am");
+  // …and keeps it: a reload, and Profile, read Amharic with nothing unsaved.
+  await page.goto("/profile");
+  await expect(
+    page.getByRole("button", { name: am.profile.logOut }),
+  ).toBeVisible();
+  await expect(page.getByText(am.profile.languageNotSaved)).toHaveCount(0);
+});
+
 test("logging out clears the session and the account pages close again (AC-8)", async ({
   page,
 }) => {
+  await accountReadsEnglish(page);
   await page.goto("/login");
   await logInThroughTheDialog(page);
   await expect(page.getByRole("link", { name: /balance/i })).toBeVisible();
