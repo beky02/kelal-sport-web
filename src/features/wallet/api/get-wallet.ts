@@ -1,19 +1,6 @@
-import { z } from "zod";
-import { env } from "@/config/env";
-import { apiClient, assertContract } from "@/lib/api/client";
-import { mockRepository } from "@/lib/api/mock/repository";
-import {
-  paymentResultSchema,
-  walletBalancesSchema,
-  walletTxnPageSchema,
-} from "@/lib/api/schemas";
-import type {
-  PaymentMethodCode,
-  PaymentResult,
-  WalletBalances,
-  WalletTxnPage,
-  WalletTxnType,
-} from "../types";
+import { apiClient } from "@/lib/api/client";
+import { walletBalancesSchema, walletTxnPageSchema } from "@/lib/api/schemas";
+import type { WalletBalances, WalletTxnPage, WalletTxnType } from "../types";
 
 /** The player's balances, as `/v1/wallet` states them (through `/api/wallet`). */
 export const getWallet = (signal?: AbortSignal): Promise<WalletBalances> =>
@@ -40,47 +27,3 @@ export const getWalletHistory = (
     },
     signal,
   });
-
-// Withdrawals stay on the mock until F6c moves them to `/v1/withdrawals`.
-
-/**
- * Starts a withdrawal.
- *
- * Returns pending: nothing here may assume it succeeded.
- */
-export async function createWithdrawal(
-  method: PaymentMethodCode,
-  amount: string,
-): Promise<PaymentResult> {
-  if (env.useMocks) {
-    return assertContract(
-      "/wallet/withdrawals",
-      paymentResultSchema,
-      await mockRepository.createWithdrawal(method, amount),
-    );
-  }
-  return apiClient.post("/wallet/payments", paymentResultSchema, {
-    mode: "withdraw",
-    method,
-    amount,
-  });
-}
-
-const statusSchema = z.object({
-  status: z.enum(["pending", "success", "failed"]),
-});
-
-export async function getPaymentStatus(
-  reference: string,
-  signal?: AbortSignal,
-): Promise<PaymentResult["status"]> {
-  if (env.useMocks) {
-    return mockRepository.getPaymentStatus(reference);
-  }
-  const { status } = await apiClient.get(
-    `/wallet/payments/${reference}`,
-    statusSchema,
-    { signal },
-  );
-  return status;
-}

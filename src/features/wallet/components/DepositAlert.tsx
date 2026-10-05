@@ -1,9 +1,8 @@
 "use client";
 
-import { CircleAlert, Clock } from "lucide-react";
 import { useTranslation, type Translator } from "@/lib/i18n/use-translation";
-import { cn } from "@/lib/utils/cn";
 import type { DepositFix, DepositNotice, DepositText } from "../lib/deposit";
+import { PaymentNotice } from "./PaymentNotice";
 
 /** A deposit message in the language on screen, its amounts formatted. */
 function say(t: Translator, text: DepositText | { text: string }): string {
@@ -26,23 +25,11 @@ function say(t: Translator, text: DepositText | { text: string }): string {
 export function DepositUnanswered() {
   const t = useTranslation();
   return (
-    <div
-      role="alert"
-      className="bg-raised border-accent flex gap-2.5 rounded-md border p-3"
-    >
-      <Clock
-        size={17}
-        strokeWidth={1.5}
-        aria-hidden
-        className="text-accent mt-0.5 shrink-0"
-      />
-      <div className="min-w-0 flex-1">
-        <div className="font-bold">{t.t("deposit.unconfirmedTitle")}</div>
-        <p className="text-muted text-xs text-pretty">
-          {t.t("deposit.unconfirmedBody")}
-        </p>
-      </div>
-    </div>
+    <PaymentNotice
+      tone="pending"
+      title={t.t("deposit.unconfirmedTitle")}
+      lines={[t.t("deposit.unconfirmedBody")]}
+    />
   );
 }
 
@@ -76,46 +63,14 @@ export function DepositRefused({
   };
 
   return (
-    <div
-      role="alert"
-      className="bg-loss-bg flex flex-col gap-2.5 rounded-md p-3"
-    >
-      <div className="flex gap-2.5">
-        <CircleAlert
-          size={17}
-          strokeWidth={1.5}
-          aria-hidden
-          className="text-loss mt-0.5 shrink-0"
-        />
-        <div className="min-w-0 flex-1">
-          <div className="font-bold">{say(t, notice.title)}</div>
-          <p className="text-muted text-xs text-pretty">
-            {say(t, notice.body)}
-          </p>
-          {notice.detail && (
-            <p className="text-muted mt-1 text-xs text-pretty">
-              {notice.detail}
-            </p>
-          )}
-        </div>
-      </div>
-      {notice.fixes.length > 0 && (
-        <div className="flex flex-wrap gap-2">
-          {notice.fixes.map((fix, i) => (
-            <button
-              key={fix.kind}
-              type="button"
-              onClick={() => onFix(fix)}
-              className={cn(
-                "font-body numeric min-h-11 cursor-pointer rounded-md px-3 text-xs font-bold",
-                i === 0 ? "bg-accent text-on-accent" : "bg-raised text-text",
-              )}
-            >
-              {label(fix)}
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
+    <PaymentNotice
+      tone="refused"
+      title={say(t, notice.title)}
+      lines={[say(t, notice.body), notice.detail]}
+      actions={notice.fixes.map((fix) => ({
+        label: label(fix),
+        onClick: () => onFix(fix),
+      }))}
+    />
   );
 }

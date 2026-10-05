@@ -36,6 +36,22 @@ const BALANCE_UNCLEAR: ReadonlySet<WalletTxnKind> = new Set([
 
 const ROW = "grid items-center gap-3 border-b border-divider px-4 py-2.5";
 
+/** Withdrawals whose payment the row names: its own screen says where it stands. */
+const WITHDRAWAL_KINDS: ReadonlySet<WalletTxnKind> = new Set([
+  "withdrawal",
+  "withdrawal_released",
+]);
+
+/** Where a row leads: its bet's ticket, its withdrawal, or nowhere. */
+function linkOf(txn: WalletTxn): string | null {
+  const reference = txn.reference;
+  if (reference?.type === "bet") return routes.bet(reference.id);
+  if (reference?.type === "payment" && WITHDRAWAL_KINDS.has(txn.type)) {
+    return routes.withdrawal(reference.id);
+  }
+  return null;
+}
+
 /**
  * One ledger movement.
  *
@@ -43,8 +59,10 @@ const ROW = "grid items-center gap-3 border-b border-divider px-4 py-2.5";
  * show the same money differently. Every figure is the API's: the amount with
  * its own sign — the arrow and a real minus say which way it went before the
  * label is read — and the balance after it, where the contract makes clear
- * which balance that is. A movement for a bet opens that ticket, and says so
- * with a chevron. `when` is the time as the list around it needs it.
+ * which balance that is. A movement for a bet opens that ticket, and one for
+ * a withdrawal — out, or back again — opens where that withdrawal stands;
+ * each says so with a chevron. `when` is the time as the list around it
+ * needs it.
  */
 export function TransactionRow({
   txn,
@@ -95,9 +113,10 @@ export function TransactionRow({
     </>
   );
 
-  return txn.reference?.type === "bet" ? (
+  const opens = linkOf(txn);
+  return opens ? (
     <Link
-      href={routes.bet(txn.reference.id)}
+      href={opens}
       className={cn(
         ROW,
         "hover:bg-raised grid-cols-[36px_minmax(0,1fr)_auto_14px] no-underline",

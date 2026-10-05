@@ -39,11 +39,22 @@ export interface PaymentMethod {
 
 export type WalletMode = "deposit" | "withdraw";
 
-/** Where a deposit or withdrawal flow is: its three questions, then the outcome. */
-export type FlowStep = "method" | "amount" | "confirm" | "result";
+/**
+ * Where a deposit or withdrawal flow is: its questions — a withdrawal also
+ * asks which account — then the outcome.
+ */
+export type FlowStep = "method" | "account" | "amount" | "confirm" | "result";
 
-/** The steps with a progress bar. The outcome is not a step. */
+/** A deposit's steps, with a progress bar. The outcome is not a step. */
 export const WALLET_FLOW: readonly FlowStep[] = ["method", "amount", "confirm"];
+
+/** A withdrawal's steps: the account it goes to comes after the method. */
+export const WITHDRAW_FLOW: readonly FlowStep[] = [
+  "method",
+  "account",
+  "amount",
+  "confirm",
+];
 
 /** The contract's `DepositStatus`, in its order. */
 export const DEPOSIT_STATUSES = [
@@ -89,6 +100,75 @@ export interface Deposit {
 export interface DepositRequest {
   method: PaymentMethodCode;
   amount: string;
+}
+
+/** A saved account withdrawals can be sent to (`/v1/me/payout-accounts`). */
+export interface PayoutAccount {
+  id: string;
+  /** The method it is paid through. */
+  provider: PaymentMethodCode;
+  /** The number as the API shows it — masked, never the whole of it. */
+  accountMasked: string;
+  /** The account holder's name, once the provider has given it. */
+  holderName: string | null;
+  verified: boolean;
+  createdAt: string;
+}
+
+/**
+ * A payout account the player adds: the method and their mobile number in
+ * the contract's `Phone` form (`+251911234567`).
+ */
+export interface PayoutAccountRequest {
+  provider: PaymentMethodCode;
+  account: string;
+}
+
+/**
+ * Where a withdrawal goes: a saved account, by its id — the contract's
+ * preferred form — or a new mobile number, which the API saves as an account.
+ */
+export type WithdrawalDestination =
+  { kind: "saved"; payoutAccountId: string } | { kind: "new"; account: string };
+
+/** What the player asks for: a method, an amount in the contract's form, and where to. */
+export interface WithdrawalRequest {
+  method: PaymentMethodCode;
+  amount: string;
+  to: WithdrawalDestination;
+}
+
+/** The contract's `WithdrawalStatus`, in its order. */
+export const WITHDRAWAL_STATUSES = [
+  "requested",
+  "review",
+  "approved",
+  "processing",
+  "paid",
+  "failed",
+  "rejected",
+  "cancelled",
+] as const;
+export type WithdrawalStatus = (typeof WITHDRAWAL_STATUSES)[number];
+
+/** A withdrawal as `/v1/withdrawals` states it. Nothing here is worked out in the browser. */
+export interface Withdrawal {
+  /** Ours, not the provider's: shown as the reference. */
+  id: string;
+  method: PaymentMethodCode;
+  amount: string;
+  status: WithdrawalStatus;
+  /** Where it goes, masked as the API shows it; null when it didn't say. */
+  accountMasked: string | null;
+  /**
+   * Why it is being reviewed: a code (`FIRST_WITHDRAWAL`), put in words only
+   * when this app knows it — never shown as it is.
+   */
+  reviewReason: string | null;
+  /** Why it was rejected, in the API's own words. */
+  rejectionReason: string | null;
+  createdAt: string;
+  paidAt: string | null;
 }
 
 /**
@@ -179,10 +259,3 @@ export const HISTORY_FILTERS = [
   "win",
 ] as const satisfies readonly ("all" | WalletTxnType)[];
 export type HistoryFilter = (typeof HISTORY_FILTERS)[number];
-
-/** What the mock said about a withdrawal, until F6c moves it to `/v1/withdrawals`. */
-export interface PaymentResult {
-  reference: string;
-  status: "pending" | "success" | "failed";
-  amount: string;
-}
