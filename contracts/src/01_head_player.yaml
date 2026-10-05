@@ -159,7 +159,10 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/Tokens' }
               example: { access_token: "eyJhbGciOi...", expires_in: 900, refresh_token: "rt_9Q2W3E4R5T6Y" }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
 
   /v1/auth/logout:
     post:
@@ -169,7 +172,9 @@ paths:
       security: [ { playerAuth: [] } ]
       responses:
         '204': { description: Logged out }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
 
   /v1/auth/password/reset:
     post:
@@ -211,7 +216,9 @@ paths:
                 created_at: "2026-10-01T08:15:00Z"
                 can_withdraw: true
                 flags: { reality_check_minutes: 60 }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
     patch:
       tags: [Me]
       operationId: updateMe
@@ -229,7 +236,10 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Me' }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
 
   /v1/me/sessions:
     get:
@@ -251,7 +261,9 @@ paths:
                 items:
                   - { id: "01J9A7S0000000000000000001", platform: web, user_agent: "Chrome 129 on Windows", ip: "196.188.x.x", created_at: "2026-10-01T08:15:00Z", last_used_at: "2026-10-03T12:00:00Z", current: true }
                   - { id: "01J9A7S0000000000000000002", platform: android, user_agent: "App 1.0.3", ip: "196.189.x.x", created_at: "2026-09-28T19:02:00Z", last_used_at: "2026-10-02T20:41:00Z", current: false }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
 
   /v1/me/sessions/{id}:
     delete:
@@ -262,6 +274,8 @@ paths:
       parameters: [ { $ref: '#/components/parameters/IdPath' } ]
       responses:
         '204': { description: Revoked }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { $ref: '#/components/responses/NotFound' }
 
   # ---------------------------------------------------------------- KYC (C02)
@@ -366,7 +380,9 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/Wallet' }
               example: { cash: "1208.95", bonus: "50.00", locked: "0.00", debt: "0.00", currency: ETB }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
 
   /v1/wallet/transactions:
     get:
@@ -399,6 +415,10 @@ paths:
                   - { id: "01J9A7U0000000000000000002", type: bet, amount: "-100.00", balance_after: "919.78", reference: { type: bet, id: "01J9A7V0000000000000000001", label: "K7Q2-M9XP-M" }, created_at: "2026-10-03T14:05:22Z" }
                   - { id: "01J9A7U0000000000000000001", type: deposit, amount: "500.00", balance_after: "1019.78", reference: { type: payment, id: "01J9A7W0000000000000000001", label: telebirr }, created_at: "2026-10-03T13:58:10Z" }
                 next_cursor: null
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
 
   # ---------------------------------------------------------------- Payments (C04)
   /v1/payment-methods:
