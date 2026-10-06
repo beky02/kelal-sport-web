@@ -1,7 +1,7 @@
 ---
 id: F8b
 title: Split from F8 — terminal activation, the device key and signed requests
-status: planned
+status: verifying
 depends_on: [F8a]
 contract_tags: [Retail - terminal]
 touches_money: false

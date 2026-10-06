@@ -1,5 +1,51 @@
 # F8b — verification
 
+## Review brief
+
+- **Route handlers** (`src/app/api/terminal/{activate,status,token}`, `lib/server/terminal.ts`): activation
+  is unsigned and needs CSRF and a strict body. Status and rotation forward the browser's
+  `X-Device-Timestamp`/`-Signature` after checking their shape and ±20 s, and add `X-Device-Id` and the
+  bearer from the cookie. Every handler 404s off a terminal host. `Retail - terminal` is refused in
+  `API_REAL_TAGS` until 004 (`config.ts`).
+- **Cookie** (`terminal-session.ts`, `seal.ts`): the session's AES-GCM sealing moved into `seal.ts`
+  under a purpose; the terminal cookie has its own key. It is `__Host-`, Strict, and lasts the token's
+  life plus 30 days. The session's bytes are unchanged (pinned by a pre-move cookie).
+- **Browser** (`features/terminal/**`): a non-extractable P-256 key in IndexedDB; `terminalRequest`
+  signs `METHOD\nPATH\nTS\nhex(sha256(body))` for the API call (from `calls.ts`) and re-signs once on
+  `CLOCK_SKEW`. The status hook reads every 5 min and rotates once per read (the mutation cache
+  remembers). Screens show both languages; the blocked screens have no controls.
+- **Risk**: security (cookie, signature pass-through, CSRF on a bodiless POST, host guard); the signing
+  encodings are an assumption (contract request 014, approved at the plan gate); `problemError` moved
+  out of `apiClient` (player path).
+- **User's decisions** (plan gate): plan approved as written; sync the contract first; assume the
+  encodings and file request 014.
+- **Not done**: the kiosk, slip codes, idle reset, language, `features.retail` (F8c); verifying
+  signatures ourselves; a technician reset on the revoked screen.
+
+## Self-review
+
+- Money moves: none (`touches_money: false`). Activation and rotation invalidate the status query;
+  nothing is patched in the browser.
+- New values: `rotateDue` is computed only in `loadTerminalStatus` and read only in the hook's effect.
+  `terminalId` → `X-Device-Id` only in `deviceHeaders`. The clock offset is set and read only in
+  `terminalRequest`. `retryAfter` → minutes only in `refusalOf`. The shop's name and label are shown
+  only in `TerminalShell`.
+- Async tests: component tests wait with `findBy*` or the fake-clock `tick` before asserting. The
+  rotation test captures the heading after the status has landed and checks it during a 1 s rotation.
+- Personal data: none. No player is on a terminal and `terminalKeys` holds only the terminal's status.
+  No session watcher applies (written in `keys.ts`).
+- Route handlers: a terminal cookie is required for status and rotation (no cookie → `inactive` / 401).
+  Inputs are validated before any upstream call (body Zod, header shapes, clock). `no-store` is on every
+  `respond()` answer and on the device-header 400s. `Prefer` is forwarded only under `next dev` (route
+  test, dev vs test) and never to the real API (`upstream()`; the tag can't be real). Each has a test.
+- Screens: every state has a phone and desktop screenshot, except two activation errors that only a
+  broken browser or network produces ("couldn't reach", "can't keep the key"). Both are covered by
+  component tests.
+- Docs: the plan's Files and AC → tests match the code (updated after implementing: `blocked` state,
+  `code.ts`, `compactCrockford`, `TerminalScreens.tsx`, the mutation-cache guard). Done: 10-terminal
+  (new), 00-overview, 01-screens, 09-security, design README, TRANSLATION-NOTES, the README status, and
+  contract request 014.
+
 ## Tests proven
 
 Each acceptance test was seen failing against a deliberate break of the behaviour it guards, then the code
