@@ -79,6 +79,9 @@ function chunksOfModulesIn(manifests, folder, defines) {
  * whether a chunk (`static/chunks/…`) registers module `id` (by default none
  * does, so every chunk a module needs counts). Fails when there is nothing to
  * check, so it can never pass by finding nothing.
+ *
+ * @param {object[]} manifests
+ * @param {(chunk: string, id: number | string) => boolean} [defines]
  */
 export function hostSplitViolations(manifests, defines = () => false) {
   const found = [];
