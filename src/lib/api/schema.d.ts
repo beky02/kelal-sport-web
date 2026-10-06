@@ -5298,7 +5298,11 @@ export interface operations {
                 };
                 content?: never;
             };
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["Unprocessable"];
+            503: components["responses"]["Unavailable"];
         };
     };
     listSports: {
@@ -5361,7 +5365,10 @@ export interface operations {
                     };
                 };
             };
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            503: components["responses"]["Unavailable"];
         };
     };
     listEvents: {
@@ -5516,7 +5523,11 @@ export interface operations {
                     "application/json": components["schemas"]["EventPage"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["Unprocessable"];
+            503: components["responses"]["Unavailable"];
         };
     };
     listPopularEvents: {
@@ -5624,7 +5635,11 @@ export interface operations {
                     "application/json": components["schemas"]["EventPage"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["Unprocessable"];
+            503: components["responses"]["Unavailable"];
         };
     };
     getEvent: {
@@ -5797,7 +5812,9 @@ export interface operations {
                     "application/json": components["schemas"]["EventDetail"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             404: components["responses"]["NotFound"];
+            503: components["responses"]["Unavailable"];
         };
     };
     search: {
@@ -5870,7 +5887,11 @@ export interface operations {
                     "application/json": components["schemas"]["SearchResult"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["Unprocessable"];
+            503: components["responses"]["Unavailable"];
         };
     };
     quoteSlip: {

@@ -658,6 +658,11 @@ paths:
                   - { code: corners, name: Corners }
                   - { code: player, name: Players }
         '304': { description: Client version is current }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+        '503': { $ref: '#/components/responses/Unavailable' }
 
   /v1/sports:
     get:
@@ -680,6 +685,10 @@ paths:
                 items:
                   - { id: s_football, events_count: 412, tournaments: [ { id: t_eth_pl, events_count: 8 }, { id: t_epl, events_count: 10 }, { id: t_laliga, events_count: 10 } ] }
                   - { id: s_basketball, events_count: 57, tournaments: [ { id: t_nba, events_count: 12 } ] }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '503': { $ref: '#/components/responses/Unavailable' }
 
   /v1/events:
     get:
@@ -709,6 +718,11 @@ paths:
                   - $ref: '#/components/examples/EventArsenalChelsea/value'
                   - $ref: '#/components/examples/EventRealBarca/value'
                 next_cursor: "eyJzIjoiMjAyNi0xMC0wNFQxOTowMCJ9"
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+        '503': { $ref: '#/components/responses/Unavailable' }
 
   /v1/events/popular:
     get:
@@ -718,7 +732,7 @@ paths:
       summary: Featured fixtures for the home page
       parameters:
         - { $ref: '#/components/parameters/AcceptLanguage' }
-        - { name: limit, in: query, schema: { type: integer, default: 10, maximum: 30 } }
+        - { name: limit, in: query, schema: { type: integer, default: 10, minimum: 1, maximum: 30 } }
       responses:
         '200':
           description: Featured fixtures
@@ -730,6 +744,11 @@ paths:
                   - $ref: '#/components/examples/EventArsenalChelsea/value'
                   - $ref: '#/components/examples/EventRealBarca/value'
                 next_cursor: null
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+        '503': { $ref: '#/components/responses/Unavailable' }
 
   /v1/events/{id}:
     get:
@@ -771,7 +790,9 @@ paths:
                   - { id: mk_ac_t25, template_id: m_total, specifiers: { total: "2.5" }, status: active, outcomes: [ { id: oc_ac_o25, tpl: o_over, odds: "1.85", active: true }, { id: oc_ac_u25, tpl: o_under, odds: "1.95", active: true } ] }
                   - { id: mk_ac_t35, template_id: m_total, specifiers: { total: "3.5" }, status: suspended, outcomes: [ { id: oc_ac_o35, tpl: o_over, odds: "3.10", active: false }, { id: oc_ac_u35, tpl: o_under, odds: "1.36", active: false } ] }
                   - { id: mk_ac_btts, template_id: m_btts, specifiers: {}, status: active, outcomes: [ { id: oc_ac_by, tpl: o_yes, odds: "1.72", active: true }, { id: oc_ac_bn, tpl: o_no, odds: "2.05", active: true } ] }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '404': { $ref: '#/components/responses/NotFound' }
+        '503': { $ref: '#/components/responses/Unavailable' }
 
   /v1/search:
     get:
@@ -792,6 +813,11 @@ paths:
                 tournaments: []
                 events:
                   - $ref: '#/components/examples/EventArsenalChelsea/value'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+        '503': { $ref: '#/components/responses/Unavailable' }
 
   # ---------------------------------------------------------------- Slips (C07)
   /v1/slips/quote:
