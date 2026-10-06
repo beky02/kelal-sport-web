@@ -12,8 +12,16 @@ parity test already do what the product needs (FD2).
 | Account pages | The stored preference (no segment: never indexed)                                                                                                                                                                                                                            | Built                         |
 | `<html lang>` | Follows the above; tokens key off it                                                                                                                                                                                                                                         | Built (store) → F2a (segment) |
 | API calls     | `Accept-Language` from the UI on every browser call; the route handlers forward it, so the API's titles and names arrive in the right script. Catalogue loaders read one language once the segment exists (F2a); today they read both and the mappers keep `Localized` pairs |                               |
+| Shop kiosk    | The customer's tap, else the tenant's `default_language`; never stored; back to the default on idle (F8cc). `<html lang>` and `Accept-Language` follow it. The terminal's own screens (activation, closed, offline) show both languages                                      | F8ca                          |
 
-The header switch is one tap: a user who lands in the wrong script needs no menu.
+The header switch is one tap: a user who lands in the wrong script needs no menu. The kiosk's is one tap
+too, labelled with the other language's own name (English, አማርኛ: `LANG_NAME`).
+
+The shared text hooks (`useTranslation`, `useRichTranslation`, `useDateTimeText`, `useLongDateTimeText`)
+read the language, clock and calendar from the nearest `LocaleProvider` (`lib/i18n/locale.tsx`), never
+from a store. The player's site feeds it from its preferences (`(player)/locale.tsx`, also mounted by
+`tests/component/render.tsx`). The kiosk feeds it from its own language, with Gregorian dates and East
+Africa Time. Without a provider, the hooks read English, EAT and Gregorian (F8ca).
 
 ## Rules for strings
 

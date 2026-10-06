@@ -76,8 +76,8 @@ Screenshots `home-slip` (calculation expanded), `home-slip-booked`, `home-slip-p
 ## Terminal, POS and agent apps
 
 The terminal has its own page, [10-terminal.md](10-terminal.md): activation, the device key, its status
-and every screen of it (F8b); the kiosk that turns a slip into an 8-digit code with a QR and resets when
-idle is F8c. Summarised until F9–F10 start: the POS is keyboard-first (F2 new sale, F4 scan/pay, F9 sell, Esc back), prints an
+and every screen of it (F8b); the kiosk's sportsbook, its picks and its language (F8ca); the slip priced
+with the retail rule set (F8cb) and turned into an 8-digit code with a QR, resetting when idle (F8cc). Summarised until F9–F10 start: the POS is keyboard-first (F2 new sale, F4 scan/pay, F9 sell, Esc back), prints an
 80 mm or 58 mm receipt silently, and shows the shift total and connection state at all times; the agent
 portal mirrors the player pattern with phone + password + OTP (C18 §5, C19). Each gets its own page here
 when its task starts.

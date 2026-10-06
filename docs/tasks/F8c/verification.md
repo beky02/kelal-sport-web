@@ -23,3 +23,24 @@ green again once restored.
   through: fails (`live=1` went on).
 - › "reads the board for a terminal: the sport, the day and the filter go upstream, the board comes back
   (AC-1)" — the day dropped from the filters: fails.
+- `TerminalKiosk.test.tsx`, each failed once against its behaviour broken, then passed:
+  - "shows the sports, the days and the board's matches with their prices once the terminal is active" —
+    a row without its 1X2 market.
+  - "reads the board for the sport and day in the URL, and only through /api/terminal" — a day tap that
+    sets nothing.
+  - "says there are no matches on an empty day and goes back to the start" — the empty state's button
+    unwired from `reset`.
+  - "says the matches couldn't load and tries again on a tap" — Try again that doesn't refetch.
+  - "says the server can't be reached when the config can't be read, and tries again" — the same on the
+    config.
+  - "reads the status again when a kiosk read is refused as not activated" — the 401 check matching 999.
+  - "puts a tapped price in the slip and takes it out on a second tap" — a price that never toggles.
+  - "removes one pick and clears the slip" — Remove unwired.
+  - "opens in the tenant's default language and switches with one tap" — `<html lang>` pinned to `am`.
+  - "asks in the kiosk's language" — the reads' `Accept-Language` pinned to `am`.
+  - "starts in English for a tenant whose default is English" — the tenant's default ignored on both of
+    its paths (the locale and the store's fallback). Breaking one path alone left it green, because the
+    other still carried the default.
+  - "offers no switch when the tenant has one language" — the switch offering every language.
+  - "says betting isn't available here, with no board and no slip, when retail is off" — the sportsbook
+    shown whatever `retail` says.
