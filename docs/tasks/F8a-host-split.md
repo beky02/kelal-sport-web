@@ -1,7 +1,7 @@
 ---
 id: F8a
 title: Split the app by host — (player) and (terminal) route groups, the proxy on every route
-status: verifying
+status: done
 depends_on: [F7b]
 contract_tags: []
 touches_money: false
@@ -51,13 +51,13 @@ Out: the terminal itself (F8b, F8c); anything in `kelalsport-ops` (F12).
 
 ## Acceptance criteria
 
-- [ ] **AC-1** `pnpm verify` passes with the same unit, component and screen test counts as before, plus
+- [x] **AC-1** `pnpm verify` passes with the same unit, component and screen test counts as before, plus
       the new proxy tests.
-- [ ] **AC-2** `pnpm ui` screenshots are pixel-identical to the run before the move for every screen (or
+- [x] **AC-2** `pnpm ui` screenshots are pixel-identical to the run before the move for every screen (or
       the differences are listed and explained).
-- [ ] **AC-3** On a player host, `/terminal` and `/api/terminal/x` answer 404; on a terminal host, `/`
+- [x] **AC-3** On a player host, `/terminal` and `/api/terminal/x` answer 404; on a terminal host, `/`
       shows the terminal placeholder and `/profile`, `/login`, `/wallet` and `/api/me` answer 404 (proxy
       unit tests and a Playwright check with both hosts).
-- [ ] **AC-4** A player page's JavaScript contains nothing from `(terminal)`, and the terminal page's
+- [x] **AC-4** A player page's JavaScript contains nothing from `(terminal)`, and the terminal page's
       nothing from the player's layout (build output checked in a test or by `next build`'s route list).
-- [ ] **AC-5** `git log --follow 'src/app/(player)/layout.tsx'` shows the file's history.
+- [x] **AC-5** `git log --follow 'src/app/(player)/layout.tsx'` shows the file's history.

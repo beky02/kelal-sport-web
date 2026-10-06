@@ -15,35 +15,36 @@
 
 ## Automated gate
 
-`pnpm verify` (2026-10-06, after the last code commit `a335d6a`), dev server reused (`next dev`, healthy;
-`/terminal` and the terminal host answered as the unit tests expect before the run):
+Final `pnpm verify` (2026-10-06, after the review fixes and a second user-approved `contract:sync`,
+`002298c`, which only added four feed event schemas the backend published during the session), dev server
+reused (`next dev`, healthy). The first full run (before review) also passed: 1465 / 575.
 
-| Check                                     | Result | Detail                                                                                                                    |
-| ----------------------------------------- | ------ | ------------------------------------------------------------------------------------------------------------------------- |
-| `pnpm typecheck`, `pnpm lint`, `prettier` | PASS   |                                                                                                                           |
-| `pnpm test` (vitest)                      | PASS   | 70 files, 1465 tests (before: 69 files, 1446 — plus 5 config, 8 proxy, 6 build-check tests)                               |
-| `pnpm api:check`                          | PASS   | Generated API types match `contracts/openapi.yaml`                                                                        |
-| `contract-sync --check`                   | PASS   | `contracts/` and `docs/backend/` match the backend                                                                        |
-| `pnpm build`                              | PASS   | `/terminal` prerendered (○); `ƒ Proxy (Middleware)`; matcher in the functions manifest as written                         |
-| `node scripts/check-host-split.mjs`       | PASS   | "19 player routes load nothing from (terminal); 1 terminal route(s) load nothing from the player's layout (54 manifests)" |
-| `pnpm ui` (Playwright)                    | PASS   | 575 passed (before: 570 — plus 5 host checks), 0 flaky (the baseline had 2 flaky auth tests; none this time)              |
+| Check                                     | Result | Detail                                                                                                                                               |
+| ----------------------------------------- | ------ | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `pnpm typecheck`, `pnpm lint`, `prettier` | PASS   |                                                                                                                                                      |
+| `pnpm test` (vitest)                      | PASS   | 70 files, 1470 tests (before: 69 files, 1446)                                                                                                        |
+| `pnpm api:check`                          | PASS   | Generated API types match `contracts/openapi.yaml`                                                                                                   |
+| `contract-sync --check`                   | PASS   | `contracts/` and `docs/backend/` match the backend (it failed once, mid-session, on the backend's new feed events: synced with the user's agreement) |
+| `pnpm build`                              | PASS   | `/terminal` prerendered (○); `ƒ Proxy (Middleware)`; matcher in the functions manifest as written                                                    |
+| `node scripts/check-host-split.mjs`       | PASS   | "19 player routes load no module or chunk of (terminal); 1 terminal route(s) load no module of (player) nor a chunk holding one (54 manifests)"      |
+| `pnpm ui` (Playwright)                    | PASS   | 576 passed (before: 570 — plus 6 in `hosts.spec.ts`), 0 flaky                                                                                        |
 
 ```
  Test Files  70 passed (70)
-      Tests  1465 passed (1465)
-Generated API types match contracts/openapi.yaml.
+      Tests  1470 passed (1470)
 contracts/ matches the backend.
 docs/backend/ matches the backend.
-Host split holds: 19 player routes load nothing from (terminal); 1 terminal route(s) load nothing from the player's layout (.next/server/app, 54 manifests).
-  575 passed (5.8m)
+Host split holds: 19 player routes load no module or chunk of (terminal); 1 terminal route(s) load no module of (player) nor a chunk holding one (.next/server/app, 54 manifests).
+  576 passed (4.2m)
+exit 0
 ```
 
 ## Acceptance criteria
 
 | AC   | Status                    | Evidence                                                                                                                                                                                                                                                                                                                                                                        |
 | ---- | ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| AC-1 | PASS                      | `pnpm verify` above: unit + component 1446 → 1465 (only new tests added: server-config +5, proxy +8, host-split-build +6); screens 544 → 544 (136 × 4); Playwright 570 → 575 (+5 `hosts.spec.ts`)                                                                                                                                                                               |
-| AC-2 | PASS (differences listed) | See "Screens before and after" below: 544/544 same dimensions; 335 byte-identical to a baseline; every other difference is in a class that also appears between two baseline runs of unchanged code                                                                                                                                                                             |
+| AC-1 | PASS                      | `pnpm verify` above: unit + component 1446 → 1470 (server-config +5; proxy 13 → 25: 13 new and 1 replaced — the old test asserting the four-path matcher, whose job the "runs on every page and route handler" test now does; host-split-build +7); screens 544 → 544 (136 × 4); Playwright 570 → 576 (+6 `hosts.spec.ts`)                                                      |
+| AC-2 | PASS (differences listed) | See "Screens before and after" below: 544/544 same dimensions in both runs after the move; 335 (first run) and 340 (final run) byte-identical to a baseline; every other difference is in a class that also appears between two baseline runs of unchanged code                                                                                                                 |
 | AC-3 | PASS                      | proxy unit tests (both hosts, spellings, forwarded host, matcher over every route and public file) and `hosts.spec.ts` on `localhost` and `terminal.localhost`, all green and proven (below); `curl` on the dev server: player `/terminal`, `/api/terminal/x`, `/%74erminal` 404; terminal `/` 200 placeholder, `/profile`, `/login`, `/wallet`, `/api/me`, `/no-such-page` 404 |
 | AC-4 | PASS                      | `check-host-split.mjs` on the real build (above); cross-check: the 6 scripts `terminal.html` loads contain none of `kelal.ui`, `QueryClientProvider`, `RealtimeProvider`, `DocumentPreferences`, while the home page's chunks do (so the markers are findable)                                                                                                                  |
 | AC-5 | PASS                      | `git log --follow --oneline -- 'src/app/(player)/layout.tsx'` → `cb98f01` (fonts), `b0d8dd2` (the move), `207b2c8 feat(shell): app layout…`, `e7a6201 Initial commit from Create Next App`                                                                                                                                                                                      |
@@ -64,6 +65,11 @@ identical to either baseline, and the rest is classified by where the pixels dif
 | The booking-code input's caret (desktop x 1339–1349, y 361–407)          | 29   | Caret blink (`deposit-confirm-en-desktop` between baselines)                                                                                                                                                                                                                                                                                |
 | 1–3 px anti-aliasing flicker                                             | 33   | Same pixels between baselines (phone x 41 y 781, desktop y 39)                                                                                                                                                                                                                                                                              |
 | Small scattered diffs (7–825 px)                                         | 27   | Rounded corners of inputs, buttons and switch knobs caught at another frame of their transition (diff masks of `responsible-gaming-raised-en-desktop` and `profile-am-phone` checked by eye); between baselines, `responsible-gaming-*` 60–120 px, `profile-en-desktop` 345 px, `withdrawal-approved-am-desktop` 28 px in the same flag box |
+
+The final run (after the review fixes) again: 544/544 same dimensions; 340 byte-identical, 48 within the
+baselines' own difference, 81 live simulation, 20 behind a dialog, 23 caret, 8 flicker, 24 small scattered
+(7–207 px; several are the same files as in the first run, e.g. `profile-language-unsaved-en-phone` 207 px,
+`withdraw-accounts-failed-am-desktop` 9 px — corners and transitions).
 
 All 544 PNGs have exactly the baseline's dimensions, so no full-page screen moved. The only visible change
 is the one the user accepted: a URL that matches no page shows Next's built-in 404 in its own bare page
