@@ -17,6 +17,20 @@ const CONTRACT_EXAMPLE_PROVIDER_HOSTS = [
 ];
 
 /**
+ * Tags whose calls would reach the API from this server's address, so its
+ * per-IP and per-device limits would be one bucket for everybody: booking
+ * codes, OTP sends and failed passwords for every player, and terminal
+ * activations (5 per IP per hour) for every shop (F8b). Refused in
+ * `API_REAL_TAGS` until contract request 004 (X-Client-IP / X-Client-Device)
+ * lands.
+ */
+const WAITING_FOR_004: readonly string[] = [
+  "Bookings",
+  "Auth",
+  "Retail - terminal",
+];
+
+/**
  * Server-only configuration. Nothing here reaches the browser: the browser
  * never calls the API (D3), so it never needs to know where it is.
  */
@@ -31,13 +45,9 @@ const schema = z
     apiRealUrl: z.string().url().optional(),
     apiRealTags: z
       .array(z.string())
-      .refine((tags) => !tags.includes("Bookings") && !tags.includes("Auth"), {
-        // Bookings and logins would reach the API from this server's address, so
-        // its per-IP and per-device limits (booking codes, OTP sends, failed
-        // passwords) would be one bucket for every player. Refused until contract
-        // request 004 (X-Client-IP / X-Client-Device) lands.
+      .refine((tags) => !tags.some((tag) => WAITING_FOR_004.includes(tag)), {
         message:
-          "Bookings and Auth cannot use the real API yet: contract request 004 (client IP and device) must land first",
+          "Bookings, Auth and Retail - terminal cannot use the real API yet: contract request 004 (client IP and device) must land first",
       }),
     /** Tenant for hosts not in the map. `demo` locally. */
     defaultTenant: z.string().min(1),
@@ -233,7 +243,8 @@ export type ApiTag =
   | "Promotions"
   | "Responsible gambling"
   | "Inbox"
-  | "Config";
+  | "Config"
+  | "Retail - terminal";
 
 /**
  * A host without its port or a root dot, in lower case: the key both host

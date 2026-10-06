@@ -59,6 +59,14 @@ describe("the session secret", () => {
     await expect(load()).rejects.toThrow(/contract request 004/);
   });
 
+  it("refuses to send terminal activations to the real API before contract request 004 (F8b)", async () => {
+    // Five activation attempts per IP per hour: through this server, every
+    // shop would share one address and one bucket.
+    vi.stubEnv("API_REAL_URL", "http://localhost:8000");
+    vi.stubEnv("API_REAL_TAGS", "Catalogue,Retail - terminal");
+    await expect(load()).rejects.toThrow(/contract request 004/);
+  });
+
   it("falls back to a development key outside production, and the build needs none", async () => {
     vi.stubEnv("NODE_ENV", "development");
     vi.stubEnv("SESSION_SECRET", "");
