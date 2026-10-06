@@ -1,7 +1,7 @@
 ---
 id: F8ca
 title: Split from F8c — kiosk sportsbook: matches, picks and the kiosk's language
-status: verifying
+status: done
 depends_on: [F8b]
 contract_tags: [Catalogue, Config]
 touches_money: false
@@ -64,25 +64,25 @@ Out (do not build here):
 Each criterion must be proven by a named test, a command output or a `pnpm ui` screenshot in
 `verification.md`.
 
-- [ ] **AC-1** An activated terminal of an open shop shows the player's home board — sports, the day strip,
+- [x] **AC-1** An activated terminal of an open shop shows the player's home board — sports, the day strip,
       the competitions with their matches and prices, the sidebar — read through `/api/terminal/*` only, and
       nothing that needs a player (no log in, register, my bets, wallet, responsible gaming or favourites);
       loading, empty (with a way back) and error (Try again) states each have a screenshot.
-- [ ] **AC-2** Tapping a price puts the pick in the player's slip and tapping it again takes it out; each pick
+- [x] **AC-2** Tapping a price puts the pick in the player's slip and tapping it again takes it out; each pick
       can be removed and the slip cleared. Sizes are the player's (the user's decision, 2026-10-06; this
       replaces "at least 48 px").
-- [ ] **AC-3** The kiosk opens in the tenant's `default_language` (Amharic for `demo`); one tap switches
+- [x] **AC-3** The kiosk opens in the tenant's `default_language` (Amharic for `demo`); one tap switches
       every string, `<html lang>` and the `Accept-Language` of its calls.
-- [ ] **AC-4** With `features.retail: false` the terminal says betting isn't available here and shows no
+- [x] **AC-4** With `features.retail: false` the terminal says betting isn't available here and shows no
       board and no slip.
-- [ ] **AC-5** The kiosk's routes answer 404 on a player host and 401 without an activated terminal,
+- [x] **AC-5** The kiosk's routes answer 404 on a player host and 401 without an activated terminal,
       before calling the API; the terminal still loads nothing from `src/stores/` or the player's layout
       (`check-host-split.mjs`), and the player's screens read their language as before.
-- [ ] **AC-6** A league opens on the kiosk's own page (`/terminal/competition/[id]`), from the sidebar, with
+- [x] **AC-6** A league opens on the kiosk's own page (`/terminal/competition/[id]`), from the sidebar, with
       its board.
-- [ ] **AC-7** A match opens on the kiosk's own page (`/terminal/event/[id]`) with every market, from its
+- [x] **AC-7** A match opens on the kiosk's own page (`/terminal/event/[id]`) with every market, from its
       row's "+N"; a match that has kicked off has no page there (pre-match only, D8).
-- [ ] **AC-8** The header's search finds leagues and matches through the terminal and opens them on the
+- [x] **AC-8** The header's search finds leagues and matches through the terminal and opens them on the
       kiosk's pages.
 
 ## Verification
@@ -102,3 +102,6 @@ Each criterion must be proven by a named test, a command output or a `pnpm ui` s
 - 2026-10-06, the rework's review: the kiosk polls prices every 30 s whatever the realtime setting, locks
   them while offline, and carries the footer's licence, 21+ and helpline without its links (SRS RG-05).
   The player's Terms, Privacy and Help pages aren't reachable on a terminal host.
+- 2026-10-06: verified after the rework and its review (`docs/tasks/F8c/verification.md`): `pnpm verify`
+  passes, with 1,588 tests and 636 screens. Follow-ups: the price-to-slip wiring shared with `OddsButton`
+  (Q11, first round), a suspended match locking its page (M5), and the Amharic `Segmented` width (U4).
