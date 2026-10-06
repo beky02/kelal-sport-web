@@ -36,3 +36,10 @@ Each new acceptance test, green, then run against the behaviour broken once, the
 The placeholder check first asserted "no button" with `getByRole`, which also finds the dev server's
 tools button inside its shadow root once an issue has been shown (seen after the mutation runs). It now
 counts the page's own DOM; 15 runs (`--repeat-each=3`) green.
+| host-split-build › finds a terminal route that loads the player layout's code | terminal routes not checked | failed |
+| host-split-build › finds a terminal route that loads the player layout's code | chunk paths not normalised (`/_next/static/…` vs `static/…`) | failed |
+| host-split-build › finds a terminal route that references a module of (player) | module references not checked | failed |
+| host-split-build › finds a player route that references (terminal) | player routes not checked | failed |
+| host-split-build › finds a route under both root layouts | a route under both layouts not reported | failed |
+| host-split-build › fails when there is nothing to check | passes with no terminal route | failed |
+| host-split-build › fails when there is nothing to check | passes with no client module of the player's layout | failed |
