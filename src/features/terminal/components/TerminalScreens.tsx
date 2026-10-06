@@ -1,12 +1,6 @@
 "use client";
 
-import {
-  CircleCheck,
-  LoaderCircle,
-  ShieldOff,
-  Store,
-  WifiOff,
-} from "lucide-react";
+import { Ban, LoaderCircle, ShieldOff, Store, WifiOff } from "lucide-react";
 import type { MessageKey } from "@/lib/i18n";
 import { cn } from "@/lib/utils/cn";
 import type { TerminalInfo } from "../types";
@@ -56,19 +50,26 @@ export function TerminalMessage({
   );
 }
 
+/** Nothing to show yet, said as such. */
+export function TerminalLoadingMessage() {
+  return (
+    <p
+      role="status"
+      className="text-muted flex flex-col items-center gap-3 px-4 text-base"
+    >
+      <LoaderCircle className="size-8 animate-spin" aria-hidden />
+      <span className="flex flex-col gap-1 text-center">
+        <Bilingual k="terminal.loading" />
+      </span>
+    </p>
+  );
+}
+
 /** Before the first status answer: nothing to show yet. */
 export function TerminalLoading() {
   return (
-    <main className="flex flex-1 flex-col items-center justify-center px-4">
-      <p
-        role="status"
-        className="text-muted flex flex-col items-center gap-3 text-base"
-      >
-        <LoaderCircle className="size-8 animate-spin" aria-hidden />
-        <span className="flex flex-col gap-1 text-center">
-          <Bilingual k="terminal.loading" />
-        </span>
-      </p>
+    <main className="flex flex-1 flex-col items-center justify-center">
+      <TerminalLoadingMessage />
     </main>
   );
 }
@@ -101,14 +102,16 @@ export function TerminalShell({
   );
 }
 
-/** Activated and the shop open: the sportsbook goes here (F8c). */
-export function TerminalReady() {
+/**
+ * The tenant sells nothing in shops (`features.retail: false`, F8ca): no
+ * sportsbook, nothing to press, and back by itself when it is switched on.
+ */
+export function TerminalUnavailable() {
   return (
     <TerminalMessage
-      icon={<CircleCheck className="size-8" />}
-      tone="accent"
-      title="terminal.ready.title"
-      body="terminal.ready.body"
+      icon={<Ban className="size-8" />}
+      title="terminal.kiosk.unavailable.title"
+      body="terminal.kiosk.unavailable.body"
     />
   );
 }
@@ -155,11 +158,8 @@ export function TerminalBlocked({
   );
 }
 
-/**
- * No status yet and the server can't be reached. The 5-minute read keeps
- * trying by itself; the button tries now.
- */
-export function TerminalOffline({
+/** The server can't be reached: the read keeps trying, and the button tries now. */
+export function TerminalOfflineMessage({
   onRetry,
   retrying,
 }: {
@@ -167,21 +167,34 @@ export function TerminalOffline({
   retrying: boolean;
 }) {
   return (
-    <main className="flex flex-1 flex-col items-center justify-center">
-      <TerminalMessage
-        icon={<WifiOff className="size-8" />}
-        title="terminal.offline.title"
-        body="terminal.offline.body"
+    <TerminalMessage
+      icon={<WifiOff className="size-8" />}
+      title="terminal.offline.title"
+      body="terminal.offline.body"
+    >
+      <button
+        type="button"
+        onClick={onRetry}
+        disabled={retrying}
+        className="bg-raised border-divider text-text mt-3 flex min-h-12 min-w-40 cursor-pointer flex-col items-center justify-center rounded-md border px-5 py-2 text-base font-bold hover:brightness-125 disabled:cursor-wait disabled:opacity-60"
       >
-        <button
-          type="button"
-          onClick={onRetry}
-          disabled={retrying}
-          className="bg-raised border-divider text-text mt-3 flex min-h-12 min-w-40 cursor-pointer flex-col items-center justify-center rounded-md border px-5 py-2 text-base font-bold hover:brightness-125 disabled:cursor-wait disabled:opacity-60"
-        >
-          <Bilingual k="terminal.offline.retry" />
-        </button>
-      </TerminalMessage>
+        <Bilingual k="terminal.offline.retry" />
+      </button>
+    </TerminalMessage>
+  );
+}
+
+/**
+ * No status yet and the server can't be reached. The 5-minute read keeps
+ * trying by itself; the button tries now.
+ */
+export function TerminalOffline(props: {
+  onRetry: () => void;
+  retrying: boolean;
+}) {
+  return (
+    <main className="flex flex-1 flex-col items-center justify-center">
+      <TerminalOfflineMessage {...props} />
     </main>
   );
 }

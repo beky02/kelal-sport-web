@@ -936,10 +936,6 @@
       "unreachable": "Couldn't reach the server. Try again.",
       "unsupported": "This browser can't keep the terminal's key. Use Chrome in kiosk mode."
     },
-    "ready": {
-      "title": "This terminal is ready",
-      "body": "Betting will open on this screen."
-    },
     "closed": {
       "title": "This shop is closed",
       "body": "Betting on this terminal opens when the shop does."
@@ -954,6 +950,16 @@
       "title": "Can't reach the server",
       "body": "The terminal will try again by itself.",
       "retry": "Try again"
+    },
+    "kiosk": {
+      "matches": "Matches",
+      "days": "Days",
+      "emptyBody": "Try another sport or day.",
+      "backToMatches": "Back to the matches",
+      "unavailable": {
+        "title": "Betting isn't available at this terminal",
+        "body": "Ask the shop staff."
+      }
     }
   }
 }

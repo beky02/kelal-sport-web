@@ -71,3 +71,11 @@ export interface TerminalConfigView {
   /** What the kiosk opens in (FD2: Amharic for `demo`). */
   defaultLanguage: Lang;
 }
+
+/** What the kiosk's board is asked for: a sport, a day, an order (F8ca). */
+export interface KioskBoardFilters {
+  sportId: string;
+  /** `YYYY-MM-DD`, East Africa Time. */
+  date: string;
+  filter: "top" | "upcoming" | "today";
+}

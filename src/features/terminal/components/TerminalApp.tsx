@@ -3,19 +3,20 @@
 import { useTerminalStatus } from "../hooks/use-terminal";
 import type { TerminalStatus } from "../types";
 import { ActivationScreen } from "./ActivationScreen";
+import { Kiosk } from "./kiosk/Kiosk";
 import {
   TerminalBlocked,
   TerminalClosed,
   TerminalLoading,
   TerminalOffline,
-  TerminalReady,
   TerminalShell,
 } from "./TerminalScreens";
 
 /**
  * The shop terminal (F8b): what the server says it is, read on boot and every
  * 5 minutes. Once there is an answer, a failed read changes nothing on screen
- * — the next read tries again — and a background rotation never shows.
+ * — the next read tries again — and a background rotation never shows. An
+ * active terminal of an open shop is the kiosk (F8ca).
  */
 export function TerminalApp() {
   const status = useTerminalStatus();
@@ -38,13 +39,11 @@ function TerminalScreen({ status }: { status: TerminalStatus }) {
     case "blocked":
       return <TerminalBlocked reason={status.reason} />;
     case "active":
-      return (
+      return status.terminal.shop.openNow ? (
+        <Kiosk terminal={status.terminal} />
+      ) : (
         <TerminalShell terminal={status.terminal}>
-          {status.terminal.shop.openNow ? (
-            <TerminalReady />
-          ) : (
-            <TerminalClosed />
-          )}
+          <TerminalClosed />
         </TerminalShell>
       );
   }

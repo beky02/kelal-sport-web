@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import {
@@ -14,12 +14,16 @@ import {
   asked,
   json,
   keys,
+  kioskHeading,
   problem,
   renderTerminal,
   routes,
   setUpTerminalTests,
   signedFor,
 } from "./terminal";
+
+// An active terminal is the kiosk, whose board filters live in the URL (F8ca).
+vi.mock("next/navigation", () => import("./navigation"));
 
 setUpTerminalTests();
 
@@ -61,12 +65,7 @@ describe("activating a terminal (AC-4)", () => {
 
     await activateWith(" k7q2-m9xp ");
 
-    expect(
-      await screen.findByRole("heading", {
-        level: 1,
-        name: new RegExp(en.terminal.ready.title),
-      }),
-    ).toBeInTheDocument();
+    expect(await kioskHeading()).toBeInTheDocument();
     expect(screen.getByText("Adama Kebele 04")).toBeInTheDocument();
     expect(screen.getByText("PC 3")).toBeInTheDocument();
 
@@ -117,12 +116,7 @@ describe("activating a terminal (AC-4)", () => {
         name: new RegExp(en.terminal.offline.retry),
       }),
     );
-    expect(
-      await screen.findByRole("heading", {
-        level: 1,
-        name: new RegExp(en.terminal.ready.title),
-      }),
-    ).toBeInTheDocument();
+    expect(await kioskHeading()).toBeInTheDocument();
     expect(activations()).toHaveLength(1);
     expect(keys.pair).toBe(key);
   });
