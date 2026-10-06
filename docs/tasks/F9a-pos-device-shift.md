@@ -2,7 +2,7 @@
 id: F9a
 title: Split from F9 — POS device, staff login, shifts and cash
 status: todo
-depends_on: [F8a]
+depends_on: [F12]
 contract_tags: [Retail - cashier]
 touches_money: true
 touches_ui: true
@@ -10,13 +10,16 @@ touches_ui: true
 
 # F9a — POS device, login and shift
 
+Built in **`kelalsport-ops`**, not this repo (FD1, 2026-10-05); this file moves there when F12 creates it.
+
 Split from [F9](F9-pos.md) (2026-10-03, before planning): selling needs an open shift, so the shift comes
 first.
 
 ## Goal
 
-The counter PC is activated once; a cashier or shop manager logs in with a PIN from that device only; a
-shift opens with the counted cash, shows its running totals, records cash in and out, and closes with a
+The counter PC is activated once; a cashier or shop manager logs in with a PIN from that device only (the
+shop manager is the contract's `shop_manager` role; whether it stays in Phase 1 is open, FD6 and
+proposal 001 Q3); a shift opens with the counted cash, shows its running totals, records cash in and out, and closes with a
 count by denomination and a Z report.
 
 ## Read first
@@ -31,7 +34,7 @@ count by denomination and a Z report.
 
 ## Scope
 
-In: the POS app's shell (`apps/pos`), keyboard-first, the connection state always visible; device
+In: the POS app's shell (in `kelalsport-ops`), keyboard-first, the connection state always visible; device
 activation; staff login and logout; shift open, running totals, cash movements (a manager PIN above the
 threshold), close with the Z report; the shop manager confirms or disputes a cash collection and resets a
 cashier's PIN.

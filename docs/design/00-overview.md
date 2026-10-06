@@ -2,10 +2,15 @@
 
 ## What we build
 
-Every browser-facing surface of the sportsbook is a Next.js app in this repo (FD1): the **player web**
-now; the **shop terminal**, **cashier POS**, **agent portal** and **back office** later (F8–F10), as a
-pnpm + Turborepo workspace converted in F8a. One build serves every tenant (brand): the host picks the
-tenant, `/v1/config/public` supplies its name, colours, languages, features and betting rules
+The browser-facing apps live in two web projects (FD1):
+
+- **This repo** is one Next.js app serving the **player web** and, from F8, the **shop terminal**. They
+  are separate sites on their own hosts (`www.{brand}`, `terminal.{brand}`), each with its own root layout,
+  split by the proxy (F8a).
+- **`kelalsport-ops`** (F12) holds the **cashier POS**, **agent portal**, **back office** and the
+  **platform console** above the brands (F9–F11, FD6).
+
+One build serves every tenant (brand): the host picks the tenant, `/v1/config/public` supplies its name, colours, languages, features and betting rules
 (C18 §4.3, D7). The Android app is Flutter and lives elsewhere; it calls the same API and runs the same
 golden slip tests, and it shares our deep links (D7).
 
@@ -16,16 +21,36 @@ calculator (D1), everything else is displayed state and collected actions (AGENT
 
 ## Apps and users
 
-| App           | Stack and runtime                                                           | Users                        | Status                                 |
-| ------------- | --------------------------------------------------------------------------- | ---------------------------- | -------------------------------------- |
-| Player web    | Next.js App Router, responsive 360 px → desktop, installable as a PWA later | Online players               | Built; F1–F7 rewire it to the contract |
-| Shop terminal | Next.js, Chrome kiosk on shop PCs                                           | Walk-in customers (no login) | F8                                     |
-| Cashier POS   | Next.js, Chrome kiosk with silent printing                                  | Cashiers, shop managers      | F9                                     |
-| Agent portal  | Next.js, any browser                                                        | Agents                       | F10                                    |
-| Back office   | Next.js + Refine                                                            | Operator staff               | F10                                    |
+| App              | Project, stack and runtime                                                     | Users                                            | Status                                 |
+| ---------------- | ------------------------------------------------------------------------------ | ------------------------------------------------ | -------------------------------------- |
+| Player web       | This repo, `(player)`; responsive 360 px → desktop, installable as a PWA later | Online players                                   | Built; F1–F7 rewire it to the contract |
+| Shop terminal    | This repo, `(terminal)`; Chrome kiosk on shop PCs                              | Walk-in customers (no login)                     | F8a, then F8b–F8c                      |
+| Cashier POS      | `kelalsport-ops`; Chrome kiosk with silent printing                            | Cashiers (and shop managers: open question, FD6) | F12, then F9                           |
+| Agent portal     | `kelalsport-ops`; any browser                                                  | Agents, brand and partner (FD6)                  | F12, then F10a                         |
+| Back office      | `kelalsport-ops`; Next.js + Refine                                             | A brand's own staff                              | F12, then F10b–F10g                    |
+| Platform console | `kelalsport-ops`; any browser                                                  | Platform staff, above the brands (FD6)           | F12, then F11; waits for the backend   |
 
 The player persona (PRD): an adult football fan on an Android phone, telebirr, patchy 3G, Amharic first.
 Every budget and default follows from that (08-performance, 06-language).
+
+## Who owns what (FD6)
+
+The Phase 1 chain, fixed by the product owner
+([backend proposal 001](../backend-proposals/001-platform-and-retail-hierarchy.md)):
+
+```
+Platform            platform staff: create, run and suspend brands      → platform console (F11)
+└─ Brand            a licensed operator, one tenant                     → back office (F10b–F10g), player web
+   └─ Agent         brand agent (the brand's own shops) or partner      → agent portal (F10a)
+      └─ Shop       every shop has an agent
+         ├─ Terminals   shop PCs, no login, activated once             → terminal (F8)
+         └─ Cashiers    PIN on an activated counter PC                 → cashier POS (F9)
+```
+
+There are no master agents and no shops without an agent. Everything below the platform belongs to one
+brand: its players, agents, shops, tickets and money are never seen by another brand, and a ticket is
+paid only in that brand's shops (where exactly is the brand's `payout_where`, C19 §4.4). How a brand pays
+the platform, and what platform staff may see inside a brand, are open (proposal 001, Q1 and Q4).
 
 ## Route map (FD3, D7)
 
@@ -91,5 +116,6 @@ query, never a store a reload could clear.
 
 The screens were built from the design before the contract existed; most tasks rewire a screen to the
 contract through a route handler and a mapper. The order is the build plan's frontend track
-(`docs/backend/build-plan.md` §2): F0 → F3 (slip) → F1, F2a, F2b → F4 → F5 → F6 → F7 → F8a → F8–F10.
+(`docs/backend/build-plan.md` §2): F0 → F3 (slip) → F1, F2a, F2b → F4 → F5 → F6 → F7, then (FD1, revised
+2026-10-05) F8a (the host split) → F8 (the terminal) here, and F12 → F9–F11 in `kelalsport-ops`.
 Every task runs through `/task <id>` and ends with a verification report under `docs/tasks/<id>/`.

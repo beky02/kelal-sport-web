@@ -10,6 +10,8 @@ touches_ui: true
 
 # F10f — Marketing and settings
 
+Built in **`kelalsport-ops`**, not this repo (FD1, 2026-10-05); this file moves there when F12 creates it.
+
 Split from [F10](F10-agent-backoffice.md) (2026-10-03, before planning).
 
 ## Goal

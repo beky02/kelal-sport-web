@@ -34,25 +34,29 @@ Engineering Decisions say differently. The order follows the Build Plan's fronte
 | [F7c](F7c-promotions-inbox.md)                | Split from F7: promotions, my bonus and free bets, promo codes, the inbox                              | F4                 | —             | todo   |
 | [F7d](F7d-content-mocks.md)                   | Split from F7: content pages from the API; the mock repository deleted                                 | F6c, F7a, F7b, F7c | B1            | todo   |
 | [F7e](F7e-reality-check-figures.md)           | Split from F7b: the reality check's figures and play session from the API (after contract request 012) | F7b                | B8            | todo   |
-| [F8a](F8a-workspace.md)                       | Convert to a pnpm + Turborepo workspace: `apps/player`, shared packages                                | F7                 | —             | todo   |
+| [F8a](F8a-host-split.md)                      | Split the app by host: `(player)` and `(terminal)` route groups (FD1)                                  | F7b                | —             | todo   |
 | [F8](F8-terminal.md)                          | Shop terminal app                                                                                      | F8a                | B9            | todo   |
 | [F8b](F8b-terminal-activation.md)             | Split from F8: terminal activation, the device key and signed requests                                 | F8a                | B9            | todo   |
 | [F8c](F8c-terminal-slip-code.md)              | Split from F8: kiosk sportsbook and slip to code                                                       | F8b                | B9            | todo   |
-| [F9](F9-pos.md)                               | Cashier POS app                                                                                        | F8a                | B9            | todo   |
-| [F9a](F9a-pos-device-shift.md)                | Split from F9: POS device, staff login, shifts and cash                                                | F8a                | B9            | todo   |
+| [F9](F9-pos.md)                               | Cashier POS app (in `kelalsport-ops`)                                                                  | F12                | B9            | todo   |
+| [F9a](F9a-pos-device-shift.md)                | Split from F9: POS device, staff login, shifts and cash                                                | F12                | B9            | todo   |
 | [F9b](F9b-pos-sell-print.md)                  | Split from F9: sell from a slip code, print the receipt                                                | F9a                | B9            | todo   |
 | [F9c](F9c-pos-pay-cancel.md)                  | Split from F9: scan a ticket, pay it, cancel it                                                        | F9b                | B9            | todo   |
-| [F10](F10-agent-backoffice.md)                | Agent portal, then back office (Refine)                                                                | F8a                | B9, B10       | todo   |
-| [F10a](F10a-agent-portal.md)                  | Split from F10: agent portal                                                                           | F8a                | B9            | todo   |
-| [F10b](F10b-backoffice-shell.md)              | Split from F10: back office shell, staff sign-in, dashboard, audit, staff and roles                    | F8a                | B10           | todo   |
+| [F10](F10-agent-backoffice.md)                | Agent portal, then back office (Refine), in `kelalsport-ops`                                           | F12                | B9, B10       | todo   |
+| [F10a](F10a-agent-portal.md)                  | Split from F10: agent portal                                                                           | F12                | B9            | todo   |
+| [F10b](F10b-backoffice-shell.md)              | Split from F10: back office shell, staff sign-in, dashboard, audit, staff and roles                    | F12                | B10           | todo   |
 | [F10c](F10c-backoffice-players.md)            | Split from F10: players and compliance                                                                 | F10b               | B10           | todo   |
 | [F10d](F10d-backoffice-finance.md)            | Split from F10: finance and the four-eyes approvals queue                                              | F10b               | B10           | todo   |
 | [F10e](F10e-backoffice-trading.md)            | Split from F10: trading, risk and settlement                                                           | F10b, F10d         | B10           | todo   |
 | [F10f](F10f-backoffice-marketing-settings.md) | Split from F10: marketing and tenant settings                                                          | F10b, F10d         | B10           | todo   |
 | [F10g](F10g-backoffice-retail.md)             | Split from F10: retail administration                                                                  | F10b, F10d         | B10           | todo   |
+| [F11](F11-platform-console.md)                | Platform console: platform staff create, run and suspend brands (FD6)                                  | F12, F10b          | —             | todo   |
+| [F12](F12-ops-project.md)                     | Create `kelalsport-ops`: POS, agent portal, back office, platform console (FD1)                        | F8a                | —             | todo   |
 
 F1, F2a, F3 and F4 only need F0 and can go in any order. Recommended order: **F3** (every slip number is
 currently a float estimate that differs from the backend), F1, F2a, F2b, F4, F5, F6, F7, F8a, F8–F10.
+Since FD1 was revised (2026-10-05): F8a (the host split) runs once F7b is merged, then the terminal
+(F8b, F8c) here, and F12 creates `kelalsport-ops`, where F9–F11 are built.
 Whichever of F1, F2a and F3 runs first builds `loadPublicConfig` (`/v1/config/public`, cached per
 tenant); the others reuse it. The "Backend piece" column says when a screen
 can move from Prism to the real API (`API_REAL_TAGS`, D7) — none of the tasks wait for it. One exception:
@@ -60,16 +64,19 @@ the server refuses `Bookings` in `API_REAL_TAGS` until contract request 004 (the
 and a trusted-proxy setting land.
 
 F6 through F10 are split into sub-tasks of about one reviewable PR each (F6a–F6c, F7a–F7d, F8b–F8c,
-F9a–F9c, F10a–F10g; F8a, the workspace, stays one task): run `/task` with the sub-task's id. The parent's
+F9a–F9c, F10a–F10g; F8a, the host split, stays one task): run `/task` with the sub-task's id. The parent's
 criteria name the sub-task that carries each one, and a parent is done when all its sub-tasks are.
 
 ## Decisions
 
 The open questions found while writing these tasks are decided in [`docs/decisions.md`](../decisions.md)
-(2026-10-01): **FD1** one web workspace, converted in F8a · **FD2** language in the URL, tenant default
+(2026-10-01): **FD1** (revised 2026-10-05) two projects — player and terminal here, split by host (F8a);
+POS, agent portal, back office and platform console in `kelalsport-ops` (F12) · **FD2** language in the URL, tenant default
 (Amharic for `demo`), in-house i18n kept · **FD3** D7 deep links and C18 route names with redirects ·
 **FD4** no `decimal.js`; strings in, BigInt santim when computed · **FD5** Search takes Live's tab slot
-until Release 2. Each task's "Read first" names the decisions it carries out.
+until Release 2 · **FD6** (2026-10-05) the Phase 1 chain Platform → Brand → Agent → Shop: every shop has an
+agent, no master agents, a platform console above the brands (F11). Each task's "Read first" names the
+decisions it carries out.
 
 ## Status values
 

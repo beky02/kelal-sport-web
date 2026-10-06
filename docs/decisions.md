@@ -4,22 +4,69 @@ Decisions for this repo that the higher sources (the contract, Engineering Decis
 or where the client-apps design (C18) and the built app disagree. They never override the contract or
 D1–D9; if one of those changes, revisit the decision here. Each names the task that carries it out.
 
-## FD1. One web workspace, converted before the terminal (2026-10-01)
+## FD1. Two web projects: player and terminal here, split by host; staff apps in `kelalsport-ops` (2026-10-05)
+
+Replaces the 2026-10-01 decision (one pnpm + Turborepo workspace with `apps/player`, `terminal`, `pos`,
+`agent`, `admin`, converted in F8a), on the product owner's direction.
 
 **Question.** C18 §3 puts every browser app in one pnpm/Turborepo workspace (`apps/player`, `terminal`,
-`pos`, `agent`, `admin`; `packages/api`, `slipcalc`, `ui`, `catalogue`, `betslip`, `i18n`, `config`). This
-repo is a single Next.js app.
+`pos`, `agent`, `admin`; shared `packages/`). This repo is a single Next.js app. Where do the terminal,
+cashier POS, agent portal, back office and platform console (FD6) live, and does putting several apps in
+one Next.js project cost the player site?
 
-**Decision.** Keep all web apps in **this repo**, converted to a pnpm + Turborepo workspace in a
-dedicated task, **F8a**, after F7 and before the terminal (F8). The player app moves to `apps/player`
-unchanged; `packages/api` (generated types, mappers, server client), `packages/slipcalc`, `packages/ui`
-and `packages/i18n` are extracted from code that F1–F7 will have finished.
+**Decision.**
 
-**Why.** The terminal, POS and agent apps reuse the slip, the calculator, the catalogue and the API
-client; separate repos would copy them and let them drift — the problem the golden CSV exists to prevent.
-Converting now would move code that F1–F7 are about to rewrite; converting after F7 moves finished code,
-which is mechanical (`git mv`, package boundaries, Turborepo pipeline). The backend README already settles
-that the web code is its own repo with a synced `contracts/` copy.
+- **Two projects.**
+  - **This repo (`kelalsport-web`)** stays **one Next.js app**, serving the **player site** and the **shop
+    terminal**, each on its own host.
+  - **`kelalsport-ops`**, a new repo (F12), holds the staff and shop-counter apps: **cashier POS**,
+    **agent portal**, **back office** and **platform console**.
+- **This app is split by host, with a root layout per route group:**
+
+  ```
+  src/app/(player)/layout.tsx    today's pages, same URLs, the player's <html>
+  src/app/(terminal)/layout.tsx  the kiosk's own <html>; its pages under /terminal/*
+  src/app/api/terminal/*         the terminal's route handlers (device signature, terminal token)
+  src/proxy.ts                   terminal.{brand} serves only /terminal/* and /api/terminal/*
+                                 (its "/" rewritten to /terminal); www.{brand} never serves them
+  ```
+
+  Each root layout has its own JavaScript and CSS, so a player never downloads terminal code and the kiosk
+  never loads login, wallet or account pages. The separation is the proxy's: a route of the other app
+  answers 404 on the wrong host, so there is no login on a shop PC. The player's session cookie is bound to
+  its host (`__Host-` in production). One build can run as two deployments (`www` and `terminal`) so shop
+  and online traffic scale and restart apart. The terminal reuses `src/features/*` (catalogue, odds,
+  the slip in a `terminal` mode) and slipcalc with the retail rule set.
+
+- **Conditions for `kelalsport-ops`.** The POS shows money before a sale (stake, taxes, payout), so:
+  1. Its slip figures come only from `contracts/golden/ts/slipcalc.ts`, synced from the backend with
+     `contract:sync` like here — never copied or edited.
+  2. Its CI runs the golden CSV test and the contract drift check, as this repo's does.
+  3. It follows D3 (the browser never calls the API; tokens in httpOnly cookies) and FD4 (money as
+     strings, BigInt santim when computed).
+
+**What this version of Next.js says** (`node_modules/next/dist/docs`, checked 2026-10-05):
+
+- **Route groups** may each have a root layout. Moving between them is a full page load (harmless across
+  hosts). Two groups may not resolve to the same path, hence `/terminal/*`. The home route `/` must sit
+  inside a group.
+- **The proxy** (`proxy.ts`) can rewrite by host (and `next.config` rewrites can match `has: host`). It runs
+  on the Node.js runtime, and its `matcher` must be a constant. Enforcing the split means it runs on every
+  page and route handler, excluding `_next/static`, `_next/image` and public files, instead of today's
+  four account paths. That is a host lookup per request, nothing more.
+
+**Why.**
+
+- **The terminal belongs with the player site.** It is the player's catalogue and slip on a touch screen,
+  with no staff, cash or login, so a separate app would copy the most code for the least gain.
+- **The staff apps belong together, apart from the player site.** They share staff sign-in, devices, cash
+  and the ledger's figures, and little with the player site but the API and slipcalc, which both projects
+  take from the contract.
+- **One Next.js app split by host costs the player nothing at runtime.** It costs a single build: a
+  terminal change redeploys the player site, accepted for two customer-facing apps kept together.
+
+**Carried out in F8a** (the host split), **F8b–F8c** (the terminal), **F12** (`kelalsport-ops`; F9–F11
+are built there).
 
 ## FD2. Language in the URL; the tenant's default language (2026-10-01)
 
@@ -92,3 +139,44 @@ players find a match by team name. It needs no new API (`/v1/search` is already 
 language — a tab and a results list that reuses the header's rows. Wallet was ruled out (the balance chip
 in the app bar is its entry point, by design) and Promotions (not built until F7, and a weaker reason to
 open the app). **Carried out in F2**, with the search screen.
+
+## FD6. Phase 1 chain: Platform → Brand → Agent → Shop; the platform layer (2026-10-05)
+
+**Question.** C19 §3 lets a brand's retail network have master agents (a regional level above agents) and
+shops the operator runs with no agent, and the contract allows both (`Agent.level: master_agent`,
+`Agent.parent_id`, `Shop.agent_id` nullable). Nothing in the backend docs describes the company above the
+brands: who creates a brand, what it can see, how a brand pays for the platform.
+
+**Decision.** The product owner fixed the Phase 1 chain
+([backend proposal 001](backend-proposals/001-platform-and-retail-hierarchy.md)):
+
+```
+Platform → Brand (tenant) → Agent → Shop (terminals, cashiers)
+```
+
+- **Every shop has an agent.** A shop the brand runs itself sits under an agent the brand owns (a
+  **brand agent**); a **partner agent** is a business running shops for the brand.
+- **One agent level.** No master agents in Phase 1.
+- **The platform layer** is a separate app, the **platform console** (in `kelalsport-ops`, F11, FD1), for
+  platform staff: create, run and suspend brands. A brand's own staff keep their back office (F10b–F10g).
+
+What the frontend does now, within what the contract already allows:
+
+- The back office's retail administration (F10g) offers no master agents and no shop without an agent:
+  creating a shop starts with choosing its agent.
+- The agent portal (F10a) shows one agent's own shops; there are no sub-agent or subtree views.
+- Agents are labelled brand or partner once the contract has `Agent.kind`
+  ([contract request 013](contract-requests/013-platform-and-retail-chain.md)); until then, nothing in the
+  UI depends on the difference.
+
+What waits for the backend: `Agent.kind`, `Shop.agent_id` required, the `Platform` operations (request
+013), and the proposal's open questions — how a brand pays the platform (Q1), several brand agents (Q2),
+the shop manager (Q3; F9a keeps the contract's `shop_manager` role meanwhile), platform access to brand
+data (Q4), how many brands at launch (Q5), regulator reporting (Q6) and the brand agent's portal login
+(Q7).
+
+**Why.** One shape for every shop makes payout rules (`same_agent`), settlement, commission and every
+agent-portal and retail-admin screen one case instead of two, and one agent level drops the subtree views
+and roll-ups Phase 1 doesn't need. Leaving master agents and agentless shops out of the UI is a choice the
+contract leaves open; it doesn't override it. **Carried out in F10a, F10g and F11** (all in
+`kelalsport-ops`, FD1).

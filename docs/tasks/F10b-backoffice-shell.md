@@ -2,7 +2,7 @@
 id: F10b
 title: Split from F10 — back office shell, staff sign-in, dashboard, audit, staff and roles
 status: todo
-depends_on: [F8a]
+depends_on: [F12]
 contract_tags: [Admin]
 touches_money: false
 touches_ui: true
@@ -10,13 +10,16 @@ touches_ui: true
 
 # F10b — Back office shell
 
+Built in **`kelalsport-ops`**, not this repo (FD1, 2026-10-05); this file moves there when F12 creates it.
+
 Split from [F10](F10-agent-backoffice.md) (2026-10-03, before planning). The back office waits for the
 admin APIs (B10); F10c–F10g build on this shell.
 
 ## Goal
 
-Operator staff sign in with email, password and TOTP to a Refine back office that shows only what their
-roles allow; today's dashboard, the audit log, and staff and roles management.
+A brand's staff sign in with email, password and TOTP to a Refine back office that shows only what their
+roles allow; today's dashboard, the audit log, and staff and roles management. The back office belongs to
+one brand (its host decides which); platform staff use the platform console instead (F11, FD6).
 
 ## Read first
 
