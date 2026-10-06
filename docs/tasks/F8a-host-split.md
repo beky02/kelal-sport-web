@@ -1,7 +1,7 @@
 ---
 id: F8a
 title: Split the app by host — (player) and (terminal) route groups, the proxy on every route
-status: todo
+status: planned
 depends_on: [F7b]
 contract_tags: []
 touches_money: false
