@@ -1,0 +1,81 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://api.example.et/events/feed.settlement_received.json",
+  "title": "feed.settlement_received",
+  "description": "Results of a fixture's markets (C05 §7). Published by the feed service on NATS subject evt.feed.settlement_received (version 1); C10 settles the open bets on these outcomes (B7). A later settlement of the same market (after a rollback, or a correction) is a new event with a newer ts_ms. This is the `data` payload; the envelope (event_id, type, version, tenant_id, occurred_at, trace_id) is TD-02 §5. Feed events are global: the envelope's tenant_id is null (B4a plan, decision 5). New fields are additive only.",
+  "type": "object",
+  "required": [
+    "fixture_id",
+    "ts_ms",
+    "certainty",
+    "results"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "fixture_id": {
+      "type": "string",
+      "pattern": "^fx_[a-z0-9_]{1,64}$",
+      "description": "Catalogue fixture ID (opaque; contract fixtures keep the contract's IDs, e.g. fx_arsenal_chelsea)"
+    },
+    "ts_ms": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "The provider's timestamp of the message, Unix milliseconds; changes apply in this order (FEED-07)"
+    },
+    "certainty": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "The provider's certainty (1 = live scouts, 2 = confirmed)"
+    },
+    "results": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "market_id",
+          "outcome_id",
+          "result",
+          "void_factor",
+          "dead_heat_factor"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "market_id": {
+            "type": "string",
+            "pattern": "^mk_[a-z0-9_]{1,64}$"
+          },
+          "outcome_id": {
+            "type": "string",
+            "pattern": "^oc_[a-z0-9_]{1,64}$",
+            "description": "The outcome ID slips, bets and bookings use"
+          },
+          "result": {
+            "type": "string",
+            "enum": [
+              "win",
+              "lose",
+              "void",
+              "half_win",
+              "half_lose"
+            ],
+            "description": "C10 §4's vocabulary (the slip calculator's results, D1.5)"
+          },
+          "void_factor": {
+            "type": "string",
+            "enum": [
+              "0",
+              "0.5",
+              "1"
+            ],
+            "description": "0 for win and lose, 0.5 for half results, 1 for void"
+          },
+          "dead_heat_factor": {
+            "type": "string",
+            "pattern": "^(1|0\\.\\d{1,4})$",
+            "description": "1 unless a dead heat; at most 4 decimals (C10 numeric(5,4))"
+          }
+        }
+      }
+    }
+  }
+}
