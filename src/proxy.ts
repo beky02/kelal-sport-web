@@ -7,8 +7,12 @@ import {
 import { isTerminalHost, requestHost } from "@/lib/server/config";
 import { SESSION_COOKIE } from "@/lib/session-cookie";
 
-/** Pages with nothing to show a guest. */
-const PROTECTED = [routes.myBets, routes.wallet, routes.transactions];
+/**
+ * Pages with nothing to show a guest: these exactly, and My bets with the
+ * tickets below it — what the proxy guarded when it ran only there.
+ */
+const PROTECTED: readonly string[] = [routes.wallet, routes.transactions];
+const PROTECTED_WITH_CHILDREN = [routes.myBets];
 
 /** The terminal's pages and route handlers (FD1). */
 const TERMINAL = [routes.terminal, routes.terminalApi];
@@ -52,12 +56,14 @@ export function proxy(request: NextRequest) {
   ) {
     return notFound(request);
   }
-  if (pathname.startsWith(`${routes.ticketCheck}/`)) {
+  if (isTicketAddress(pathname)) {
     return ticketAddress(request);
   }
-  const guarded = PROTECTED.some(
-    (path) => pathname === path || pathname.startsWith(`${path}/`),
-  );
+  const guarded =
+    PROTECTED.includes(pathname) ||
+    PROTECTED_WITH_CHILDREN.some(
+      (path) => pathname === path || pathname.startsWith(`${path}/`),
+    );
   if (!guarded || request.cookies.has(SESSION_COOKIE)) {
     return NextResponse.next();
   }
@@ -107,6 +113,11 @@ function decodedPath(pathname: string): string | null {
  */
 const notFound = (request: NextRequest) =>
   NextResponse.rewrite(new URL(routes.notFound, request.url), { status: 404 });
+
+/** `/t/{x}`, one segment: the ticket page's address, and nothing below it. */
+const isTicketAddress = (pathname: string) =>
+  pathname.startsWith(`${routes.ticketCheck}/`) &&
+  !pathname.slice(routes.ticketCheck.length + 1).includes("/");
 
 /**
  * `/t/{x}` where x is no ticket number — not D3's 9 Crockford characters with

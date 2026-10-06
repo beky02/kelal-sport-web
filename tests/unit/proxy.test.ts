@@ -78,6 +78,22 @@ describe("the proxy (C18 §4.4: it only redirects; handlers re-check)", () => {
       expectThrough(visit(path), path);
     }
   });
+
+  it("guards the account pages it always guarded and no more, now it runs everywhere", () => {
+    // /wallet and /transactions themselves; My bets with its tickets.
+    for (const path of [
+      "/wallet",
+      "/transactions",
+      "/my-bets",
+      "/my-bets/b1",
+    ]) {
+      expect(visit(path).status, path).toBe(307);
+    }
+    // No page lives below /wallet or /transactions: Next's 404, not a login.
+    for (const path of ["/wallet/x", "/transactions/x", "/wallets"]) {
+      expectThrough(visit(path), path);
+    }
+  });
 });
 
 describe("the proxy on /t/{ticket} (AC-9, C18 §9)", () => {
@@ -107,6 +123,11 @@ describe("the proxy on /t/{ticket} (AC-9, C18 §9)", () => {
 
   it("asks for no session on the public ticket check", () => {
     expect(visit("/t/K7Q2-M9XP-X").headers.get("location")).toBeNull();
+  });
+
+  it("looks only at /t/{one segment}, as before it ran everywhere", () => {
+    // No page lives at /t/a/b: Next's 404, not the ticket's.
+    expectThrough(visit("/t/K7Q2-M9XP-M/x"), "/t/K7Q2-M9XP-M/x");
   });
 });
 
