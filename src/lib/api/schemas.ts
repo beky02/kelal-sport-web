@@ -6,22 +6,26 @@
  * validation silently narrowing at runtime.
  */
 import { z } from "zod";
-import type { Localized } from "@/types/common";
+import {
+  boardSectionSchema,
+  competitionSchema,
+  crestSchema,
+  eventSchema,
+  localizedSchema,
+  marketSchema,
+  oddsSchema,
+  outcomeSchema,
+  regionSchema,
+  sportSchema,
+  teamSchema,
+} from "./catalogue-schemas";
 import type {
-  Competition,
   CompetitionSummary,
   CountryWithLeagues,
-  Region,
 } from "@/features/competitions/types";
-import type {
-  BoardSection,
-  EventDetail,
-  SportEvent,
-  Team,
-} from "@/features/events/types";
-import type { Market, MarketGroup, Outcome } from "@/features/markets/types";
+import type { EventDetail } from "@/features/events/types";
+import type { MarketGroup } from "@/features/markets/types";
 import type { SearchResults } from "@/features/search/types";
-import type { Sport } from "@/features/sports/types";
 import type { Bet, BetLeg, BetPage } from "@/features/bets/types";
 import type { BetReceipt, PlaceBetRequest } from "@/features/bet-slip/types";
 import type { BettingRules, PublicConfigView } from "@/features/config/types";
@@ -88,36 +92,20 @@ import {
   type SelfExclusionRequest,
 } from "@/features/responsible-gaming/types";
 
-export const localizedSchema = z.object({
-  en: z.string(),
-  am: z.string(),
-}) satisfies z.ZodType<Localized>;
-
-export const crestSchema = z.discriminatedUnion("kind", [
-  z.object({ kind: z.literal("flag"), src: z.string() }),
-  z.object({
-    kind: z.literal("initials"),
-    initials: z.string(),
-    background: z.string(),
-    foreground: z.string(),
-  }),
-  z.object({ kind: z.literal("none") }),
-]);
-
-export const sportSchema = z.object({
-  id: z.string(),
-  slug: z.string(),
-  name: localizedSchema,
-  eventCount: z.number().int().nonnegative(),
-  liveCount: z.number().int().nonnegative(),
-  iconPaths: z.array(z.string()).readonly(),
-}) satisfies z.ZodType<Sport>;
-
-export const regionSchema = z.object({
-  code: z.string().nullable(),
-  name: localizedSchema,
-  flag: z.string().nullable(),
-}) satisfies z.ZodType<Region>;
+// The catalogue's schemas live apart (F8ca); the player's imports stay here.
+export {
+  boardSectionSchema,
+  competitionSchema,
+  crestSchema,
+  eventSchema,
+  localizedSchema,
+  marketSchema,
+  oddsSchema,
+  outcomeSchema,
+  regionSchema,
+  sportSchema,
+  teamSchema,
+};
 
 export const countryWithLeaguesSchema = z.object({
   code: z.string(),
@@ -132,14 +120,6 @@ export const countryWithLeaguesSchema = z.object({
   ),
 }) satisfies z.ZodType<CountryWithLeagues>;
 
-export const competitionSchema = z.object({
-  id: z.string(),
-  sportId: z.string(),
-  name: localizedSchema,
-  round: localizedSchema,
-  region: regionSchema,
-}) satisfies z.ZodType<Competition>;
-
 export const competitionSummarySchema = z.object({
   id: z.string(),
   name: localizedSchema,
@@ -147,76 +127,10 @@ export const competitionSummarySchema = z.object({
   flag: z.string().nullable(),
 }) satisfies z.ZodType<CompetitionSummary>;
 
-export const teamSchema = z.object({
-  id: z.string(),
-  name: localizedSchema,
-  crest: crestSchema,
-}) satisfies z.ZodType<Team>;
-
-export const eventSchema = z.object({
-  id: z.string(),
-  sportId: z.string(),
-  competitionId: z.string(),
-  home: teamSchema,
-  away: teamSchema,
-  status: z.enum(["scheduled", "starting_soon", "live", "finished"]),
-  suspended: z.boolean(),
-  startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-  kickoff: z.string().nullable(),
-  minute: z.string().nullable(),
-  score: z
-    .object({ home: z.number().int(), away: z.number().int() })
-    .nullable(),
-  startsInMinutes: z.number().int().nullable(),
-  marketCount: z.number().int().nonnegative(),
-}) satisfies z.ZodType<SportEvent>;
-
-/**
- * Odds stay the contract's decimal strings (FD4). A number arriving here is a
- * mapping bug we want to hear about, so this deliberately does not coerce.
- */
-export const oddsSchema = z.string().regex(/^\d+(\.\d{1,3})?$/);
-
 /** A decimal-string amount of money, `"1250.00"`. */
 // `abort`: a later check (an amount above zero) never sees what isn't one —
 // it would throw, and a malformed body must be a 422, never a 500.
 export const moneySchema = z.string().regex(/^-?\d+\.\d{2}$/, { abort: true });
-
-export const outcomeSchema = z.object({
-  id: z.string(),
-  code: z.string(),
-  label: localizedSchema,
-  odds: oddsSchema.nullable(),
-  previousOdds: oddsSchema.nullable(),
-  movement: z.enum(["up", "down"]).nullable(),
-}) satisfies z.ZodType<Outcome>;
-
-export const marketSchema = z.object({
-  id: z.string(),
-  eventId: z.string(),
-  templateId: z.string(),
-  type: z.enum(["1x2", "ml", "dc", "ou", "btts", "hc", "cs", "other"]),
-  category: z.string(),
-  name: localizedSchema,
-  title: localizedSchema,
-  line: z.string().nullable(),
-  status: z.enum(["open", "suspended"]),
-  outcomes: z.array(outcomeSchema),
-}) satisfies z.ZodType<Market>;
-
-export const boardSectionSchema = z.object({
-  competition: competitionSchema,
-  events: z.array(
-    z.object({
-      event: eventSchema,
-      markets: z.object({
-        matchResult: marketSchema.nullable(),
-        doubleChance: marketSchema.nullable(),
-        totalGoals: marketSchema.nullable(),
-      }),
-    }),
-  ),
-}) satisfies z.ZodType<BoardSection>;
 
 export const marketGroupSchema = z.object({
   code: z.string(),
