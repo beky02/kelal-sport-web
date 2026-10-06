@@ -1,5 +1,21 @@
 # F8c — verification (F8ca — kiosk sportsbook)
 
+## Review brief
+
+- **Split.** F8c → F8ca/F8cb/F8cc. This branch is F8ca: an active, open shop's terminal is now the kiosk.
+- **Text hooks.** They read a `LocaleProvider`, not `ui.store`; the player still feeds it from the store
+  (`lib/i18n/*`, `app/(player)/{locale,providers}.tsx`, `tests/component/render.tsx`). Board schemas:
+  `lib/api/catalogue-schemas.ts`.
+- **Server.** `app/api/terminal/{config,catalogue/*}`, `lib/server/terminal.ts` (`activeTerminal`),
+  `mappers/config.ts`. The kiosk reads anonymously on the player's loaders, for an activated terminal
+  only, and validates the board's query.
+- **Browser.** `features/terminal/{api,hooks,stores,components/kiosk}` adds large views over the shared slip
+  store and URL filters, the language switch and `features.retail`; `OddsButtonView` gains `lg`.
+- **Risk.** The player's language now flows through the provider. Security sits in the new routes. Prices
+  are online, not retail (request 015).
+- **The user decided:** the split, request 015, and fixing F8b's flaky test first. **Not here:** figures and
+  keypad (F8cb); codes, QR, idle reset and 429 (F8cc).
+
 ## Self-review
 
 - **Money moves:** none in F8ca. Nothing is placed, booked, deposited or withdrawn; the slip store is the
@@ -22,6 +38,20 @@
 - **Docs:** the plan's design, keys, files and test names match the code (changes while implementing are
   marked there). 10-terminal, 06-language, 09-security, 00-overview and 01-screens are updated, as are the
   translation notes and the README status.
+
+## Automated gate
+
+| Check                                   | Command                                  | Result                                                                                                                                 |
+| --------------------------------------- | ---------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| Typecheck, lint, Prettier, unit + comp. | `pnpm check`                             | PASS: 77 files, 1,559 tests                                                                                                            |
+| Generated types                         | `pnpm api:check`                         | PASS                                                                                                                                   |
+| Contract drift                          | `node scripts/contract-sync.mjs --check` | PASS: "contracts/ matches the backend. docs/backend/ matches the backend."                                                             |
+| Build                                   | `pnpm build`                             | PASS: `/api/terminal/{config,catalogue/board,catalogue/sports}` dynamic, `/terminal` static                                            |
+| Host split                              | `node scripts/check-host-split.mjs`      | PASS: "19 player routes load no module or chunk of (terminal); 1 terminal route(s) load no module of (player) nor a chunk holding one" |
+| Screens                                 | `pnpm ui`                                | PASS: 626 passed (4.9 m), none on retry                                                                                                |
+
+`pnpm verify` (all of the above, in order): exit 0, on 2026-10-06, against the running `next dev` (whose
+board is the simulated one, `NEXT_PUBLIC_REALTIME=simulate`) and Prism on :4010.
 
 ## Tests proven
 
