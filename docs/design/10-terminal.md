@@ -112,14 +112,16 @@ stake and the figures; F8cc adds Get code.
   The player provides `PLAYER_CHROME` (`(player)/sportsbook-chrome.tsx`), from its stores, as every
   component read them before. The kiosk provides `KIOSK_CHROME`
   (`features/terminal/components/kiosk/chrome.ts`): `KioskShell`, links under `/terminal`, no realtime
-  (Release 2), no data saver, no favourites, no drawer, no lock. Each hook subscribes as narrowly as
-  before.
+  (Release 2), no data saver, no favourites, no drawer, prices polled every 30 s, a lock only while
+  offline. Each hook subscribes as narrowly as before. Without a provider, `useSportsbookChrome` throws
+  rather than run a page with no price lock.
 
-- **The data goes to the terminal's routes.** `apiClient` reads its base path from `<html data-api>`; the
-  terminal's root layout says `/api/terminal/`. So the player's fetchers, hooks and keys run unchanged on
+- **The data goes to the terminal's routes.** `apiClient` re-roots `catalogue/` paths, and only those, to
+  `/api/terminal/` when the page's `<html data-api>` is exactly that (the terminal's root layout says so);
+  any other value is ignored, so no markup can send a call elsewhere. So the player's fetchers, hooks and keys run unchanged on
   the kiosk against the terminal's mirror routes (below). The host split and the proxy are unchanged.
 - **The language** is the customer's tap, else the tenant's `default_language` (Amharic for `demo`,
-  FD2). It is switched with the player's `EN | አማ` control, among the tenant's `languages` (none with
+  FD2). It is switched with the player's `EN | አማ` control, in that order, among the tenant's `languages` (none with
   one).
   - The choice lives in `features/terminal/stores/kiosk.store.ts`. It is never persisted, so a reload and
     F8cc's idle reset both return to the default. `kioskLanguage(chosen, config)` is the one rule, and
@@ -131,6 +133,15 @@ stake and the figures; F8cc adds Get code.
 - **Before kick-off only** (D8). The terminal's routes drop in-play and ended matches from the board and
   search, and an in-play match's book reads as `null` ("This match isn't available"). Prism lists none;
   only the simulated board does.
+- **Prices poll every 30 s on the kiosk** (D5), whatever the build's realtime setting
+  (`KIOSK_CHROME.pricePollMs`). The kiosk has no realtime channel, so a match that kicks off leaves the
+  board at the next read. The player polls only while realtime is off.
+- **Prices lock while the PC is offline** (`navigator.onLine`, the kiosk's `useOnline`): what is on
+  screen may already be wrong, as on the player's site. There is no break lock; a kiosk has no player.
+- **One bar.** `KioskBar` (brand and shop) frames the config's loading and unreadable states; with search
+  and the language switch it is `KioskHeader`. Nothing jumps when the board arrives.
+- **No leagues drawer.** Terminals are PC screens (C19 §11), and the sidebar is there from `lg`. Below
+  `lg` the kiosk has the sport tabs and the board, and below `xl` no search, as the player's.
 - **A 401 on any read** makes the terminal's query client read its status again
   (`createTerminalQueryClient`), which then says what the terminal is (lapsed, switched off).
 - **The slip** is the player's slip store and parts (`BetSlipHeader`, `EmptySlip`, `BetSelectionRow`), with
@@ -177,8 +188,8 @@ refuse anything else with 401 before calling anything. They forward no `Prefer`.
 | `GET /api/terminal/catalogue/sports`                          | `GET /v1/sports`, `GET /v1/dictionary` (am, en)                   | —                                                                                                                                                                                                                                                                           |
 | `GET /api/terminal/catalogue/board`                           | `GET /v1/events` (am, en), `GET /v1/dictionary`                   | `sport` `s_` + URL-safe characters (required), `date` a real `YYYY-MM-DD`, `filter` `top\|upcoming\|today`, `competition` an opaque id; nothing else, each once (400 `VALIDATION_FAILED` naming the field, or `query` for an odd key). Answers before-kick-off matches only |
 | `GET /api/terminal/catalogue/competitions/top`, `…/countries` | `GET /v1/sports`, `GET /v1/dictionary` (am, en)                   | —                                                                                                                                                                                                                                                                           |
-| `GET /api/terminal/catalogue/events/[id]`                     | `GET /v1/events/{id}` (am, en), `GET /v1/dictionary`              | `id` opaque, URL-safe, up to 64; no query. `null` for a match in play                                                                                                                                                                                                       |
-| `GET /api/terminal/catalogue/search`                          | `GET /v1/search` (am, en), `GET /v1/sports`, `GET /v1/dictionary` | `q` trimmed, up to 64, once; nothing else. Before-kick-off matches only; nothing typed asks nothing                                                                                                                                                                         |
+| `GET /api/terminal/catalogue/events/[id]`                     | `GET /v1/events/{id}` (am, en), `GET /v1/dictionary`              | `id` opaque, URL-safe, up to 64, not dots alone; no query. `null` for a match in play                                                                                                                                                                                       |
+| `GET /api/terminal/catalogue/search`                          | `GET /v1/search` (am, en), `GET /v1/sports`, `GET /v1/dictionary` | `q` trimmed, 2 to 50 (the contract's), once; nothing else. Under 2 asks nothing. Before-kick-off matches only                                                                                                                                                               |
 
 - **What is signed:** `METHOD\nPATH\nTIMESTAMP\nSHA256(body)`, with the SHA-256 as lowercase hex (of zero
   bytes when there is no body). The signature is WebCrypto's 64-byte `r‖s` in standard base64. The
@@ -210,7 +221,7 @@ The terminal also shares:
 - its own schemas (`lib/api/terminal-schemas.ts`) and the catalogue's (`lib/api/catalogue-schemas.ts`), never
   `lib/api/schemas.ts` (F8b review Q3);
 - `lib/i18n` and its text hooks, through the kiosk's `LocaleProvider`;
-- `apiClient`, sent to `/api/terminal/` by `<html data-api>`;
+- `apiClient`, whose `catalogue/` calls go to `/api/terminal/` by `<html data-api>` (that value only);
 - `lib/api/errors.ts`, and the Crockford forgiveness from `features/tickets/lib/number.ts`.
 
 The terminal's own calls go through `terminalRequest` and `terminalRead`. `scripts/check-host-split.mjs`
