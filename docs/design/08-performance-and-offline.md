@@ -76,5 +76,7 @@ cached lists and their slip with placing disabled. Web push is P1.
 ## What is measured in CI today
 
 `pnpm verify`: typecheck, lint, Prettier, 720 unit and component tests, generated types against the
-contract, contract drift, the production build (the proxy listed), and the UI suite (20 screens × 2
-languages × 2 widths plus the auth and booking specs). Budgets join it in F2b.
+contract, contract drift, the production build (the proxy listed), the host-split check on the build's
+output (no player route loads `(terminal)` code and the terminal loads none of the player's layout,
+F8a), and the UI suite (every screen × 2 languages × 2 widths plus the auth, booking, ticket, security
+headers and host specs). Budgets join it in F2b.
