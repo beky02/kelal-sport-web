@@ -1,7 +1,7 @@
 ---
 id: F8ca
 title: Split from F8c — kiosk sportsbook: matches, picks and the kiosk's language
-status: done
+status: in_progress
 depends_on: [F8b]
 contract_tags: [Catalogue, Config]
 touches_money: false
@@ -64,18 +64,21 @@ Out (do not build here):
 Each criterion must be proven by a named test, a command output or a `pnpm ui` screenshot in
 `verification.md`.
 
-- [x] **AC-1** An activated terminal of an open shop shows the player's home board — sports, the day strip,
+- [ ] **AC-1** An activated terminal of an open shop shows the player's home board — sports, the day strip,
       the competitions with their matches and prices, the sidebar — read through `/api/terminal/*` only, and
       nothing that needs a player (no log in, register, my bets, wallet, responsible gaming or favourites);
-      loading, empty (with a way back) and error (Try again) states each have a screenshot.
+      loading, empty (with a way back) and error (Try again) states each have a screenshot. No shop name or
+      PC label is shown anywhere, and while the terminal starts it shows the main page's loading (the
+      user's second review, 2026-10-06).
 - [x] **AC-2** Tapping a price puts the pick in the player's slip and tapping it again takes it out; each pick
       can be removed and the slip cleared. Sizes are the player's (the user's decision, 2026-10-06; this
       replaces "at least 48 px").
-- [x] **AC-3** The kiosk opens in the tenant's `default_language` (Amharic for `demo`); one tap switches
-      every string, `<html lang>` and the `Accept-Language` of its calls.
+- [ ] **AC-3** The kiosk opens in English where the tenant offers it, else in the tenant's
+      `default_language` (the user's decision, 2026-10-06; this replaces "the tenant's `default_language`");
+      one tap switches every string, `<html lang>` and the `Accept-Language` of its calls.
 - [x] **AC-4** With `features.retail: false` the terminal says betting isn't available here and shows no
       board and no slip.
-- [x] **AC-5** The kiosk's routes answer 404 on a player host and 401 without an activated terminal,
+- [ ] **AC-5** The kiosk's routes answer 404 on a player host and 401 without an activated terminal,
       before calling the API; the terminal still loads nothing from `src/stores/` or the player's layout
       (`check-host-split.mjs`), and the player's screens read their language as before.
 - [x] **AC-6** A league opens on the kiosk's own page (`/terminal/competition/[id]`), from the sidebar, with
@@ -84,6 +87,9 @@ Each criterion must be proven by a named test, a command output or a `pnpm ui` s
       row's "+N"; a match that has kicked off has no page there (pre-match only, D8).
 - [x] **AC-8** The header's search finds leagues and matches through the terminal and opens them on the
       kiosk's pages.
+- [ ] **AC-9** A booking code typed in the kiosk's slip loads its picks through the terminal, re-priced by
+      the server; what can't be added (a started match) is said, a malformed code is caught before any call,
+      and a tenant without booking codes offers none (the user's second review, 2026-10-06).
 
 ## Verification
 
