@@ -11,6 +11,7 @@ All clients use one REST/JSON API. The contract is `contracts/openapi.yaml`, wri
 | Shop terminal | /v1/retail/terminal\*, /v1/retail/slip-codes | Terminal app (Next.js) | Terminal token + device signature |
 | Cashier POS | /v1/retail/\* | POS app (Next.js) | retail\_staff token + device signature |
 | Agent portal | /v1/agent/\* | Agent portal (Next.js) | Agent token (password + OTP) |
+| Platform console | /v1/platform/\* (tag `Platform`, not tenant-scoped) | Platform console (Next.js) | Platform token (password + TOTP), audience `platform`, no tenant (C16 section 9; contract change pending) |
 | Provider webhooks | `/hooks/{provider}/...` | Payment providers, SMS delivery reports | Provider signature / IP allow-list |
 | Game wallet (R2) | `/games/{provider}/...` (separate service) | Virtual-games provider | Signature + IP allow-list |
 | Internal | none (in-process interfaces + NATS) | Modules | mTLS inside the cluster |

@@ -123,3 +123,9 @@ Outbox atomicity (rollback → no event), reporter retry/backoff, replay, summar
 ## Retail data for the regulator (added for C19)
 
 Every retail sale, payout and cancellation is reported like an online bet, with extra fields: `channel = retail`, shop code and regulator outlet id (`licence_ref`), region and city, terminal id (when the slip came from a terminal), cashier id, and for payouts above the ID threshold the ID type and a hash of the ID number. Daily totals are broken down by channel and by shop, and the reporter includes a shop register (open, suspended, closed) so the regulator can match outlets to its licence records. Exact field names wait for the regulator's interface specification (TBD-2).
+
+## The platform layer (added 5 Oct 2026)
+
+- **Regulator reporting stays per brand.** Each brand is the licensed operator and reports for itself; the reporter, outbox and summaries are per tenant as above (Q6 placeholder: the Platform does not report as well).
+- **Platform audit.** Platform-console actions go to `platform.audit_log` (C16 section 9), not to a brand's `reporting.audit_log`; each row names the brand it touched.
+- **Platform statement (only if Q1 is B, C or D).** How a brand pays the Platform is open (Q1: fixed fee, share of GGR, per outlet, or a mix). If it needs figures from the system, a monthly job builds one row per brand and month in `reporting.platform_statement` (tenant-scoped, RLS like every reporting table) with the figures the chosen option needs: GGR and turnover, online and retail, summed from `daily_summary` (B), and the active shops, terminals and POS devices from C19 (C). It is **never a posting in the brand's ledger**: the brand's books stay the brand's, and the Platform invoices from the statement outside the system. The console lists statements by reading each brand in turn (C16 section 9.3). Task B17, blocked until Q1 is answered.

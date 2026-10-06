@@ -71,6 +71,7 @@ create table notify.push_token (
 | `BONUS_GRANTED` / `BONUS_EXPIRING` | C11 events / daily job | push, inbox | marketing |
 | `SHIFT_VARIANCE` | `retail.shift_closed` (variance above `retail.shift.variance_alert`) | SMS to the agent | transactional |
 | `RETAIL_PIN_RESET` | C19 cashier PIN reset | SMS to the cashier | security |
+| `BRAND_ADMIN_INVITE` | Platform console creates a brand (C16 §9.1) | Email to the brand's first back-office admin | security |
 
 Example template (Amharic, 55 characters): `OTP`: “የማረጋገጫ ኮድዎ {{code}} ነው። ለማንም አይስጡ።” (“Your verification code is {{code}}. Don't share it.”); final wording by a native editor.
 
@@ -87,3 +88,7 @@ Example template (Amharic, 55 characters): `OTP`: “የማረጋገጫ ኮድ�
 ## 8. Tests
 
 Template rendering in both languages (missing variables fail CI), suppression rules, failover path with a mocked provider outage, invalid-token cleanup.
+
+## Email (added for the platform layer)
+
+The platform console invites each new brand's first back-office admin by email (C16 §9.1), so C14 gains an email sender behind the same kind of adapter as SMS, with a console mock (`EMAIL_PROVIDER=console`, the message written to the log) until a provider is chosen. Email is staff-only in Release 1; players are still reached by push, SMS and the inbox.

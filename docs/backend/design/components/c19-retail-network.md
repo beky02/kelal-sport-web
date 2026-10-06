@@ -11,7 +11,7 @@ The flow the platform must support:
 3. They give the code to the **cashier** and pay in cash. The cashier enters the code, sees the slip re-priced, enters the stake, takes the cash and **prints a ticket** with a barcode.
 4. If the ticket wins, the customer brings it back; the cashier **scans the barcode** and pays out cash.
 
-In scope: the operator → agent → shop → terminal/cashier hierarchy, terminal activation, slip codes from terminals, ticket sale, receipt printing, payout, cancellation, cashier shifts and cash reconciliation, shop cash limits, agent commission, and retail data for the regulator. Out of scope for Release 1: offline selling, shop-level promotions, agent-assisted online deposits (P1), and self-service terminals that take cash (bill acceptors, P2).
+In scope: the brand → agent → shop → terminal/cashier hierarchy (every shop under an agent, one agent level; §3), terminal activation, slip codes from terminals, ticket sale, receipt printing, payout, cancellation, cashier shifts and cash reconciliation, shop cash limits, agent commission, and retail data for the regulator. Out of scope for Release 1: offline selling, shop-level promotions, agent-assisted online deposits (P1), and self-service terminals that take cash (bill acceptors, P2).
 
 ## 2. Research notes
 
@@ -26,27 +26,35 @@ In scope: the operator → agent → shop → terminal/cashier hierarchy, termin
 
 ## 3. Actors, hierarchy and roles
 
-The hierarchy is a tree inside one tenant. An operator can sell through its own shops, through agents, or both.
+The hierarchy lives inside one tenant (a **brand**, the licensed operator) and has two rules, decided on 5 Oct 2026 (`docs/design/platform-retail-hierarchy.md`, Engineering Decisions D10):
+
+1. **Every shop has an agent.** The shops a brand runs itself sit under a **brand agent** (`kind = brand`) that the brand owns; agents that run shops for the brand are **partner agents** (`kind = partner`). There are no shops without an agent.
+2. **One agent level.** No master agents in Phase 1: an agent belongs to the brand, a shop to an agent.
 
 ```
-Tenant (operator)
-├─ Master agent (optional)        e.g. "Oromia region"
-│  └─ Agent                       e.g. "Adama agent"
-│     └─ Shop                     e.g. "Adama Kebele 04"
-│        ├─ Terminals (1..n)      self-service PCs, no user
-│        ├─ Cashiers (1..n)       staff users with PIN
-│        └─ Shop manager (0..1)   can cancel, close shifts, see shop reports
-└─ Shop owned directly by the operator (no agent)
+Brand (tenant)
+├─ Brand agent                    kind = brand, e.g. "Demo Bet Direct": the brand's own shops
+│  └─ Shop …
+└─ Agent                          kind = partner, e.g. "Adama agent"
+   └─ Shop                        e.g. "Adama Kebele 04"
+      ├─ Terminals (1..n)         self-service PCs, no user
+      ├─ Cashiers (1..n)          staff users with PIN
+      └─ Shop manager (0..1)      a cashier role: approves cancels, closes shifts, sees shop reports (Q3)
 ```
+
+- A brand may have several brand agents, e.g. one per city it runs itself (Q2 placeholder: several allowed).
+- `parent_id` (always null), `path` (one level deep) and the contract's `level` (always `agent`) stay in Phase 1, so master agents can come later without reshaping the tables or breaking the API.
+- Above the brands is the Platform (the company that runs the system, with its platform console, C16). It creates and suspends brands and sees no retail data inside a brand beyond aggregates (Q4).
+
+Q2, Q3, Q4 and Q7 are open questions with the product owner (`platform-retail-hierarchy.md` §7); Engineering Decisions D10 lists the placeholder each one uses until answered.
 
 | Role | Client | Can do | Cannot do |
 | --- | --- | --- | --- |
 | Terminal (device) | Next.js web app in Chrome kiosk | Browse pre-match (and virtuals in R2), build a slip, get a slip code, check a ticket | Place bets, see money, log in |
 | Cashier | Cashier POS (Next.js) | Open and close own shift, sell tickets, print and reprint, pay out, cancel within the window, record cash in and out | Change limits, see other shops, cancel after the window |
 | Shop manager | Cashier POS | Everything a cashier can, plus approve cancels, close any shift in the shop, view shop reports, reset a cashier PIN | Change shop limits or commission |
-| Agent | Agent portal (Next.js) | See their shops, sales, payouts, cash owed, commission statements; add cashiers and terminals to own shops; record cash collected from shops | Change odds, markets, player data, commission rates |
-| Master agent | Agent portal | Same as agent over their sub-tree | — |
-| Operator retail admin | Back office (C15) | Create agents, shops, terminals; set limits, cancel window, payout rules, commission plans; approve big payouts; see everything | — |
+| Agent (partner or brand agent) | Agent portal (Next.js) | See its shops, sales, payouts, cash owed, commission statements; add cashiers and terminals to its own shops; record cash collected from its shops. A brand agent is used the same way, by brand staff given a portal login for it (Q7) | Change odds, markets, player data, commission rates |
+| Brand retail admin | Back office (C15) | Create agents (with their kind) and shops under them, terminals; set limits, cancel window, payout rules, commission plans; approve big payouts; see everything in the brand | See another brand |
 
 ## 4. End-to-end flows
 
@@ -84,8 +92,10 @@ Why numeric: cashiers type codes all day on a numeric keypad; digits in groups o
 1. Cashier scans the ticket barcode (or types the ticket ID).
 2. `GET /v1/retail/tickets/{ticket_no}` shows the status: open, lost, won (amount), void (refund amount), paid (when and where), cancelled, expired.
 3. For a winning or void ticket the cashier presses **Pay** → `POST /v1/retail/tickets/{ticket_no}/payout`. The server locks the ticket row, checks the payout rules below, marks it paid and posts `RETAIL_PAYOUT`. A second scan shows "PAID at Adama Kebele 04, 14:05, cashier Abebe".
-4. Payout rules (tenant config): where a ticket can be paid (`issuing_shop`, `same_agent`, `any_shop`); amounts above `retail.payout.id_required_over` need the customer's ID type and number (tax and AML, C12); amounts above `retail.payout.approval_over` go to head office, and the POS shows "waiting for approval" until an admin approves in the back office.
+4. Payout rules (tenant config): where a ticket can be paid (`issuing_shop`, `same_agent`, `any_shop`; `same_agent` treats each agent's shops as one group, a brand agent's included — see the example below); amounts above `retail.payout.id_required_over` need the customer's ID type and number (tax and AML, C12); amounts above `retail.payout.approval_over` go to head office, and the POS shows "waiting for approval" until an admin approves in the back office.
 5. If the drawer does not hold enough cash, the cashier marks the payout **deferred** and gives a claim slip; the agent or head office pays later. The ticket stays unpaid until then.
+
+Example of the location rule: Demo Bet runs 3 shops itself (brand agent "Demo Bet Direct") and has a partner agent in Adama with 5 shops. With `same_agent`, a ticket sold in a direct shop is paid in any of the 3 and an Adama ticket in any of the 5; with `issuing_shop`, only where it was sold; with `any_shop`, in all 8. Anywhere else the payout is refused with `RETAIL_PAYOUT_NOT_ALLOWED_HERE`. A ticket is never paid in another brand's shop.
 
 ### 4.5 Cancellation
 
@@ -105,11 +115,12 @@ Each shop has a ledger account `SHOP_CASH:{shop}`: cash the shop holds for the o
 
 - **Cash limit**: `shop.max_cash_held` stops new sales when the shop holds too much of the operator's cash (theft and robbery risk) until it settles.
 - **Negative position**: when payouts exceed sales, the shop needs float; the agent tops it up (`SHOP_FLOAT_TOPUP`).
-- **Settlement**: the agent records cash collected from a shop in the agent portal; the shop manager confirms it on the POS (two-sided confirmation); then the platform posts `SHOP_SETTLEMENT`. The same happens between agent and operator, with bank-transfer references.
+- **Settlement**: the agent records cash collected from a shop in the agent portal; the shop manager confirms it on the POS (two-sided confirmation); then the platform posts `SHOP_SETTLEMENT`. The same happens between a partner agent and the brand, with bank-transfer references; the partner keeps its commission when it is netted (§4.8).
+- **Brand agent**: its shops' cash goes straight to the brand's bank (`SHOP_SETTLEMENT` to `HOUSE_BANK`) and float comes from it (`SHOP_FLOAT_TOPUP` from `HOUSE_BANK`), so there is no agent-to-brand step and no `SHOP_CASH:{agent}` balance for a brand agent. The collection is recorded and confirmed the same two-sided way; who records it on the brand's side (a portal login for the brand agent, or the back office) is Q7.
 
 ### 4.8 Commission
 
-Commission plans attach to agents or shops: a percentage of **net revenue** (stakes − winnings − cancels, after tax) or of **turnover**, with optional tiers, calculated weekly. A negative week carries forward (configurable). Statements are generated every Monday for the previous week, shown in the agent portal as PDF and CSV, and accrued in the ledger (`COMMISSION_ACCRUAL`). Agents are paid either by keeping commission out of the cash they settle (`COMMISSION_NETTED`) or by transfer.
+Commission plans attach to partner agents or their shops; a brand agent earns nothing unless the brand gives it a plan (Q2), and an agent or shop without a plan accrues nothing (no `COMMISSION_ACCRUAL`). A plan is a percentage of **net revenue** (stakes − winnings − cancels, after tax) or of **turnover**, with optional tiers, calculated weekly. A negative week carries forward (configurable). Statements are generated every Monday for the previous week, shown in the agent portal as PDF and CSV, and accrued in the ledger (`COMMISSION_ACCRUAL`). Agents are paid either by keeping commission out of the cash they settle (`COMMISSION_NETTED`) or by transfer.
 
 ## 5. Module structure
 
@@ -123,7 +134,7 @@ modules/retail/
 │  ├─ agent_routes.py       # /v1/agent/*: shops, reports, settlements, statements
 │  └─ admin_routes.py       # /v1/admin/retail/*: CRUD, limits, approvals
 ├─ domain/
-│  ├─ hierarchy.py          # Agent, Shop, Terminal, Staff; subtree queries (ltree)
+│  ├─ hierarchy.py          # Agent (kind brand | partner, one level), Shop (always under an agent), Terminal, Staff
 │  ├─ ticket.py             # RetailTicket states: open → won/lost/void → paid | expired; cancelled
 │  ├─ shift.py              # Shift, CashMovement, expected cash, Z report
 │  ├─ payout_rules.py       # where, when and how much can be paid; approval thresholds
@@ -140,7 +151,7 @@ modules/retail/
 
 ## 6. Data model
 
-All tables are tenant-scoped with RLS (TD-02). The hierarchy uses PostgreSQL `ltree`, so "all shops under this master agent" is one indexed query.
+All tables are tenant-scoped with RLS (TD-02). Every shop has an agent and there is one agent level (§3), so in Phase 1 an agent's `path` is its own id and a shop's is the agent's plus its own. The `ltree` columns and `parent_id` stay so master agents can be added later without reshaping the tables.
 
 ```sql
 create extension if not exists ltree;
@@ -148,12 +159,13 @@ create extension if not exists ltree;
 create table retail.agent (
   id            uuid primary key,
   tenant_id     uuid not null,
-  parent_id     uuid references retail.agent(id),
-  path          ltree not null,                 -- e.g. 'a_01.a_07' for subtree queries
+  kind          text not null default 'partner' check (kind in ('brand','partner')),  -- brand = the brand's own shops
+  parent_id     uuid references retail.agent(id), -- always null in Phase 1: the API refuses one
+  path          ltree not null,                 -- one level in Phase 1, e.g. 'a_07'
   name          text not null,
   phone         text not null,
   status        text not null default 'active', -- active | suspended | closed
-  commission_plan_id uuid,
+  commission_plan_id uuid,                      -- usually null for a brand agent (no commission, §4.8)
   created_at    timestamptz not null default now(),
   updated_at    timestamptz not null default now()
 );
@@ -162,7 +174,7 @@ create index ix_agent_path on retail.agent using gist (path);
 create table retail.shop (
   id              uuid primary key,
   tenant_id       uuid not null,
-  agent_id        uuid references retail.agent(id),  -- null = owned by the operator
+  agent_id        uuid not null references retail.agent(id),  -- every shop has an agent (a brand agent for the brand's own shops)
   path            ltree not null,                    -- agent path + shop id
   code            text not null,                     -- short code printed on tickets, e.g. 'ADM-004'
   name            text not null,
@@ -296,7 +308,7 @@ create table retail.payout_approval (
   created_at    timestamptz not null default now()
 );
 
-create table retail.settlement (                       -- cash moving shop → agent → operator
+create table retail.settlement (                       -- cash moving shop → agent → operator (a brand agent's shops: shop → operator)
   id            uuid primary key,
   tenant_id     uuid not null,
   from_kind     text not null,  from_id uuid not null, -- shop | agent
@@ -363,6 +375,8 @@ New accounts in C03: `SHOP_CASH:{shop}` (asset, debit), `RETAIL_UNPAID_WINNINGS`
 | `SHOP_SETTLEMENT` | +HOUSE\_BANK (or +SHOP\_CASH:agent), −SHOP\_CASH:shop |
 | `COMMISSION_ACCRUAL` | +HOUSE\_COMMISSION\_COST, −AGENT\_COMMISSION\_PAYABLE:agent |
 | `COMMISSION_NETTED` | +AGENT\_COMMISSION\_PAYABLE:agent, −SHOP\_CASH:agent (agent keeps it from collected cash) |
+
+For a brand agent's shops the other side is always the brand's bank (§4.7): `SHOP_SETTLEMENT` is +HOUSE\_BANK, −SHOP\_CASH:shop and `SHOP_FLOAT_TOPUP` is +SHOP\_CASH:shop, −HOUSE\_BANK. `SHOP_CASH:agent` and the commission postings apply to partner agents, and to a brand agent only if the brand gives it a plan.
 
 Invariants checked nightly: for each shop, the sum of `retail.cash_movement` over closed shifts equals the movement of `SHOP_CASH:shop` over the same period; and `RETAIL_UNPAID_WINNINGS` equals the sum of `payable_santim` over tickets in `won` or `void` status.
 
@@ -466,7 +480,7 @@ Terminals read the catalogue through the same public endpoints as the player web
 ### 9.3 Agent portal and admin
 
 ```json
-// GET /v1/agent/shops?cursor=                   → shops in the caller's subtree with today's figures
+// GET /v1/agent/shops?cursor=                   → the caller's own shops with today's figures
 { "items": [ { "shop_code": "ADM-004", "status": "active",
   "today": { "turnover": "48250.00", "payouts": "31100.00", "cancels": "150.00",
              "cash_held": "17000.00", "open_shifts": 1 } } ], "next_cursor": null }
@@ -478,6 +492,10 @@ Terminals read the catalogue through the same public endpoints as the player web
 
 // Admin (back office, C15):
 //   /v1/admin/retail/agents, /shops, /terminals, /staff, /pos-devices, /commission-plans
+//   POST /v1/admin/retail/agents  { "kind": "brand" | "partner", "name": "Demo Bet Direct", "phone": "+251911…" }
+//        a non-null parent_id → 422 VALIDATION_FAILED, errors[] naming parent_id; level is always "agent"
+//   POST /v1/admin/retail/shops   { "agent_id": "…", "code": "ADM-008", … }   agent_id required (no shop without an agent)
+//   (kind and the required agent_id wait for the contract change in platform-retail-hierarchy §3.4)
 //   POST /v1/admin/retail/payout-approvals/{id}/decision  { "decision": "approve" | "reject", "note": "…" }
 //   /v1/admin/retail/tickets?shop=&status=&from=&to=
 ```
@@ -501,7 +519,7 @@ Terminals read the catalogue through the same public endpoints as the player web
 | `retail.code.ttl_minutes` | 240 | Slip-code life, capped at the first kick-off |
 | `retail.min_stake` / `retail.max_stake` | 10.00 / 50,000.00 | Per ticket; a shop can only lower the maximum |
 | `retail.cancel.window_seconds` | 300 | Cashier cancel window |
-| `retail.payout.where` | `same_agent` | `issuing_shop`, `same_agent` or `any_shop` |
+| `retail.payout.where` | `same_agent` | `issuing_shop`, `same_agent` (any shop of the selling shop's agent, a brand agent's included; §4.4) or `any_shop` (any shop of the brand) |
 | `retail.payout.id_required_over` | 10,000.00 | ID capture threshold |
 | `retail.payout.approval_over` | 100,000.00 | Head-office approval threshold |
 | `retail.claim_days` | 30 | Days to claim a winning ticket |
@@ -547,7 +565,8 @@ Release 1 sells **online only**. If the API cannot be reached, the POS shows a r
 - Golden tests: receipt totals equal the C07 golden CSV for the same slips.
 - Concurrency: 50 parallel payout requests for one ticket → exactly one paid, 49 × 409.
 - Ledger: the section 7 invariants on a generated day of 10,000 sales, payouts, cancels and settlements.
-- Rules: cancel-window boundaries, payout location rules, ID and approval thresholds, sales hours, the shop cash limit.
+- Rules: cancel-window boundaries, payout location rules (the §4.4 example with a brand agent and a partner agent), ID and approval thresholds, sales hours, the shop cash limit.
+- Hierarchy: a shop without an agent and an agent with a `parent_id` are refused (`422 VALIDATION_FAILED`); a brand agent's settlement posts to `HOUSE_BANK`; an agent without a plan gets no commission accrual.
 - Security: terminal token calling cashier endpoints → 403; staff login from an unknown device → 403; tampered barcode MAC → 404.
 - End to end (Playwright against the Next.js terminal and POS apps): terminal code → POS sale → printed receipt → settle → scan → pay → Z report balances.
 - Installation checklist per shop: kiosk boot, silent print, scanner input, reprint, offline banner.
@@ -556,7 +575,7 @@ Release 1 sells **online only**. If the API cannot be reached, the POS shows a r
 
 | Step | Content | Release |
 | --- | --- | --- |
-| 1 | Hierarchy tables, admin CRUD, terminal activation, staff and POS-device login | R1 |
+| 1 | Hierarchy tables (agents with `kind`, every shop under an agent, one level), admin CRUD, terminal activation, staff and POS-device login | R1 |
 | 2 | Slip codes from terminals, ticket sale, HTML receipt printed with Chrome kiosk printing, scan and payout | R1 |
 | 3 | Cancel rules, shifts, cash movements, Z report | R1 |
 | 4 | Shop cash position, settlements, agent portal read views | R1 |

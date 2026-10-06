@@ -4010,6 +4010,8 @@ export interface operations {
                     "application/json": components["schemas"]["OtpChallenge"];
                 };
             };
+            400: components["responses"]["BadRequest"];
+            404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
             422: components["responses"]["Unprocessable"];
             429: components["responses"]["TooManyRequests"];
@@ -4081,8 +4083,11 @@ export interface operations {
                     "application/json": components["schemas"]["AuthResult"];
                 };
             };
+            400: components["responses"]["BadRequest"];
+            404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
             422: components["responses"]["Unprocessable"];
+            503: components["responses"]["Unavailable"];
         };
     };
     login: {
@@ -4155,8 +4160,14 @@ export interface operations {
                     "application/json": components["schemas"]["OtpRequired"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["Unprocessable"];
             423: components["responses"]["Locked"];
+            429: components["responses"]["TooManyRequests"];
+            503: components["responses"]["Unavailable"];
         };
     };
     refreshTokens: {
@@ -4204,6 +4215,7 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             404: components["responses"]["NotFound"];
             422: components["responses"]["Unprocessable"];
+            429: components["responses"]["TooManyRequests"];
             503: components["responses"]["Unavailable"];
         };
     };
@@ -4265,6 +4277,8 @@ export interface operations {
                 };
                 content?: never;
             };
+            400: components["responses"]["BadRequest"];
+            404: components["responses"]["NotFound"];
             422: components["responses"]["Unprocessable"];
         };
     };

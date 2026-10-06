@@ -335,9 +335,9 @@ components:
       type: object
       required: [fingerprint, platform]
       properties:
-        fingerprint: { type: string }
+        fingerprint: { type: string, minLength: 1, maxLength: 200 }
         platform: { type: string, enum: [android, ios, web] }
-        app_version: { type: string }
+        app_version: { type: string, minLength: 1, maxLength: 50 }
     RegisterRequest:
       type: object
       required: [challenge_id, otp, full_name, date_of_birth, password, accept_terms_version, device]
@@ -356,7 +356,7 @@ components:
           properties:
             period: { type: string, enum: [day, week, month] }
             amount: { $ref: '#/components/schemas/Money' }
-        promo_code: { type: [string, "null"] }
+        promo_code: { type: [string, "null"], minLength: 1, maxLength: 64 }
         marketing_consent: { type: boolean, default: false }
         device: { $ref: '#/components/schemas/Device' }
     LoginRequest:

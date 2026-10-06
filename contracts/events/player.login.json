@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://api.example.et/events/player.login.json",
+  "title": "player.login",
+  "description": "A player signed in with their password (C01 §7). Published by the identity module on NATS subject evt.player.login (version 1). Consumers: C12 (session timer, device and velocity checks), C13 (activity report), C14 (NEW_DEVICE_LOGIN SMS when new_device, B13). Registration publishes player.registered instead. Ids only, no personal data. This is the `data` payload; the envelope is TD-02 §5. New fields are additive only.",
+  "type": "object",
+  "required": ["player_id", "session_id", "device_id", "platform", "new_device"],
+  "additionalProperties": false,
+  "properties": {
+    "player_id": { "type": "string", "format": "uuid" },
+    "session_id": { "type": "string", "format": "uuid" },
+    "device_id": { "type": "string", "format": "uuid" },
+    "platform": { "type": "string", "enum": ["android", "ios", "web"] },
+    "new_device": { "type": "boolean", "description": "First sign-in from this device for this player" }
+  }
+}
