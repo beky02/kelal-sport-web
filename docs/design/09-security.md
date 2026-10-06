@@ -39,8 +39,8 @@ visits `localhost` and `terminal.localhost`.
 
 The split is the proxy's. A request that skips it (CVE-2025-29927) reaches only what a guest could: a
 player handler finds no session on a terminal host, because the cookie is bound to the player's host
-(`__Host-`, no `Domain`). F8b's `/api/terminal/*` handlers must check `isTerminalHost` themselves too, so
-a player host can never reach them even then.
+(`__Host-`, no `Domain`). The `/api/terminal/*` handlers check `isTerminalHost` themselves too
+(`terminalOnly`, F8b), before reading anything, so a player host never reaches them even then.
 
 Running on every route handler, the proxy makes Next read each request body for it before the handler
 runs, holding up to `experimental.proxyClientMaxBodySize` in memory — 10 MB by default, 32 KiB here:
@@ -66,6 +66,28 @@ plant one; the first same-named cookie that opens counts. The tenant is sealed i
 API's refresh token, not the cookie, ends the session. `SESSION_SECRET_PREVIOUS` for rotation. A refused
 refresh clears it.
 
+## The terminal cookie and device key (F8b)
+
+The shop terminal's credentials, apart from any player's (10-terminal):
+
+- **The terminal token** is sealed into its own cookie, `__Host-kelal.terminal` in production. It uses the
+  session's sealing (`lib/server/seal.ts`) under its own HKDF info, `kelal.terminal.v1`, so a player's
+  session cookie never opens as a terminal's, nor the reverse (unit test). HttpOnly, **SameSite=Strict**
+  (nothing links into a kiosk), Path=/, no Domain, Secure as the session's. The tenant and the terminal
+  id are sealed in, and the id becomes `X-Device-Id`, never anything the browser sends. Max-Age is the
+  token's life plus 30 days, so a lapsed token is recognised and the terminal is told to activate again.
+  A revoked terminal keeps its cookie, so every boot asks the API again. An expired one clears it.
+- **The device key** is an ECDSA P-256 key made in the browser with `extractable: false` and kept in
+  IndexedDB. Script on the page can sign with it but never read it out (Playwright checks `exportKey`
+  fails). Every signed call is checked by the route handler before it goes upstream: the timestamp is
+  13 digits within ±20 s of the server's clock, else a `CLOCK_SKEW` 400 carrying the server's time; the
+  signature is base64 of plausible length, else a 400. Nothing malformed is sent on. The browser signs
+  the API's method and path, so a signature made for one call can't be replayed through the route of
+  another. What it signs is in 10-terminal; contract request 014 asks the backend to pin the encodings.
+- **Activation** takes a strict 4 KiB body: the contract's 8-character code and a P-256 SPKI (fixed
+  curve header, exact length). Anything else is a 422 before the API is called. The answer is the shop;
+  the token never leaves the server.
+
 ## CSRF (C18 §4.4)
 
 Every POST and PUT route handler, bookings included, refuses unless all of: `Sec-Fetch-Site` is absent,
@@ -75,7 +97,10 @@ send it); the body is JSON. A DELETE (removing a payout account, cancelling a wi
 the same checks but the last, `assertSameOrigin(request, { json: false })`: it has no body, it is never a
 CORS-simple method, so no other origin can send one without that preflight, and no form can send one at
 all. A PUT (setting a limit, F7a) passes all four: it carries a JSON body, and it is never CORS-simple
-either. `apiClient` adds the header to every request that isn't a GET. This is the custom-header
+either. The terminal's token rotation (`POST /api/terminal/token`, F8b) is a POST without a body, signed
+over none, so it skips the JSON check like a DELETE: a form could send a POST, but not with the custom
+header, and not with the device signature. `apiClient`, and the terminal's `terminalRequest`, add the
+header to every request that isn't a GET. This is the custom-header
 defence rather than a per-session token: the browser cannot read the httpOnly cookie to derive one, and a
 double-submit cookie would add nothing over SameSite=Lax plus these checks. GETs need none. A per-session
 token is not planned; if a reviewer or the regulator asks for one, the place to add it is `csrf.ts` and
@@ -86,7 +111,8 @@ token is not planned; if a reviewer or the regulator asks for one, the place to 
 `X-Forwarded-Host`, `-Proto` and `-For` are ignored unless `TRUSTED_PROXY_HOPS` is set, and then only the
 entry our edge appended (the n-th from the right) is read; a forged forwarded host can neither pick the
 tenant nor make a cookie Secure over plain HTTP. The player's address is read for contract request 004
-but not yet sent; `Auth` and `Bookings` stay off the real API until it lands, enforced in
+but not yet sent; `Auth`, `Bookings` and `Retail - terminal` (F8b: activation is limited per IP, and
+through this server every shop has the same address) stay off the real API until it lands, enforced in
 `lib/server/config.ts`.
 
 ## Redirects
@@ -166,6 +192,10 @@ Dependencies are kept current (Renovate) and Next.js and React security releases
   language before rendering; the matcher test already tries `flags` in every dynamic segment and fails
   if `/flags/…` would render a page without the proxy.
 
+- The device signature's encodings are assumed until contract request 014 is answered; Prism checks
+  only that the headers are present, so nothing proves the backend accepts them until B9 runs (F8b).
+- A terminal rotation whose answer is lost leaves the old token, refused 5 minutes later: that PC needs
+  a new activation code (10-terminal).
 - Refresh deduplication is per process: one replica, or sticky `/api/*`, until it moves to Redis or the
   backend adds a reuse grace window.
 - An explicit mock/real flag for `API_BASE_URL` (F3b SEC3) so a bearer can never go to a mock base

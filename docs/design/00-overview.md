@@ -21,14 +21,14 @@ calculator (D1), everything else is displayed state and collected actions (AGENT
 
 ## Apps and users
 
-| App              | Project, stack and runtime                                                     | Users                                            | Status                                    |
-| ---------------- | ------------------------------------------------------------------------------ | ------------------------------------------------ | ----------------------------------------- |
-| Player web       | This repo, `(player)`; responsive 360 px → desktop, installable as a PWA later | Online players                                   | Built; F1–F7 rewire it to the contract    |
-| Shop terminal    | This repo, `(terminal)`; Chrome kiosk on shop PCs                              | Walk-in customers (no login)                     | Host split and placeholder (F8a); F8b–F8c |
-| Cashier POS      | `kelalsport-ops`; Chrome kiosk with silent printing                            | Cashiers (and shop managers: open question, FD6) | F12, then F9                              |
-| Agent portal     | `kelalsport-ops`; any browser                                                  | Agents, brand and partner (FD6)                  | F12, then F10a                            |
-| Back office      | `kelalsport-ops`; Next.js + Refine                                             | A brand's own staff                              | F12, then F10b–F10g                       |
-| Platform console | `kelalsport-ops`; any browser                                                  | Platform staff, above the brands (FD6)           | F12, then F11; waits for the backend      |
+| App              | Project, stack and runtime                                                     | Users                                            | Status                                      |
+| ---------------- | ------------------------------------------------------------------------------ | ------------------------------------------------ | ------------------------------------------- |
+| Player web       | This repo, `(player)`; responsive 360 px → desktop, installable as a PWA later | Online players                                   | Built; F1–F7 rewire it to the contract      |
+| Shop terminal    | This repo, `(terminal)`; Chrome kiosk on shop PCs                              | Walk-in customers (no login)                     | Activation, signed calls, status (F8b); F8c |
+| Cashier POS      | `kelalsport-ops`; Chrome kiosk with silent printing                            | Cashiers (and shop managers: open question, FD6) | F12, then F9                                |
+| Agent portal     | `kelalsport-ops`; any browser                                                  | Agents, brand and partner (FD6)                  | F12, then F10a                              |
+| Back office      | `kelalsport-ops`; Next.js + Refine                                             | A brand's own staff                              | F12, then F10b–F10g                         |
+| Platform console | `kelalsport-ops`; any browser                                                  | Platform staff, above the brands (FD6)           | F12, then F11; waits for the backend        |
 
 The player persona (PRD): an adult football fan on an Android phone, telebirr, patchy 3G, Amharic first.
 Every budget and default follows from that (08-performance, 06-language).
@@ -54,21 +54,21 @@ the platform, and what platform staff may see inside a brand, are open (proposal
 
 ## Route map (FD3, D7)
 
-| Path                                                                                       | Rendering                                                                                  | Status                                      |
-| ------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------ | ------------------------------------------- |
-| `/{lang}` (home)                                                                           | Server Components, ISR 15 s                                                                | Built as `/` today; `[lang]` segment in F2a |
-| `/{lang}/sport/[slug]`                                                                     | Same                                                                                       | F2a (today `?sport=`)                       |
-| `/{lang}/league/[id]`                                                                      | Same                                                                                       | F2a (today `/competition/[id]`, 308 after)  |
-| `/{lang}/match/[id]`                                                                       | Main market group on the server, other groups on tab open                                  | F2a/F2b (today `/event/[id]`)               |
-| `/{lang}/search`                                                                           | Client, phone and tablet only (FD5)                                                        | F2b                                         |
-| `/b/[code]`                                                                                | Server-rendered, Open Graph, no `[lang]` (shared from the app and Telegram)                | Built (F3b)                                 |
-| `/t/[ticket]`, `/t`                                                                        | Server-rendered, works without JavaScript, Open Graph; `/t` is the check form              | Built (F5b)                                 |
-| `/my-bets`, `/my-bets/[id]`, `/wallet`, `/transactions`, `/profile`, `/responsible-gaming` | Client, behind login where there is nothing for a guest; never cached; no `[lang]` (FD2)   | Built; account pages behind the proxy (F4a) |
-| `/login`, `/register`                                                                      | The auth dialog over the sportsbook; `?next=` returns a player to where they were going    | Built (F4a)                                 |
-| `/terms`, `/privacy`, `/help`                                                              | From `/v1/pages/{slug}`                                                                    | Placeholders today; F7                      |
-| `/live`                                                                                    | Release 2                                                                                  | Behind `features.live` (D8)                 |
-| `/dev/components`                                                                          | The gallery, development only                                                              | F1                                          |
-| `/terminal` (`/` on a terminal host)                                                       | The shop terminal, `(terminal)` root layout; a placeholder until F8b; 404 on a player host | Placeholder (F8a); F8b–F8c                  |
+| Path                                                                                       | Rendering                                                                                | Status                                       |
+| ------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------- | -------------------------------------------- |
+| `/{lang}` (home)                                                                           | Server Components, ISR 15 s                                                              | Built as `/` today; `[lang]` segment in F2a  |
+| `/{lang}/sport/[slug]`                                                                     | Same                                                                                     | F2a (today `?sport=`)                        |
+| `/{lang}/league/[id]`                                                                      | Same                                                                                     | F2a (today `/competition/[id]`, 308 after)   |
+| `/{lang}/match/[id]`                                                                       | Main market group on the server, other groups on tab open                                | F2a/F2b (today `/event/[id]`)                |
+| `/{lang}/search`                                                                           | Client, phone and tablet only (FD5)                                                      | F2b                                          |
+| `/b/[code]`                                                                                | Server-rendered, Open Graph, no `[lang]` (shared from the app and Telegram)              | Built (F3b)                                  |
+| `/t/[ticket]`, `/t`                                                                        | Server-rendered, works without JavaScript, Open Graph; `/t` is the check form            | Built (F5b)                                  |
+| `/my-bets`, `/my-bets/[id]`, `/wallet`, `/transactions`, `/profile`, `/responsible-gaming` | Client, behind login where there is nothing for a guest; never cached; no `[lang]` (FD2) | Built; account pages behind the proxy (F4a)  |
+| `/login`, `/register`                                                                      | The auth dialog over the sportsbook; `?next=` returns a player to where they were going  | Built (F4a)                                  |
+| `/terms`, `/privacy`, `/help`                                                              | From `/v1/pages/{slug}`                                                                  | Placeholders today; F7                       |
+| `/live`                                                                                    | Release 2                                                                                | Behind `features.live` (D8)                  |
+| `/dev/components`                                                                          | The gallery, development only                                                            | F1                                           |
+| `/terminal` (`/` on a terminal host)                                                       | The shop terminal, `(terminal)` root layout (10-terminal); 404 on a player host          | Activation and status (F8b); the kiosk (F8c) |
 
 Every page above but `/terminal` is in the `(player)` route group, under the player's root layout;
 `src/app/api/*` serves both sites, kept apart by the proxy (09-security, "The host split"). A URL that

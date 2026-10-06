@@ -609,3 +609,24 @@ What a terminal host shows until F8b builds the terminal. Composed; needs review
 | ---------------------------- | ------------------- | ------------------------------------------------------------------- |
 | `terminal.placeholder.title` | የሱቅ ተርሚናል           | New: ሱቅ (shop) + ተርሚናል, the transliterated word                     |
 | `terminal.placeholder.body`  | ይህ ስክሪን ገና አልተዘጋጀም። | New; ገና … (not yet) as in `betSlip.alerts.realMoney` (… ገና አልተጀመረም) |
+
+## Shop terminal (F8b, 2026-10-06)
+
+The placeholder's two strings are gone; these replace them. All composed, all need review. The terminal
+shows each in Amharic then English. ተርሚናል is the transliterated word the placeholder used; ማግበር
+(activate) and የማግበሪያ ኮድ (activation code) are new. `{minutes}` is a whole number, and the Amharic
+puts it after ከ… (from) and before ደቂቃ በኋላ (minutes later), as `auth.errors.AUTH_OTP_UNAVAILABLE` does
+with ከጥቂት ደቂቃዎች በኋላ.
+
+| Key                                                                         | Amharic                                                                                                                           | Composed from                                                                                                     |
+| --------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| `terminal.loading`                                                          | ተርሚናሉ በመጀመር ላይ ነው…                                                                                                                | New; … ላይ ነው as in the saving strings (`rg.saving`)                                                               |
+| `terminal.activate.title`, `body`, `label`, `submit`, `busy`                | ይህን ተርሚናል ያግብሩ / ከባክ ኦፊስ ወይም ከወኪል ፖርታል የተሰጠውን ባለ 8 ፊደል የማግበሪያ ኮድ ያስገቡ። / የማግበሪያ ኮድ / አግብር / በማግበር ላይ…                             | New: ማግበር (activate); ኮድ (`betSlip.bookingCode`); ወኪል (agent, `betSlip.bookHint`); ባክ ኦፊስ and ፖርታል transliterated |
+| `terminal.activate.lapsed`, `expired`                                       | የዚህ ተርሚናል ማግበሪያ ጊዜው አልፎበታል። አዲስ ኮድ ያስገቡ። / ይህ ኮድ ጊዜው አልፎበታል። አዲስ ኮድ ይጠይቁ።                                                         | ጊዜው አልፎበታል and አዲስ from `auth.errors.AUTH_OTP_EXPIRED`                                                            |
+| `terminal.activate.format`, `wrongCode`                                     | ኮዱ 8 ፊደሎችና ቁጥሮች አሉት። / ይህ ኮድ ያለው ተርሚናል የለም። ኮዱን አረጋግጠው እንደገና ይሞክሩ።                                                                | New; እንደገና ይሞክሩ (`common.retry`); ያረጋግጡ (`board.error.body`)                                                      |
+| `terminal.activate.tooMany`, `tooManyLater`                                 | ብዙ ሙከራዎች ተደርገዋል። ከ{minutes} ደቂቃ በኋላ እንደገና ይሞክሩ። / ብዙ ሙከራዎች ተደርገዋል። ቆየት ብለው እንደገና ይሞክሩ።                                            | New; ደቂቃ (`rg.minutes`); the ከ… በኋላ form of `auth.errors.AUTH_OTP_UNAVAILABLE`                                    |
+| `terminal.activate.unreachable`, `terminal.offline.title`, `body`, `retry`  | ከአገልጋዩ ጋር መገናኘት አልተቻለም። እንደገና ይሞክሩ። / ከአገልጋዩ ጋር መገናኘት አልተቻለም / ተርሚናሉ በራሱ እንደገና ይሞክራል። / እንደገና ይሞክሩ                                | New: አገልጋይ (server); … አልተቻለም as `withdraw.saveFailed`; `common.retry`                                            |
+| `terminal.activate.unsupported`                                             | ይህ አሳሽ የተርሚናሉን ቁልፍ መያዝ አይችልም። Chromeን በኪዮስክ ሁነታ ይጠቀሙ።                                                                             | አሳሽ (browser, `profile.platformWeb`); ቁልፍ (key) and ኪዮስክ ሁነታ (kiosk mode) new; Chrome kept in Latin               |
+| `terminal.ready.title`, `body`                                              | ይህ ተርሚናል ዝግጁ ነው / ውርርድ በዚህ ስክሪን ላይ ይከፈታል።                                                                                         | New; ስክሪን from the placeholder                                                                                    |
+| `terminal.closed.title`, `body`                                             | ይህ ሱቅ ዝግ ነው / በዚህ ተርሚናል ላይ ውርርድ የሚከፈተው ሱቁ ሲከፈት ነው።                                                                                | ሱቅ from the placeholder; ዝግ (closed) new                                                                          |
+| `terminal.blocked.revokedTitle`, `revokedBody`, `deviceTitle`, `deviceBody` | ይህ ተርሚናል ተዘግቷል / ከሱቁ ተርሚናሎች ተወግዷል። የሱቁን ሠራተኞች ይጠይቁ። / ይህ ኮምፒውተር ተርሚናሉን ማስኬድ አይችልም / የሱቁ ቅንብሮች ይህን ኮምፒውተር አይፈቅዱም። የሱቁን ሠራተኞች ይጠይቁ። | ተዘግቷል as `booking.reason.MARKET_CLOSED`; ቅንብሮች (settings) as in መገለጫና ቅንብሮች; ሠራተኞች (staff), ኮምፒውተር new            |

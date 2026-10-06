@@ -22,12 +22,13 @@ Each page names the task that builds or changes what it describes (`docs/tasks/`
 | [07-tenancy-and-theming.md](07-tenancy-and-theming.md)         | Platform, brands and their hosts (FD6), host → tenant, `/v1/config/public`, tokens not hex, the gallery      |
 | [08-performance-and-offline.md](08-performance-and-offline.md) | Budgets, data saver, polling versus realtime, PWA scope, what works without JavaScript                       |
 | [09-security.md](09-security.md)                               | The browser never calls the API, tokens never in the browser, CSRF, trusted proxy, what the proxy does       |
+| [10-terminal.md](10-terminal.md)                               | The shop terminal (F8b): activation, the device key, signed calls, status and rotation, its screens          |
 
 Three choices made when these were written (2026-10-02): one page per topic rather than one per screen
 (the screens page lists them all, so a per-screen view is one table away); screenshots are named, not
 embedded, because `pnpm ui` regenerates them and a stale picture is worse than none; the terminal, POS,
 agent portal, back office and platform console are summarised in the overview (with who owns what, FD6)
-and get their own pages when F8–F11 start.
+and get their own pages when F8–F11 start (the terminal's is 10-terminal, from F8b).
 
 Keep these current: a task that changes a screen, a state, a route, a string rule or a security
 boundary updates the page in the same PR, as it updates the task file.
