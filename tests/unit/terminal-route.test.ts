@@ -1,8 +1,11 @@
 // @vitest-environment node
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { components } from "@/lib/api/schema";
+import { z } from "zod";
+import { boardSectionSchema, sportSchema } from "@/lib/api/catalogue-schemas";
 import {
   terminalActivationSchema,
+  terminalConfigSchema,
   terminalStatusSchema,
   tokenRotationSchema,
 } from "@/lib/api/terminal-schemas";
@@ -673,5 +676,203 @@ describe("the terminal cookie", () => {
     expect(mod.openTerminal(mod.seal(player))).toBeNull();
     expect(mod.open(mod.sealTerminal(terminal()))).toBeNull();
     expect(mod.openTerminal(mod.sealTerminal(terminal()))).toEqual(terminal());
+  });
+});
+
+/** The kiosk's reads (F8ca), with the cookie helpers of the routes above. */
+async function loadReads() {
+  const mod = await load();
+  const [config, sports, board] = await Promise.all([
+    import("@/app/api/terminal/config/route"),
+    import("@/app/api/terminal/catalogue/sports/route"),
+    import("@/app/api/terminal/catalogue/board/route"),
+  ]);
+  return {
+    ...mod,
+    config: config.GET,
+    sports: sports.GET,
+    board: board.GET,
+  };
+}
+type Reads = Awaited<ReturnType<typeof loadReads>>;
+
+/** Answers the catalogue's and config's operations from the contract's examples. */
+function catalogueAnswers() {
+  upstreamAnswers((request) => {
+    switch (path(request)) {
+      case "/v1/dictionary":
+        return { status: 200, body: example("/v1/dictionary") };
+      case "/v1/sports":
+        return { status: 200, body: example("/v1/sports") };
+      case "/v1/events":
+        return { status: 200, body: example("/v1/events") };
+      case "/v1/config/public":
+        return { status: 200, body: example("/v1/config/public") };
+      default:
+        return { status: 404, body: { code: "NOT_FOUND" } };
+    }
+  });
+}
+
+const read = async (
+  route: (request: Request) => Response | Promise<Response>,
+  url: string,
+  headers: Record<string, string>,
+) => route(new Request(`${BASE}${url}`, { headers }));
+
+/** Each of the kiosk's reads, with what it is asked. */
+const READS = (mod: Reads) =>
+  [
+    [mod.config, "/api/terminal/config"],
+    [mod.sports, "/api/terminal/catalogue/sports"],
+    [mod.board, "/api/terminal/catalogue/board?sport=s_football"],
+  ] as const;
+
+describe("the kiosk's reads (F8ca AC-1, AC-5)", () => {
+  it("answers the kiosk's reads only on a terminal host (AC-5)", async () => {
+    const mod = await loadReads();
+    catalogueAnswers();
+    for (const [route, url] of READS(mod)) {
+      const response = await route(
+        new Request(`http://localhost:3000${url}`, {
+          headers: {
+            host: "localhost:3000",
+            cookie: `${mod.TERMINAL_COOKIE}=${mod.sealTerminal(terminal())}`,
+          },
+        }),
+      );
+      expect(response.status, url).toBe(404);
+    }
+    expect(sent).toHaveLength(0);
+  });
+
+  it("refuses the kiosk's reads without an activated terminal, and calls nothing (AC-5)", async () => {
+    const mod = await loadReads();
+    catalogueAnswers();
+    for (const headers of [
+      withCookie(mod, null),
+      withCookie(mod, terminal(NOW + 80 * DAY, "kelal")),
+      withCookie(mod, terminal(NOW - 1)),
+      { host: TERMINAL_HOST, cookie: `${mod.TERMINAL_COOKIE}=v1.x.y.z` },
+    ]) {
+      for (const [route, url] of READS(mod)) {
+        const response = await read(route, url, headers);
+        expect(response.status, url).toBe(401);
+        expect(response.headers.get("cache-control")).toBe("no-store");
+        expect(await response.json()).toMatchObject({
+          code: "AUTH_INVALID_CREDENTIALS",
+        });
+      }
+    }
+    expect(sent).toHaveLength(0);
+  });
+
+  it("reads the sports for a terminal (AC-1)", async () => {
+    const mod = await loadReads();
+    catalogueAnswers();
+    const response = await read(
+      mod.sports,
+      "/api/terminal/catalogue/sports",
+      withCookie(mod, terminal()),
+    );
+    expect(response.status).toBe(200);
+    expect(response.headers.get("cache-control")).toBe("no-store");
+    const sports = z.array(sportSchema).parse(await response.json());
+    expect(sports.map((sport) => sport.id)).toEqual(
+      example("/v1/sports").items.map((sport) => sport.id),
+    );
+    // Anonymous, as the contract allows (decision 2): no token, no device.
+    for (const request of sent) {
+      expect(request.headers.get("authorization")).toBeNull();
+      expect(request.headers.get("x-device-id")).toBeNull();
+      expect(request.headers.get("x-tenant-id")).toBe("demo");
+    }
+  });
+
+  it("reads the board for a terminal: the sport, the day and the filter go upstream, the board comes back (AC-1)", async () => {
+    const mod = await loadReads();
+    catalogueAnswers();
+    const response = await read(
+      mod.board,
+      "/api/terminal/catalogue/board?sport=s_football&date=2026-10-07&filter=upcoming",
+      withCookie(mod, terminal()),
+    );
+    expect(response.status).toBe(200);
+    const board = z.array(boardSectionSchema).parse(await response.json());
+    const events = board.flatMap((section) => section.events);
+    expect(events.map((row) => row.event.id).sort()).toEqual(
+      example("/v1/events")
+        .items.map((event) => event.id)
+        .sort(),
+    );
+
+    const asked = sent.filter((request) => path(request) === "/v1/events");
+    expect(asked.length).toBeGreaterThan(0);
+    for (const request of asked) {
+      const query = new URL(request.url).searchParams;
+      expect(query.get("sport")).toBe("s_football");
+      expect(query.get("date")).toBe("2026-10-07");
+      expect(query.get("sort")).toBe("start_time");
+    }
+  });
+
+  it("refuses a board query it doesn't know before calling the API (AC-5)", async () => {
+    const mod = await loadReads();
+    catalogueAnswers();
+    for (const [query, field] of [
+      ["sport=football", "sport"],
+      ["sport=s_football%2F..%2Fx", "sport"],
+      [`sport=s_${"x".repeat(41)}`, "sport"],
+      ["sport=s_football&date=07-10-2026", "date"],
+      ["sport=s_football&date=2026-10-07T00:00", "date"],
+      ["sport=s_football&filter=live", "filter"],
+      ["sport=s_football&live=1", "live"],
+      ["sport=s_football&competition=t_epl", "competition"],
+      ["sport=s_football&sport=s_tennis", "sport"],
+    ]) {
+      const response = await read(
+        mod.board,
+        `/api/terminal/catalogue/board?${query}`,
+        withCookie(mod, terminal()),
+      );
+      expect(response.status, query).toBe(400);
+      const body = await response.json();
+      expect(body.code, query).toBe("VALIDATION_FAILED");
+      expect(body.errors, query).toEqual([expect.objectContaining({ field })]);
+    }
+    expect(sent).toHaveLength(0);
+  });
+
+  it("reads the kiosk's config for a terminal: retail, the languages, the default (AC-3, AC-4)", async () => {
+    const mod = await loadReads();
+    catalogueAnswers();
+    const response = await read(
+      mod.config,
+      "/api/terminal/config",
+      withCookie(mod, terminal()),
+    );
+    expect(response.status).toBe(200);
+    expect(terminalConfigSchema.parse(await response.json())).toEqual({
+      retail: true,
+      languages: ["am", "en"],
+      defaultLanguage: "am",
+    });
+  });
+
+  it("never sends Prism's Prefer upstream, not even under next dev", async () => {
+    vi.stubEnv("NODE_ENV", "development");
+    const mod = await loadReads();
+    catalogueAnswers();
+    for (const [route, url] of READS(mod)) {
+      await read(
+        route,
+        url,
+        withCookie(mod, terminal(), { prefer: "code=500" }),
+      );
+    }
+    expect(sent.length).toBeGreaterThan(0);
+    for (const request of sent) {
+      expect(request.headers.get("prefer")).toBeNull();
+    }
   });
 });

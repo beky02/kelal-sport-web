@@ -17,10 +17,10 @@ import {
   toTerminalInfo,
 } from "@/lib/api/mappers/terminal";
 import pkg from "../../../package.json";
-import { isTerminalHost, requestHost } from "./config";
+import { isTerminalHost, requestHost, tenantFromHeaders } from "./config";
 import { problemResponse } from "./respond";
 import { apiNow } from "./session";
-import type { TerminalSession } from "./terminal-session";
+import { readTerminalSession, type TerminalSession } from "./terminal-session";
 import { unwrap, upstream, type RequestContext } from "./upstream";
 
 /** Rotate when fewer than this remain (`rotateTerminalToken`'s summary). */
@@ -35,6 +35,32 @@ export function terminalOnly(request: Request): Response | null {
   return isTerminalHost(requestHost(request.headers))
     ? null
     : problemResponse(404, "NOT_FOUND", "Not found");
+}
+
+/**
+ * The kiosk's reads (F8ca) answer only an activated terminal of this tenant,
+ * on a terminal host: its sealed cookie, unexpired. Not because the catalogue
+ * is secret — it is public, and read anonymously (F8ca decision 2) — but so a
+ * terminal host serves its own terminals and nothing else (C19 §12). Returns
+ * the session, or the refusal to send before anything is read or called. A
+ * 401 makes the kiosk read its status again, which says what it is now.
+ */
+export function activeTerminal(request: Request): TerminalSession | Response {
+  const elsewhere = terminalOnly(request);
+  if (elsewhere) return elsewhere;
+  const session = readTerminalSession(
+    request,
+    tenantFromHeaders(request.headers),
+  );
+  if (!session || session.expiresAt <= Date.now()) {
+    return problemResponse(
+      401,
+      "AUTH_INVALID_CREDENTIALS",
+      "This terminal is not activated",
+      new Headers({ "Cache-Control": "no-store" }),
+    );
+  }
+  return session;
 }
 
 /** The two headers the browser signs a call with (D3); the route adds the device id. */
@@ -52,7 +78,7 @@ const TIMESTAMP = /^\d{13}$/;
 const SIGNATURE = /^[A-Za-z0-9+/]{40,120}={0,2}$/;
 
 /** A Problem in the API's own shape, with its `errors[]` (the fix, when there is one). */
-const refusal = (
+export const refusal = (
   title: string,
   errors?: { field: string; code: string; current?: string }[],
 ) =>

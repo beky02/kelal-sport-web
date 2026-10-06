@@ -9,6 +9,7 @@ import { z } from "zod";
 import type {
   ActivationForm,
   TerminalActivation,
+  TerminalConfigView,
   TerminalInfo,
   TerminalStatus,
   TokenRotation,
@@ -70,3 +71,10 @@ export const terminalStatusSchema = z.discriminatedUnion("state", [
 export const tokenRotationSchema = z.strictObject({
   rotated: z.literal(true),
 }) satisfies z.ZodType<TokenRotation>;
+
+/** `/api/terminal/config`'s answer: the kiosk's switches and languages (F8ca). */
+export const terminalConfigSchema = z.strictObject({
+  retail: z.boolean(),
+  languages: z.array(z.enum(["en", "am"])).min(1),
+  defaultLanguage: z.enum(["en", "am"]),
+}) satisfies z.ZodType<TerminalConfigView>;

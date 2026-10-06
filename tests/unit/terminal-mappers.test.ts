@@ -5,9 +5,11 @@ import {
   toTerminalInfo,
 } from "@/lib/api/mappers/terminal";
 import type { components } from "@/lib/api/schema";
+import { toTerminalConfigView } from "@/lib/api/mappers/config";
 import {
   activationFormSchema,
   terminalActivationSchema,
+  terminalConfigSchema,
   terminalStatusSchema,
 } from "@/lib/api/terminal-schemas";
 import { example, requestExample, responseExample } from "../contract";
@@ -113,5 +115,59 @@ describe("terminal mappers (F8b)", () => {
         JSON.stringify(refused),
       ).toBe(false);
     }
+  });
+});
+
+describe("the kiosk's config (F8ca)", () => {
+  const config = () => example("/v1/config/public");
+
+  it("maps the contract's config: retail on, the languages, Amharic by default (AC-3, AC-4)", () => {
+    const view = toTerminalConfigView(config());
+    expect(view).toEqual({
+      retail: true,
+      languages: ["am", "en"],
+      defaultLanguage: "am",
+    });
+    expect(terminalConfigSchema.parse(view)).toEqual(view);
+  });
+
+  it("turns retail off only on an explicit false (AC-4)", () => {
+    const others = { ...config().features };
+    delete others.retail;
+    expect(toTerminalConfigView({ ...config(), features: others }).retail).toBe(
+      true,
+    );
+    expect(
+      toTerminalConfigView({
+        ...config(),
+        features: { ...others, retail: false },
+      }).retail,
+    ).toBe(false);
+  });
+
+  it("offers the tenant's own languages, and starts in one of them", () => {
+    expect(
+      toTerminalConfigView({
+        ...config(),
+        languages: ["en"],
+        default_language: "en",
+      }),
+    ).toMatchObject({ languages: ["en"], defaultLanguage: "en" });
+    // A default the tenant doesn't list falls back to its first language.
+    expect(
+      toTerminalConfigView({
+        ...config(),
+        languages: ["en"],
+        default_language: "am",
+      }).defaultLanguage,
+    ).toBe("en");
+  });
+
+  it("carries nothing of the online rule set", () => {
+    const view = toTerminalConfigView(config());
+    expect(view).not.toHaveProperty("betting");
+    expect(
+      terminalConfigSchema.safeParse({ ...view, betting: {} }).success,
+    ).toBe(false);
   });
 });

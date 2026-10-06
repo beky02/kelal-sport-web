@@ -1,8 +1,12 @@
 import "server-only";
 import type { components } from "@/lib/api/schema";
 import type { PublicConfigView } from "@/features/config/types";
+import type { TerminalConfigView } from "@/features/terminal/types";
 import type { Lang } from "@/types/common";
-import { toPublicConfigView } from "@/lib/api/mappers/config";
+import {
+  toPublicConfigView,
+  toTerminalConfigView,
+} from "@/lib/api/mappers/config";
 import { unwrap, upstream } from "./upstream";
 
 type PublicConfig = components["schemas"]["PublicConfig"];
@@ -30,6 +34,13 @@ export async function loadPublicConfigView(
   tenant: string,
 ): Promise<PublicConfigView> {
   return toPublicConfigView(await loadPublicConfig(tenant));
+}
+
+/** What the shop kiosk needs from the same config (F8ca, `/api/terminal/config`). */
+export async function loadTerminalConfigView(
+  tenant: string,
+): Promise<TerminalConfigView> {
+  return toTerminalConfigView(await loadPublicConfig(tenant));
 }
 
 /**
