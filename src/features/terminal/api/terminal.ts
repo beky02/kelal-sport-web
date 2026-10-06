@@ -2,9 +2,10 @@ import {
   terminalActivationSchema,
   terminalStatusSchema,
   tokenRotationSchema,
-} from "@/lib/api/schemas";
+} from "@/lib/api/terminal-schemas";
 import { TERMINAL_CALLS } from "../lib/calls";
 import {
+  DeviceKeyError,
   createDeviceKey,
   deviceKeyStore,
   publicKeyBase64,
@@ -39,13 +40,16 @@ export async function getTerminalStatus(): Promise<TerminalStatus> {
 export async function activateTerminal(
   activationCode: string,
 ): Promise<TerminalActivation> {
-  const pair = await createDeviceKey();
-  await deviceKeyStore.save(pair);
+  let devicePublicKey: string;
+  try {
+    const pair = await createDeviceKey();
+    await deviceKeyStore.save(pair);
+    devicePublicKey = await publicKeyBase64(pair);
+  } catch (cause) {
+    throw new DeviceKeyError(cause);
+  }
   return terminalRequest(TERMINAL_CALLS.activate, terminalActivationSchema, {
-    body: {
-      activationCode,
-      devicePublicKey: await publicKeyBase64(pair),
-    },
+    body: { activationCode, devicePublicKey },
   });
 }
 

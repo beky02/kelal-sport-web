@@ -43,7 +43,8 @@ export const TERMINAL_COOKIE =
 /**
  * The cookie outlives the token by this much, so a terminal switched off past
  * its token's 90 days is told its activation lapsed, rather than shown a new
- * activation with no reason.
+ * activation with no reason. Nothing clears it: a dead token is useless, and
+ * the next activation replaces it.
  */
 const LAPSED_GRACE_S = 30 * 24 * 60 * 60;
 
@@ -93,7 +94,3 @@ export function terminalCookie(
   const life = Math.max(0, Math.floor((session.expiresAt - now) / 1000));
   return cookie(sealTerminal(session), request, life + LAPSED_GRACE_S);
 }
-
-/** The `Set-Cookie` value that removes it. */
-export const clearTerminalCookie = (request: Request): string =>
-  cookie("", request, 0);

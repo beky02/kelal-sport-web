@@ -9,7 +9,7 @@ import {
   activationFormSchema,
   terminalActivationSchema,
   terminalStatusSchema,
-} from "@/lib/api/schemas";
+} from "@/lib/api/terminal-schemas";
 import { example, requestExample, responseExample } from "../contract";
 
 type Activation = components["schemas"]["TerminalActivation"];

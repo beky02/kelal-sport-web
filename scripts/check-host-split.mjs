@@ -26,6 +26,16 @@ import { runInNewContext } from "node:vm";
 const PLAYER = "/src/app/(player)/";
 const TERMINAL = "/src/app/(terminal)/";
 
+/**
+ * Client code the player's layout owns: its route group, and what its
+ * providers mount — the preferences and system stores, the realtime channel.
+ * The terminal has its own providers and must load none of it (FD1), however
+ * the bundler splits the chunks (review Q2).
+ */
+const PLAYER_ONLY = [PLAYER, "/src/stores/", "/src/lib/websocket/"];
+
+const isUnder = (id, folders) => folders.some((folder) => id.includes(folder));
+
 /** `/_next/static/chunks/a.js` and `static/chunks/a.js` are the same file. */
 const chunk = (path) => path.replace(/^\/?_next\//, "");
 
@@ -62,12 +72,12 @@ function holdingChunks(module, defines) {
   return own.length > 0 ? own : chunks;
 }
 
-/** The chunks holding the client modules under `folder`, across `manifests`. */
-function chunksOfModulesIn(manifests, folder, defines) {
+/** The chunks holding the client modules under `folders`, across `manifests`. */
+function chunksOfModulesIn(manifests, folders, defines) {
   return new Set(
     manifests.flatMap((m) =>
       Object.entries(m.clientModules ?? {})
-        .filter(([id]) => id.includes(folder))
+        .filter(([id]) => isUnder(id, folders))
         .flatMap(([, module]) => holdingChunks(module, defines)),
     ),
   );
@@ -94,18 +104,20 @@ export function hostSplitViolations(manifests, defines = () => false) {
   if (player.length === 0) found.push("Found no route under (player)");
   if (terminal.length === 0) found.push("Found no route under (terminal)");
 
-  const playerLayout = chunksOfModulesIn(player, PLAYER, defines);
+  const playerLayout = chunksOfModulesIn(player, PLAYER_ONLY, defines);
   if (player.length > 0 && playerLayout.size === 0) {
     found.push(
       "Found no client module of the player's layout: nothing to check the terminal against",
     );
   }
-  const terminalOwn = chunksOfModulesIn(terminal, TERMINAL, defines);
+  const terminalOwn = chunksOfModulesIn(terminal, [TERMINAL], defines);
 
-  const check = (routes, otherFolder, otherChunks, whose) => {
+  const check = (routes, otherFolders, otherChunks, whose) => {
     for (const m of routes) {
       for (const id of Object.keys(m.clientModules ?? {})) {
-        if (id.includes(otherFolder)) found.push(`${m.route} references ${id}`);
+        if (isUnder(id, otherFolders)) {
+          found.push(`${m.route} references ${id}`);
+        }
       }
       for (const file of chunksOf(m)) {
         if (otherChunks.has(file)) {
@@ -114,8 +126,8 @@ export function hostSplitViolations(manifests, defines = () => false) {
       }
     }
   };
-  check(terminal, PLAYER, playerLayout, "the player layout's");
-  check(player, TERMINAL, terminalOwn, "the terminal's");
+  check(terminal, PLAYER_ONLY, playerLayout, "the player layout's");
+  check(player, [TERMINAL], terminalOwn, "the terminal's");
   return found;
 }
 
@@ -139,10 +151,16 @@ function readManifests(file) {
 }
 
 /**
- * Whether a built chunk registers module `id`: Turbopack writes each module
- * as its id (or ids) followed by its factory, `…,21993,e=>{…`. A use of the
- * module (`e.i(21993)`) is not a definition.
+ * Whether a built chunk's code registers module `id`: Turbopack writes each
+ * module as its id (or several ids sharing one factory) followed by the
+ * factory, `…,21993,e=>{…` or `…},88109,6573,743,e=>{…`. A use of the module
+ * (`e.i(21993)`) is not a definition, nor is a longer id ending in this one.
  */
+export function definesModule(code, id) {
+  return new RegExp(`[,\\[]${id},(?:\\d+,)*[A-Za-z_$][\\w$]*=>`).test(code);
+}
+
+/** `definesModule` over the build's chunk files, each read once. */
 function chunkDefines(next) {
   const read = new Map();
   return (file, id) => {
@@ -155,9 +173,7 @@ function chunkDefines(next) {
       }
       read.set(file, code);
     }
-    return new RegExp(`[,\\[]${id},(?:\\d+,)*[A-Za-z_$][\\w$]*=>`).test(
-      read.get(file),
-    );
+    return definesModule(read.get(file), id);
   };
 }
 

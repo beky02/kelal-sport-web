@@ -8,6 +8,17 @@
 
 const ALGORITHM: EcKeyGenParams = { name: "ECDSA", namedCurve: "P-256" };
 
+/**
+ * This browser could not make or keep the device key (no WebCrypto, IndexedDB
+ * refused): the terminal can't run here, whatever the server says.
+ */
+export class DeviceKeyError extends Error {
+  constructor(readonly cause: unknown) {
+    super("This browser can't make or keep the terminal's device key");
+    this.name = "DeviceKeyError";
+  }
+}
+
 /** A fresh key pair whose private half can never be exported. */
 export async function createDeviceKey(): Promise<CryptoKeyPair> {
   return crypto.subtle.generateKey(ALGORITHM, false, ["sign", "verify"]);

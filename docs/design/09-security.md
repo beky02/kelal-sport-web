@@ -79,10 +79,12 @@ The shop terminal's credentials, apart from any player's (10-terminal):
   (nothing links into a kiosk), Path=/, no Domain, Secure as the session's. The tenant and the terminal
   id are sealed in, and the id becomes `X-Device-Id`, never anything the browser sends. Max-Age is the
   token's life plus 30 days, so a lapsed token is recognised and the terminal is told to activate again.
-  A revoked terminal keeps its cookie, so every boot asks the API again. An expired one clears it.
+  Nothing clears it. A revoked terminal keeps its cookie, so every boot asks the API again. An expired
+  one keeps it too, so the "lapsed" reason survives the next read. The next activation replaces it.
 - **The device key** is an ECDSA P-256 key made in the browser with `extractable: false` and kept in
   IndexedDB. Script on the page can sign with it but never read it out (Playwright checks `exportKey`
-  fails). Every signed call is checked by the route handler before it goes upstream: the timestamp is
+  fails). Someone with the kiosk's files has its Chrome profile, key and cookie together; against that,
+  OS hardening and revocation (10-terminal, "What the device key protects against"). Every signed call is checked by the route handler before it goes upstream: the timestamp is
   13 digits within ±20 s of the server's clock, else a `CLOCK_SKEW` 400 carrying the server's time; the
   signature is base64 of plausible length, else a 400. Nothing malformed is sent on. The browser signs
   the API's method and path, so a signature made for one call can't be replayed through the route of

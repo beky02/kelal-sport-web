@@ -1,5 +1,5 @@
 import { compactCrockford } from "@/features/tickets/lib/number";
-import { ACTIVATION_CODE } from "@/lib/api/schemas";
+import { ACTIVATION_CODE } from "@/lib/api/terminal-schemas";
 
 /**
  * An activation code as the technician typed it → the contract's 8 Crockford

@@ -64,15 +64,18 @@ export function useTerminalStatus() {
 }
 
 /**
- * Activates this PC with a normalised code. Pending until the status has been
- * read again with the new key, so the screen goes straight from "activating"
- * to the shop.
+ * Activates this PC with a normalised code. On success the status is reset
+ * and read again with the new key: the "not activated" answer it held is
+ * dropped at once, so the activation form never shows again for a terminal
+ * that is now activated — if that read fails, the screen says the server
+ * can't be reached and offers Try again, never a second activation that
+ * would replace the key the terminal is bound to (review Q1).
  */
 export function useActivateTerminal() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: activateTerminal,
     onSuccess: () =>
-      queryClient.invalidateQueries({ queryKey: terminalKeys.status() }),
+      queryClient.resetQueries({ queryKey: terminalKeys.status() }),
   });
 }

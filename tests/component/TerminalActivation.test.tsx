@@ -18,7 +18,7 @@ import {
   toTerminalInfo,
 } from "@/lib/api/mappers/terminal";
 import type { components } from "@/lib/api/schema";
-import { P256_SPKI_BASE64 } from "@/lib/api/schemas";
+import { P256_SPKI_BASE64 } from "@/lib/api/terminal-schemas";
 import am from "@/lib/i18n/messages/am.json";
 import en from "@/lib/i18n/messages/en.json";
 import { CSRF_HEADER, CSRF_VALUE } from "@/lib/session-cookie";
@@ -194,6 +194,51 @@ describe("activating a terminal (AC-4)", () => {
     ).toBe(true);
   });
 
+  it("never shows the form again once activated, even when the status read that follows fails (Q1)", async () => {
+    const reads = [problem(503, "SERVICE_UNAVAILABLE")];
+    routes({ status: () => reads.shift() ?? json(200, ACTIVE) });
+    renderTerminal();
+
+    await activateWith("K7Q2M9XP");
+    // Activated, but the status can't be read: the server-can't-be-reached
+    // screen with Try again — no form, so no second activation can replace
+    // the key the terminal is now bound to.
+    expect(
+      await screen.findByRole("heading", {
+        level: 1,
+        name: new RegExp(en.terminal.offline.title),
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByLabelText(new RegExp(en.terminal.activate.label)),
+    ).toBeNull();
+    const key = keys.pair;
+
+    await userEvent.click(
+      screen.getByRole("button", {
+        name: new RegExp(en.terminal.offline.retry),
+      }),
+    );
+    expect(
+      await screen.findByRole("heading", {
+        level: 1,
+        name: new RegExp(en.terminal.ready.title),
+      }),
+    ).toBeInTheDocument();
+    expect(activations()).toHaveLength(1);
+    expect(keys.pair).toBe(key);
+  });
+
+  it("says the server couldn't be reached, not the browser, when the activation's answer doesn't parse (S2/Q7)", async () => {
+    routes({ activation: () => json(200, { id: 42 }) });
+    renderTerminal();
+    await activateWith("K7Q2M9XP");
+    await expectAlert(
+      en.terminal.activate.unreachable,
+      am.terminal.activate.unreachable,
+    );
+  });
+
   it("says the code is wrong when the API answers 404, and keeps it to correct", async () => {
     routes({ activation: () => problem(404, "NOT_FOUND") });
     renderTerminal();
@@ -255,6 +300,23 @@ describe("activating a terminal (AC-4)", () => {
     }
     expect(activations()).toHaveLength(0);
     expect(keys.pair).toBeNull();
+  });
+
+  it("announces a refusal said again, as a new message in the same alert region (Q5)", async () => {
+    routes();
+    renderTerminal();
+    await activateWith("123");
+    const alert = await screen.findByRole("alert");
+    const first = within(alert).getByText(en.terminal.activate.format);
+
+    await userEvent.click(
+      screen.getByRole("button", {
+        name: new RegExp(en.terminal.activate.submit),
+      }),
+    );
+    const again = within(alert).getByText(en.terminal.activate.format);
+    expect(screen.getByRole("alert")).toBe(alert);
+    expect(again).not.toBe(first);
   });
 
   it("says the server couldn't be reached when activation fails otherwise", async () => {

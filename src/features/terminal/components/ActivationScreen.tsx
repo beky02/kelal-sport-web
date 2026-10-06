@@ -6,6 +6,7 @@ import { ApiError } from "@/lib/api/errors";
 import type { Interpolations, MessageKey } from "@/lib/i18n";
 import { useActivateTerminal } from "../hooks/use-terminal";
 import { normaliseActivationCode } from "../lib/code";
+import { DeviceKeyError } from "../lib/device-key";
 import { Bilingual } from "./Bilingual";
 
 type Message = { key: MessageKey; values?: Interpolations };
@@ -13,11 +14,16 @@ type Message = { key: MessageKey; values?: Interpolations };
 /**
  * What a refused activation says (AC-4), by the Problem's `code`. Too many
  * tries says when, from `Retry-After`, rounded up to whole minutes. A key the
- * browser could not make or keep is not the server's fault and says so.
+ * browser could not make or keep is not the server's fault and says so;
+ * anything else — the network, a 5xx, an answer that doesn't parse — is the
+ * server's.
  */
 function refusalOf(error: unknown): Message {
-  if (!(error instanceof ApiError)) {
+  if (error instanceof DeviceKeyError) {
     return { key: "terminal.activate.unsupported" };
+  }
+  if (!(error instanceof ApiError)) {
+    return { key: "terminal.activate.unreachable" };
   }
   switch (error.code) {
     case "NOT_FOUND":
@@ -45,22 +51,23 @@ export function ActivationScreen({ lapsed }: { lapsed: boolean }) {
   const activation = useActivateTerminal();
   const [code, setCode] = useState("");
   const [invalid, setInvalid] = useState(false);
+  // Each press of Activate, so a refusal said again is announced again.
+  const [presses, setPresses] = useState(0);
   const input = useRef<HTMLInputElement>(null);
   const id = useId();
-  const messageId = `${id}-message`;
+  const lapsedId = `${id}-lapsed`;
+  const errorId = `${id}-error`;
 
-  const message: Message | null = invalid
+  const error: Message | null = invalid
     ? { key: "terminal.activate.format" }
     : activation.isError
       ? refusalOf(activation.error)
-      : lapsed
-        ? { key: "terminal.activate.lapsed" }
-        : null;
-  const isError = invalid || activation.isError;
+      : null;
 
   function submit(event: React.FormEvent) {
     event.preventDefault();
     if (activation.isPending) return;
+    setPresses((n) => n + 1);
     const normalised = normaliseActivationCode(code);
     if (!normalised) {
       setInvalid(true);
@@ -92,6 +99,15 @@ export function ActivationScreen({ lapsed }: { lapsed: boolean }) {
         <p className="text-muted flex flex-col gap-1 text-base text-pretty">
           <Bilingual k="terminal.activate.body" />
         </p>
+        {lapsed && (
+          // Why an activated PC is back here: said first, not as a field hint.
+          <p
+            id={lapsedId}
+            className="bg-warn-bg text-warn flex w-full flex-col gap-0.5 rounded-md px-4 py-3 text-sm"
+          >
+            <Bilingual k="terminal.activate.lapsed" />
+          </p>
+        )}
 
         <label
           htmlFor={id}
@@ -105,7 +121,9 @@ export function ActivationScreen({ lapsed }: { lapsed: boolean }) {
           name="activationCode"
           value={code}
           onChange={(event) => {
-            setCode(event.target.value.toUpperCase());
+            // As typed: the code is upper-cased when it is sent, and a value
+            // rewritten on every key would move the caret to the end.
+            setCode(event.target.value);
             setInvalid(false);
             if (activation.isError) activation.reset();
           }}
@@ -114,22 +132,28 @@ export function ActivationScreen({ lapsed }: { lapsed: boolean }) {
           autoCorrect="off"
           spellCheck={false}
           maxLength={16}
-          aria-invalid={isError || undefined}
-          aria-describedby={message ? messageId : undefined}
-          className="font-display bg-raised text-text h-14 w-full rounded-md border-0 px-4 text-center text-2xl outline-none"
+          aria-invalid={error ? true : undefined}
+          aria-describedby={
+            [lapsed ? lapsedId : null, error ? errorId : null]
+              .filter(Boolean)
+              .join(" ") || undefined
+          }
+          // No outline override: the site's focus ring shows on the field.
+          className="font-display bg-raised text-text h-14 w-full rounded-md border-0 px-4 text-center text-2xl"
         />
 
+        {/* One alert region, always there; two lines reserved so nothing
+            under it moves when a message arrives. */}
         <div
-          id={messageId}
-          role={isError ? "alert" : undefined}
-          aria-live="polite"
-          className={
-            isError
-              ? "text-loss flex min-h-6 flex-col gap-0.5 text-sm"
-              : "text-muted flex min-h-6 flex-col gap-0.5 text-sm"
-          }
+          id={errorId}
+          role="alert"
+          className="text-loss flex min-h-12 flex-col gap-0.5 text-sm"
         >
-          {message && <Bilingual k={message.key} values={message.values} />}
+          {error && (
+            <span key={presses} className="flex flex-col gap-0.5">
+              <Bilingual k={error.key} values={error.values} />
+            </span>
+          )}
         </div>
 
         <button

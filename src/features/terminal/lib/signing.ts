@@ -1,8 +1,10 @@
 import { DEVICE_SIGNATURE, DEVICE_TIMESTAMP, type SignedCall } from "./calls";
 
 /**
- * Signing a terminal call with the device key (D3, C19 §12): a stolen token is
- * useless without the PC that holds the key.
+ * Signing a terminal call with the device key (D3, C19 §12): the token alone —
+ * a copied cookie — is useless without the key, and no script on the page can
+ * read the key out. Someone with the PC's own files (its Chrome profile) has
+ * both; against that, the kiosk's OS hardening and revocation (10-terminal).
  *
  * The contract names the signed string, `METHOD\nPATH\nTIMESTAMP\nSHA256(body)`,
  * but not its encodings. Until contract request 014 settles them, this is what

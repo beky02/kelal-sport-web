@@ -177,7 +177,7 @@ export function TerminalOffline({
           type="button"
           onClick={onRetry}
           disabled={retrying}
-          className="border-divider text-text mt-3 flex min-h-12 min-w-40 cursor-pointer flex-col items-center justify-center rounded-md border px-5 py-2 text-base font-bold disabled:cursor-wait disabled:opacity-60"
+          className="bg-raised border-divider text-text mt-3 flex min-h-12 min-w-40 cursor-pointer flex-col items-center justify-center rounded-md border px-5 py-2 text-base font-bold hover:brightness-125 disabled:cursor-wait disabled:opacity-60"
         >
           <Bilingual k="terminal.offline.retry" />
         </button>

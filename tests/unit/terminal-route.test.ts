@@ -5,7 +5,7 @@ import {
   terminalActivationSchema,
   terminalStatusSchema,
   tokenRotationSchema,
-} from "@/lib/api/schemas";
+} from "@/lib/api/terminal-schemas";
 import { CSRF_HEADER, CSRF_VALUE } from "@/lib/session-cookie";
 import pkg from "../../package.json";
 import { example, responseExample } from "../contract";
@@ -495,7 +495,7 @@ describe("GET /api/terminal/status (AC-2, AC-4, AC-5)", () => {
     });
   });
 
-  it("clears the cookie and asks for a new code when the token has expired", async () => {
+  it("keeps saying the activation lapsed, read after read, when the token has expired (S1)", async () => {
     const mod = await load();
     upstreamAnswers(() => ({
       status: 401,
@@ -506,15 +506,17 @@ describe("GET /api/terminal/status (AC-2, AC-4, AC-5)", () => {
         code: "AUTH_TOKEN_EXPIRED",
       },
     }));
-    const expired = await status(mod, withCookie(mod, terminal(), signed()));
-    expect(await expired.json()).toEqual({
-      state: "inactive",
-      reason: "expired",
-    });
-    expect(expired.headers.get("set-cookie")).toMatch(
-      /^kelal\.terminal=; Max-Age=0/,
-    );
-    expect(sent).toHaveLength(1);
+    // The cookie stays (its token is dead either way), so the next read says
+    // the same and the technician still sees why: a new activation replaces it.
+    for (let read = 0; read < 2; read += 1) {
+      const expired = await status(mod, withCookie(mod, terminal(), signed()));
+      expect(await expired.json()).toEqual({
+        state: "inactive",
+        reason: "expired",
+      });
+      expect(expired.headers.get("set-cookie")).toBeNull();
+    }
+    expect(sent).toHaveLength(2);
 
     // A token past its expiry is known lapsed without asking, signed or not.
     const lapsed = await status(mod, withCookie(mod, terminal(NOW - 1)));
@@ -522,8 +524,8 @@ describe("GET /api/terminal/status (AC-2, AC-4, AC-5)", () => {
       state: "inactive",
       reason: "expired",
     });
-    expect(lapsed.headers.get("set-cookie")).toMatch(/Max-Age=0/);
-    expect(sent).toHaveLength(1);
+    expect(lapsed.headers.get("set-cookie")).toBeNull();
+    expect(sent).toHaveLength(2);
   });
 
   it("passes any other API failure through as its Problem", async () => {

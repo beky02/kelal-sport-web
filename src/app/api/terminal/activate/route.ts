@@ -1,4 +1,4 @@
-import { activationFormSchema } from "@/lib/api/schemas";
+import { activationFormSchema } from "@/lib/api/terminal-schemas";
 import { readForm } from "@/lib/server/body";
 import { assertSameOrigin } from "@/lib/server/csrf";
 import { respond } from "@/lib/server/respond";

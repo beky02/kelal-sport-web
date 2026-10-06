@@ -84,7 +84,8 @@ async function shoot(
   await page.addStyleTag({
     content: "nextjs-portal { display: none !important; }",
   });
-  await page.waitForTimeout(200);
+  // The Ethiopic and Barlow faces, before the picture is taken.
+  await page.evaluate(() => document.fonts.ready.then(() => undefined));
   await page.screenshot({
     path: `${SHOTS}/terminal-${name}-${device}.png`,
     fullPage: true,

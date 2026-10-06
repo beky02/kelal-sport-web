@@ -43,8 +43,8 @@ export interface DeviceSignature {
   signature: string;
 }
 
-/** Unix milliseconds: digits only, as the browser writes `Date.now()`. */
-const TIMESTAMP = /^\d{1,15}$/;
+/** Unix milliseconds as the browser writes `Date.now()`: 13 digits (until 2286). */
+const TIMESTAMP = /^\d{13}$/;
 /**
  * Base64 of a P-256 signature: WebCrypto's 64 bytes, or DER's 70–72 should
  * contract request 014 choose it. Anything else never goes upstream.
@@ -148,43 +148,38 @@ export async function activateTerminal(
  *
  * Revoked — `status: revoked`, or a token the API no longer accepts
  * (`AUTH_INVALID_CREDENTIALS`: revoking "logs it out on its next request",
- * C19 §4.1) — keeps the cookie, so every boot asks again and is told the same:
- * the state is the server's. `RETAIL_DEVICE_NOT_ALLOWED` is shown the same
- * way. An expired token clears it: the PC needs a new code. Any other failure
- * passes through as the API's Problem.
+ * C19 §4.1) — and `RETAIL_DEVICE_NOT_ALLOWED` are blocked; an expired token
+ * is lapsed: the PC needs a new code. The cookie stays in every case, so every
+ * read asks again and is told the same — the state is the server's, and the
+ * technician still sees why at the next read (review S1). A new activation
+ * replaces it. Any other failure passes through as the API's Problem.
  */
 export async function loadTerminalStatus(
   ctx: RequestContext,
   session: TerminalSession,
   device: DeviceSignature,
   now: number = Date.now(),
-): Promise<{ status: TerminalStatus; clear: boolean }> {
+): Promise<TerminalStatus> {
   const call = await asTerminal(ctx, session).GET(TERMINAL_CALLS.status.api, {
     params: { header: deviceHeaders(session, device) },
   });
   const code = codeOf(call.error);
   if (call.response.status === 401) {
     return code === "AUTH_TOKEN_EXPIRED"
-      ? { status: { state: "inactive", reason: "expired" }, clear: true }
-      : { status: { state: "blocked", reason: "revoked" }, clear: false };
+      ? { state: "inactive", reason: "expired" }
+      : { state: "blocked", reason: "revoked" };
   }
   if (call.response.status === 403 && code === "RETAIL_DEVICE_NOT_ALLOWED") {
-    return {
-      status: { state: "blocked", reason: "device_not_allowed" },
-      clear: false,
-    };
+    return { state: "blocked", reason: "device_not_allowed" };
   }
   const self = unwrap(call);
   if (self.status === "revoked") {
-    return { status: { state: "blocked", reason: "revoked" }, clear: false };
+    return { state: "blocked", reason: "revoked" };
   }
   return {
-    status: {
-      state: "active",
-      terminal: toTerminalInfo(self),
-      rotateDue: session.expiresAt - now < ROTATE_AHEAD_MS,
-    },
-    clear: false,
+    state: "active",
+    terminal: toTerminalInfo(self),
+    rotateDue: session.expiresAt - now < ROTATE_AHEAD_MS,
   };
 }
 

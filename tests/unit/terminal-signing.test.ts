@@ -11,7 +11,7 @@ import {
   sha256Hex,
   signRequest,
 } from "@/features/terminal/lib/signing";
-import { P256_SPKI_BASE64 } from "@/lib/api/schemas";
+import { P256_SPKI_BASE64 } from "@/lib/api/terminal-schemas";
 
 const NOW = Date.parse("2026-10-06T09:00:00Z");
 

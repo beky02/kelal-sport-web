@@ -23,6 +23,9 @@ active/closed ──401 AUTH_TOKEN_EXPIRED / token past expiry──▶ activati
    IndexedDB (`kelal-terminal` / `keys` / `device`). Then `POST /api/terminal/activate` sends the code
    and the public half (SPKI, base64). The API's 90-day terminal token goes into the terminal cookie, and
    the screen shows the shop.
+   Once activation succeeds the status is read afresh with the new key. If that read fails, the
+   screen is "Can't reach the server" with Try again, never the form again, so a second activation
+   can't replace the key the terminal is now bound to.
 2. **Every boot and every 5 minutes**, the terminal reads `GET /api/terminal/status`. This goes on in the
    background as well; a blocked terminal stops until it is reloaded.
 3. **Rotation.** When the status says fewer than 7 days of token remain (`rotateDue`), the browser posts a
@@ -41,23 +44,23 @@ Every message is shown in Amharic, then English, until F8c gives the kiosk a lan
 (`features/terminal/components/Bilingual.tsx`). Text is at least 14 px and targets at least 48 px.
 Screenshots are `test-results/ui/terminal-<state>-{phone,desktop}.png`, from `tests/e2e/terminal.spec.ts`.
 
-| State                   | When                                                          | Shows                                                                                       | Screenshot                     |
-| ----------------------- | ------------------------------------------------------------- | ------------------------------------------------------------------------------------------- | ------------------------------ |
-| Loading                 | Before the first status answer                                | "Starting the terminal…"                                                                    | `terminal-loading`             |
-| Activation              | No device key in this browser, or no terminal cookie          | Code field, Activate                                                                        | `terminal-activate`            |
-| … code not 8 characters | Checked before sending (no attempt spent)                     | "The code has 8 letters and digits."                                                        | `terminal-activate-format`     |
-| … wrong code            | `404 NOT_FOUND`                                               | "No terminal has this code. Check it and try again." The code stays to correct              | `terminal-activate-wrong-code` |
-| … expired code          | `410 RETAIL_ACTIVATION_EXPIRED`                               | "This code has expired. Ask for a new one."                                                 | `terminal-activate-expired`    |
-| … too many tries        | `429 RATE_LIMITED` (5 per IP per hour)                        | "Too many tries. Try again in {minutes} min." from `Retry-After`, or "later" without one    | `terminal-activate-too-many`   |
-| … other failure         | Network, 5xx, anything else                                   | "Couldn't reach the server. Try again."                                                     | —                              |
-| … key can't be kept     | WebCrypto or IndexedDB refused                                | "This browser can't keep the terminal's key. Use Chrome in kiosk mode." Nothing is sent     | —                              |
-| Activation, lapsed      | `401 AUTH_TOKEN_EXPIRED`, or the sealed expiry has passed     | The activation screen with "This terminal's activation has lapsed. Type a new code."        | `terminal-lapsed`              |
-| Ready                   | Active, shop open                                             | Shop name and terminal label in the top bar; "This terminal is ready" (F8c's sportsbook)    | `terminal-ready`               |
-| Closed                  | Active, `shop.open_now: false` (C19 §14: closed or suspended) | Top bar; "This shop is closed"; it comes back by itself at a later read when the shop opens | `terminal-closed`              |
-| Switched off            | `status: revoked`, or `401 AUTH_INVALID_CREDENTIALS`          | "This terminal has been switched off … Ask the shop staff." **No controls**                 | `terminal-revoked`             |
-| Not allowed             | `403 RETAIL_DEVICE_NOT_ALLOWED`                               | "This PC can't run the terminal … Ask the shop staff." **No controls**                      | `terminal-device-not-allowed`  |
-| Offline                 | The first read failed (network, 5xx)                          | "Can't reach the server"; Try again (and the 5-minute read keeps trying)                    | `terminal-offline`             |
-| A later read fails      | After any answer                                              | Nothing changes on screen; the next read tries again                                        | —                              |
+| State                   | When                                                                                                 | Shows                                                                                       | Screenshot                     |
+| ----------------------- | ---------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- | ------------------------------ |
+| Loading                 | Before the first status answer                                                                       | "Starting the terminal…"                                                                    | `terminal-loading`             |
+| Activation              | No device key in this browser, or no terminal cookie                                                 | Code field, Activate                                                                        | `terminal-activate`            |
+| … code not 8 characters | Checked before sending (no attempt spent)                                                            | "The code has 8 letters and digits."                                                        | `terminal-activate-format`     |
+| … wrong code            | `404 NOT_FOUND`                                                                                      | "No terminal has this code. Check it and try again." The code stays to correct              | `terminal-activate-wrong-code` |
+| … expired code          | `410 RETAIL_ACTIVATION_EXPIRED`                                                                      | "This code has expired. Ask for a new one."                                                 | `terminal-activate-expired`    |
+| … too many tries        | `429 RATE_LIMITED` (5 per IP per hour)                                                               | "Too many tries. Try again in {minutes} min." from `Retry-After`, or "later" without one    | `terminal-activate-too-many`   |
+| … other failure         | Network, 5xx, anything else                                                                          | "Couldn't reach the server. Try again."                                                     | —                              |
+| … key can't be kept     | WebCrypto or IndexedDB refused                                                                       | "This browser can't keep the terminal's key. Use Chrome in kiosk mode." Nothing is sent     | —                              |
+| Activation, lapsed      | `401 AUTH_TOKEN_EXPIRED`, or the sealed expiry has passed (the cookie stays, so the reason does too) | The activation screen with "This terminal's activation has lapsed. Type a new code."        | `terminal-lapsed`              |
+| Ready                   | Active, shop open                                                                                    | Shop name and terminal label in the top bar; "This terminal is ready" (F8c's sportsbook)    | `terminal-ready`               |
+| Closed                  | Active, `shop.open_now: false` (C19 §14: closed or suspended)                                        | Top bar; "This shop is closed"; it comes back by itself at a later read when the shop opens | `terminal-closed`              |
+| Switched off            | `status: revoked`, or `401 AUTH_INVALID_CREDENTIALS`                                                 | "This terminal has been switched off … Ask the shop staff." **No controls**                 | `terminal-revoked`             |
+| Not allowed             | `403 RETAIL_DEVICE_NOT_ALLOWED`                                                                      | "This PC can't run the terminal … Ask the shop staff." **No controls**                      | `terminal-device-not-allowed`  |
+| Offline                 | The first read failed (network, 5xx)                                                                 | "Can't reach the server"; Try again (and the 5-minute read keeps trying)                    | `terminal-offline`             |
+| A later read fails      | After any answer                                                                                     | Nothing changes on screen; the next read tries again                                        | —                              |
 
 "Disabled" in the task means the shop is closed or suspended: the contract's terminal status is only
 `active` or `revoked`, and C19 §14 says a closed shop's terminals show "closed". The tenant's
@@ -97,6 +100,16 @@ preferences store, session, realtime channel or player layout. It shares pure co
 `features/tickets/lib/number.ts`. `scripts/check-host-split.mjs` checks the split on every
 `pnpm verify`. The page is static. What the terminal is depends on this browser's key and cookie, so it
 is decided after the first paint (C18 §5).
+
+## What the device key protects against
+
+`extractable: false` means no script on the page, this app's included and any injected script, can
+export the private key. It can only ask WebCrypto to sign. So a copied cookie (the token) is useless
+without the PC. It does **not** protect against someone with the PC's own files. Chrome keeps the key
+in the profile's IndexedDB next to its cookies, so a copy of the kiosk user's Chrome profile carries
+both. Against device theft and cloning, the controls are the shop PC's own hardening and revocation from
+the back office: a locked-down kiosk account with no access to the profile directory, and disk
+encryption. These belong in the installation checklist (C19 §15).
 
 ## Known limits
 

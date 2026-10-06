@@ -46,6 +46,31 @@
   (new), 00-overview, 01-screens, 09-security, design README, TRANSLATION-NOTES, the README status, and
   contract request 014.
 
+## Automated gate
+
+| Check                                             | Result                                                                                                                                                 | Command                             |
+| ------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------- |
+| Typecheck, lint, Prettier, unit + component tests | PASS — 75 files, 1526 tests                                                                                                                            | `pnpm check`                        |
+| Generated types                                   | PASS — "Generated API types match contracts/openapi.yaml."                                                                                             | `pnpm api:check`                    |
+| Contract drift                                    | PASS — "contracts/ matches the backend. docs/backend/ matches the backend."                                                                            | `pnpm contract:sync --check`        |
+| Production build                                  | PASS — "Compiled successfully"                                                                                                                         | `pnpm build`                        |
+| Host split                                        | PASS — "19 player routes load no module or chunk of (terminal); 1 terminal route(s) load no module of (player) nor a chunk holding one (57 manifests)" | `node scripts/check-host-split.mjs` |
+| UI                                                | PASS — 600 passed (4.2 m), none flaky, none retried                                                                                                    | `pnpm ui`                           |
+
+Final `pnpm verify` (exit 0) took five attempts' worth of fixes in three:
+
+1. The drift check failed: the backend had changed its contract during the session (error responses on
+   the catalogue operations, `minimum: 1` on popular's `limit`). It was synced as its own commit
+   (`b6f1b58`), the same way the user approved for the first sync; nothing in it touches the terminal.
+2. The host-split check failed. With its own providers, the terminal shares library chunks (React,
+   React Query, `lib/query`) with the player's providers. The check counted every chunk a player-layout
+   module _needs_ as "the player layout's". F8a's comment left this decision to F8b. The check now counts
+   the chunks that _define_ a layout module, found by module id in the chunk's code, and falls back to
+   every chunk when none does. Confirmed on the real build: the player's providers and preferences store
+   are defined in a chunk the terminal never loads, and planting that chunk in the terminal route is
+   caught. New unit tests cover the shared library, the defining chunk, and the fallback.
+3. A type error in that test (the JS default parameter's inferred type) was fixed with a JSDoc type.
+
 ## Tests proven
 
 Each acceptance test was seen failing against a deliberate break of the behaviour it guards, then the code
