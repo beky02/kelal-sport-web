@@ -74,59 +74,81 @@ every minute while it is off, so the kiosk comes back by itself.
 
 ## The kiosk (F8ca)
 
-What an active terminal of an open shop shows: the shop's matches by sport and day, prices that go into a
-slip, and the slip's picks. F8cb adds the stake and the figures; F8cc adds Get code.
+An active terminal of an open shop is **the player's sportsbook without what needs a player** (the user's
+direction, 2026-10-06). It has the same home board, league page, match page, sidebar, search and slip, at
+the same sizes and widths, in the kiosk's own frame. There is no Log in, Register, My bets, Wallet,
+Responsible gaming or Favourites, and no player watchers (session, reality check, deposits). F8cb adds the
+stake and the figures; F8cc adds Get code.
 
 ```
-┌ shop name ───────────────────────────────── PC 3 · [English] ┐
-│ Matches                                       │ Bet slip      │
-│ [Football] [Basketball]                       │ pick  1.95  × │
-│ [Today 6 Oct] [Wed 7 Oct] …                   │ pick  3.40  × │
-│ ┌ Premier League ─────────────────────────┐   │               │
-│ │ 04/10 · 17:00  Arsenal  [1 2.10][X 3.40][2 3.30]           │
-│ │                Chelsea                  │   │    Clear all  │
-└───────────────────────────────────────────────┴──────────────┘
+┌ K KelalSport  Adama Kebele 04 · PC 3 ──────────── [search] [አማ|EN] ┐
+│ Top competitions │ Football  EAT  [Top][Upcoming][Today]  │ Bet slip 2 │
+│ Sports           │ [Today 6 Oct][Wed 7 Oct] …            │ pick 1.52 ×│
+│ Countries A–Z    │ England · Premier League   1 X 2 │ 1X …│ pick 1.62 ×│
+│                  │ Liverpool / Brighton  1.52 4.60 … +58›│  Clear all │
+└──────────────────┴───────────────────────────────────────┴────────────┘
 ```
 
-- **Language.** It opens in the tenant's `default_language` (Amharic for `demo`, FD2). One tap switches
-  it, with a button showing the other language's own name (English, አማርኛ). The switch is offered only
-  among the tenant's `languages`. `<html lang>` follows, so the Amharic tokens apply, and so does every
-  call's `Accept-Language`. The choice lives in `features/terminal/stores/kiosk.store.ts`, is never
-  persisted, and goes back to the default on idle (F8cc). The tenant's default is read from the config
-  where it is needed (`kioskLanguage(chosen, config)`), never copied into the store. A choice the tenant
-  no longer offers gives way to its default, on screen and in the calls. F8b's own calls (status,
-  rotation) ask in Amharic, since their answers are states, not text. The shared text hooks read it through
-  `LocaleProvider` (`lib/i18n/locale.tsx`), which the player feeds from its own store.
-- **Sport and day** are in the URL (`/?sport=…&date=…` on the terminal host), through the player's
-  `useBoardFilters`, as on the player's board. The board's order (`filter`) stays at its default, and
-  there is no competition filter and no live board (D8). "Today" moves at midnight East Africa Time
-  (`useTodayEat`), so a kiosk left on overnight shows the new day. Times are EAT, said beside the
-  heading (`clock.eat`).
-- **Before kick-off only.** The board route drops in-play and ended matches, and any competition left
-  empty (`preMatchBoard`). Prism lists none; only the simulated board does. A competition is headed as on
-  the player's board, with its flag and country before its name, so two Premier Leagues are told apart.
-- **Rows** show the kick-off (East Africa Time, Gregorian, D7), both teams and the 1X2 prices, the one
-  market every board row carries (double chance and total goals wait for contract request 001). There is
-  no match detail on the kiosk in F8c. A price is `OddsButtonView` at `size="lg"` (56 px), with the
-  outcome's code (1, X, 2) beside it and its full name in the accessible label. It is locked when the
-  market is suspended or the API left the price out. Prices poll every 30 s (D5).
-- **The slip** is the player's slip store, unchanged. The kiosk shows the picks (match, pick, market, and
-  the odds when tapped; nothing on the kiosk moves them afterwards) with Remove on each, and Clear all.
-  From `lg` up it sits beside the board; narrower, it is a view of its own, opened from a bar that counts
-  the picks. Opening it moves focus to its heading, and going back returns focus to the bar.
+| Address on a terminal host              | Page                          | The player's view                                                      |
+| --------------------------------------- | ----------------------------- | ---------------------------------------------------------------------- |
+| `/` (shows `/terminal`)                 | Home: sports, days, the board | `SportsbookView`                                                       |
+| `/terminal/competition/[competitionId]` | A league's board              | `CompetitionView`, from the sidebar's Top competitions and from search |
+| `/terminal/event/[eventId]`             | A match's whole book          | `EventDetailView`, from a row's "+N" and from search; Back goes home   |
 
-| State              | When                                     | Shows                                                                                                                                | Screenshot                                     |
-| ------------------ | ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------- |
-| Config loading     | Before `/api/terminal/config` answers    | Top bar; "Starting the terminal…" (bilingual)                                                                                        | `terminal-kiosk-config-loading`                |
-| Config unreadable  | The config read failed (network, 5xx)    | Top bar; "Can't reach the server" + Try again (bilingual)                                                                            | `terminal-kiosk-config-offline`                |
-| Board              | Config read, shop betting on             | Sports, days, competitions and their matches with prices                                                                             | `terminal-kiosk-board-{am,en}-{phone,desktop}` |
-| Picks              | Prices tapped                            | The picks in the slip; the rows tinted; prices pressed                                                                               | `terminal-kiosk-picks-{am,en}-…`               |
-| Board loading      | A sport or day not read yet              | Skeleton rows                                                                                                                        | `terminal-kiosk-loading-{am,en}-…`             |
-| Sports unreadable  | The sport tabs' read failed              | "Couldn't load the sports." + Try again in the tabs' place; read again every 30 s                                                    | — (component test)                             |
-| Empty day          | The board is `[]`                        | "No matches right now · Try another sport or day" + Back to today (same sport); on an empty today, Show football (back to the start) | `terminal-kiosk-empty-{am,en}-…`               |
-| Board unreadable   | The board read failed, nothing shown yet | "Couldn't load matches" + Try again                                                                                                  | `terminal-kiosk-error-{am,en}-…`               |
-| A later poll fails | After a board was shown                  | Nothing changes; the next poll tries again                                                                                           | —                                              |
-| Not activated      | A kiosk read answered 401                | The status is read again, and says what the terminal is now (lapsed, switched off)                                                   | —                                              |
+**How one set of pages serves both sites.**
+
+- **The site-specific parts come from `SportsbookChrome`** (`features/sportsbook/chrome.tsx`), a static
+  context of hooks and components, never state:
+  - `Shell`, the frame around a page;
+  - realtime topics;
+  - data saver;
+  - the price lock (offline, a break);
+  - what a pick does after;
+  - favourites (or none);
+  - the leagues drawer;
+  - open countries;
+  - links.
+
+  The player provides `PLAYER_CHROME` (`(player)/sportsbook-chrome.tsx`), from its stores, as every
+  component read them before. The kiosk provides `KIOSK_CHROME`
+  (`features/terminal/components/kiosk/chrome.ts`): `KioskShell`, links under `/terminal`, no realtime
+  (Release 2), no data saver, no favourites, no drawer, no lock. Each hook subscribes as narrowly as
+  before.
+
+- **The data goes to the terminal's routes.** `apiClient` reads its base path from `<html data-api>`; the
+  terminal's root layout says `/api/terminal/`. So the player's fetchers, hooks and keys run unchanged on
+  the kiosk against the terminal's mirror routes (below). The host split and the proxy are unchanged.
+- **The language** is the customer's tap, else the tenant's `default_language` (Amharic for `demo`,
+  FD2). It is switched with the player's `EN | አማ` control, among the tenant's `languages` (none with
+  one).
+  - The choice lives in `features/terminal/stores/kiosk.store.ts`. It is never persisted, so a reload and
+    F8cc's idle reset both return to the default. `kioskLanguage(chosen, config)` is the one rule, and
+    nothing of the config is copied into the store.
+  - A choice the tenant no longer offers gives way to its default.
+  - `KioskLocale` sets `<html lang>`, from which the text hooks (through `LocaleProvider`) and
+    `apiClient`'s `Accept-Language` both read.
+  - F8b's own calls (status, rotation) ask in Amharic, since their answers are states.
+- **Before kick-off only** (D8). The terminal's routes drop in-play and ended matches from the board and
+  search, and an in-play match's book reads as `null` ("This match isn't available"). Prism lists none;
+  only the simulated board does.
+- **A 401 on any read** makes the terminal's query client read its status again
+  (`createTerminalQueryClient`), which then says what the terminal is (lapsed, switched off).
+- **The slip** is the player's slip store and parts (`BetSlipHeader`, `EmptySlip`, `BetSelectionRow`), with
+  two picks of one match marked. The odds are those at the tap. From `xl` up it is the right-hand column;
+  narrower, a bar (once there is a pick) opens it in the player's `Sheet`.
+
+| State                         | When                                       | Shows                                                                                 | Screenshot                                     |
+| ----------------------------- | ------------------------------------------ | ------------------------------------------------------------------------------------- | ---------------------------------------------- |
+| Config loading                | Before `/api/terminal/config` answers      | The terminal's bar; "Starting the terminal…" (bilingual)                              | `terminal-kiosk-config-loading`                |
+| Config unreadable             | The config read failed (network, 5xx)      | The terminal's bar; "Can't reach the server" + Try again (bilingual)                  | `terminal-kiosk-config-offline`                |
+| Home board                    | Config read, shop betting on               | The player's home, without what needs a player                                        | `terminal-kiosk-board-{am,en}-{phone,desktop}` |
+| Picks                         | Prices tapped                              | The picks in the slip; prices pressed; rows tinted                                    | `terminal-kiosk-picks-…`                       |
+| A league                      | `/terminal/competition/[id]`               | That league's board                                                                   | `terminal-kiosk-league-…`                      |
+| A match                       | `/terminal/event/[id]`                     | Every market of the match; Back                                                       | `terminal-kiosk-match-…`                       |
+| Search                        | Something typed (`xl` up, as the player's) | Leagues and matches found, each opening on the kiosk                                  | `terminal-kiosk-search-{am,en}-desktop`        |
+| Board loading / empty / error | The player's board states                  | Skeleton; "No matches right now" + Show football; "Couldn't load matches" + Try again | `terminal-kiosk-{loading,empty,error}-…`       |
+| Sports unreadable             | The sports read failed                     | No tabs; read again every 30 s (`useSports`, both sites)                              | — (component test)                             |
+| A match in play               | The terminal's route answers `null`        | The player's "match not found"                                                        | — (component test)                             |
 
 ## Signed calls (D3)
 
@@ -147,13 +169,16 @@ them, so a signed read isn't in the contract. C19 §9.1 expects the shop's retai
 read, so the kiosk may show online prices. The POS re-prices at sale and shows any change (C19 §14).
 [Contract request 015](../contract-requests/015-terminal-reads-and-slip-codes.md) asks what a terminal's
 read is. The routes still answer only an activated terminal of this tenant (its cookie, unexpired), and
-refuse anything else with 401 before calling anything. They forward no `Prefer`.
+refuse anything else with 401 before calling anything. They forward no `Prefer`. The board takes `competition` too (a league's page).
 
-| Route                                | API calls (anonymous)                           | Query, checked before anything goes upstream                                                                                                                                                                                                    |
-| ------------------------------------ | ----------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `GET /api/terminal/config`           | `GET /v1/config/public` (cached 60 s)           | —                                                                                                                                                                                                                                               |
-| `GET /api/terminal/catalogue/sports` | `GET /v1/sports`, `GET /v1/dictionary` (am, en) | —                                                                                                                                                                                                                                               |
-| `GET /api/terminal/catalogue/board`  | `GET /v1/events` (am, en), `GET /v1/dictionary` | `sport` `s_` + URL-safe characters (required), `date` a real `YYYY-MM-DD`, `filter` `top\|upcoming\|today`; nothing else, each once (400 `VALIDATION_FAILED` naming the field, or `query` for an odd key). Answers before-kick-off matches only |
+| Route                                                         | API calls (anonymous)                                             | Query, checked before anything goes upstream                                                                                                                                                                                                                                |
+| ------------------------------------------------------------- | ----------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GET /api/terminal/config`                                    | `GET /v1/config/public` (cached 60 s)                             | —                                                                                                                                                                                                                                                                           |
+| `GET /api/terminal/catalogue/sports`                          | `GET /v1/sports`, `GET /v1/dictionary` (am, en)                   | —                                                                                                                                                                                                                                                                           |
+| `GET /api/terminal/catalogue/board`                           | `GET /v1/events` (am, en), `GET /v1/dictionary`                   | `sport` `s_` + URL-safe characters (required), `date` a real `YYYY-MM-DD`, `filter` `top\|upcoming\|today`, `competition` an opaque id; nothing else, each once (400 `VALIDATION_FAILED` naming the field, or `query` for an odd key). Answers before-kick-off matches only |
+| `GET /api/terminal/catalogue/competitions/top`, `…/countries` | `GET /v1/sports`, `GET /v1/dictionary` (am, en)                   | —                                                                                                                                                                                                                                                                           |
+| `GET /api/terminal/catalogue/events/[id]`                     | `GET /v1/events/{id}` (am, en), `GET /v1/dictionary`              | `id` opaque, URL-safe, up to 64; no query. `null` for a match in play                                                                                                                                                                                                       |
+| `GET /api/terminal/catalogue/search`                          | `GET /v1/search` (am, en), `GET /v1/sports`, `GET /v1/dictionary` | `q` trimmed, up to 64, once; nothing else. Before-kick-off matches only; nothing typed asks nothing                                                                                                                                                                         |
 
 - **What is signed:** `METHOD\nPATH\nTIMESTAMP\nSHA256(body)`, with the SHA-256 as lowercase hex (of zero
   bytes when there is no body). The signature is WebCrypto's 64-byte `r‖s` in standard base64. The
@@ -173,15 +198,23 @@ refuse anything else with 401 before calling anything. They forward no `Prefer`.
 
 ## What the terminal loads
 
-Its own root layout and providers: a query client (`createQueryClient`) and nothing of the player's. No
-preferences store, session, realtime channel or player layout. It shares pure code: its own schemas
-(`lib/api/terminal-schemas.ts`) and the catalogue's (`lib/api/catalogue-schemas.ts`), never
-`lib/api/schemas.ts` (F8b review Q3); `lib/i18n` and its text hooks, through the kiosk's
-`LocaleProvider`; `lib/api/errors.ts`; the Crockford forgiveness from `features/tickets/lib/number.ts`;
-and, for the kiosk (F8ca), the slip store, the board filters, `OddsButtonView` and `oddsAriaLabel`. Its
-data goes through its own client (`terminalRequest`, `terminalRead`), never the player's `apiClient`, which
-reads the player's store. `scripts/check-host-split.mjs` checks the split on every
-`pnpm verify`. The page is static. What the terminal is depends on this browser's key and cookie, so it
+The terminal has its own root layout and providers: a query client (`createTerminalQueryClient`), and
+nothing of the player's (no preferences store, session, realtime channel or player layout).
+
+The kiosk (F8ca) shares the player's sportsbook pages and components, which reach the player's store, its
+session and its realtime only through `SportsbookChrome`. The terminal provides its own, so none of that
+loads.
+
+The terminal also shares:
+
+- its own schemas (`lib/api/terminal-schemas.ts`) and the catalogue's (`lib/api/catalogue-schemas.ts`), never
+  `lib/api/schemas.ts` (F8b review Q3);
+- `lib/i18n` and its text hooks, through the kiosk's `LocaleProvider`;
+- `apiClient`, sent to `/api/terminal/` by `<html data-api>`;
+- `lib/api/errors.ts`, and the Crockford forgiveness from `features/tickets/lib/number.ts`.
+
+The terminal's own calls go through `terminalRequest` and `terminalRead`. `scripts/check-host-split.mjs`
+checks the split on every `pnpm verify`. The page is static. What the terminal is depends on this browser's key and cookie, so it
 is decided after the first paint (C18 §5).
 
 ## What the device key protects against

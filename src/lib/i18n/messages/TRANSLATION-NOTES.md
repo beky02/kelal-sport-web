@@ -633,19 +633,13 @@ with ከጥቂት ደቂቃዎች በኋላ.
 
 ## Shop kiosk (F8ca, 2026-10-06)
 
-The kiosk speaks one language at a time, so these are shown alone, not beside the English. The
-kiosk reuses `nav.sports`, `nav.slipAria`, `board.filters.today`, `board.empty.title`/`action`,
-`board.error.*`, `betSlip.title`, `clearAll`, `emptyTitle`, `emptyBody`, `remove`, `suspended` and
-`common.retry`, all reviewed with the player's screens. `terminal.ready.title`/`body` are gone, replaced by
-the kiosk. The language switch shows each language's own name (`LANG_NAME` in `lib/i18n/index.ts`: English,
-አማርኛ). That name isn't in the catalogues, because it is the same in both. All composed; all need review.
+The kiosk is the player's sportsbook (its home, league and match pages, sidebar, search and slip), so it
+shows the player's strings, already reviewed with them, in one language at a time with the player's
+`EN | አማ` switch. Its own strings are those of the bilingual "unavailable" screen. All are composed, and all
+need review. The kiosk's first version had strings of its own for its views; they went with the views when
+the user chose the player's pages (2026-10-06): `terminal.kiosk.matches`, `days`, `emptyBody`,
+`backToToday`, `backToMatches`, `sportsFailed`, and `LANG_NAME`. So did `terminal.ready.*`.
 
-| Key                                        | Amharic                                    | Composed from                                                                                |
-| ------------------------------------------ | ------------------------------------------ | -------------------------------------------------------------------------------------------- |
-| `terminal.kiosk.matches`                   | ጨዋታዎች                                      | The plural of ጨዋታ as in `board.empty.title` (አሁን ጨዋታዎች የሉም)                                  |
-| `terminal.kiosk.days`                      | ቀናት                                        | New: the plural of ቀን (`board.empty.body`)                                                   |
-| `terminal.kiosk.emptyBody`                 | ሌላ ስፖርት ወይም ቀን ይሞክሩ።                       | `board.empty.body` without its filter (the kiosk has none)                                   |
-| `terminal.kiosk.backToMatches`             | ወደ ጨዋታዎቹ ተመለስ                              | ወደ … ተመለስ as every back button (`common.backToSportsbook`)                                   |
-| `terminal.kiosk.unavailable.title`, `body` | በዚህ ተርሚናል ላይ ውርርድ አይገኝም / የሱቁን ሠራተኞች ይጠይቁ። | በዚህ ተርሚናል ላይ ውርርድ from `terminal.closed.body`; the body as `terminal.blocked.revokedBody`    |
-| `terminal.kiosk.backToToday`               | ወደ ዛሬ ተመለስ                                 | ዛሬ (today, `board.filters.today`) with ወደ … ተመለስ, as every back button (added in review, U6) |
-| `terminal.kiosk.sportsFailed`              | ስፖርቶቹን መጫን አልተሳካም።                         | … መጫን አልተሳካም as `board.error.title` (ጨዋታዎችን መጫን አልተሳካም) (added in review, Q1)                |
+| Key                                        | Amharic                                    | Composed from                                                                             |
+| ------------------------------------------ | ------------------------------------------ | ----------------------------------------------------------------------------------------- |
+| `terminal.kiosk.unavailable.title`, `body` | በዚህ ተርሚናል ላይ ውርርድ አይገኝም / የሱቁን ሠራተኞች ይጠይቁ። | በዚህ ተርሚናል ላይ ውርርድ from `terminal.closed.body`; the body as `terminal.blocked.revokedBody` |

@@ -1,7 +1,7 @@
 ---
 id: F8ca
 title: Split from F8c — kiosk sportsbook: matches, picks and the kiosk's language
-status: done
+status: verifying
 depends_on: [F8b]
 contract_tags: [Catalogue, Config]
 touches_money: false
@@ -16,9 +16,11 @@ figures are [F8cb](F8cb-kiosk-slip.md); slip codes, the idle reset and the rate 
 
 ## Goal
 
-On an activated terminal of an open shop, a walk-in customer browses the shop's matches by sport and day
-on a touch screen, taps prices into a slip, and reads everything in the language they choose. A tenant
-that has switched shop betting off shows no sportsbook.
+On an activated terminal of an open shop, a walk-in customer uses the player's sportsbook: the home board
+by sport and day, a league's page, a match's whole book and search. They tap prices into a slip and read
+everything in the language they choose. Nothing that needs a player account is there: no log in,
+register, my bets, wallet, responsible gaming or favourites. A tenant that has switched shop betting off
+shows no sportsbook.
 
 ## Read first
 
@@ -32,25 +34,29 @@ that has switched shop betting off shows no sportsbook.
 
 ## Scope
 
-In:
+In (revised on the user's review, 2026-10-06):
 
-- The shared text and date hooks (`useTranslation`, `useRichTranslation`, `useDateTimeText`,
-  `useLongDateTimeText`) read the language from a provider instead of the player's store, so the kiosk can
-  use them; the player feeds it from its store as before.
-- `/api/terminal/catalogue/sports`, `/api/terminal/catalogue/board` and `/api/terminal/config` on the
-  player's loaders, for activated terminals only.
-- The kiosk on `/terminal` (`/` on a terminal host): a top bar with the shop and a language switch; sport
-  tabs; a day strip; the board's competitions and matches with their prices; a slip panel listing the
-  picks (remove one, clear all), without figures. Large type and targets. Filters in the URL.
-- The kiosk's language: the tenant's `default_language`, one tap to switch; `<html lang>` and the calls'
-  `Accept-Language` follow.
-- `features.retail: false` → betting isn't available at this terminal.
+- **The player's pages on the kiosk.** The home (`SportsbookView`), a league (`CompetitionView`) and a match
+  (`EventDetailView`), with the player's sidebar (Top competitions, Sports, Countries; no Favourites), the
+  header search and the slip's parts. They are composed in the kiosk's own shell, with a header showing the
+  shop and the language switch.
+- **One seam for both sites.** The pages and components read whatever is specific to a site (frame,
+  realtime, data saver, price locks, favourites, the leagues drawer, open countries, links) from a static
+  `SportsbookChrome` (`features/sportsbook/chrome.tsx`). The player provides it from its stores; the kiosk
+  provides its own. The text hooks read a `LocaleProvider`, and `apiClient` reads the language and base path
+  from `<html>`.
+- **The terminal's reads.** `/api/terminal/catalogue/{sports,board,competitions/top,competitions/countries,
+events/[id],search}` and `/api/terminal/config`, on the player's loaders, for activated terminals only.
+  They answer before-kick-off matches only.
+- **Language and switch.** The kiosk's language is the tenant's `default_language`, switched with one tap.
+  `<html lang>` and `Accept-Language` follow it.
+- **Shop betting off.** `features.retail: false` means betting isn't available at this terminal.
 
 Out (do not build here):
 
 - The slip's figures, the retail rule set, the stake keypad (F8cb).
 - Slip codes, the QR code, the idle reset, the rate limit, no polling while idle (F8cc).
-- Match detail with more markets, search, live (Release 2) on the kiosk.
+- Live (Release 2); anything that needs a player account.
 - Catalogue reads signed as the terminal (contract request 015).
 
 ## Acceptance criteria
@@ -58,18 +64,26 @@ Out (do not build here):
 Each criterion must be proven by a named test, a command output or a `pnpm ui` screenshot in
 `verification.md`.
 
-- [x] **AC-1** An activated terminal of an open shop shows sport tabs, a day strip and the board's
-      competitions with their matches and prices, read through `/api/terminal/*` only; loading, empty
-      (with a way back to today) and error (Try again) states each have a screenshot.
-- [x] **AC-2** Tapping a price puts the pick in the slip panel and tapping it again takes it out; each pick
-      can be removed and the slip cleared; prices, tabs and buttons are at least 48 px high.
-- [x] **AC-3** The kiosk opens in the tenant's `default_language` (Amharic for `demo`); one tap switches
+- [ ] **AC-1** An activated terminal of an open shop shows the player's home board — sports, the day strip,
+      the competitions with their matches and prices, the sidebar — read through `/api/terminal/*` only, and
+      nothing that needs a player (no log in, register, my bets, wallet, responsible gaming or favourites);
+      loading, empty (with a way back) and error (Try again) states each have a screenshot.
+- [ ] **AC-2** Tapping a price puts the pick in the player's slip and tapping it again takes it out; each pick
+      can be removed and the slip cleared. Sizes are the player's (the user's decision, 2026-10-06; this
+      replaces "at least 48 px").
+- [ ] **AC-3** The kiosk opens in the tenant's `default_language` (Amharic for `demo`); one tap switches
       every string, `<html lang>` and the `Accept-Language` of its calls.
-- [x] **AC-4** With `features.retail: false` the terminal says betting isn't available here and shows no
+- [ ] **AC-4** With `features.retail: false` the terminal says betting isn't available here and shows no
       board and no slip.
-- [x] **AC-5** The kiosk's routes answer 404 on a player host and 401 without an activated terminal,
+- [ ] **AC-5** The kiosk's routes answer 404 on a player host and 401 without an activated terminal,
       before calling the API; the terminal still loads nothing from `src/stores/` or the player's layout
       (`check-host-split.mjs`), and the player's screens read their language as before.
+- [ ] **AC-6** A league opens on the kiosk's own page (`/terminal/competition/[id]`), from the sidebar, with
+      its board.
+- [ ] **AC-7** A match opens on the kiosk's own page (`/terminal/event/[id]`) with every market, from its
+      row's "+N"; a match that has kicked off has no page there (pre-match only, D8).
+- [ ] **AC-8** The header's search finds leagues and matches through the terminal and opens them on the
+      kiosk's pages.
 
 ## Verification
 
@@ -81,3 +95,7 @@ Each criterion must be proven by a named test, a command output or a `pnpm ui` s
 - 2026-10-06: split from F8c while planning (about 3,500 changed lines in one PR).
 - 2026-10-06: verified (`docs/tasks/F8c/verification.md`). Contract request 015 is proposed. A
   follow-up shares the price-to-slip wiring with the player's `OddsButton` (review Q11).
+- 2026-10-06, the user's review: the kiosk's own large-format views looked unlike the site. The kiosk is
+  now the player's home, league and match pages and search, without what needs a player, at the player's
+  sizes (AC-2's 48 px dropped by the user). AC-6, AC-7 and AC-8 were added. Plan: "Rework" in
+  `docs/tasks/F8c/plan.md`.

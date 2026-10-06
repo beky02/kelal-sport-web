@@ -1,6 +1,26 @@
 # F8c — verification (F8ca — kiosk sportsbook)
 
-## Review brief
+## Review brief — rework (the user's review, 2026-10-06)
+
+- **What changed since `39a081a`** (diff `git diff 39a081a..HEAD`): on the user's direction, the kiosk is
+  now the player's home, league and match pages, sidebar (no Favourites), search and slip, at the player's
+  sizes, with nothing that needs a player. The kiosk's own views are gone.
+- **The seam.** `features/sportsbook/chrome.tsx` is a static context: shell, realtime, data saver, lock,
+  favourites, drawer, countries, links. The player provides it from its stores
+  (`(player)/sportsbook-chrome.tsx`), the kiosk its own (`kiosk/chrome.ts`). It is read by the views,
+  `EventRow`, `OddsButton`, `CompetitionSection`, `BoardHeader`, `DateStrip`, `EventMeta`, `EventHeader`,
+  `HeaderSearch`, `CountriesCard`, `TopCompetitionsCard` and the data-saver hooks. `apiClient` takes its
+  base and language from `<html>`.
+- **Server.** New `/api/terminal/catalogue/{competitions/top,competitions/countries,events/[id],search}`;
+  the board takes `competition`; all before kick-off only; `lib/server/terminal.ts`.
+- **Terminal app.** `(terminal)/terminal/layout.tsx` gates the three pages; there are `KioskShell`,
+  `KioskHeader` and `KioskSlip`, and `createTerminalQueryClient` (401 → status).
+- **Risk.** Player behaviour through the seam (same stores, same subscriptions); the four new routes; the
+  API client's language now from `<html lang>`.
+- **The user decided:** reuse the main page minus account items; home, league and match pages and search
+  now; the player's sizes (AC-2's 48 px dropped). The first round's decisions stand (split, request 015).
+
+## Review brief — first round
 
 - **Split.** F8c → F8ca/F8cb/F8cc. This branch is F8ca: an active, open shop's terminal is now the kiosk.
 - **Text hooks.** They read a `LocaleProvider`, not `ui.store`; the player still feeds it from the store
@@ -206,3 +226,37 @@ Notes, no decision needed:
   Prism's examples.
 - **Size.** The branch is about 3,700 changed lines with tests, docs, the sub-task files and request 015,
   over the plan's ~1,400 estimate for the code and tests. F8cb and F8cc remain separate.
+- Rework (the user's review), each test failing with its behaviour undone and passing with it:
+  - `TerminalKiosk.test.tsx` › "…read through /api/terminal only": `apiClient` ignoring `<html data-api>`
+    fails it.
+  - › "offers nothing that needs a player…": the kiosk's chrome given favourites shows the stars, and it
+    fails.
+  - › "reads the board for the sport and day in the URL": the home's sport tabs unwired fails it. With
+    only the sidebar's list unwired it stays green, because the tap lands on the tabs first.
+  - › "links the sidebar's leagues and each match to the kiosk's own pages" and "searches through the
+    terminal and opens a match on the kiosk's page": the kiosk's links taken out (the player's addresses
+    used) fails both.
+  - › "shows a league's own board on its page (AC-6)": the board fetcher dropping `competition` fails it.
+  - › "says a match isn't there when the terminal has no book for it…": the match page's not-found state
+    taken out fails it.
+  - › "reads the status again when a kiosk read is refused as not activated": the terminal's client
+    asking `/api/me` instead fails it.
+  - › "puts a tapped price in the player's slip…": the slip always empty fails it.
+  - › "removes one pick and clears the slip": the slip showing only its first pick fails it.
+  - › "opens in the tenant's default language…": `<html lang>` pinned to `am` fails it.
+  - › "asks in the kiosk's language": `apiClient`'s language never `am` fails it.
+  - › "falls back to the tenant's default…": the choice kept whatever the tenant offers fails it.
+  - › "offers no switch when the tenant has one language": a one-option switch shown. It **stayed green**,
+    because the test only checked for "EN". It was strengthened to check for no language button at all,
+    and now fails.
+  - › "says betting isn't available here…": the sportsbook shown whatever `retail` says fails it.
+  - › "moves its board and its day strip to the new day at midnight": `useTodayEat`'s timer doing nothing
+    fails it.
+  - › "reads the sports again by itself…": `useSports` without its retry fails it.
+  - › "says there are no matches on an empty board…" and "says the matches couldn't load…": the player's
+    board actions unwired fails each.
+  - `terminal-route.test.ts` › "reads one competition's board…": `competition` dropped fails it.
+  - › "reads a match's whole book…, and nothing of a match in play": no pre-match filter fails it.
+  - › "searches for a terminal, before kick-off only": no filter fails it.
+  - › "refuses a match id or a search it can't send upstream…": either the id check or the length check
+    taken out fails it.

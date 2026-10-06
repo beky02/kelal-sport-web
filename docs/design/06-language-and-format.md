@@ -14,8 +14,8 @@ parity test already do what the product needs (FD2).
 | API calls     | `Accept-Language` from the UI on every browser call; the route handlers forward it, so the API's titles and names arrive in the right script. Catalogue loaders read one language once the segment exists (F2a); today they read both and the mappers keep `Localized` pairs |                               |
 | Shop kiosk    | The customer's tap, else the tenant's `default_language`; never stored; back to the default on idle (F8cc). `<html lang>` and `Accept-Language` follow it. The terminal's own screens (activation, closed, offline) show both languages                                      | F8ca                          |
 
-The header switch is one tap: a user who lands in the wrong script needs no menu. The kiosk's is one tap
-too, labelled with the other language's own name (English, አማርኛ: `LANG_NAME`).
+The header switch is one tap: a user who lands in the wrong script needs no menu. The kiosk has the same
+`EN | አማ` switch, among the tenant's languages.
 
 The shared text hooks (`useTranslation`, `useRichTranslation`, `useDateTimeText`, `useLongDateTimeText`)
 read the language, clock and calendar from the nearest `LocaleProvider` (`lib/i18n/locale.tsx`), never

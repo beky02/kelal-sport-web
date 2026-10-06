@@ -69,6 +69,7 @@ the platform, and what platform staff may see inside a brand, are open (proposal
 | `/live`                                                                                    | Release 2                                                                                | Behind `features.live` (D8)                        |
 | `/dev/components`                                                                          | The gallery, development only                                                            | F1                                                 |
 | `/terminal` (`/` on a terminal host)                                                       | The shop terminal, `(terminal)` root layout (10-terminal); 404 on a player host          | Activation and status (F8b); the kiosk (F8ca–F8cc) |
+| `/terminal/competition/[competitionId]`, `/terminal/event/[eventId]`                       | The kiosk's league and match pages: the player's, in the kiosk's chrome (10-terminal)    | The kiosk (F8ca)                                   |
 
 Every page above but `/terminal` is in the `(player)` route group, under the player's root layout;
 `src/app/api/*` serves both sites, kept apart by the proxy (09-security, "The host split"). A URL that

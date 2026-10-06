@@ -99,6 +99,12 @@ into a store. Don't copy query results into Zustand.
   one button. `tests/unit/realtime.test.ts` guards this.
 - **Compose, don't add props.** An `EventRow` is assembled from `TeamLine`,
   `EventMeta` and `OddsGroup`. Resist the 20-prop component.
+- **The sportsbook is shared with the shop kiosk** (F8ca). Its pages and
+  components read what is site-specific — the frame, realtime, favourites,
+  data saver, price locks, links — from `features/sportsbook/chrome.tsx`, and
+  language, clock and calendar from `lib/i18n/locale.tsx`; never from
+  `stores/ui.store` directly. `scripts/check-host-split.mjs` fails the build if
+  the terminal loads the player's store.
 - **Safety state is server state.** A responsible-gaming break is read with a
   query, never a Zustand store. A break a user could end by reloading would not
   be one. Same for balance, withdrawable, limits and KYC status.
