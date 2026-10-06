@@ -42,10 +42,19 @@ player handler finds no session on a terminal host, because the cookie is bound 
 (`__Host-`, no `Domain`). F8b's `/api/terminal/*` handlers must check `isTerminalHost` themselves too, so
 a player host can never reach them even then.
 
-Running on every route handler, the proxy makes Next hold each request body in memory for it — 10 MB by
-default. `experimental.proxyClientMaxBodySize` is 32 KiB: above the largest body a handler accepts
-(16 KiB, bets and bookings), so none is cut, and nobody can make the server hold megabytes per request.
-A body with a `Content-Length` over a handler's cap is still refused with 413 before it is read.
+Running on every route handler, the proxy makes Next read each request body for it before the handler
+runs, holding up to `experimental.proxyClientMaxBodySize` in memory — 10 MB by default, 32 KiB here:
+above the largest body a handler accepts (16 KiB, bets and bookings), so none is cut, and nobody can make
+the server hold megabytes per request. An oversized body is still refused (413 with a `Content-Length`
+over the handler's cap), but only after all of it has arrived: before F8a the handler stopped reading at
+its cap. Hence the edge requirements below.
+
+The same `/` answers two documents by host (the player's home, the terminal's placeholder), and both are
+prerendered with a long `s-maxage`.
+
+**Before go-live (edge):** cap request bodies at about 32 KiB (`client_max_body_size` or the like), so an
+oversized body is refused before it is read; and key every shared cache on the `Host` the client sent
+(not the upstream's name), or a cache could serve the terminal's `/` to players, or the reverse.
 
 ## The session cookie
 
@@ -142,11 +151,20 @@ Dependencies are kept current (Renovate) and Next.js and React security releases
 
 ## Known limits and follow-ups
 
-- A body sent without `Content-Length` (chunked) and over 32 KiB reaches the handler cut: Next drops the
-  chunk that crosses the limit and all after it, so the handler sees an empty or shortened body, usually
-  refused as not JSON (422 rather than 413). Nothing reaches the API that the sender didn't send, and
-  browsers always send `Content-Length` for these bodies; the edge should refuse large bodies outright
-  (`client_max_body_size` or the like) when the deployment is built (SEC6).
+- Any body is read to its end for the proxy before a handler runs (only 32 KiB of it kept), so until the
+  edge caps bodies a client can make the server read an upload as long as Node's request timeout allows.
+  One sent without `Content-Length` (chunked) and over 32 KiB reaches the handler cut — Next drops the
+  chunk that crosses the limit and all after it — and is refused as not JSON (422 rather than 413). A cut
+  body is a prefix of what was sent, so nothing reaches the API that the sender didn't send; browsers
+  always send `Content-Length` for these bodies. The edge cap above is a go-live requirement (F8a review).
+- `/_next/image` skips the proxy; with no `images.localPatterns` it would fetch any app path internally on
+  either host. Nothing uses `next/image`, so `localPatterns: []` allows none (unit test with Next's own
+  matcher).
+- A host is compared without its port and one root dot (`terminal.kelalsport.et.` is the terminal), so a
+  fully qualified name can't reach the player site on a shop's host name.
+- The matcher skips `/flags/…` (public files). F2a's `[lang]` segment must refuse values that aren't a
+  language before rendering; the matcher test already tries `flags` in every dynamic segment and fails
+  if `/flags/…` would render a page without the proxy.
 
 - Refresh deduplication is per process: one replica, or sticky `/api/*`, until it moves to Redis or the
   backend adds a reuse grace window.

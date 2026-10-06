@@ -319,6 +319,11 @@ describe("the shop terminal's hosts (F8a, FD1)", () => {
     expect(isTerminalHost(null)).toBe(false);
     expect(tenantForHost("kelalsport.et")).toBe("kelal");
     expect(tenantForHost("other.example")).toBe("demo");
+    // A fully qualified name, with its root dot, is the same host.
+    expect(isTerminalHost("terminal.kelalsport.et.")).toBe(true);
+    expect(isTerminalHost("terminal.kelalsport.et.:443")).toBe(true);
+    expect(tenantForHost("kelalsport.et.")).toBe("kelal");
+    expect(isTerminalHost("terminal.kelalsport.et..")).toBe(false);
     // Only the maps' own entries: never a name every object inherits.
     for (const host of ["toString", "constructor", "__proto__"]) {
       expect(isTerminalHost(host), host).toBe(false);

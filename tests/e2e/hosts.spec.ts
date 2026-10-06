@@ -5,8 +5,9 @@ import am from "../../src/lib/i18n/messages/am.json";
 /**
  * The host split (F8a AC-3, FD1) against the dev server: one build, two
  * sites. `terminal.localhost` is the terminal's host — the default outside
- * production, and what `.env.example` sets — and Chrome sends any
- * `*.localhost` to this machine, so the browser reaches both. Node can't resolve
+ * production while `TERMINAL_HOST_MAP` is blank, as `.env.example` leaves it —
+ * and Chrome sends any `*.localhost` to this machine, so the browser reaches
+ * both. Node can't resolve
  * `terminal.localhost`, so the terminal is visited through the page, not
  * `request`.
  */

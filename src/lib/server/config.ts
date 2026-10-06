@@ -235,9 +235,13 @@ export type ApiTag =
   | "Inbox"
   | "Config";
 
-/** A host without its port, in lower case: the key both host maps use. */
+/**
+ * A host without its port or a root dot, in lower case: the key both host
+ * maps use. `terminal.kelalsport.et.` is `terminal.kelalsport.et` — a browser
+ * goes there, so it must not be a host in neither map.
+ */
 const hostName = (host: string | null): string =>
-  (host ?? "").split(":")[0].toLowerCase();
+  (host ?? "").split(":")[0].toLowerCase().replace(/\.$/, "");
 
 /** A map's own entry for `name` — never one inherited from Object (`toString`). */
 const entry = (map: Record<string, string>, name: string) =>

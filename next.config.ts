@@ -14,12 +14,19 @@ const noFraming = [
 ];
 
 const nextConfig: NextConfig = {
+  images: {
+    // Nothing uses next/image (flags are plain SVGs), and /_next/image skips
+    // the proxy: with no local pattern the optimiser fetches no app path for
+    // anyone, on either host (F8a security review).
+    localPatterns: [],
+  },
   experimental: {
-    // The proxy runs on every route handler (F8a), and Next holds each request
-    // body in memory for it — 10 MB by default. Above the largest body a
-    // handler accepts (16 KiB, bets and bookings), so none is cut. A bigger one
-    // with a Content-Length is still a 413; a chunked one reaches the handler
-    // cut and is refused as not JSON (09-security, known limits).
+    // The proxy runs on every route handler (F8a), and Next reads each request
+    // body for it before the handler runs, keeping up to this much in memory —
+    // 10 MB by default. Above the largest body a handler accepts (16 KiB, bets
+    // and bookings), so none is cut. A bigger one is still refused (413 with a
+    // Content-Length; a chunked one arrives cut and fails as not JSON), but only
+    // once it has all arrived: the edge must cap bodies (09-security).
     proxyClientMaxBodySize: "32kb",
   },
   async headers() {

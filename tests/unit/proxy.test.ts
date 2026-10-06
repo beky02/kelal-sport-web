@@ -4,6 +4,7 @@ import { join, relative, sep } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 import { unstable_doesMiddlewareMatch } from "next/experimental/testing/server";
+import { hasLocalMatch } from "next/dist/shared/lib/match-local-pattern";
 import { SESSION_COOKIE } from "@/lib/session-cookie";
 import nextConfig from "../../next.config";
 
@@ -181,6 +182,14 @@ describe("the host split (F8a AC-3, FD1)", () => {
     }
   });
 
+  it("treats a terminal host spelt with its root dot as the terminal", () => {
+    const host = "terminal.localhost.:3000";
+    expectNotFound(visit("/login", undefined, host), host, "/login");
+    expect(rewrittenTo(visit("/", undefined, host))).toBe(
+      `http://${host}/terminal`,
+    );
+  });
+
   it("serves /terminal/* and /api/terminal/* on a terminal host", () => {
     for (const path of [
       "/terminal",
@@ -229,17 +238,28 @@ describe("the host split (F8a AC-3, FD1)", () => {
   });
 });
 
-/** Every page and route handler under src/app, as a URL with sample params. */
-function appRoutes(dir = join(process.cwd(), "src/app")): string[] {
+/**
+ * Every page and route handler under src/app, as URLs with sample params: an
+ * ordinary value, and `flags` — a dynamic first segment (`[lang]`) given the
+ * name of a folder the matcher skips must still reach the proxy.
+ */
+const appRoutes = () => [
+  ...new Set(["x1", "flags"].flatMap((param) => routeFiles(param))),
+];
+
+function routeFiles(
+  param: string,
+  dir = join(process.cwd(), "src/app"),
+): string[] {
   return readdirSync(dir).flatMap((name) => {
     const path = join(dir, name);
-    if (statSync(path).isDirectory()) return appRoutes(path);
+    if (statSync(path).isDirectory()) return routeFiles(param, path);
     if (!/^(page|route)\.tsx?$/.test(name)) return [];
     const segments = relative(join(process.cwd(), "src/app"), path)
       .split(sep)
       .slice(0, -1)
       .filter((segment) => !/^\(.+\)$/.test(segment)) // route groups
-      .map((segment) => (segment.startsWith("[") ? "x1" : segment));
+      .map((segment) => (segment.startsWith("[") ? param : segment));
     return [`/${segments.join("/")}`];
   });
 }
@@ -270,6 +290,14 @@ describe("where the proxy runs (F8a: every page and route handler)", () => {
     const files = publicFiles();
     expect(files.length).toBeGreaterThan(0);
     for (const url of files) expect(runsOn(url), url).toBe(false);
+  });
+
+  it("lets the image optimiser, which skips the proxy, fetch no app path", () => {
+    const allowed = (url: string) =>
+      hasLocalMatch(nextConfig.images?.localPatterns, url);
+    for (const url of ["/api/me", "/wallet", "/terminal", "/flags/de.svg"]) {
+      expect(allowed(url), url).toBe(false);
+    }
   });
 
   it("skips Next's own files, and decides by path, never by extension", () => {
