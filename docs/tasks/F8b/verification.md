@@ -50,14 +50,16 @@
 
 | Check                                             | Result                                                                                                                                                 | Command                             |
 | ------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------- |
-| Typecheck, lint, Prettier, unit + component tests | PASS — 75 files, 1526 tests                                                                                                                            | `pnpm check`                        |
+| Typecheck, lint, Prettier, unit + component tests | PASS — 75 files, 1531 tests                                                                                                                            | `pnpm check`                        |
 | Generated types                                   | PASS — "Generated API types match contracts/openapi.yaml."                                                                                             | `pnpm api:check`                    |
 | Contract drift                                    | PASS — "contracts/ matches the backend. docs/backend/ matches the backend."                                                                            | `pnpm contract:sync --check`        |
 | Production build                                  | PASS — "Compiled successfully"                                                                                                                         | `pnpm build`                        |
 | Host split                                        | PASS — "19 player routes load no module or chunk of (terminal); 1 terminal route(s) load no module of (player) nor a chunk holding one (57 manifests)" | `node scripts/check-host-split.mjs` |
-| UI                                                | PASS — 600 passed (4.2 m), none flaky, none retried                                                                                                    | `pnpm ui`                           |
+| UI                                                | PASS — 600 passed (4.4 m), none flaky, none retried                                                                                                    | `pnpm ui`                           |
 
-Final `pnpm verify` (exit 0) took five attempts' worth of fixes in three:
+Final `pnpm verify` after the review fixes (`d94a399`, `8609adb`): exit 0 — 1531 tests, types, drift,
+build, host split (19 player routes, 1 terminal route, 57 manifests), 600 UI tests. In that build no chunk
+the terminal loads contains a player schema (Q3). Before the review, the gate needed three fixes:
 
 1. The drift check failed: the backend had changed its contract during the session (error responses on
    the catalogue operations, `minimum: 1` on popular's `limit`). It was synced as its own commit
