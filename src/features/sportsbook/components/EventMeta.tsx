@@ -4,7 +4,7 @@ import { useTranslation } from "@/lib/i18n/use-translation";
 import { LiveTag } from "@/components/ui/LiveTag";
 import { formatKickoff } from "@/lib/i18n/format";
 import { formatShortDate } from "@/lib/i18n/dates";
-import { useUiStore } from "@/stores/ui.store";
+import { useLocale } from "@/lib/i18n/locale";
 import type { Competition } from "@/features/competitions/types";
 import type { SportEvent } from "@/features/events/types";
 
@@ -20,8 +20,7 @@ export function EventMeta({
   competition: Competition;
 }) {
   const t = useTranslation();
-  const clock = useUiStore((s) => s.clock);
-  const calendar = useUiStore((s) => s.calendar);
+  const { clock, calendar } = useLocale();
 
   const live = event.status === "live";
   const round = t.pick(competition.round);

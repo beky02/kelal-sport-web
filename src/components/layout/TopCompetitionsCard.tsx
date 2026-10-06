@@ -5,11 +5,12 @@ import { Card, CardLabel } from "@/components/ui/Card";
 import { Flag } from "@/components/ui/Flag";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { SidebarLinkRow, RowCount } from "@/components/layout/SidebarRow";
-import { routes } from "@/config/routes";
+import { useSportsbookChrome } from "@/features/sportsbook/chrome";
 import { useTopCompetitions } from "@/features/competitions/hooks/use-competitions";
 
 export function TopCompetitionsCard() {
   const t = useTranslation();
+  const { links } = useSportsbookChrome();
   const { data, isPending } = useTopCompetitions();
 
   return (
@@ -26,7 +27,7 @@ export function TopCompetitionsCard() {
         : data?.map((competition) => (
             <SidebarLinkRow
               key={competition.id}
-              href={routes.competition(competition.id)}
+              href={links.competition(competition.id)}
             >
               <Flag src={competition.flag} />
               <span className="flex-1 truncate">

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { ChevronRight } from "lucide-react";
 import { useTranslation } from "@/lib/i18n/use-translation";
-import { routes } from "@/config/routes";
+import { useSportsbookChrome } from "../chrome";
 
 /**
  * The way into a fixture's full book.
@@ -19,10 +19,11 @@ export function MoreMarketsLink({
   marketCount: number;
 }) {
   const t = useTranslation();
+  const { links } = useSportsbookChrome();
 
   return (
     <Link
-      href={routes.event(eventId)}
+      href={links.event(eventId)}
       aria-label={t.t("board.moreMarketsAria", { n: marketCount })}
       className="border-divider text-muted hover:bg-raised hover:text-text flex items-center justify-center gap-px border-t text-xs font-bold no-underline md:border-t-0 md:border-l"
     >

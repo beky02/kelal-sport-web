@@ -1,7 +1,7 @@
 "use client";
 
 import { useEvent } from "@/features/events/hooks/use-board";
-import { useUiStore } from "@/stores/ui.store";
+import { useSportsbookChrome } from "@/features/sportsbook/chrome";
 
 /**
  * A fixture's markets and the groups they fall into.
@@ -10,7 +10,7 @@ import { useUiStore } from "@/stores/ui.store";
  * both — so the page makes one request, not two.
  */
 export function useMarkets(eventId: string) {
-  const dataSaver = useUiStore((s) => s.dataSaver);
+  const dataSaver = useSportsbookChrome().useDataSaver();
   const query = useEvent(eventId, dataSaver);
   return {
     ...query,

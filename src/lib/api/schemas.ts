@@ -9,6 +9,11 @@ import { z } from "zod";
 import {
   boardSectionSchema,
   competitionSchema,
+  competitionSummarySchema,
+  countryWithLeaguesSchema,
+  eventDetailSchema,
+  marketGroupSchema,
+  searchResultsSchema,
   crestSchema,
   eventSchema,
   localizedSchema,
@@ -19,13 +24,6 @@ import {
   sportSchema,
   teamSchema,
 } from "./catalogue-schemas";
-import type {
-  CompetitionSummary,
-  CountryWithLeagues,
-} from "@/features/competitions/types";
-import type { EventDetail } from "@/features/events/types";
-import type { MarketGroup } from "@/features/markets/types";
-import type { SearchResults } from "@/features/search/types";
 import type { Bet, BetLeg, BetPage } from "@/features/bets/types";
 import type { BetReceipt, PlaceBetRequest } from "@/features/bet-slip/types";
 import type { BettingRules, PublicConfigView } from "@/features/config/types";
@@ -96,6 +94,11 @@ import {
 export {
   boardSectionSchema,
   competitionSchema,
+  competitionSummarySchema,
+  countryWithLeaguesSchema,
+  eventDetailSchema,
+  marketGroupSchema,
+  searchResultsSchema,
   crestSchema,
   eventSchema,
   localizedSchema,
@@ -107,57 +110,10 @@ export {
   teamSchema,
 };
 
-export const countryWithLeaguesSchema = z.object({
-  code: z.string(),
-  name: localizedSchema,
-  flag: z.string().nullable(),
-  leagues: z.array(
-    z.object({
-      id: z.string(),
-      name: localizedSchema,
-      eventCount: z.number().int().nonnegative(),
-    }),
-  ),
-}) satisfies z.ZodType<CountryWithLeagues>;
-
-export const competitionSummarySchema = z.object({
-  id: z.string(),
-  name: localizedSchema,
-  eventCount: z.number().int().nonnegative(),
-  flag: z.string().nullable(),
-}) satisfies z.ZodType<CompetitionSummary>;
-
 /** A decimal-string amount of money, `"1250.00"`. */
 // `abort`: a later check (an amount above zero) never sees what isn't one —
 // it would throw, and a malformed body must be a 422, never a 500.
 export const moneySchema = z.string().regex(/^-?\d+\.\d{2}$/, { abort: true });
-
-export const marketGroupSchema = z.object({
-  code: z.string(),
-  name: localizedSchema,
-}) satisfies z.ZodType<MarketGroup>;
-
-/** `null` when the fixture does not exist. */
-export const eventDetailSchema = z
-  .object({
-    event: eventSchema,
-    competition: competitionSchema,
-    markets: z.array(marketSchema),
-    groups: z.array(marketGroupSchema),
-  })
-  .nullable() satisfies z.ZodType<EventDetail | null>;
-
-export const searchResultsSchema = z.object({
-  leagues: z.array(
-    z.object({
-      competition: competitionSchema,
-      eventCount: z.number().int().nonnegative(),
-    }),
-  ),
-  events: z.array(
-    z.object({ event: eventSchema, competition: competitionSchema }),
-  ),
-}) satisfies z.ZodType<SearchResults>;
 
 // ── My bets (F5b) ───────────────────────────────────────────────────────────
 

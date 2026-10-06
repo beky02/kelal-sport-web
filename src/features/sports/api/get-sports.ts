@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { apiClient } from "@/lib/api/client";
-import { sportSchema } from "@/lib/api/schemas";
+import { sportSchema } from "@/lib/api/catalogue-schemas";
 import type { Sport } from "../types";
 
 const responseSchema = z.array(sportSchema);

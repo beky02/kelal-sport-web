@@ -6,10 +6,10 @@ import { useTranslation } from "@/lib/i18n/use-translation";
 import { Card } from "@/components/ui/Card";
 import { LiveTag } from "@/components/ui/LiveTag";
 import { TeamCrest } from "@/components/ui/TeamCrest";
-import { routes } from "@/config/routes";
+import { useSportsbookChrome } from "@/features/sportsbook/chrome";
 import { formatKickoff } from "@/lib/i18n/format";
 import { formatShortDate } from "@/lib/i18n/dates";
-import { useUiStore } from "@/stores/ui.store";
+import { useLocale } from "@/lib/i18n/locale";
 import type { Competition } from "@/features/competitions/types";
 import type { SportEvent } from "../types";
 
@@ -22,15 +22,15 @@ export function EventHeader({
   competition: Competition;
 }) {
   const t = useTranslation();
-  const clock = useUiStore((s) => s.clock);
-  const calendar = useUiStore((s) => s.calendar);
+  const { clock, calendar } = useLocale();
+  const { links } = useSportsbookChrome();
   const live = event.status === "live";
 
   return (
     <Card className="flex flex-col gap-3 p-3">
       <div className="text-muted flex items-center gap-2 text-[11px]">
         <Link
-          href={routes.home}
+          href={links.home}
           className="text-muted hover:text-text flex items-center gap-0.5 no-underline"
         >
           <ChevronLeft size={14} strokeWidth={2} aria-hidden />

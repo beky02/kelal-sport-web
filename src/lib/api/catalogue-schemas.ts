@@ -1,7 +1,8 @@
 /**
- * The catalogue's runtime contracts: sports, competitions, fixtures, markets
- * and the board (F0), in a module of their own so the shop terminal can check
- * its board without loading every player schema (F8b review Q3, F8ca).
+ * The catalogue's runtime contracts: sports, competitions, fixtures, markets,
+ * the board, a fixture's book and search (F0), in a module of their own so the
+ * shop kiosk can check what it reads without loading every player schema
+ * (F8b review Q3, F8ca).
  * `schemas.ts` re-exports them; nothing else changes for the player.
  *
  * Each schema carries a `satisfies z.ZodType<Domain>` assertion, so if a domain
@@ -10,9 +11,20 @@
  */
 import { z } from "zod";
 import type { Localized } from "@/types/common";
-import type { Competition, Region } from "@/features/competitions/types";
-import type { BoardSection, SportEvent, Team } from "@/features/events/types";
-import type { Market, Outcome } from "@/features/markets/types";
+import type {
+  Competition,
+  CompetitionSummary,
+  CountryWithLeagues,
+  Region,
+} from "@/features/competitions/types";
+import type {
+  BoardSection,
+  EventDetail,
+  SportEvent,
+  Team,
+} from "@/features/events/types";
+import type { Market, MarketGroup, Outcome } from "@/features/markets/types";
+import type { SearchResults } from "@/features/search/types";
 import type { Sport } from "@/features/sports/types";
 
 export const localizedSchema = z.object({
@@ -119,3 +131,50 @@ export const boardSectionSchema = z.object({
     }),
   ),
 }) satisfies z.ZodType<BoardSection>;
+
+export const countryWithLeaguesSchema = z.object({
+  code: z.string(),
+  name: localizedSchema,
+  flag: z.string().nullable(),
+  leagues: z.array(
+    z.object({
+      id: z.string(),
+      name: localizedSchema,
+      eventCount: z.number().int().nonnegative(),
+    }),
+  ),
+}) satisfies z.ZodType<CountryWithLeagues>;
+
+export const competitionSummarySchema = z.object({
+  id: z.string(),
+  name: localizedSchema,
+  eventCount: z.number().int().nonnegative(),
+  flag: z.string().nullable(),
+}) satisfies z.ZodType<CompetitionSummary>;
+
+export const marketGroupSchema = z.object({
+  code: z.string(),
+  name: localizedSchema,
+}) satisfies z.ZodType<MarketGroup>;
+
+/** `null` when the fixture does not exist. */
+export const eventDetailSchema = z
+  .object({
+    event: eventSchema,
+    competition: competitionSchema,
+    markets: z.array(marketSchema),
+    groups: z.array(marketGroupSchema),
+  })
+  .nullable() satisfies z.ZodType<EventDetail | null>;
+
+export const searchResultsSchema = z.object({
+  leagues: z.array(
+    z.object({
+      competition: competitionSchema,
+      eventCount: z.number().int().nonnegative(),
+    }),
+  ),
+  events: z.array(
+    z.object({ event: eventSchema, competition: competitionSchema }),
+  ),
+}) satisfies z.ZodType<SearchResults>;

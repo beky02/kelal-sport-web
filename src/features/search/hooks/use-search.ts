@@ -3,7 +3,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { searchKeys } from "@/lib/query/keys";
 import { useDebouncedValue } from "@/lib/utils/use-debounced-value";
-import { useUiStore } from "@/stores/ui.store";
+import { useSportsbookChrome } from "@/features/sportsbook/chrome";
 import { search } from "../api/search";
 
 /**
@@ -14,7 +14,7 @@ import { search } from "../api/search";
  * already typed shows instantly.
  */
 export function useSearch(query: string) {
-  const dataSaver = useUiStore((s) => s.dataSaver);
+  const dataSaver = useSportsbookChrome().useDataSaver();
   const term = useDebouncedValue(query.trim(), 200);
 
   return useQuery({

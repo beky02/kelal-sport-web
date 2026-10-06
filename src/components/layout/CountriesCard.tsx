@@ -6,14 +6,13 @@ import { Card, CardLabel } from "@/components/ui/Card";
 import { Flag } from "@/components/ui/Flag";
 import { SidebarRow, RowCount } from "@/components/layout/SidebarRow";
 import { useCountries } from "@/features/competitions/hooks/use-competitions";
-import { useUiStore } from "@/stores/ui.store";
+import { useSportsbookChrome } from "@/features/sportsbook/chrome";
 
 /** Countries, each expanding to its leagues. */
 export function CountriesCard() {
   const t = useTranslation();
   const { data: countries } = useCountries();
-  const expanded = useUiStore((s) => s.expandedCountries);
-  const toggle = useUiStore((s) => s.toggleCountry);
+  const [expanded, toggle] = useSportsbookChrome().useExpandedCountries();
 
   return (
     <Card className="p-1.5">

@@ -1,5 +1,5 @@
 import { apiClient } from "@/lib/api/client";
-import { searchResultsSchema } from "@/lib/api/schemas";
+import { searchResultsSchema } from "@/lib/api/catalogue-schemas";
 import type { SearchResults } from "../types";
 
 export async function search(

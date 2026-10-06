@@ -6,6 +6,7 @@ import { createQueryClient } from "@/lib/query/client";
 import { RealtimeProvider } from "@/lib/websocket/RealtimeProvider";
 import { useUiStore } from "@/stores/ui.store";
 import { PlayerLocale } from "./locale";
+import { PlayerSportsbookChrome } from "./sportsbook-chrome";
 
 /**
  * Mirrors theme and language onto <html>.
@@ -38,7 +39,9 @@ export function Providers({ children }: { children: React.ReactNode }) {
       <DocumentPreferences />
       <PlayerLocale>
         {/* Inside the query provider: realtime messages patch its caches. */}
-        <RealtimeProvider>{children}</RealtimeProvider>
+        <RealtimeProvider>
+          <PlayerSportsbookChrome>{children}</PlayerSportsbookChrome>
+        </RealtimeProvider>
       </PlayerLocale>
     </QueryClientProvider>
   );

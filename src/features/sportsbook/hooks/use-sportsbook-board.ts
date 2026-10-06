@@ -2,7 +2,7 @@
 
 import { useBoard } from "@/features/events/hooks/use-board";
 import { sportIdFromSlug } from "@/lib/api/mappers/catalogue";
-import { useUiStore } from "@/stores/ui.store";
+import { useSportsbookChrome } from "../chrome";
 import { useBoardFilters } from "./use-board-filters";
 
 /**
@@ -15,7 +15,7 @@ import { useBoardFilters } from "./use-board-filters";
  */
 export function useSportsbookBoard(live: boolean, competitionId?: string) {
   const { filters } = useBoardFilters();
-  const dataSaver = useUiStore((s) => s.dataSaver);
+  const dataSaver = useSportsbookChrome().useDataSaver();
 
   return useBoard(
     {

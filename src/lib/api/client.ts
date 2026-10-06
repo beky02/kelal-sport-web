@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { CSRF_HEADER, CSRF_VALUE } from "@/lib/session-cookie";
-import { useUiStore } from "@/stores/ui.store";
+import type { Lang } from "@/types/common";
 import { ApiError, ContractError, problemError } from "./errors";
 
 type Params = Record<string, string | number | boolean | undefined>;
@@ -9,13 +9,31 @@ type Params = Record<string, string | number | boolean | undefined>;
  * The browser only ever talks to this app's own route handlers under `/api`
  * (D3). They call the sportsbook API from the server, with the tenant header
  * and the session cookie the browser never sees.
+ *
+ * On the shop kiosk the same calls go to its own handlers, under
+ * `/api/terminal/` (FD1, F8ca): its root layout says so on `<html data-api>`,
+ * so the catalogue's fetchers work on both sites unchanged.
  */
 const BASE_PATH = "/api/";
+
+const basePath = (): string =>
+  (typeof document !== "undefined" && document.documentElement.dataset.api) ||
+  BASE_PATH;
+
+/**
+ * The language the page is in, as `<html lang>` says — which each site keeps
+ * in step with what is on screen (the player's preference, the kiosk's
+ * choice) — so the API's own words come back in the script shown.
+ */
+const pageLanguage = (): Lang =>
+  typeof document !== "undefined" && document.documentElement.lang === "am"
+    ? "am"
+    : "en";
 
 function buildUrl(path: string, params?: Params): string {
   const origin =
     typeof window === "undefined" ? "http://localhost" : window.location.origin;
-  const url = new URL(`${BASE_PATH}${path.replace(/^\//, "")}`, origin);
+  const url = new URL(`${basePath()}${path.replace(/^\//, "")}`, origin);
   for (const [key, value] of Object.entries(params ?? {})) {
     if (value !== undefined) url.searchParams.set(key, String(value));
   }
@@ -52,7 +70,7 @@ async function request<T>(
       // the API's titles come back in the right script.
       headers: {
         Accept: "application/json",
-        "Accept-Language": useUiStore.getState().lang,
+        "Accept-Language": pageLanguage(),
         ...(options.body !== undefined
           ? { "Content-Type": "application/json" }
           : {}),

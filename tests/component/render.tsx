@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render as rtlRender } from "@testing-library/react";
 import type { ReactElement } from "react";
 import { PlayerLocale } from "@/app/(player)/locale";
+import { PlayerSportsbookChrome } from "@/app/(player)/sportsbook-chrome";
 import type { Player } from "@/features/auth/types";
 import type { BettingRules } from "@/features/config/types";
 import { toPlayer } from "@/lib/api/mappers/auth";
@@ -23,8 +24,9 @@ export const CONTRACT_LEGAL = toPublicConfigView(
 export const CONTRACT_PLAYER: Player = toPlayer(example("/v1/me"));
 
 /**
- * Renders a component with the providers the app gives it: the query client
- * and the player's locale, which follows `ui.store` as on the site.
+ * Renders a component with the providers the app gives it: the query client,
+ * the player's locale, which follows `ui.store` as on the site, and the
+ * player's sportsbook chrome (favourites, the break lock, its links).
  *
  * Retries are off and caches are per-test, so a failing query surfaces
  * immediately instead of being retried into a timeout. The tenant's rule set is
@@ -79,7 +81,9 @@ export function render(
     queryClient,
     ...rtlRender(
       <QueryClientProvider client={queryClient}>
-        <PlayerLocale>{ui}</PlayerLocale>
+        <PlayerLocale>
+          <PlayerSportsbookChrome>{ui}</PlayerSportsbookChrome>
+        </PlayerLocale>
       </QueryClientProvider>,
     ),
   };
