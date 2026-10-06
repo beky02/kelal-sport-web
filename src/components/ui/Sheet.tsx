@@ -16,6 +16,7 @@ export function Sheet({
   title,
   children,
   className,
+  returnFocusTo,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -23,12 +24,23 @@ export function Sheet({
   title: string;
   children: React.ReactNode;
   className?: string;
+  /**
+   * Where focus goes when the sheet closes. Radix returns it only to a
+   * `Dialog.Trigger`; a sheet opened from code has none, so without this it
+   * lands on the page.
+   */
+  returnFocusTo?: React.RefObject<HTMLElement | null>;
 }) {
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
         <Dialog.Overlay className="data-[state=open]:animate-in data-[state=open]:fade-in fixed inset-0 z-40 bg-black/55" />
         <Dialog.Content
+          onCloseAutoFocus={(event) => {
+            if (!returnFocusTo?.current) return;
+            event.preventDefault();
+            returnFocusTo.current.focus();
+          }}
           className={cn(
             "bg-ground border-border fixed inset-x-0 bottom-0 z-50 flex max-h-[92dvh] flex-col rounded-t-[16px] border-t outline-none",
             className,

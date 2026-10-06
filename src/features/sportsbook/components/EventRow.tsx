@@ -11,7 +11,7 @@ import { NoPrices } from "@/features/odds/components/NoPrices";
 import { useEventHasSelection } from "@/features/bet-slip/stores/bet-slip.store";
 import type { Competition } from "@/features/competitions/types";
 import type { BoardEvent } from "@/features/events/types";
-import { useSportsbookChrome, type Pin } from "../chrome";
+import { useSportsbookChrome } from "../chrome";
 import { BOARD_GRID, HIDE_BELOW_XL } from "../lib/grid";
 import { EventMeta } from "./EventMeta";
 import { SuspendedBanner } from "./SuspendedBanner";
@@ -59,9 +59,7 @@ function EventRowImpl({
     >
       <div className="flex min-w-0 items-center gap-1.5 py-1.5 pr-2 pl-1">
         {/* Only where there are favourites (not on a shop kiosk). */}
-        {favourites && (
-          <FavouriteStar usePin={() => favourites.useEvent(event.id)} />
-        )}
+        {favourites && <FavouriteStar eventId={event.id} />}
         <Link
           href={links.event(event.id)}
           className="text-text flex min-w-0 flex-1 flex-col gap-[3px] no-underline"
@@ -149,10 +147,15 @@ function EventRowImpl({
   );
 }
 
-/** A match's star: pinned or not, from the site's favourites. */
-function FavouriteStar({ usePin }: { usePin: () => Pin }) {
+/**
+ * A match's star: pinned or not, from the site's favourites. Rendered only
+ * where the site has them (its chrome's `favourites` is fixed per site).
+ */
+function FavouriteStar({ eventId }: { eventId: string }) {
   const t = useTranslation();
-  const [pinned, toggle] = usePin();
+  const { favourites } = useSportsbookChrome();
+  const { useEvent: usePinnedEvent } = favourites!;
+  const [pinned, toggle] = usePinnedEvent(eventId);
   return (
     <StarButton
       pinned={pinned}

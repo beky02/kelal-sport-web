@@ -14,7 +14,8 @@ import { search } from "../api/search";
  * already typed shows instantly.
  */
 export function useSearch(query: string) {
-  const dataSaver = useSportsbookChrome().useDataSaver();
+  const { useDataSaver } = useSportsbookChrome();
+  const dataSaver = useDataSaver();
   const term = useDebouncedValue(query.trim(), 200);
 
   return useQuery({

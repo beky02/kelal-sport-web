@@ -1,34 +1,47 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { Ticket } from "lucide-react";
 import { Sheet } from "@/components/ui/Sheet";
 import { BetSelectionRow } from "@/features/bet-slip/components/BetSelectionRow";
 import { BetSlipHeader } from "@/features/bet-slip/components/BetSlipHeader";
 import { EmptySlip } from "@/features/bet-slip/components/EmptySlip";
+import { calculateBetSlip } from "@/features/bet-slip/lib/calculate";
 import { useBetSlipStore } from "@/features/bet-slip/stores/bet-slip.store";
 import { useTranslation } from "@/lib/i18n/use-translation";
 
 /**
  * The kiosk's slip (F8ca), from the player's slip parts: its header with
  * Clear all, its empty state, and a row per pick (match, market, pick, the
- * odds when tapped; two picks of one match marked). No stake, figure or
+ * odds when tapped; two picks of one match marked, by the slip's own rule). No stake, figure or
  * button to bet yet: F8cb prices it with the shop's rule set, F8cc turns it
  * into a code for the counter. The store is the player's slip store.
  */
 export function KioskSlip({ onClose }: { onClose?: () => void }) {
   const selections = useBetSlipStore((s) => s.selections);
-  // Two picks of one match can't share a multiple (the slip's default mode).
-  const conflicts = useMemo(() => {
-    const seen = new Map<string, number>();
-    for (const s of selections) {
-      seen.set(s.eventId, (seen.get(s.eventId) ?? 0) + 1);
-    }
-    return new Set([...seen].filter(([, n]) => n > 1).map(([id]) => id));
-  }, [selections]);
+  const mode = useBetSlipStore((s) => s.mode);
+  const systemK = useBetSlipStore((s) => s.systemK);
+  // The slip's own rule for two picks of one match (`calculateBetSlip`): no
+  // rule set, so no figure — only which picks clash in the slip's mode.
+  const conflicts = useMemo(
+    () =>
+      new Set(
+        calculateBetSlip({
+          selections,
+          mode,
+          stake: "",
+          systemK,
+          rules: null,
+          balance: null,
+          oddsPolicy: "any",
+        }).conflictEventIds,
+      ),
+    [selections, mode, systemK],
+  );
 
   return (
-    <div className="flex flex-col pb-3">
+    // The player's slip body (`BetSlip`), so its tiles and rows read the same.
+    <div className="bg-ground flex w-full flex-col pb-3">
       <BetSlipHeader count={selections.length} onClose={onClose} />
       {selections.length === 0 ? (
         <EmptySlip />
@@ -57,13 +70,16 @@ export function KioskMobileSlip() {
   const t = useTranslation();
   const count = useBetSlipStore((s) => s.selections.length);
   const [open, setOpen] = useState(false);
+  const bar = useRef<HTMLButtonElement>(null);
 
   return (
     <>
-      {/* As the player's: shown once there is something in the slip. */}
-      {count > 0 && !open && (
+      {/* As the player's: shown once there is something in the slip. It stays
+          mounted under the open sheet, so closing it returns focus here. */}
+      {count > 0 && (
         <div className="pointer-events-none fixed inset-x-0 bottom-0 z-30 flex justify-center p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] xl:hidden">
           <button
+            ref={bar}
             type="button"
             onClick={() => setOpen(true)}
             aria-label={t.t("nav.slipAria", { n: count })}
@@ -82,6 +98,7 @@ export function KioskMobileSlip() {
         onOpenChange={setOpen}
         title={t.t("betSlip.title")}
         className="xl:hidden"
+        returnFocusTo={bar}
       >
         <KioskSlip onClose={() => setOpen(false)} />
       </Sheet>

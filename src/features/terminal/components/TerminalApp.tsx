@@ -49,7 +49,7 @@ function TerminalScreen({
       return <TerminalBlocked reason={status.reason} />;
     case "active":
       return status.terminal.shop.openNow ? (
-        <Kiosk terminal={status.terminal}>{children}</Kiosk>
+        <Kiosk>{children}</Kiosk>
       ) : (
         <TerminalShell terminal={status.terminal}>
           <TerminalClosed />

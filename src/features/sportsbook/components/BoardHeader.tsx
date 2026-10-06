@@ -27,7 +27,8 @@ export function BoardHeader({
 }) {
   const t = useTranslation();
   const { clock } = useLocale();
-  const openLeagues = useSportsbookChrome().useOpenLeagues();
+  const { useOpenLeagues } = useSportsbookChrome();
+  const openLeagues = useOpenLeagues();
 
   return (
     <div className="flex flex-wrap items-center justify-between gap-3 px-0.5 pt-0.5">

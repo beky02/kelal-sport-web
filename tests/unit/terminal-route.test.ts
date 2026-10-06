@@ -1008,7 +1008,7 @@ describe("the kiosk's reads (F8ca AC-1, AC-5)", () => {
       [mod.event, "/api/terminal/catalogue/events/a%2Fb", "id"],
       [mod.event, `/api/terminal/catalogue/events/${"x".repeat(65)}`, "id"],
       [mod.event, `/api/terminal/catalogue/events/${EVENT_ID}?live=1`, "live"],
-      [mod.search, `/api/terminal/catalogue/search?q=${"a".repeat(65)}`, "q"],
+      [mod.search, `/api/terminal/catalogue/search?q=${"a".repeat(51)}`, "q"],
       [mod.search, "/api/terminal/catalogue/search?q=a&q=b", "q"],
       [mod.search, "/api/terminal/catalogue/search?q=a&lite=0", "lite"],
     ] as const) {
@@ -1019,6 +1019,33 @@ describe("the kiosk's reads (F8ca AC-1, AC-5)", () => {
       ]);
     }
     expect(sent).toHaveLength(0);
+  });
+
+  it("never puts an id of dots into an upstream path, whatever reaches the route (review SEC1)", async () => {
+    const { eventQuery, boardQuery } = await import("@/lib/server/terminal");
+    for (const id of [".", "..", "...", "a", "fx_arsenal_chelsea"]) {
+      const result = eventQuery(id, new URLSearchParams());
+      if (/^\.+$/.test(id)) {
+        expect(result, id).toEqual({ field: "id", code: "FORMAT" });
+      } else {
+        expect(result, id).toEqual({ id });
+      }
+    }
+    expect(
+      boardQuery(new URLSearchParams("sport=s_football&competition=..")),
+    ).toEqual({ field: "competition", code: "FORMAT" });
+  });
+
+  it("asks nothing for a search under the contract's two characters (review S2)", async () => {
+    const mod = await loadReads();
+    catalogueAnswers();
+    const response = await read(
+      mod.search,
+      "/api/terminal/catalogue/search?q=a",
+      withCookie(mod, terminal()),
+    );
+    expect(await response.json()).toEqual({ leagues: [], events: [] });
+    expect(sent.filter((r) => path(r) === "/v1/search")).toHaveLength(0);
   });
 
   it("searches for a terminal, before kick-off only (AC-8)", async () => {

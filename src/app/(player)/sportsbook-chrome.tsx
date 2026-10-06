@@ -4,6 +4,7 @@ import { useCallback } from "react";
 import { SportsbookShell } from "@/components/layout/SportsbookShell";
 import { routes } from "@/config/routes";
 import {
+  POLL_UNLESS_REALTIME,
   SportsbookChromeProvider,
   type Pin,
   type SportsbookChrome,
@@ -48,6 +49,7 @@ function useExpandedCountries() {
 const PLAYER_CHROME: SportsbookChrome = {
   Shell: SportsbookShell,
   useRealtimeTopics,
+  pricePollMs: POLL_UNLESS_REALTIME,
   useDataSaver: () => useUiStore((s) => s.dataSaver),
   useOddsLocked,
   useAfterPick: useShowSlip,

@@ -595,9 +595,13 @@ for (const [device, viewport] of Object.entries({
         await price(page, 0).click();
         await price(page, 3).click();
         if (device === "phone") {
-          await page
-            .getByRole("button", { name: t.nav.slipAria.replace("{n}", "2") })
-            .click();
+          // The bar that counts the picks, before it opens the sheet (review U5).
+          const bar = page.getByRole("button", {
+            name: t.nav.slipAria.replace("{n}", "2"),
+          });
+          await expect(bar).toBeVisible();
+          await shoot(page, `kiosk-picks-bar-${lang}`, device, errors);
+          await bar.click();
         }
         await expect(
           page.getByRole("button", { name: t.betSlip.clearAll }).first(),

@@ -1,4 +1,9 @@
-import { QueryCache, QueryClient, type QueryKey } from "@tanstack/react-query";
+import {
+  hashKey,
+  QueryCache,
+  QueryClient,
+  type QueryKey,
+} from "@tanstack/react-query";
 import { ApiError } from "@/lib/api/errors";
 import { sessionKeys } from "@/lib/query/keys";
 
@@ -24,7 +29,7 @@ export function createQueryClient({
         if (
           error instanceof ApiError &&
           error.status === 401 &&
-          query.queryKey[0] !== whoAmI[0]
+          query.queryHash !== hashKey(whoAmI)
         ) {
           void client.invalidateQueries({ queryKey: whoAmI });
         }

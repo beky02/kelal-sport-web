@@ -1,6 +1,8 @@
 "use client";
 
 import { createContext, useCallback, useContext, useState } from "react";
+import { ODDS_REFRESH_MS } from "@/config/constants";
+import { env } from "@/config/env";
 import { routes } from "@/config/routes";
 
 /** What a sportsbook page's frame takes: the board's phone sub-header, and whether it is the live board. */
@@ -34,6 +36,11 @@ export interface SportsbookChrome {
   Shell: React.ComponentType<SportsbookShellProps>;
   /** The realtime topics a page wants while it is open (Release 2). */
   useRealtimeTopics: (topics: string[]) => void;
+  /**
+   * How often the board and a match's book read their prices again, or
+   * `false` where the realtime channel delivers them (D5).
+   */
+  pricePollMs: number | false;
   /** Data saver: no crests or flags. */
   useDataSaver: () => boolean;
   /** Prices locked for a reason outside the market (offline, a break). */
@@ -76,13 +83,20 @@ function useLocalCountries() {
   return [open, toggle] as const;
 }
 
+/** Poll for prices unless the realtime channel is delivering them (D5). */
+export const POLL_UNLESS_REALTIME: number | false =
+  env.realtime === "off" ? ODDS_REFRESH_MS : false;
+
 /**
  * Nothing around the content, nothing locked, no favourites, the player's
- * addresses: what a component sees with no site's chrome above it.
+ * addresses: the base a site's chrome builds on (the kiosk's spreads it). Never
+ * a default — a page with no site's chrome above it is an error, not an
+ * unlocked board (review Q3).
  */
 export const BARE_CHROME: SportsbookChrome = {
   Shell: Bare,
   useRealtimeTopics: noop,
+  pricePollMs: POLL_UNLESS_REALTIME,
   useDataSaver: () => false,
   useOddsLocked: () => false,
   useAfterPick: () => noop,
@@ -96,10 +110,22 @@ export const BARE_CHROME: SportsbookChrome = {
   },
 };
 
-const ChromeContext = createContext<SportsbookChrome>(BARE_CHROME);
+const ChromeContext = createContext<SportsbookChrome | null>(null);
 
 /** Provided once per site, with a value made once (a module constant). */
 export const SportsbookChromeProvider = ChromeContext.Provider;
 
-export const useSportsbookChrome = (): SportsbookChrome =>
-  useContext(ChromeContext);
+/**
+ * The site's chrome. Without one above it, this throws: falling back to a
+ * bare one would quietly drop the player's price lock (a break, offline),
+ * which is safety state (review Q3).
+ */
+export function useSportsbookChrome(): SportsbookChrome {
+  const chrome = useContext(ChromeContext);
+  if (!chrome) {
+    throw new Error(
+      "No SportsbookChrome above this component: mount the site's (PlayerSportsbookChrome, or the kiosk's)",
+    );
+  }
+  return chrome;
+}

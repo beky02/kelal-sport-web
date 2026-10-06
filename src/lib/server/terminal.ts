@@ -256,10 +256,14 @@ export async function rotateTerminalToken(
  * parameter no pattern; this guard keeps anything else from an upstream URL.
  */
 const SPORT = /^s_[A-Za-z0-9_.-]{1,64}$/;
-/** A competition or a match: an opaque id (D3) of URL-safe characters. */
-const ID = /^[A-Za-z0-9_.:-]{1,64}$/;
-/** What a search may be: the length a person types, and no more. */
-const SEARCH_MAX = 64;
+/**
+ * A competition or a match: an opaque id (D3) of URL-safe characters — and not
+ * dots alone, which a path would read as `.` or `..` (review SEC1).
+ */
+const ID = /^(?!\.+$)[A-Za-z0-9_.:-]{1,64}$/;
+/** A search, as the contract takes it: 2 to 50 characters (`GET /v1/search`, D5). */
+const SEARCH_MIN = 2;
+const SEARCH_MAX = 50;
 const DATE = /^(\d{4})-(\d{2})-(\d{2})$/;
 /** A plain parameter name, safe to name back in `errors[].field`. */
 const NAME = /^[a-z_]{1,32}$/;
@@ -349,15 +353,23 @@ export function eventQuery(
   );
 }
 
-/** A search, trimmed; too long, or anything beside it, is refused. */
+/**
+ * A search, trimmed. Too long, or anything beside it, is refused; under the
+ * contract's two characters it asks nothing (`q` empty).
+ */
 export function searchQuery(
   params: URLSearchParams,
 ): { q: string } | { field: string; code: string } {
   const stray = strayParameter(params, new Set(["q"]));
   if (stray) return stray;
   const q = (params.get("q") ?? "").trim();
-  return q.length > SEARCH_MAX ? { field: "q", code: "MAX" } : { q };
+  if (q.length > SEARCH_MAX) return { field: "q", code: "MAX" };
+  return { q: q.length < SEARCH_MIN ? "" : q };
 }
+
+/** Before kick-off: what a shop sells (D8). */
+const beforeKickOff = (event: SportEvent) =>
+  event.status === "scheduled" || event.status === "starting_soon";
 
 /**
  * The board a shop sells from: matches before kick-off only (D8: no in-play
@@ -365,10 +377,6 @@ export function searchQuery(
  * match — which only the simulated board lists today — is left off, and so is
  * a competition left with nothing (review U3).
  */
-/** Before kick-off: what a shop sells (D8). */
-const beforeKickOff = (event: SportEvent) =>
-  event.status === "scheduled" || event.status === "starting_soon";
-
 export function preMatchBoard(sections: BoardSection[]): BoardSection[] {
   return sections
     .map((section) => {

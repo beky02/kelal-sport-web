@@ -15,7 +15,8 @@ import { useBoardFilters } from "./use-board-filters";
  */
 export function useSportsbookBoard(live: boolean, competitionId?: string) {
   const { filters } = useBoardFilters();
-  const dataSaver = useSportsbookChrome().useDataSaver();
+  const { useDataSaver } = useSportsbookChrome();
+  const dataSaver = useDataSaver();
 
   return useBoard(
     {

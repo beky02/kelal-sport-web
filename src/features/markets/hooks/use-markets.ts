@@ -10,7 +10,8 @@ import { useSportsbookChrome } from "@/features/sportsbook/chrome";
  * both — so the page makes one request, not two.
  */
 export function useMarkets(eventId: string) {
-  const dataSaver = useSportsbookChrome().useDataSaver();
+  const { useDataSaver } = useSportsbookChrome();
+  const dataSaver = useDataSaver();
   const query = useEvent(eventId, dataSaver);
   return {
     ...query,

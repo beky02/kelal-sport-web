@@ -16,9 +16,25 @@ type Params = Record<string, string | number | boolean | undefined>;
  */
 const BASE_PATH = "/api/";
 
-const basePath = (): string =>
-  (typeof document !== "undefined" && document.documentElement.dataset.api) ||
-  BASE_PATH;
+/** The one other base a page may name: the terminal's mirror of the catalogue. */
+const TERMINAL_BASE_PATH = "/api/terminal/";
+
+/**
+ * Where `path` goes: the terminal mirrors only the catalogue, so only a
+ * `catalogue/` path is re-rooted, and only when the page's `<html data-api>`
+ * is exactly the terminal's — anything else a page could say is ignored, so
+ * no markup can send a call to another origin (reviews SEC2, Q8). A player
+ * call on a terminal host then fails as a plain 404.
+ */
+function basePath(path: string): string {
+  if (typeof document === "undefined" || !path.startsWith("catalogue/")) {
+    return BASE_PATH;
+  }
+  return document.documentElement.getAttribute("data-api") ===
+    TERMINAL_BASE_PATH
+    ? TERMINAL_BASE_PATH
+    : BASE_PATH;
+}
 
 /**
  * The language the page is in, as `<html lang>` says — which each site keeps
@@ -33,7 +49,8 @@ const pageLanguage = (): Lang =>
 function buildUrl(path: string, params?: Params): string {
   const origin =
     typeof window === "undefined" ? "http://localhost" : window.location.origin;
-  const url = new URL(`${basePath()}${path.replace(/^\//, "")}`, origin);
+  const relative = path.replace(/^\//, "");
+  const url = new URL(`${basePath(relative)}${relative}`, origin);
   for (const [key, value] of Object.entries(params ?? {})) {
     if (value !== undefined) url.searchParams.set(key, String(value));
   }

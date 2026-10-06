@@ -241,6 +241,30 @@ describe("the player's board on the kiosk (F8ca AC-1)", () => {
     expect(await kioskHeading()).toBeInTheDocument();
   });
 
+  it("reads the status again when the kiosk's config is refused as not activated", async () => {
+    let statusReads = 0;
+    routes({
+      status: () => {
+        statusReads += 1;
+        return json(
+          200,
+          statusReads === 1
+            ? active()
+            : { state: "inactive", reason: "expired" },
+        );
+      },
+      config: () => problem(401, "AUTH_INVALID_CREDENTIALS"),
+    });
+    renderTerminal({ retry: false });
+    expect(
+      await screen.findByRole("heading", {
+        level: 1,
+        name: new RegExp(en.terminal.activate.title),
+      }),
+    ).toBeInTheDocument();
+    expect(statusReads).toBe(2);
+  });
+
   it("reads the status again when a kiosk read is refused as not activated", async () => {
     let statusReads = 0;
     routes({
@@ -423,6 +447,51 @@ describe("the kiosk's language (F8ca AC-3)", () => {
   });
 });
 
+describe("the slip below xl, and prices offline (F8ca AC-2)", () => {
+  it("returns focus to the slip's bar when its sheet closes", async () => {
+    const user = userEvent.setup();
+    routes();
+    renderTerminal();
+    await user.click(await homeWin());
+
+    const bar = screen.getByRole("button", {
+      name: am.nav.slipAria.replace("{n}", "1"),
+    });
+    await user.click(bar);
+    const sheet = await screen.findByRole("dialog");
+    await user.click(
+      within(sheet).getByRole("button", { name: am.betSlip.close }),
+    );
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(bar).toHaveFocus();
+  });
+
+  it("locks every price while the PC is offline, and opens them when it is back", async () => {
+    routes();
+    renderTerminal();
+    const price = await homeWin();
+    expect(price).toBeEnabled();
+
+    const online = vi.spyOn(navigator, "onLine", "get").mockReturnValue(false);
+    act(() => {
+      window.dispatchEvent(new Event("offline"));
+    });
+    expect(
+      screen.getByRole("button", {
+        name: new RegExp(
+          `^${matchName(FIRST)}: ${HOME_WIN.label.am}, ${am.a11y.suspended}`,
+        ),
+      }),
+    ).toBeDisabled();
+
+    online.mockReturnValue(true);
+    act(() => {
+      window.dispatchEvent(new Event("online"));
+    });
+    expect(await homeWin()).toBeEnabled();
+  });
+});
+
 describe("a tenant without shop betting (F8ca AC-4)", () => {
   it("says betting isn't available here, with no board and no slip, when retail is off", async () => {
     routes({ config: () => json(200, { ...KIOSK_CONFIG, retail: false }) });
@@ -516,11 +585,10 @@ describe("a league and a match on the kiosk (F8ca AC-6, AC-7)", () => {
         `/api/terminal/catalogue/events/${encodeURIComponent(EVENT.event.id)}`,
       ),
     ).toHaveLength(1);
+    // The match header's own way back (not the brand's link), to the kiosk's home.
     expect(
-      screen
-        .getAllByRole("link")
-        .some((link) => link.getAttribute("href") === "/"),
-    ).toBe(true);
+      screen.getByRole("link", { name: new RegExp(am.event.backToBoard) }),
+    ).toHaveAttribute("href", "/");
   });
 
   it("says a match isn't there when the terminal has no book for it (in play, or gone)", async () => {
@@ -531,6 +599,32 @@ describe("a league and a match on the kiosk (F8ca AC-6, AC-7)", () => {
 });
 
 describe("search on the kiosk (F8ca AC-8)", () => {
+  it("finds a league through the terminal and opens it on the kiosk's page", async () => {
+    const user = userEvent.setup();
+    const league = BOARD[1].competition;
+    routes({
+      search: () =>
+        json(200, {
+          leagues: [{ competition: league, eventCount: 3 }],
+          events: [],
+        }),
+    });
+    renderTerminal();
+    await homeWin();
+
+    await user.type(
+      screen.getByRole("combobox", { name: am.header.search }),
+      "pre",
+    );
+    const option = await screen.findByRole("option", {
+      name: new RegExp(league.name.am),
+    });
+    await user.click(option);
+    expect(address.href).toBe(
+      `/terminal/competition/${encodeURIComponent(league.id)}`,
+    );
+  });
+
   it("searches through the terminal and opens a match on the kiosk's page", async () => {
     const user = userEvent.setup();
     routes();
@@ -594,6 +688,39 @@ describe("the kiosk over time (F8ca AC-1)", () => {
         pressed: true,
       }),
     ).toBeInTheDocument();
+  });
+
+  it("reads the board again every 30 s, so a match that has kicked off leaves it (D5, D8)", async () => {
+    fakeClock("2026-10-04T08:00:00Z");
+    let kickedOff = false;
+    routes({
+      // The terminal's route answers before-kick-off matches only.
+      board: () =>
+        json(
+          200,
+          kickedOff
+            ? BOARD.map((section, i) =>
+                i === 0
+                  ? { ...section, events: section.events.slice(1) }
+                  : section,
+              ).filter((section) => section.events.length > 0)
+            : BOARD,
+        ),
+    });
+    renderTerminal();
+    for (let i = 0; i < 20 && boardReads().length === 0; i += 1) await tick(0);
+    await tick(0);
+    expect(
+      screen.getByRole("button", { name: priceName(FIRST, HOME_WIN) }),
+    ).toBeInTheDocument();
+    const before = boardReads().length;
+
+    kickedOff = true;
+    await tick(30_000);
+    expect(boardReads().length).toBeGreaterThan(before);
+    expect(
+      screen.queryByRole("button", { name: priceName(FIRST, HOME_WIN) }),
+    ).toBeNull();
   });
 
   it("reads the sports again by itself when they couldn't be read", async () => {

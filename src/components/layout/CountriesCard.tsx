@@ -12,7 +12,8 @@ import { useSportsbookChrome } from "@/features/sportsbook/chrome";
 export function CountriesCard() {
   const t = useTranslation();
   const { data: countries } = useCountries();
-  const [expanded, toggle] = useSportsbookChrome().useExpandedCountries();
+  const { useExpandedCountries } = useSportsbookChrome();
+  const [expanded, toggle] = useExpandedCountries();
 
   return (
     <Card className="p-1.5">
