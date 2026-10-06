@@ -2,7 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Barlow, Barlow_Condensed, Noto_Sans_Ethiopic } from "next/font/google";
 import { UI_STORAGE_KEY } from "@/stores/ui.store";
 import { Providers } from "./providers";
-import "./globals.css";
+import "../globals.css";
 
 const barlow = Barlow({
   variable: "--font-barlow",
