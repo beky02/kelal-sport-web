@@ -21,11 +21,13 @@ export default function TerminalPlaceholder() {
           </span>
         ))}
       </h1>
-      {LANGS.map((lang) => (
-        <p key={lang} lang={lang} className="text-muted text-base">
-          {translate(lang, "terminal.placeholder.body")}
-        </p>
-      ))}
+      <div className="flex flex-col gap-1">
+        {LANGS.map((lang) => (
+          <p key={lang} lang={lang} className="text-muted text-base">
+            {translate(lang, "terminal.placeholder.body")}
+          </p>
+        ))}
+      </div>
     </main>
   );
 }
