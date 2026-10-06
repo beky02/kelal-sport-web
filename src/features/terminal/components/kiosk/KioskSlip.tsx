@@ -13,9 +13,12 @@ import { useTranslation } from "@/lib/i18n/use-translation";
  */
 export function KioskSlip({
   titleId,
+  headingRef,
   onBack,
 }: {
   titleId: string;
+  /** Where focus goes when the slip opens as a view of its own. */
+  headingRef: React.Ref<HTMLHeadingElement>;
   /** Back to the board, below `lg` where the slip is a view of its own. */
   onBack: () => void;
 }) {
@@ -34,14 +37,19 @@ export function KioskSlip({
         >
           <ArrowLeft className="size-6" aria-hidden />
         </button>
-        <h2 id={titleId} className="text-xl font-bold">
+        <h2
+          id={titleId}
+          ref={headingRef}
+          tabIndex={-1}
+          className="text-xl font-bold"
+        >
           {t.t("betSlip.title")}
         </h2>
         {selections.length > 0 && (
           <button
             type="button"
             onClick={clear}
-            className="text-muted hover:text-text ml-auto min-h-12 cursor-pointer rounded-md px-3 text-base font-bold"
+            className="bg-raised border-divider text-text ml-auto min-h-12 cursor-pointer rounded-md border px-4 text-base font-bold hover:brightness-125"
           >
             {t.t("betSlip.clearAll")}
           </button>
@@ -65,7 +73,12 @@ export function KioskSlip({
   );
 }
 
-/** One pick: the match, the market and the pick, at the price it was taken. */
+/**
+ * One pick: the match, the market and the pick, at the price it had when it
+ * was tapped. Nothing on the kiosk moves a pick's price after that (realtime
+ * is off, and nothing places from it yet); F8cb decides where a priced slip's
+ * odds come from (review M2).
+ */
 function KioskPick({ selection }: { selection: BetSelection }) {
   const t = useTranslation();
   const remove = useBetSlipStore((s) => s.removeSelection);
@@ -96,7 +109,7 @@ function KioskPick({ selection }: { selection: BetSelection }) {
         type="button"
         onClick={() => remove(selection.outcomeId)}
         aria-label={t.t("betSlip.remove", { pick })}
-        className="text-muted hover:text-text grid size-12 shrink-0 cursor-pointer place-items-center rounded-md"
+        className="border-divider text-muted hover:text-text grid size-12 shrink-0 cursor-pointer place-items-center rounded-md border"
       >
         <X className="size-6" aria-hidden />
       </button>

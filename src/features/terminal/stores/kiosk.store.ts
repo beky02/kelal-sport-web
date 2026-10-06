@@ -2,39 +2,40 @@
 
 import { create } from "zustand";
 import type { Lang } from "@/types/common";
+import type { TerminalConfigView } from "../types";
 
 /**
- * The kiosk's language (F8ca): the customer's choice, else the tenant's
- * default (FD2). Never persisted: a kiosk keeps no preferences, and what one
- * customer chose is not the next one's (F8cc puts it back on idle).
- *
- * The default arrives with the config; until then — and on the screens shown
- * before it (activation, closed, offline) — it is Amharic, `demo`'s default,
- * as F8b's calls went out.
+ * The language a customer tapped on the kiosk (F8ca), if any: client state,
+ * never persisted — a kiosk keeps no preferences, and what one customer chose
+ * is not the next one's (F8cc puts it back on idle). The tenant's default is
+ * the config's, read where it is needed (`kioskLanguage`), never copied here.
  */
 interface KioskState {
   /** What the customer tapped, or null for the tenant's default. */
   chosen: Lang | null;
-  /** The tenant's `default_language`, once the config has said it. */
-  fallback: Lang;
   choose: (lang: Lang) => void;
-  setFallback: (lang: Lang) => void;
   /** Back to the tenant's default. */
   reset: () => void;
 }
 
 export const useKioskStore = create<KioskState>()((set) => ({
   chosen: null,
-  fallback: "am",
   choose: (chosen) => set({ chosen }),
-  setFallback: (fallback) => set({ fallback }),
   reset: () => set({ chosen: null }),
 }));
 
-/** The language the kiosk speaks now: chosen, else the tenant's default. */
-export const selectKioskLanguage = (state: KioskState): Lang =>
-  state.chosen ?? state.fallback;
-
-/** The same, outside React: what the terminal's calls ask in. */
-export const kioskLanguage = (): Lang =>
-  selectKioskLanguage(useKioskStore.getState());
+/**
+ * The language the kiosk speaks (FD2): the customer's choice while the tenant
+ * still offers it, else the tenant's default — and Amharic, `demo`'s default,
+ * before there is a config (as F8b's screens and calls are). The one place
+ * this rule lives: the screen and every call follow it.
+ */
+export function kioskLanguage(
+  chosen: Lang | null,
+  config: TerminalConfigView | null,
+): Lang {
+  if (!config) return chosen ?? "am";
+  return chosen && config.languages.includes(chosen)
+    ? chosen
+    : config.defaultLanguage;
+}

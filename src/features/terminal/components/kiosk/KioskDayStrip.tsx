@@ -1,13 +1,9 @@
 "use client";
 
 import { useBoardFilters } from "@/features/sportsbook/hooks/use-board-filters";
-import {
-  addDays,
-  formatDayMonth,
-  formatWeekday,
-  todayEat,
-} from "@/lib/i18n/dates";
+import { addDays, formatDayMonth, formatWeekday } from "@/lib/i18n/dates";
 import { useLocale } from "@/lib/i18n/locale";
+import { useTodayEat } from "@/lib/i18n/use-today-eat";
 import { useTranslation } from "@/lib/i18n/use-translation";
 import { cn } from "@/lib/utils/cn";
 
@@ -23,7 +19,7 @@ export function KioskDayStrip() {
   const t = useTranslation();
   const { calendar } = useLocale();
   const { filters, set } = useBoardFilters();
-  const today = todayEat();
+  const today = useTodayEat();
   const dates = Array.from({ length: DAYS }, (_, i) => addDays(today, i));
 
   return (

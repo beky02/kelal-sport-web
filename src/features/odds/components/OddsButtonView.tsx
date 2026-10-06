@@ -49,7 +49,8 @@ export function OddsButtonView({
         size === "sm" && "h-9 text-[13px]",
         size === "md" && "h-11 text-sm",
         size === "lg" && "h-14 text-lg",
-        label
+        // A lock alone is centred, label or not (review U4).
+        label && !suspended
           ? cn("justify-between gap-1.5", size === "lg" ? "px-4" : "px-2.5")
           : "justify-center",
 

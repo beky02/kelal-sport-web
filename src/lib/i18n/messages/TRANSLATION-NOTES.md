@@ -640,10 +640,12 @@ kiosk reuses `nav.sports`, `nav.slipAria`, `board.filters.today`, `board.empty.t
 the kiosk. The language switch shows each language's own name (`LANG_NAME` in `lib/i18n/index.ts`: English,
 አማርኛ). That name isn't in the catalogues, because it is the same in both. All composed; all need review.
 
-| Key                                        | Amharic                                    | Composed from                                                                             |
-| ------------------------------------------ | ------------------------------------------ | ----------------------------------------------------------------------------------------- |
-| `terminal.kiosk.matches`                   | ጨዋታዎች                                      | The plural of ጨዋታ as in `board.empty.title` (አሁን ጨዋታዎች የሉም)                               |
-| `terminal.kiosk.days`                      | ቀናት                                        | New: the plural of ቀን (`board.empty.body`)                                                |
-| `terminal.kiosk.emptyBody`                 | ሌላ ስፖርት ወይም ቀን ይሞክሩ።                       | `board.empty.body` without its filter (the kiosk has none)                                |
-| `terminal.kiosk.backToMatches`             | ወደ ጨዋታዎቹ ተመለስ                              | ወደ … ተመለስ as every back button (`common.backToSportsbook`)                                |
-| `terminal.kiosk.unavailable.title`, `body` | በዚህ ተርሚናል ላይ ውርርድ አይገኝም / የሱቁን ሠራተኞች ይጠይቁ። | በዚህ ተርሚናል ላይ ውርርድ from `terminal.closed.body`; the body as `terminal.blocked.revokedBody` |
+| Key                                        | Amharic                                    | Composed from                                                                                |
+| ------------------------------------------ | ------------------------------------------ | -------------------------------------------------------------------------------------------- |
+| `terminal.kiosk.matches`                   | ጨዋታዎች                                      | The plural of ጨዋታ as in `board.empty.title` (አሁን ጨዋታዎች የሉም)                                  |
+| `terminal.kiosk.days`                      | ቀናት                                        | New: the plural of ቀን (`board.empty.body`)                                                   |
+| `terminal.kiosk.emptyBody`                 | ሌላ ስፖርት ወይም ቀን ይሞክሩ።                       | `board.empty.body` without its filter (the kiosk has none)                                   |
+| `terminal.kiosk.backToMatches`             | ወደ ጨዋታዎቹ ተመለስ                              | ወደ … ተመለስ as every back button (`common.backToSportsbook`)                                   |
+| `terminal.kiosk.unavailable.title`, `body` | በዚህ ተርሚናል ላይ ውርርድ አይገኝም / የሱቁን ሠራተኞች ይጠይቁ። | በዚህ ተርሚናል ላይ ውርርድ from `terminal.closed.body`; the body as `terminal.blocked.revokedBody`    |
+| `terminal.kiosk.backToToday`               | ወደ ዛሬ ተመለስ                                 | ዛሬ (today, `board.filters.today`) with ወደ … ተመለስ, as every back button (added in review, U6) |
+| `terminal.kiosk.sportsFailed`              | ስፖርቶቹን መጫን አልተሳካም።                         | … መጫን አልተሳካም as `board.error.title` (ጨዋታዎችን መጫን አልተሳካም) (added in review, Q1)                |

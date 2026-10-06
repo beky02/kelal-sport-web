@@ -6,6 +6,7 @@ import {
   DEVICE_TIMESTAMP,
   TERMINAL_CALLS,
 } from "@/features/terminal/lib/calls";
+import type { BoardSection, EventFilters } from "@/features/events/types";
 import type {
   ActivationForm,
   TerminalActivation,
@@ -34,7 +35,14 @@ const ROTATE_AHEAD_MS = 7 * 24 * 60 * 60 * 1000;
 export function terminalOnly(request: Request): Response | null {
   return isTerminalHost(requestHost(request.headers))
     ? null
-    : problemResponse(404, "NOT_FOUND", "Not found");
+    : problemResponse(
+        404,
+        "NOT_FOUND",
+        "Not found",
+        // Never cached: a cache keyed on the path alone must not hand one
+        // host's 404 to the other's (review SEC2).
+        new Headers({ "Cache-Control": "no-store" }),
+      );
 }
 
 /**
@@ -44,6 +52,11 @@ export function terminalOnly(request: Request): Response | null {
  * terminal host serves its own terminals and nothing else (C19 §12). Returns
  * the session, or the refusal to send before anything is read or called. A
  * 401 makes the kiosk read its status again, which says what it is now.
+ *
+ * It checks the cookie, not the terminal: a revoked terminal whose cookie has
+ * not lapsed still reads the (public) catalogue here. Revocation reaches the
+ * kiosk through its 5-minute status read (F8b), and these reads through the
+ * API once they are signed (contract request 015) — review SEC1.
  */
 export function activeTerminal(request: Request): TerminalSession | Response {
   const elsewhere = terminalOnly(request);
@@ -229,4 +242,87 @@ export async function rotateTerminalToken(
     token: rotated.access_token,
     expiresAt: apiNow(call.response) + rotated.expires_in * 1000,
   };
+}
+
+/**
+ * A sport id as the kiosk asks for one: `s_` and an opaque rest (D3: clients
+ * never parse ids), of URL-safe characters (review S4). The contract gives the
+ * parameter no pattern; this guard keeps anything else from an upstream URL.
+ */
+const SPORT = /^s_[A-Za-z0-9_.-]{1,64}$/;
+const DATE = /^(\d{4})-(\d{2})-(\d{2})$/;
+/** A plain parameter name, safe to name back in `errors[].field`. */
+const NAME = /^[a-z_]{1,32}$/;
+const FILTERS = [
+  "top",
+  "upcoming",
+  "today",
+] as const satisfies readonly NonNullable<EventFilters["filter"]>[];
+type BoardFilter = (typeof FILTERS)[number];
+
+/** What the kiosk may ask its board for: a sport, and optionally a day and an order. */
+const KNOWN = new Set(["sport", "date", "filter"]);
+
+/** A day that exists: `2026-02-30` has the shape and not the day (review SEC3). */
+function isDay(date: string): boolean {
+  const parts = DATE.exec(date);
+  if (!parts) return false;
+  const [year, month, day] = parts.slice(1).map(Number);
+  const at = new Date(Date.UTC(year, month - 1, day));
+  return (
+    at.getUTCFullYear() === year &&
+    at.getUTCMonth() === month - 1 &&
+    at.getUTCDate() === day
+  );
+}
+
+/**
+ * The kiosk board's query (F8ca), checked whole before anything goes
+ * upstream: a sport, a day and an order (no live board, D8; no competition,
+ * no data saver), each once. Anything else is the field it got wrong — named
+ * back only when it is a plain name, else `query`.
+ */
+export function boardQuery(
+  params: URLSearchParams,
+): EventFilters | { field: string; code: string } {
+  for (const key of params.keys()) {
+    if (!KNOWN.has(key)) {
+      return { field: NAME.test(key) ? key : "query", code: "UNKNOWN" };
+    }
+    if (params.getAll(key).length > 1) return { field: key, code: "FORMAT" };
+  }
+  const sport = params.get("sport") ?? "";
+  if (!SPORT.test(sport)) return { field: "sport", code: "FORMAT" };
+  const date = params.get("date");
+  if (date !== null && !isDay(date)) return { field: "date", code: "FORMAT" };
+  const filter = params.get("filter");
+  if (filter !== null && !FILTERS.includes(filter as BoardFilter)) {
+    return { field: "filter", code: "FORMAT" };
+  }
+  return {
+    sportId: sport,
+    date: date ?? undefined,
+    filter: (filter as BoardFilter | null) ?? undefined,
+  };
+}
+
+/**
+ * The board a shop sells from: matches before kick-off only (D8: no in-play
+ * betting in Release 1, and the kiosk has no live board). An in-play or ended
+ * match — which only the simulated board lists today — is left off, and so is
+ * a competition left with nothing (review U3).
+ */
+export function preMatchBoard(sections: BoardSection[]): BoardSection[] {
+  return sections
+    .map((section) => {
+      const events = section.events.filter(
+        (row) =>
+          row.event.status === "scheduled" ||
+          row.event.status === "starting_soon",
+      );
+      return events.length === section.events.length
+        ? section
+        : { ...section, events };
+    })
+    .filter((section) => section.events.length > 0);
 }

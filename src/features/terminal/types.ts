@@ -1,3 +1,4 @@
+import type { EventFilters } from "@/features/events/types";
 import type { Lang } from "@/types/common";
 
 /**
@@ -72,10 +73,10 @@ export interface TerminalConfigView {
   defaultLanguage: Lang;
 }
 
-/** What the kiosk's board is asked for: a sport, a day, an order (F8ca). */
-export interface KioskBoardFilters {
-  sportId: string;
-  /** `YYYY-MM-DD`, East Africa Time. */
-  date: string;
-  filter: "top" | "upcoming" | "today";
-}
+/**
+ * What the kiosk's board is asked for: a sport, a day (EAT) and an order
+ * (F8ca) — the player's board filters, all three always set.
+ */
+export type KioskBoardFilters = Required<
+  Pick<EventFilters, "sportId" | "date" | "filter">
+>;

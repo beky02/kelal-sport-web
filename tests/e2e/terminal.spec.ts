@@ -613,12 +613,18 @@ for (const [device, viewport] of Object.entries({
       }) => {
         await open(page, baseURL);
         await page.route(BOARD, () => undefined);
-        await page
+        const day = page
           .getByRole("group", { name: t.terminal.kiosk.days })
           .getByRole("button")
-          .nth(1)
-          .click();
-        await expect(page.locator("[aria-busy=true]")).toBeVisible();
+          .nth(1);
+        await day.click();
+        // The tapped day is the one shown, its rows to come, and nothing of
+        // the board before it (review U1).
+        await expect(day).toHaveAttribute("aria-pressed", "true");
+        await expect(page.locator("main [aria-busy=true]")).toBeVisible();
+        await expect(
+          page.locator("main").getByRole("button", { name: PRICE }),
+        ).toHaveCount(0);
         await shoot(page, `kiosk-loading-${lang}`, device, errors);
       });
 
@@ -634,8 +640,9 @@ for (const [device, viewport] of Object.entries({
           .nth(2)
           .click();
         await expect(page.getByText(t.board.empty.title)).toBeVisible();
+        // A later day: the way back is to today, same sport.
         await expect(
-          page.getByRole("button", { name: t.board.empty.action }),
+          page.getByRole("button", { name: t.terminal.kiosk.backToToday }),
         ).toBeVisible();
         await shoot(page, `kiosk-empty-${lang}`, device, errors);
       });

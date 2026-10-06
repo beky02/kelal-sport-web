@@ -97,3 +97,92 @@ green again once restored.
   - "offers no switch when the tenant has one language" — the switch offering every language.
   - "says betting isn't available here, with no board and no slip, when retail is off" — the sportsbook
     shown whatever `retail` says.
+- Review fixes, each test failing with its fix undone and passing with it (both runs, 2026-10-06):
+  - `TerminalKiosk.test.tsx` › "names each competition with its country, so two Premier Leagues can be
+    told apart" (U2) — the country left out of the heading: fails.
+  - › "says there are no matches on an empty day and goes back to today" (U6) — the empty state always
+    resetting to the start: fails.
+  - › "offers the start of the board when today itself is empty" (U6) — the empty state always offering
+    today: fails.
+  - › "says the sports couldn't load and tries again on a tap" (Q1) — the tabs' error state removed:
+    fails.
+  - › "falls back to the tenant's default, on screen and in its calls, when the language chosen is no
+    longer offered" (Q3, S1) — `kioskLanguage` returning the choice whatever the tenant offers: fails.
+  - › "moves focus to the slip when it opens, and back to its bar when it closes" (Q8) — no focus on
+    open: fails.
+  - › "moves its board and its day strip to the new day at midnight" (Q2) — `useTodayEat`'s midnight
+    timer doing nothing: fails.
+  - `terminal-route.test.ts` › "keeps in-play and finished matches off the kiosk's board…" (U3) — the
+    route without `preMatchBoard`: fails.
+  - › "answers the kiosk's reads only on a terminal host (AC-5)" (SEC2) — the 404 without `no-store`:
+    fails.
+  - › "refuses a board query it doesn't know before calling the API (AC-5)" (SEC3) — the date checked
+    for shape only: fails.
+  - › "takes any sport id the API might use…" (S4) — the old `[a-z0-9_]{1,40}` pattern: fails.
+  - `terminal.spec.ts` › "kiosk-loading" (U1) — the strengthened wait: tapped day pressed, the skeleton in
+    `<main>`, no price left. The re-shot `terminal-kiosk-loading-en-desktop.png` shows Wed selected and
+    skeleton rows.
+
+## Review findings
+
+Panel: spec-verifier, quality-reviewer, security-reviewer, money-reviewer (the diff shows odds and the
+slip's picks), ui-checker. Spec, security and money: PASS. Quality and UI: FAIL on the MAJORs below, all
+fixed in `F8c: review fixes …`.
+
+| id   | reviewer                    | severity | summary                                                                                            | decision                                                                                                                                |
+| ---- | --------------------------- | -------- | -------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| U1   | ui-checker                  | MAJOR    | `terminal-kiosk-loading-en-desktop` showed the old board: the e2e wait proved nothing              | Fixed: the wait needs the tapped day pressed, the skeleton in `<main>` and no prices; re-shot                                           |
+| U2   | ui-checker                  | MAJOR    | Competition headers without the country: two "Premier League"s                                     | Fixed: flag and country before the name, as the player's board; test                                                                    |
+| U3   | ui-checker                  | MAJOR    | In-play matches listed as if before kick-off                                                       | Fixed: `preMatchBoard` in the board route (D8: no in-play in Release 1); route test                                                     |
+| Q1   | quality-reviewer            | MAJOR    | A failed `/sports` left no tabs and was never read again                                           | Fixed: error line with Try again; read again every 30 s while failed; test                                                              |
+| Q2   | quality-reviewer            | MAJOR    | After midnight EAT the board stayed on yesterday                                                   | Fixed: `useTodayEat` (re-renders at midnight EAT) in `useBoardFilters` and the day strip; fake-timer test                               |
+| Q3   | quality-reviewer, spec (S1) | MAJOR    | The config's default copied into Zustand; the screen and the calls worked the language out apart   | Fixed: the store holds only the choice; one pure `kioskLanguage(chosen, config)`; the reads take it from the locale; test               |
+| SEC1 | security-reviewer           | MINOR    | 09-security said "only an activated terminal"; the code checks the cookie, not revocation          | Fixed: 09-security and `activeTerminal`'s comment say revocation reaches the kiosk through its status read (and the API once 015 lands) |
+| SEC2 | security-reviewer           | MINOR    | `terminalOnly`'s 404 had no `Cache-Control`                                                        | Fixed: `no-store`; test                                                                                                                 |
+| SEC3 | security-reviewer           | MINOR    | `date=2026-02-30` passed; an unknown key echoed back at any length                                 | Fixed: a real calendar date; an odd key named back as `query`; tests                                                                    |
+| S4   | spec-verifier               | MINOR    | `^s_[a-z0-9_]{1,40}$` isn't the contract's (no pattern; D3: ids opaque)                            | Fixed: `s_` plus URL-safe characters, up to 64; recorded in plan decision 14; test                                                      |
+| S2   | spec-verifier               | MINOR    | Plan decision 10 promised double chance and total goals                                            | Fixed: marked "changed while implementing" (the mapper sets both to null until request 001)                                             |
+| S3   | spec-verifier               | MINOR    | Plan decision 12 promised price movement; Risks called the switch a toggle named in both languages | Fixed: both corrected                                                                                                                   |
+| M1   | money-reviewer              | MINOR    | F8cb didn't read request 015 or the online-price gap                                               | Fixed: in F8cb's Read first, as a plan-gate question                                                                                    |
+| M2   | money-reviewer              | MINOR    | The slip said "at the price it was taken" but nothing moves its odds afterwards                    | Fixed: comment, plan decision 12 and 10-terminal say "the odds when tapped"; F8cb decides where a priced slip's odds come from          |
+| M3   | money-reviewer              | MINOR    | The online-price gap was half a line                                                               | Fixed: its own entry under Gaps                                                                                                         |
+| U4   | ui-checker                  | MINOR    | A suspended `lg` price's lock sat where the outcome code goes                                      | Fixed: a lock alone is centred (also on the player's lined markets)                                                                     |
+| U5   | ui-checker                  | MINOR    | Kick-off times without a time-zone label                                                           | Fixed: `clock.eat` beside the heading, as the player's board                                                                            |
+| U6   | ui-checker                  | MINOR    | "Show football" on an empty later day of football                                                  | Fixed: "Back to today" (same sport) on a later day; "Show football" only when today is empty; tests                                     |
+| U7   | ui-checker                  | MINOR    | The kiosk's bar 64 px, the system screens' 56 px: it jumped                                        | Fixed: the same bar as `TerminalShell`                                                                                                  |
+| U8   | ui-checker                  | MINOR    | A 7,228 px loading capture                                                                         | Fixed with U1 (re-shot)                                                                                                                 |
+| U9   | ui-checker                  | MINOR    | Clear all and Remove didn't read as buttons                                                        | Fixed: bordered                                                                                                                         |
+| Q4   | quality-reviewer            | MINOR    | The harness reset only part of the kiosk store                                                     | No change needed: Q3 removed the part it didn't reset                                                                                   |
+| Q5   | quality-reviewer            | MINOR    | Kiosk tests on the real clock                                                                      | Fixed: the date faked at the board's morning, literal dates                                                                             |
+| Q6   | quality-reviewer            | MINOR    | Team names asserted anywhere on the page                                                           | Fixed: inside their competition's section                                                                                               |
+| Q7   | quality-reviewer            | MINOR    | Every pick re-rendered the whole sportsbook                                                        | Fixed: `KioskSlipBar` alone follows the count                                                                                           |
+| Q8   | quality-reviewer            | MINOR    | Focus lost when the slip view opened or closed                                                     | Fixed: to the slip's heading, and back to the bar; test                                                                                 |
+| Q9   | quality-reviewer            | MINOR    | A 30-line parser in the route; the filter list spelt three times                                   | Fixed: `boardQuery` in `lib/server/terminal.ts`; `KioskBoardFilters` from `EventFilters`                                                |
+| Q10  | quality-reviewer            | MINOR    | `LAYOUT_LANG` copied the layout's `lang="am"`                                                      | Fixed: the cleanup restores the value it found                                                                                          |
+| Q11  | quality-reviewer            | MINOR    | The kiosk's pick wiring copies `OddsButton`'s                                                      | Follow-up: a store-free `useToggleOutcome` shared by both means changing the player's `OddsButton`, outside this task's files           |
+
+Notes, no decision needed:
+
+- Under `NEXT_PUBLIC_REALTIME=simulate` the board, the kiosk's included, is the in-repo fixtures. This
+  predates the branch, and `env.ts` keeps it a development setting (security note).
+- A hand-typed kiosk URL with a malformed date gets the board's error state until reset. The day strip
+  never writes one.
+- `test-results/ui/terminal-ready-*.png` are left from before this branch; "ready" is now the kiosk.
+
+## Gaps
+
+- **Online prices on the kiosk** (decision 2). The kiosk shows the anonymous catalogue's prices. If a
+  shop's prices differ (C19 §9.1), the counter's POS re-prices at sale and shows old and new odds (C19
+  §14), so no money is wrong. But F8cb's figures would be computed on prices the shop won't sell at, so
+  F8cb waits for request 015 or decides its copy at its plan gate.
+- **One customer's picks stay for the next** until F8cc's idle reset clears the slip.
+- **Revocation and the catalogue reads.** A revoked PC whose cookie hasn't lapsed can still read the public
+  catalogue through these routes. The kiosk itself shows "switched off" at its next status read. Closed
+  when the reads are signed (015).
+- **Prism has no in-play or ended events**, so the pre-match filter is proven by unit and route tests and
+  seen on the simulated board, not against Prism.
+- **The sports' 30 s retry** is configured but tested only through its Try again button.
+- **The dev server's board was the simulated one** for every kiosk screenshot. The component tests use
+  Prism's examples.
+- **Size.** The branch is about 3,700 changed lines with tests, docs, the sub-task files and request 015,
+  over the plan's ~1,400 estimate for the code and tests. F8cb and F8cc remain separate.

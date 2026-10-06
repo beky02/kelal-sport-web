@@ -24,9 +24,11 @@ export function KioskTopBar({
   const others = languages.filter((other) => other !== lang);
 
   return (
-    <header className="bg-surface border-divider flex min-h-16 items-center gap-3 border-b px-4">
-      <Store className="text-accent size-6 shrink-0" aria-hidden />
-      <span className="min-w-0 truncate text-lg font-bold">
+    // The same bar as the terminal's own screens (`TerminalShell`), so it
+    // doesn't move when the kiosk replaces them.
+    <header className="bg-surface border-divider flex min-h-14 items-center gap-3 border-b px-4">
+      <Store className="text-accent size-5 shrink-0" aria-hidden />
+      <span className="min-w-0 truncate text-base font-bold">
         {terminal.shop.name}
       </span>
       <div className="ml-auto flex shrink-0 items-center gap-3">

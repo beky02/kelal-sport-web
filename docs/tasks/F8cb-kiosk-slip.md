@@ -25,6 +25,11 @@ rule set.
 - `docs/backend/design/components/c19-retail-network.md` §4.2, §11
 - `contracts/openapi.yaml`: `PublicConfig.retail_betting` (`RuleSet`)
 - `docs/design/04-slip-and-money.md`; `src/features/bet-slip/**`; F8ca's kiosk
+- `docs/contract-requests/015-terminal-reads-and-slip-codes.md`: the kiosk reads online prices until it is
+  answered (F8ca decision 2). If a shop's prices differ, the slip's figures would be computed on prices
+  the counter won't sell at, so this plan decides whether to wait for 015 or to say so on the slip (copy
+  about money: ask at the plan gate). It also decides where the slip's odds come from after a tap
+  (nothing on the kiosk updates them in F8ca; F8ca review M2).
 
 ## Scope
 

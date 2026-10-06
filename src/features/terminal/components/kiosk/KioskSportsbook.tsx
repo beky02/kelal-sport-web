@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { Ticket } from "lucide-react";
 import { useBetSlipStore } from "@/features/bet-slip/stores/bet-slip.store";
 import { useTranslation } from "@/lib/i18n/use-translation";
@@ -17,7 +17,8 @@ import { KioskTopBar } from "./KioskTopBar";
  * The kiosk's sportsbook (F8ca): the shop's bar on top; the sports, the days
  * and the board; and the slip beside it from `lg` up. Narrower, the slip is a
  * view of its own, opened from a bar that counts the picks — a kiosk screen is
- * wide, but nothing breaks on a narrow one.
+ * wide, but nothing breaks on a narrow one. Opening it moves focus to the
+ * slip; going back returns it to the bar.
  */
 export function KioskSportsbook({
   terminal,
@@ -29,7 +30,18 @@ export function KioskSportsbook({
   const t = useTranslation();
   const slipTitle = useId();
   const [slipOpen, setSlipOpen] = useState(false);
-  const count = useBetSlipStore((s) => s.selections.length);
+  const slipHeading = useRef<HTMLHeadingElement>(null);
+  const slipBar = useRef<HTMLButtonElement>(null);
+  const returning = useRef(false);
+
+  useEffect(() => {
+    if (slipOpen) {
+      slipHeading.current?.focus();
+    } else if (returning.current) {
+      returning.current = false;
+      slipBar.current?.focus();
+    }
+  }, [slipOpen]);
 
   return (
     <div className="flex min-h-dvh flex-1 flex-col">
@@ -41,9 +53,15 @@ export function KioskSportsbook({
             slipOpen ? "hidden" : "flex",
           )}
         >
-          <h1 className="font-display text-2xl">
-            {t.t("terminal.kiosk.matches")}
-          </h1>
+          <div className="flex items-baseline justify-between gap-3">
+            <h1 className="font-display text-2xl">
+              {t.t("terminal.kiosk.matches")}
+            </h1>
+            {/* Every time on the board is East Africa Time (D7). */}
+            <span className="text-muted shrink-0 text-sm">
+              {t.t("clock.eat")}
+            </span>
+          </div>
           <KioskSportTabs />
           <KioskDayStrip />
           <KioskBoard />
@@ -55,25 +73,52 @@ export function KioskSportsbook({
             slipOpen ? "flex" : "hidden",
           )}
         >
-          <KioskSlip titleId={slipTitle} onBack={() => setSlipOpen(false)} />
+          <KioskSlip
+            titleId={slipTitle}
+            headingRef={slipHeading}
+            onBack={() => {
+              returning.current = true;
+              setSlipOpen(false);
+            }}
+          />
         </aside>
       </div>
       {!slipOpen && (
-        <div className="bg-surface border-divider fixed inset-x-0 bottom-0 border-t p-3 lg:hidden">
-          <button
-            type="button"
-            onClick={() => setSlipOpen(true)}
-            aria-label={t.t("nav.slipAria", { n: count })}
-            className="bg-accent text-on-accent flex min-h-14 w-full cursor-pointer items-center justify-center gap-3 rounded-md px-5 text-lg font-extrabold"
-          >
-            <Ticket className="size-5" aria-hidden />
-            <span>{t.t("betSlip.title")}</span>
-            <span className="bg-on-accent text-accent numeric grid min-w-8 place-items-center rounded-full px-2 text-base">
-              {count}
-            </span>
-          </button>
-        </div>
+        <KioskSlipBar ref={slipBar} onOpen={() => setSlipOpen(true)} />
       )}
+    </div>
+  );
+}
+
+/**
+ * The bar that opens the slip below `lg`, with the pick count. It alone
+ * follows the count, so a pick re-renders this and not the whole sportsbook
+ * (review Q7).
+ */
+function KioskSlipBar({
+  ref,
+  onOpen,
+}: {
+  ref: React.Ref<HTMLButtonElement>;
+  onOpen: () => void;
+}) {
+  const t = useTranslation();
+  const count = useBetSlipStore((s) => s.selections.length);
+  return (
+    <div className="bg-surface border-divider fixed inset-x-0 bottom-0 border-t p-3 lg:hidden">
+      <button
+        ref={ref}
+        type="button"
+        onClick={onOpen}
+        aria-label={t.t("nav.slipAria", { n: count })}
+        className="bg-accent text-on-accent flex min-h-14 w-full cursor-pointer items-center justify-center gap-3 rounded-md px-5 text-lg font-extrabold"
+      >
+        <Ticket className="size-5" aria-hidden />
+        <span>{t.t("betSlip.title")}</span>
+        <span className="bg-on-accent text-accent numeric grid min-w-8 place-items-center rounded-full px-2 text-base">
+          {count}
+        </span>
+      </button>
     </div>
   );
 }

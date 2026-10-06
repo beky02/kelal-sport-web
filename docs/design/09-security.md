@@ -93,12 +93,16 @@ The shop terminal's credentials, apart from any player's (10-terminal):
   curve header, exact length). Anything else is a 422 before the API is called. The answer is the shop;
   the token never leaves the server.
 - **The kiosk's reads** (F8ca: `/api/terminal/config`, `catalogue/sports`, `catalogue/board`) are public
-  data read anonymously (10-terminal), but answer only an activated terminal of this tenant. They check
-  the host first (`activeTerminal` → `terminalOnly`), then the sealed cookie's tenant and expiry, and
-  answer 401 before anything is read or called. The board's query is checked whole before it reaches an
-  upstream URL: a sport id, a date, an order, each once, nothing else. No `Prefer`, token or device
-  header goes upstream with them, and every answer is `no-store`. A terminal host still serves no
-  player route: the proxy is unchanged.
+  data read anonymously (10-terminal), but answer only a terminal holding this tenant's unexpired terminal
+  cookie. They check the host first (`activeTerminal` → `terminalOnly`, whose 404 is `no-store` too),
+  then the sealed cookie's tenant and expiry, and answer 401 before anything is read or called. They
+  check the cookie, not the terminal: a revoked PC whose cookie hasn't lapsed can still read the public
+  catalogue here. Revocation reaches the kiosk through its 5-minute status read (F8b), and these reads
+  through the API once they are signed (contract request 015). The board's query is checked whole before
+  it reaches an upstream URL: an `s_` sport id of URL-safe characters, a real calendar date, an order,
+  each once, nothing else (an unknown key is named back only when it is a plain name). No `Prefer`, token
+  or device header goes upstream with them, and every answer is `no-store`. A terminal host still serves
+  no player route: the proxy is unchanged.
 
 ## CSRF (C18 §4.4)
 

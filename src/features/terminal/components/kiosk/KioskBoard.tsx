@@ -1,20 +1,25 @@
 "use client";
 
+import { memo, useId } from "react";
+import { Flag } from "@/components/ui/Flag";
+import type { BoardSection } from "@/features/events/types";
 import { useBoardFilters } from "@/features/sportsbook/hooks/use-board-filters";
 import { sportIdFromSlug } from "@/lib/api/mappers/catalogue";
+import { useTodayEat } from "@/lib/i18n/use-today-eat";
 import { useTranslation } from "@/lib/i18n/use-translation";
 import { useKioskBoard } from "../../hooks/use-kiosk";
 import { KioskEventRow } from "./KioskEventRow";
 
 /**
  * The board (F8ca): one sport's competitions on one day, each with its
- * matches and their prices. Loading, nothing on that day (with the way back
- * to the start), or couldn't load (Try again); once shown, a failed poll
- * changes nothing and the next one tries again.
+ * matches and their prices. Loading, nothing on that day (back to today, or —
+ * when today is the empty day — to the start), or couldn't load (Try again);
+ * once shown, a failed poll changes nothing and the next one tries again.
  */
 export function KioskBoard() {
   const t = useTranslation();
-  const { filters, reset } = useBoardFilters();
+  const today = useTodayEat();
+  const { filters, set, reset } = useBoardFilters();
   const board = useKioskBoard({
     sportId: sportIdFromSlug(filters.sport),
     date: filters.date,
@@ -37,13 +42,16 @@ export function KioskBoard() {
   }
 
   if (board.data.length === 0) {
+    const later = filters.date !== today;
     return (
       <BoardNotice
         title={t.t("board.empty.title")}
         // The kiosk has no filters to change: a sport or a day.
         body={t.t("terminal.kiosk.emptyBody")}
-        action={t.t("board.empty.action")}
-        onAction={reset}
+        action={t.t(
+          later ? "terminal.kiosk.backToToday" : "board.empty.action",
+        )}
+        onAction={later ? () => set({ date: today }) : reset}
       />
     );
   }
@@ -51,23 +59,55 @@ export function KioskBoard() {
   return (
     <div className="flex flex-col gap-4">
       {board.data.map((section) => (
-        <section
-          key={section.competition.id}
-          className="bg-surface border-border rounded-lg border"
-        >
-          <h2 className="border-divider border-b px-4 py-3 text-lg font-bold">
-            {t.pick(section.competition.name)}
-          </h2>
-          <ul>
-            {section.events.map((row) => (
-              <KioskEventRow key={row.event.id} row={row} />
-            ))}
-          </ul>
-        </section>
+        <KioskCompetition key={section.competition.id} section={section} />
       ))}
     </div>
   );
 }
+
+/**
+ * One competition and its matches, headed as on the player's board: its
+ * country and flag, then its name — two Premier Leagues are not the same
+ * league (review U2). A continental cup has a globe and no country.
+ */
+const KioskCompetition = memo(function KioskCompetition({
+  section,
+}: {
+  section: BoardSection;
+}) {
+  const t = useTranslation();
+  const heading = useId();
+  const { competition } = section;
+
+  return (
+    <section
+      aria-labelledby={heading}
+      className="bg-surface border-border rounded-lg border"
+    >
+      <h2
+        id={heading}
+        className="border-divider flex items-center gap-2 border-b px-4 py-3 text-lg font-bold"
+      >
+        <Flag src={competition.region.flag} width={24} height={16} />
+        <span className="min-w-0 truncate">
+          {competition.region.code !== null && (
+            <>
+              <span className="text-muted font-medium">
+                {t.pick(competition.region.name)} ·
+              </span>{" "}
+            </>
+          )}
+          {t.pick(competition.name)}
+        </span>
+      </h2>
+      <ul>
+        {section.events.map((row) => (
+          <KioskEventRow key={row.event.id} row={row} />
+        ))}
+      </ul>
+    </section>
+  );
+});
 
 /** Rows to come, in the board's shape. */
 function BoardLoading() {

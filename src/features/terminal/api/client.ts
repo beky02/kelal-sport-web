@@ -8,7 +8,14 @@ import {
   type TerminalRead,
 } from "../lib/calls";
 import { signRequest } from "../lib/signing";
-import { kioskLanguage } from "../stores/kiosk.store";
+import type { Lang } from "@/types/common";
+
+/**
+ * The language the terminal's own calls (activation, status, rotation) ask
+ * in: Amharic, `demo`'s default (FD2). Their answers are states, shown in both
+ * languages; the kiosk's reads ask in the kiosk's language (`terminalRead`).
+ */
+const TERMINAL_LANG: Lang = "am";
 
 /**
  * How far this PC's clock is from the server's, learnt from a `CLOCK_SKEW`
@@ -64,8 +71,7 @@ export async function terminalRequest<T>(
   for (let attempt = 0; ; attempt += 1) {
     const headers: Record<string, string> = {
       Accept: "application/json",
-      // The kiosk's language (F8ca), for the API's own words (Problem titles).
-      "Accept-Language": kioskLanguage(),
+      "Accept-Language": TERMINAL_LANG,
       ...(text !== undefined ? { "Content-Type": "application/json" } : {}),
       // Every call that changes something carries the header the route
       // handlers insist on (09-security, CSRF).
@@ -128,25 +134,24 @@ async function parse<T>(
 
 /**
  * One of the kiosk's reads (F8ca): an unsigned GET of this app's route, with
- * its query, in the kiosk's language. Problems become `ApiError`s and every
- * answer is checked against `schema`, as for the signed calls.
+ * its query, asking in `lang` — the kiosk's language, for the API's own words
+ * (Problem titles); the names come back in both. Problems become `ApiError`s
+ * and every answer is checked against `schema`, as for the signed calls.
  */
 export async function terminalRead<T>(
   route: TerminalRead,
   schema: z.ZodType<T>,
   {
+    lang,
     params,
     signal,
-  }: { params?: Record<string, string>; signal?: AbortSignal } = {},
+  }: { lang: Lang; params?: Record<string, string>; signal?: AbortSignal },
 ): Promise<T> {
   const query = new URLSearchParams(params).toString();
   const url = query ? `${route}?${query}` : route;
   const response = await send(url, {
     method: "GET",
-    headers: {
-      Accept: "application/json",
-      "Accept-Language": kioskLanguage(),
-    },
+    headers: { Accept: "application/json", "Accept-Language": lang },
     signal,
   });
   if (!response.ok) throw await problemError(response, `GET ${route}`);

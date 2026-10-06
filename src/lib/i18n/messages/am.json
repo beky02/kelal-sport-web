@@ -954,7 +954,9 @@
     "kiosk": {
       "matches": "ጨዋታዎች",
       "days": "ቀናት",
+      "sportsFailed": "ስፖርቶቹን መጫን አልተሳካም።",
       "emptyBody": "ሌላ ስፖርት ወይም ቀን ይሞክሩ።",
+      "backToToday": "ወደ ዛሬ ተመለስ",
       "backToMatches": "ወደ ጨዋታዎቹ ተመለስ",
       "unavailable": {
         "title": "በዚህ ተርሚናል ላይ ውርርድ አይገኝም",

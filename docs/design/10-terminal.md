@@ -92,31 +92,41 @@ slip, and the slip's picks. F8cb adds the stake and the figures; F8cc adds Get c
   it, with a button showing the other language's own name (English, አማርኛ). The switch is offered only
   among the tenant's `languages`. `<html lang>` follows, so the Amharic tokens apply, and so does every
   call's `Accept-Language`. The choice lives in `features/terminal/stores/kiosk.store.ts`, is never
-  persisted, and goes back to the default on idle (F8cc). The shared text hooks read it through
+  persisted, and goes back to the default on idle (F8cc). The tenant's default is read from the config
+  where it is needed (`kioskLanguage(chosen, config)`), never copied into the store. A choice the tenant
+  no longer offers gives way to its default, on screen and in the calls. F8b's own calls (status,
+  rotation) ask in Amharic, since their answers are states, not text. The shared text hooks read it through
   `LocaleProvider` (`lib/i18n/locale.tsx`), which the player feeds from its own store.
 - **Sport and day** are in the URL (`/?sport=…&date=…` on the terminal host), through the player's
   `useBoardFilters`, as on the player's board. The board's order (`filter`) stays at its default, and
-  there is no competition filter and no live board (D8).
+  there is no competition filter and no live board (D8). "Today" moves at midnight East Africa Time
+  (`useTodayEat`), so a kiosk left on overnight shows the new day. Times are EAT, said beside the
+  heading (`clock.eat`).
+- **Before kick-off only.** The board route drops in-play and ended matches, and any competition left
+  empty (`preMatchBoard`). Prism lists none; only the simulated board does. A competition is headed as on
+  the player's board, with its flag and country before its name, so two Premier Leagues are told apart.
 - **Rows** show the kick-off (East Africa Time, Gregorian, D7), both teams and the 1X2 prices, the one
   market every board row carries (double chance and total goals wait for contract request 001). There is
   no match detail on the kiosk in F8c. A price is `OddsButtonView` at `size="lg"` (56 px), with the
   outcome's code (1, X, 2) beside it and its full name in the accessible label. It is locked when the
   market is suspended or the API left the price out. Prices poll every 30 s (D5).
-- **The slip** is the player's slip store, unchanged. The kiosk shows the picks (match, pick, market,
-  odds) with Remove on each, and Clear all. From `lg` up it sits beside the board; narrower, it is a view
-  of its own, opened from a bar that counts the picks.
+- **The slip** is the player's slip store, unchanged. The kiosk shows the picks (match, pick, market, and
+  the odds when tapped; nothing on the kiosk moves them afterwards) with Remove on each, and Clear all.
+  From `lg` up it sits beside the board; narrower, it is a view of its own, opened from a bar that counts
+  the picks. Opening it moves focus to its heading, and going back returns focus to the bar.
 
-| State              | When                                     | Shows                                                                                 | Screenshot                                     |
-| ------------------ | ---------------------------------------- | ------------------------------------------------------------------------------------- | ---------------------------------------------- |
-| Config loading     | Before `/api/terminal/config` answers    | Top bar; "Starting the terminal…" (bilingual)                                         | `terminal-kiosk-config-loading`                |
-| Config unreadable  | The config read failed (network, 5xx)    | Top bar; "Can't reach the server" + Try again (bilingual)                             | `terminal-kiosk-config-offline`                |
-| Board              | Config read, shop betting on             | Sports, days, competitions and their matches with prices                              | `terminal-kiosk-board-{am,en}-{phone,desktop}` |
-| Picks              | Prices tapped                            | The picks in the slip; the rows tinted; prices pressed                                | `terminal-kiosk-picks-{am,en}-…`               |
-| Board loading      | A sport or day not read yet              | Skeleton rows                                                                         | `terminal-kiosk-loading-{am,en}-…`             |
-| Empty day          | The board is `[]`                        | "No matches right now · Try another sport or day" + Show football (back to the start) | `terminal-kiosk-empty-{am,en}-…`               |
-| Board unreadable   | The board read failed, nothing shown yet | "Couldn't load matches" + Try again                                                   | `terminal-kiosk-error-{am,en}-…`               |
-| A later poll fails | After a board was shown                  | Nothing changes; the next poll tries again                                            | —                                              |
-| Not activated      | A kiosk read answered 401                | The status is read again, and says what the terminal is now (lapsed, switched off)    | —                                              |
+| State              | When                                     | Shows                                                                                                                                | Screenshot                                     |
+| ------------------ | ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------- |
+| Config loading     | Before `/api/terminal/config` answers    | Top bar; "Starting the terminal…" (bilingual)                                                                                        | `terminal-kiosk-config-loading`                |
+| Config unreadable  | The config read failed (network, 5xx)    | Top bar; "Can't reach the server" + Try again (bilingual)                                                                            | `terminal-kiosk-config-offline`                |
+| Board              | Config read, shop betting on             | Sports, days, competitions and their matches with prices                                                                             | `terminal-kiosk-board-{am,en}-{phone,desktop}` |
+| Picks              | Prices tapped                            | The picks in the slip; the rows tinted; prices pressed                                                                               | `terminal-kiosk-picks-{am,en}-…`               |
+| Board loading      | A sport or day not read yet              | Skeleton rows                                                                                                                        | `terminal-kiosk-loading-{am,en}-…`             |
+| Sports unreadable  | The sport tabs' read failed              | "Couldn't load the sports." + Try again in the tabs' place; read again every 30 s                                                    | — (component test)                             |
+| Empty day          | The board is `[]`                        | "No matches right now · Try another sport or day" + Back to today (same sport); on an empty today, Show football (back to the start) | `terminal-kiosk-empty-{am,en}-…`               |
+| Board unreadable   | The board read failed, nothing shown yet | "Couldn't load matches" + Try again                                                                                                  | `terminal-kiosk-error-{am,en}-…`               |
+| A later poll fails | After a board was shown                  | Nothing changes; the next poll tries again                                                                                           | —                                              |
+| Not activated      | A kiosk read answered 401                | The status is read again, and says what the terminal is now (lapsed, switched off)                                                   | —                                              |
 
 ## Signed calls (D3)
 
@@ -139,11 +149,11 @@ read, so the kiosk may show online prices. The POS re-prices at sale and shows a
 read is. The routes still answer only an activated terminal of this tenant (its cookie, unexpired), and
 refuse anything else with 401 before calling anything. They forward no `Prefer`.
 
-| Route                                | API calls (anonymous)                           | Query, checked before anything goes upstream                                                                                                       |
-| ------------------------------------ | ----------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `GET /api/terminal/config`           | `GET /v1/config/public` (cached 60 s)           | —                                                                                                                                                  |
-| `GET /api/terminal/catalogue/sports` | `GET /v1/sports`, `GET /v1/dictionary` (am, en) | —                                                                                                                                                  |
-| `GET /api/terminal/catalogue/board`  | `GET /v1/events` (am, en), `GET /v1/dictionary` | `sport` `s_…` (required), `date` `YYYY-MM-DD`, `filter` `top\|upcoming\|today`; nothing else, each once (400 `VALIDATION_FAILED` naming the field) |
+| Route                                | API calls (anonymous)                           | Query, checked before anything goes upstream                                                                                                                                                                                                    |
+| ------------------------------------ | ----------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GET /api/terminal/config`           | `GET /v1/config/public` (cached 60 s)           | —                                                                                                                                                                                                                                               |
+| `GET /api/terminal/catalogue/sports` | `GET /v1/sports`, `GET /v1/dictionary` (am, en) | —                                                                                                                                                                                                                                               |
+| `GET /api/terminal/catalogue/board`  | `GET /v1/events` (am, en), `GET /v1/dictionary` | `sport` `s_` + URL-safe characters (required), `date` a real `YYYY-MM-DD`, `filter` `top\|upcoming\|today`; nothing else, each once (400 `VALIDATION_FAILED` naming the field, or `query` for an odd key). Answers before-kick-off matches only |
 
 - **What is signed:** `METHOD\nPATH\nTIMESTAMP\nSHA256(body)`, with the SHA-256 as lowercase hex (of zero
   bytes when there is no body). The signature is WebCrypto's 64-byte `r‖s` in standard base64. The
