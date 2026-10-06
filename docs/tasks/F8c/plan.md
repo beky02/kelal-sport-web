@@ -1,0 +1,259 @@
+# F8c — plan
+
+Plan gate: approved 2026-10-06 (mode: interactive) — plan approved as written, split included; contract
+request 015 approved in full (terminal reads, `Idempotency-Key` on slip codes, named refusal examples).
+
+F8c is split (see **Sub-tasks**). This plan covers **F8ca — kiosk sportsbook**. F8cb (the slip's figures)
+and F8cc (slip codes, idle reset, the rate limit) each get their own plan when they start.
+
+Before planning, `pnpm check` on main failed 2 runs in 6. The cause was F8b's `TerminalActivation` test: its
+`expectAlert` found the always-present alert region before the refusal arrived. With the user's agreement
+it was fixed first on this branch (`b2ad715`). With the old helper, a delayed 503 failed every time; with
+the new one it passes. The file then passed 8 runs out of 8.
+
+## Understanding
+
+Today an activated terminal shows "This terminal is ready" and nothing else. F8ca puts the sportsbook
+there. A walk-in customer picks a sport and a day, sees the competitions and matches with their prices in
+large type, taps prices into a slip panel and removes them again, and switches between Amharic and English
+with one tap. The kiosk starts in the tenant's default language. The kiosk reuses the player's catalogue
+loaders, mappers, board filters, slip store and pure views, behind its own `/api/terminal/*` routes and its
+own large-format components. To make that possible, the shared text hooks stop reading the player's
+store. A tenant that has switched shop betting off (`features.retail: false`) shows no sportsbook. No money
+is computed or shown in F8ca.
+
+## Spec conflicts and decisions
+
+| #   | Question                                                                                                                                                                                                                                                                                                                                                                                                                                            | Decision and why                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| --- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | Size. Kiosk browsing, the slip's terminal mode and slip codes in one PR come to about 3,500 changed lines.                                                                                                                                                                                                                                                                                                                                          | **Split into F8ca / F8cb / F8cc** (see Sub-tasks), each about one reviewable PR, in dependency order. F8c's AC-3 goes to F8cb, AC-1 and AC-6 to F8cc.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| 2   | Catalogue as the terminal. C19 §9.1: "Terminals read the catalogue … with the terminal token attached, so the shop's retail margin and market set apply." The contract lists `terminalAuth` on `listSports`, `listEvents`, `getEvent`, `getDictionary` and `getPublicConfig`, and says a terminal signs every request, but none of these operations declares the device headers. Every one of them also accepts anonymous calls (`security: - {}`). | **The contract wins over C19: the kiosk reads the catalogue and config anonymously**, through its own routes and the player's loaders. Signed reads would need headers the contract doesn't declare. Retail prices may therefore differ from what the kiosk shows. The POS re-prices at sale and shows any change (C19 §14), and the engine's price is the one that counts (D1). **Contract request 015, asked at the plan gate**, covers three things: declaring the device headers on those operations, or stating that terminal reads are the same as anonymous ones; F8cc's `Idempotency-Key` on `createSlipCode`; and named examples for its refusals. Listed as a gap. |
+| 3   | The host split serves only `/terminal/*` and `/api/terminal/*` on a terminal host (F8a); the catalogue lives at `/api/catalogue/*` and `/api/config`.                                                                                                                                                                                                                                                                                               | **New routes under `/api/terminal/`**: `catalogue/sports`, `catalogue/board` and `config`. They are thin, call the same loaders, and leave the proxy unchanged. They also need **an activated terminal** (the sealed terminal cookie of this tenant), or answer 401 without calling anything. The data is public, but a terminal host then answers only its own terminals, which keeps C19 §12's "terminals get no data beyond the public catalogue" cheap to keep. The cookie is checked for presence and tenant, not its expiry: a lapsed terminal's next status read shows activation.                                                                                    |
+| 4   | Which of `src/features/*` the kiosk reuses (FD1). The player's board is dense: 11 px meta text, 36–44 px prices, a 40 px day strip. 10-terminal sets the kiosk at 14 px text and 48 px targets. The player's components also read `ui.store` (favourites, the aside panel), `system.store` and `/api/me` (`OddsButton` → `useOddsLocked`), and these are banned from the terminal's bundle (`check-host-split.mjs`).                                | **Reuse the data, logic and state, and give the kiosk its own large-format views.** Shared: the loaders and mappers (server), the board's domain types and Zod schemas, `useBoardFilters` (filters in the URL), the slip store with `selectionFrom`/`useIsSelected`, `oddsAriaLabel`, the date and money formatters, and the pure `OddsButtonView` (which gains an `lg` size, so prices keep the same states everywhere) and `TeamCrest`. The kiosk's own: top bar, sport tabs, day strip, board, row and slip panel, under `features/terminal/components/kiosk/`.                                                                                                           |
+| 5   | The text hooks (`useTranslation`, `useRichTranslation`, `useDateTimeText`, `useLongDateTimeText`) read the player's `ui.store`, so nothing that uses them can go into the terminal's bundle.                                                                                                                                                                                                                                                        | **A locale provider** (`lib/i18n/locale.tsx`): `{ lang, clock, calendar }` from the nearest `LocaleProvider`, defaulting to English, East Africa Time and Gregorian. The player feeds it from `ui.store` (`PlayerLocale` in `(player)/providers.tsx`, and in `tests/component/render.tsx`), so every player screen and test reads exactly what it read before. The kiosk feeds it from its own language. The player's `apiClient` is unchanged: the kiosk uses the terminal's own `terminalRequest`, as F8b set up.                                                                                                                                                          |
+| 6   | F8b review Q3: the terminal doesn't import `lib/api/schemas.ts` (every player schema). The board and sport schemas live there.                                                                                                                                                                                                                                                                                                                      | **The sport and board schemas move to `lib/api/catalogue-schemas.ts`.** `schemas.ts` re-exports them, so no player import changes. The kiosk imports the catalogue file and `terminal-schemas.ts` only.                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| 7   | The kiosk's language. F8b showed every screen in both languages "until F8c gives the kiosk a language". FD2: the tenant's `default_language` (`am` for `demo`).                                                                                                                                                                                                                                                                                     | **The sportsbook speaks one language**: the tenant's `default_language`, switched by one tap in the top bar among the tenant's `languages` (no switch when there is only one). The choice lives in a kiosk store (`features/terminal/stores/kiosk.store.ts`, never persisted, since a kiosk keeps no preferences). `<html lang>` and `Accept-Language` follow it. **F8b's system screens** (loading, activation, closed, switched off, not allowed, offline) **stay bilingual**: they appear before there is a config, or to staff, and a choice made on them would not survive the next customer. F8cc resets the language on idle.                                         |
+| 8   | `features.retail` (C19 §11 `retail.enabled`).                                                                                                                                                                                                                                                                                                                                                                                                       | Same rule as `booking_codes`: only an explicit `false` turns it off. Off → a bilingual "Betting isn't available at this terminal · Ask the shop staff" screen, which keeps the 5-minute status read and re-reads config every minute (its 60 s cache) so it comes back by itself. Nothing in it is about money.                                                                                                                                                                                                                                                                                                                                                              |
+| 9   | Board filters on the kiosk.                                                                                                                                                                                                                                                                                                                                                                                                                         | In the URL, through the player's `useBoardFilters` (AGENTS.md). On a terminal host that is `/?sport=…&date=…`; the proxy's rewrite keeps `/terminal` behind it. The kiosk offers sport and day; `filter` keeps its default (`top`). It offers no competition filter, and never live (D8, Release 2 off). The page wraps the kiosk in `<Suspense>` for `useSearchParams`, as the player's home does.                                                                                                                                                                                                                                                                          |
+| 10  | What a kiosk row shows, and what a tap on a match does.                                                                                                                                                                                                                                                                                                                                                                                             | A row shows the kick-off, both teams and the markets the board row carries: 1X2, then double chance and total goals where the width allows, as on the player's board. **No match detail** in F8c: the player's match page is a player route, and a kiosk version is a follow-up. So the team names are not a link.                                                                                                                                                                                                                                                                                                                                                           |
+| 11  | Prices on the kiosk.                                                                                                                                                                                                                                                                                                                                                                                                                                | Polled every 30 s, as on the player's board (D5, `ODDS_REFRESH_MS`); realtime stays off (D8). A suspended market shows locked prices. Nothing locks prices "offline" or "on a break": those are the player's (`useOddsLocked`), and a kiosk has neither. "No polling while idle" (C18 §5) comes with F8cc's idle timer.                                                                                                                                                                                                                                                                                                                                                      |
+| 12  | The slip panel without figures.                                                                                                                                                                                                                                                                                                                                                                                                                     | F8ca lists the picks (match, market, pick, odds as sent, with any price movement and locked when suspended), with Remove on each and Clear. It shows no stake and no total. The panel says the price and the code come next. F8cb adds the figures and the keypad; F8cc adds Get code. The slip store is the player's, unchanged; its booking and placing state go unused on the kiosk.                                                                                                                                                                                                                                                                                      |
+| 13  | The "ready" screen.                                                                                                                                                                                                                                                                                                                                                                                                                                 | Replaced by the kiosk. `TerminalReady` and `terminal.ready.*` go, and F8b's tests and screens that waited for "ready" wait for the kiosk instead.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+
+## Design
+
+```
+TerminalApp ─ status active, shop open ─▶ KioskGate ─ useTerminalConfig ─▶ retail off → TerminalUnavailable
+                                                                       └▶ Kiosk (LocaleProvider ← kiosk store)
+Kiosk: KioskTopBar (shop · label · language) │ KioskSportTabs · KioskDayStrip · KioskBoard │ KioskSlip
+           useKioskSports ─ terminalRequest ─▶ GET /api/terminal/catalogue/sports ─▶ loadSports (anon)
+           useKioskBoard(filters) ───────────▶ GET /api/terminal/catalogue/board  ─▶ loadBoard (anon)
+           useTerminalConfig ────────────────▶ GET /api/terminal/config           ─▶ loadPublicConfig → toTerminalConfigView
+```
+
+**Contract operations** (anonymous, tags `Catalogue` and `Config`): `listSports`, `listEvents`,
+`getDictionary` (through `loadSports`/`loadBoard`), `getPublicConfig` (through `loadPublicConfig`, cached
+per tenant for 60 s). No new upstream call is written. The routes reuse the loaders.
+
+**Server**
+
+- `lib/server/terminal.ts`: `activeTerminal(request)`, shared by the three reads. It runs
+  `terminalOnly`, then reads the terminal cookie of this tenant. It returns the session, or a 401 Problem
+  (`AUTH_INVALID_CREDENTIALS`, "This terminal is not activated") before anything else. `readTerminalSession`
+  is unchanged.
+- `app/api/terminal/catalogue/sports/route.ts`: `activeTerminal` → `respond(loadSports)`.
+- `app/api/terminal/catalogue/board/route.ts`: `activeTerminal`, then the query checked before it goes
+  anywhere: `sport` `^s_[a-z0-9_]{1,40}$`, `date` `YYYY-MM-DD`, `filter` in `top|upcoming|today`. Anything
+  else, or an unknown parameter value, is 400 `VALIDATION_FAILED` with `errors[]`, and nothing is called.
+  Then `respond(loadBoard(tenant, { sportId, date, filter }, false))`. The kiosk never asks for `live`,
+  `competition` or `lite`.
+- `app/api/terminal/config/route.ts`: `activeTerminal` → `respond(loadTerminalConfigView)`.
+- `lib/server/public-config.ts`: `loadTerminalConfigView(tenant)`.
+- `lib/api/mappers/config.ts`: `toTerminalConfigView(config)` →
+  `{ retail: features.retail !== false, languages, defaultLanguage }`. The language list is filtered to
+  `am`/`en`, and the default falls back to the first of them. F8cb adds `rules` (`retail_betting`). The view
+  carries no `betting`, so the kiosk cannot reach the online rule set by mistake.
+
+All three go through `respond()`: `no-store`, Problems passed through, and Prism's `Prefer` only under
+`next dev` (`mockPreference`, as F8b's routes), never to the real API.
+
+**Domain** (`features/terminal/types.ts`)
+
+```ts
+interface TerminalConfigView {
+  /** `features.retail`: off only when the tenant says `false`. */
+  retail: boolean;
+  /** The tenant's languages, in its order; the kiosk switches among them. */
+  languages: Lang[];
+  defaultLanguage: Lang;
+}
+```
+
+`terminalConfigSchema` goes in `lib/api/terminal-schemas.ts`, with `satisfies z.ZodType<TerminalConfigView>`.
+The board and sport answers are checked by `boardSectionSchema` and `sportSchema`, now in
+`lib/api/catalogue-schemas.ts`.
+
+**Browser** (`features/terminal/`)
+
+- `lib/calls.ts`: `TERMINAL_READS = { config, sports, board }`, routes of unsigned GETs that compose
+  several API calls (so no `api` path to sign).
+- `api/client.ts`: `terminalRead(route, schema, { params, signal })`, with the same errors, headers and
+  checks as `terminalRequest`, minus signing. The `Accept-Language` of both is the kiosk's language
+  (`kioskLanguage()`, read from the kiosk store; Amharic until a config says otherwise, as today).
+- `api/kiosk.ts`: `getTerminalConfig()`, `getKioskSports()`, `getKioskBoard({ sportId, date, filter })`.
+- `hooks/use-kiosk.ts`:
+  - `useTerminalConfig()`: `terminalKeys.config()`, 60 s stale, refetched every 60 s while retail is off.
+  - `useKioskSports()`: `terminalKeys.sports()`.
+  - `useKioskBoard(filters)`: `terminalKeys.board(filters)`, `STALE_TIME.events`, refetched every
+    `ODDS_REFRESH_MS`.
+- `stores/kiosk.store.ts`: `{ chosen: Lang | null, choose(lang), reset() }`, not persisted.
+  `kioskLanguage(config)` is `chosen ?? config.defaultLanguage`.
+- `components/kiosk/`:
+  - `KioskGate`: config loading → `TerminalLoading`; error → `TerminalOffline` with Try again; retail off →
+    `TerminalUnavailable`; otherwise `KioskLocale` + `Kiosk`.
+  - `KioskLocale`: `LocaleProvider` `{ lang, clock: "eat", calendar: "gregorian" }`, with
+    `document.documentElement.lang` set to match.
+  - `Kiosk`: the layout. At `lg` and above, the board and the slip side by side. Below it, the slip opens
+    from a bottom bar that shows the pick count.
+  - `KioskTopBar`: shop name, terminal label, and the language switch (`LANG_LABEL`, `aria-pressed`, one
+    tap). It is composed into `TerminalShell`'s header as children, so the shell takes no new props.
+  - `KioskSportTabs`, `KioskDayStrip` (today plus 5 days, EAT, Gregorian, "Today" first),
+    `KioskBoard` (competition headers and rows; loading skeleton, empty with "Back to today", error with
+    Try again), `KioskEventRow`, `KioskOddsButton` (`OddsButtonView size="lg"` wired to the slip store and
+    `oddsAriaLabel`), and `KioskSlip` (the picks, Remove, Clear, empty state).
+- `components/TerminalApp.tsx`: an open shop's terminal renders `KioskGate`. `TerminalReady` goes.
+  `components/TerminalScreens.tsx` gains `TerminalUnavailable`.
+- `app/(terminal)/terminal/page.tsx`: `<Suspense>` around `TerminalApp` (for `useSearchParams`). The
+  fallback is `TerminalLoading`.
+
+**Shared**
+
+- `lib/i18n/locale.tsx` (new): `Locale`, `LocaleProvider`, `useLocale()`.
+- `lib/i18n/use-translation.ts`, `rich.tsx`, `use-date-time-text.ts`, `use-long-date-time-text.ts` read
+  `useLocale()` instead of `ui.store`.
+- `app/(player)/locale.tsx` (new): `PlayerLocale`, which turns `ui.store`'s `lang`, `clock` and `calendar`
+  into a memoised value for `LocaleProvider`. It is mounted in `(player)/providers.tsx` and in
+  `tests/component/render.tsx`.
+- `features/odds/components/OddsButtonView.tsx`: `size: "lg"` (56 px, 18 px type). The other sizes are
+  unchanged.
+- `lib/api/catalogue-schemas.ts` (new): the sport and board schemas, moved. `schemas.ts` re-exports them.
+- `lib/query/keys.ts`: `terminalKeys.config()`, `.sports()` and `.board(filters)`.
+
+**Errors handled and what the screen offers**
+
+| Where                | Answer                                          | Screen                                                                         |
+| -------------------- | ----------------------------------------------- | ------------------------------------------------------------------------------ |
+| config               | loading                                         | `TerminalLoading` (bilingual)                                                  |
+| config               | network / 5xx / unreadable, no config yet       | `TerminalOffline`: "Can't reach the server" + Try again                        |
+| config               | `retail: false`                                 | `TerminalUnavailable` (bilingual, no controls)                                 |
+| any kiosk read       | 401 (`AUTH_INVALID_CREDENTIALS` from our route) | the status query is invalidated; its answer decides (activation, switched off) |
+| sports / board       | loading                                         | skeleton rows                                                                  |
+| board                | `[]`                                            | "No matches on this day" + "Back to today" (`useBoardFilters().reset`)         |
+| board / sports       | network / 5xx / unreadable                      | "Couldn't load the matches" + Try again (refetch)                              |
+| board, already shown | a later poll fails                              | nothing changes; the next poll tries again                                     |
+| board route          | bad `sport` / `date` / `filter`                 | 400 `VALIDATION_FAILED` with `errors[]` (never reached from the UI)            |
+
+**i18n**: new `terminal.kiosk.*` keys in both catalogues:
+
+- `language`: the switch's label, "Language".
+- `matches`, `slip`, `slipCount`: "{count} picks".
+- `empty`, `backToToday`, `loadFailed`, `retry`.
+- `remove`, `clear`, `emptySlip`, `next`: "Add prices from the matches. The stake and your code come
+  next." The money part of this copy lands with F8cb/F8cc.
+- `openSlip`, `closeSlip`, `today`.
+- `unavailable.title`, `unavailable.body`.
+
+`terminal.ready.*` is removed. All composed Amharic goes in `TRANSLATION-NOTES.md`.
+
+**Feature flags**: none new. `features.live` stays off; the kiosk asks for no live board.
+
+## Files
+
+| File                                                                                                                                               | Why                                                                                                      |
+| -------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| `src/lib/i18n/locale.tsx` (new)                                                                                                                    | The locale provider (decision 5)                                                                         |
+| `src/lib/i18n/use-translation.ts`, `rich.tsx`, `use-date-time-text.ts`, `use-long-date-time-text.ts`                                               | Read the provider, not `ui.store`                                                                        |
+| `src/app/(player)/locale.tsx` (new), `src/app/(player)/providers.tsx`                                                                              | The player feeds the provider from `ui.store`                                                            |
+| `src/lib/api/catalogue-schemas.ts` (new), `src/lib/api/schemas.ts`                                                                                 | Sport and board schemas the kiosk can import alone (decision 6)                                          |
+| `src/lib/api/terminal-schemas.ts`                                                                                                                  | `terminalConfigSchema`                                                                                   |
+| `src/lib/api/mappers/config.ts`, `src/lib/server/public-config.ts`                                                                                 | `toTerminalConfigView`, `loadTerminalConfigView`                                                         |
+| `src/lib/server/terminal.ts`                                                                                                                       | `activeTerminal(request)`                                                                                |
+| `src/app/api/terminal/catalogue/sports/route.ts`, `…/catalogue/board/route.ts`, `…/config/route.ts` (new)                                          | The kiosk's reads                                                                                        |
+| `src/lib/query/keys.ts`                                                                                                                            | `terminalKeys.config/sports/board`                                                                       |
+| `src/features/terminal/types.ts`, `lib/calls.ts`, `api/client.ts`, `api/kiosk.ts` (new), `hooks/use-kiosk.ts` (new), `stores/kiosk.store.ts` (new) | Domain type, reads, language, hooks, the language choice                                                 |
+| `src/features/terminal/components/kiosk/*.tsx` (new)                                                                                               | `KioskGate`, `KioskLocale`, `Kiosk`, `KioskTopBar`, sport tabs, day strip, board, row, odds button, slip |
+| `src/features/terminal/components/TerminalApp.tsx`, `TerminalScreens.tsx`                                                                          | The kiosk replaces "ready"; `TerminalUnavailable`                                                        |
+| `src/features/odds/components/OddsButtonView.tsx`                                                                                                  | `size="lg"`                                                                                              |
+| `src/app/(terminal)/terminal/page.tsx`                                                                                                             | `<Suspense>` for the URL filters                                                                         |
+| `src/lib/i18n/messages/{en,am}.json`, `TRANSLATION-NOTES.md`                                                                                       | Strings                                                                                                  |
+| `tests/component/render.tsx`                                                                                                                       | Mounts `PlayerLocale`, so player tests read `ui.store` as before                                         |
+| `tests/component/Locale.test.tsx` (new)                                                                                                            | The provider; the player bridge                                                                          |
+| `tests/component/terminal.tsx`                                                                                                                     | Default answers for config, sports and board (from the contract's examples, through the mappers)         |
+| `tests/component/TerminalKiosk.test.tsx` (new)                                                                                                     | AC-1 to AC-4 on screen                                                                                   |
+| `tests/component/TerminalActivation.test.tsx`, `TerminalStatus.test.tsx`                                                                           | Wait for the kiosk where they waited for "ready"                                                         |
+| `tests/unit/terminal-route.test.ts`                                                                                                                | AC-5 and the reads at the route handlers                                                                 |
+| `tests/unit/terminal-mappers.test.ts`                                                                                                              | `toTerminalConfigView` against the contract's example                                                    |
+| `tests/e2e/terminal.spec.ts`                                                                                                                       | Kiosk screens (en and am × phone and desktop); "ready" becomes the kiosk                                 |
+| `docs/design/10-terminal.md`, `06-language-and-format.md`, `09-security.md`, `00-overview.md`, `01-screens.md`                                     | Design pages                                                                                             |
+| `docs/tasks/F8c-terminal-slip-code.md`, `F8ca-*.md`, `F8cb-*.md`, `F8cc-*.md`, `README.md`                                                         | The split                                                                                                |
+| `docs/contract-requests/015-terminal-reads-and-slip-codes.md` (new), `README.md`                                                                   | Decision 2, if approved at the gate                                                                      |
+
+## Acceptance criteria → tests
+
+| AC   | Test                                                                                                                                                              | How it proves it                                                                                                       |
+| ---- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| AC-1 | `tests/component/TerminalKiosk.test.tsx` › "shows the sports, the days and the board's matches with their prices once the terminal is active"                     | Sport tabs from the contract's `/v1/sports`; the three Prism matches by name, with the kick-off and 1X2 prices as sent |
+| AC-1 | › "reads the board for the sport and day in the URL, and only through /api/terminal"                                                                              | Tapping a sport and a day changes the URL and the board request's query; every request is to `/api/terminal/*`         |
+| AC-1 | › "says there are no matches on an empty day and goes back to today" / "says the matches couldn't load and tries again on a tap"                                  | Empty state with Back to today (URL cleared); error state, then the refetch is answered                                |
+| AC-1 | `tests/unit/terminal-route.test.ts` › "reads the board for a terminal: the sport, the day and the filter go upstream, the board comes back"                       | Upstream `/v1/events` query and dictionary from the stubbed API; the answer parses with `boardSectionSchema`           |
+| AC-1 | `pnpm ui`: `terminal-kiosk-board`, `-loading`, `-empty`, `-error` × en/am × phone/desktop                                                                         | Screens                                                                                                                |
+| AC-2 | `TerminalKiosk.test.tsx` › "puts a tapped price in the slip and takes it out on a second tap"                                                                     | `aria-pressed` flips; the slip panel lists the match, market, pick and odds; count in the bar                          |
+| AC-2 | › "removes one pick and clears the slip"                                                                                                                          | Remove takes one; Clear empties it and the panel says how to add                                                       |
+| AC-2 | `terminal.spec.ts` › "kiosk-picks: …every price, tab and button is at least 48 px high"                                                                           | Real Chrome: the bounding boxes of every button in the kiosk are ≥ 48 px high; screenshot `terminal-kiosk-picks`       |
+| AC-3 | `TerminalKiosk.test.tsx` › "opens in the tenant's default language and switches with one tap"                                                                     | Amharic headings from the contract's `default_language: am`; one tap → English; `<html lang>` follows                  |
+| AC-3 | › "asks in the kiosk's language"                                                                                                                                  | `Accept-Language` of the reads after the switch is `en`, before it `am`                                                |
+| AC-3 | › "offers no switch when the tenant has one language"                                                                                                             | No language button                                                                                                     |
+| AC-3 | `tests/component/Locale.test.tsx` › "a text hook reads the nearest locale provider" / "the player's provider follows the stored language"                         | The seam; the player's bridge                                                                                          |
+| AC-3 | `pnpm ui`: every `terminal-kiosk-*` screen in `am` and `en`                                                                                                       | Both languages readable                                                                                                |
+| AC-4 | `TerminalKiosk.test.tsx` › "says betting isn't available here, with no board and no slip, when retail is off"                                                     | No sports request, no board, no slip; the bilingual message                                                            |
+| AC-4 | `tests/unit/terminal-mappers.test.ts` › "maps the contract's config: retail on, the languages, Amharic by default" / "turns retail off only on an explicit false" | `toTerminalConfigView`                                                                                                 |
+| AC-4 | `pnpm ui`: `terminal-unavailable`                                                                                                                                 | Screen                                                                                                                 |
+| AC-5 | `terminal-route.test.ts` › "answers the kiosk's reads only on a terminal host" / "refuses the kiosk's reads without an activated terminal, and calls nothing"     | 404 on a player host; 401 without the cookie or with another tenant's; no upstream call                                |
+| AC-5 | › "refuses a board query it doesn't know before calling the API"                                                                                                  | 400 with `errors[]` for a bad sport, date or filter; no upstream call                                                  |
+| AC-5 | › "sends Prism's Prefer only under next dev"                                                                                                                      | As F8b's routes                                                                                                        |
+| AC-5 | `pnpm verify` › `scripts/check-host-split.mjs`                                                                                                                    | The terminal loads nothing from `src/stores/` or `(player)/` while rendering the kiosk                                 |
+| AC-5 | the existing component suite (player) and `pnpm ui` (player screens)                                                                                              | Player screens read their language as before                                                                           |
+
+## Risks
+
+- **Money.** None is computed or shown in F8ca. The slip store is shared, unchanged. Prices are the
+  contract's strings, formatted for display only. The online/retail price gap (decision 2) is the
+  engine's and the POS's to resolve, and is a gap until 015 is answered.
+- **Security.** The new routes check the host first and need an activated terminal of this tenant. The
+  board's query is validated before it reaches an upstream URL. Everything goes through `respond()`
+  (`no-store`). `Prefer` is honoured only under `next dev`. No new header reaches the API. The kiosk
+  never calls a player route (test), and the proxy is unchanged.
+- **The player's screens.** The text hooks change their source. A screen outside a `LocaleProvider` would
+  fall back to English. Every player page sits under `Providers`, and every component test under
+  `render.tsx`. The full component suite and `pnpm ui` cover the player.
+- **Accessibility.** Targets of at least 48 px (measured in Playwright). Prices keep `oddsAriaLabel` and
+  `aria-pressed`. The language switch is a toggle button named in both languages. Every Amharic line
+  carries `lang`.
+- **Performance.** One board request per sport and day, polled every 30 s (D5), as on the player site. The
+  kiosk's bundle loads no player schema module (decision 6) and nothing under `src/stores/`.
+
+## Out of scope
+
+- The slip's figures, the retail rule set and the keypad (F8cb).
+- Slip codes, the QR, the idle reset, no polling while idle, the rate limit (F8cc).
+- Match detail and more markets on the kiosk, search, competitions, live.
+- Signed catalogue reads (request 015).
+- Showing the kiosk's language on F8b's system screens.
+
+## Sub-tasks
+
+| Sub-task                                        | Carries                                                            | Estimate                 |
+| ----------------------------------------------- | ------------------------------------------------------------------ | ------------------------ |
+| [F8ca](../F8ca-kiosk-sportsbook.md) (this plan) | browsing, picks, language, `features.retail`; AC-1–AC-5 of its own | ~1,400 lines, half tests |
+| [F8cb](../F8cb-kiosk-slip.md)                   | F8c **AC-3**: retail rule set, figures, keypad                     | ~900 lines               |
+| [F8cc](../F8cc-slip-code.md)                    | F8c **AC-1**, **AC-6**: slip codes, QR, idle reset, 429            | ~1,300 lines             |

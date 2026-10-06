@@ -1,7 +1,7 @@
 ---
 id: F8c
 title: Split from F8 — kiosk sportsbook and slip to code
-status: todo
+status: in_progress
 depends_on: [F8b]
 contract_tags: [Retail - terminal, Catalogue, Config]
 touches_money: true
@@ -11,6 +11,11 @@ touches_ui: true
 # F8c — Terminal slip to code
 
 Split from [F8](F8-terminal.md) (2026-10-03, before planning).
+
+Split again (2026-10-06, while planning; about 3,500 changed lines in one PR) into
+[F8ca — kiosk sportsbook](F8ca-kiosk-sportsbook.md) (browsing, picks, the kiosk's language,
+`features.retail`), [F8cb — the kiosk's slip](F8cb-kiosk-slip.md) (**AC-3**) and
+[F8cc — slip to code](F8cc-slip-code.md) (**AC-1**, **AC-6**). F8c is done when all three are.
 
 ## Goal
 
@@ -33,7 +38,7 @@ an on-screen keypad); slip codes with a QR; idle reset; the rate limit.
 
 ## Acceptance criteria
 
-- [ ] **AC-1** Code screen shows `4829 1735` with a QR code, then resets after the idle timeout.
-- [ ] **AC-3** The retail rule set is used for slip figures.
-- [ ] **AC-6** A 429 from `POST /v1/retail/slip-codes` says when the terminal can make the next code
+- [ ] **AC-1** (F8cc) Code screen shows `4829 1735` with a QR code, then resets after the idle timeout.
+- [ ] **AC-3** (F8cb) The retail rule set is used for slip figures.
+- [ ] **AC-6** (F8cc) A 429 from `POST /v1/retail/slip-codes` says when the terminal can make the next code
       (`Retry-After`).
