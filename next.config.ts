@@ -14,6 +14,13 @@ const noFraming = [
 ];
 
 const nextConfig: NextConfig = {
+  experimental: {
+    // The proxy runs on every route handler (F8a), and Next holds each request
+    // body in memory for it — 10 MB by default. Above the largest body a
+    // handler accepts (16 KiB, bets and bookings), so none is cut; an oversized
+    // one is cut here and still refused with a 413, without megabytes held.
+    proxyClientMaxBodySize: "32kb",
+  },
   async headers() {
     return [{ source: "/:path*", headers: noFraming }];
   },
