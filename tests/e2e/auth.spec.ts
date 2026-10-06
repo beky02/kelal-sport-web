@@ -16,6 +16,12 @@ const TOKEN_MARKERS = [
 
 const CREDENTIALS = { phone: "911234567", password: "correct horse battery" };
 
+// An /api/me read still being rewritten when a test ends would fail the run
+// outside any test, as screens.spec.ts and terminal.spec.ts already guard.
+test.afterEach(async ({ page }) => {
+  await page.unrouteAll({ behavior: "ignoreErrors" });
+});
+
 /**
  * An account saved in English. Logging in takes the account's language (F7b),
  * and Prism's player is saved in Amharic: the tests about the session itself

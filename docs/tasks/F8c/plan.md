@@ -60,7 +60,10 @@ KioskSlip,Kiosk}.tsx`; `TerminalApp.tsx`. Removed: `KioskBoard`, `KioskDayStrip`
 `KioskSportTabs`, `KioskSportsbook`, `KioskTopBar`, the kiosk's own sports/board fetchers, hooks and keys,
 `OddsButtonView`'s `lg`, and `LANG_NAME`. Tests: `tests/component/{render,terminal}.tsx`,
 `TerminalKiosk.test.tsx` (rewritten), `TerminalStatus.test.tsx`, `terminal-route.test.ts`, and
-`tests/e2e/terminal.spec.ts` (kiosk screens rewritten).
+`tests/e2e/terminal.spec.ts` (kiosk screens rewritten). Outside the plan, in round 2:
+`components/layout/AppFooter.tsx` (its notices shared with the kiosk, review U6) and `tests/e2e/auth.spec.ts`,
+which now drops its routes after each test as the other e2e files do. An `/api/me` rewrite still in flight
+when a test ended failed `pnpm verify` once (F7b's helper).
 
 **Acceptance criteria → tests (rework).**
 
