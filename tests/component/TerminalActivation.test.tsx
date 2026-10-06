@@ -41,11 +41,17 @@ async function activateWith(code: string) {
   return field;
 }
 
-/** What the activation screen says, in both languages, as an alert. */
+/**
+ * What the activation screen says, in both languages, as an alert. The alert
+ * region is always on screen and starts empty, so this waits for its text,
+ * not for the region.
+ */
 async function expectAlert(english: string, amharic: string) {
-  const alert = await screen.findByRole("alert");
-  expect(alert).toHaveTextContent(english);
-  expect(alert).toHaveTextContent(amharic);
+  await waitFor(() => {
+    const alert = screen.getByRole("alert");
+    expect(alert).toHaveTextContent(english);
+    expect(alert).toHaveTextContent(amharic);
+  });
 }
 
 describe("activating a terminal (AC-4)", () => {
