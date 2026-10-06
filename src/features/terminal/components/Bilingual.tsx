@@ -3,11 +3,11 @@ import { cn } from "@/lib/utils/cn";
 import type { Lang } from "@/types/common";
 
 /**
- * Amharic first, then English: the kiosk has no language of its own until F8c,
- * and Amharic is the `demo` tenant's default (FD2). Each line carries its
- * `lang`, so a screen reader reads each in its own voice.
+ * English first, then Amharic: English is the terminal's first language (F8ca
+ * rework 2), and these screens come before the kiosk has one of its own. Each
+ * line carries its `lang`, so a screen reader reads each in its own voice.
  */
-const ORDER: readonly Lang[] = ["am", "en"];
+const ORDER: readonly Lang[] = ["en", "am"];
 
 /** One message in both languages, a line each. */
 export function Bilingual({

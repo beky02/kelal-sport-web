@@ -540,8 +540,8 @@ for (const [device, viewport] of Object.entries({
       /** Activated, in this describe's language, at the home board. */
       async function open(page: Page, baseURL: string | undefined) {
         await activate(page, baseURL);
-        if (lang === "en") {
-          await page.getByRole("button", { name: "EN", exact: true }).click();
+        if (lang === "am") {
+          await page.getByRole("button", { name: "አማ", exact: true }).click();
         }
         await expect
           .poll(() => page.evaluate(() => document.documentElement.lang))
@@ -553,8 +553,8 @@ for (const [device, viewport] of Object.entries({
       async function reload(page: Page) {
         await page.reload();
         await expect(kiosk(page)).toBeVisible();
-        if (lang === "en") {
-          await page.getByRole("button", { name: "EN", exact: true }).click();
+        if (lang === "am") {
+          await page.getByRole("button", { name: "አማ", exact: true }).click();
         }
       }
 
@@ -622,8 +622,8 @@ for (const [device, viewport] of Object.entries({
         await expect(
           kiosk(page).or(page.locator("main h2").first()),
         ).toBeVisible();
-        if (lang === "en") {
-          await page.getByRole("button", { name: "EN", exact: true }).click();
+        if (lang === "am") {
+          await page.getByRole("button", { name: "አማ", exact: true }).click();
         }
         await expect(price(page)).toBeVisible();
         expect(new URL(page.url()).pathname).toBe(path);

@@ -103,7 +103,7 @@ export const SEARCH = toSearchResults(
 /** The kiosk's board heading once it is up: the player's, named after its first sport. */
 const KIOSK_HEADING = {
   level: 2,
-  name: new RegExp(`^${SPORTS[0].name.am}`),
+  name: new RegExp(`^${SPORTS[0].name.en}`),
 } as const;
 
 /** The kiosk, up: waits for its board's heading. */
@@ -163,7 +163,7 @@ export function setUpTerminalTests() {
     useKioskStore.getState().reset();
     address.go("/");
     document.documentElement.dataset.api = "/api/terminal/";
-    document.documentElement.lang = "am";
+    document.documentElement.lang = "en";
     vi.spyOn(deviceKeyStore, "load").mockImplementation(async () => keys.pair);
     vi.spyOn(deviceKeyStore, "save").mockImplementation(async (pair) => {
       if (keys.broken) throw new DOMException("Blocked", "UnknownError");

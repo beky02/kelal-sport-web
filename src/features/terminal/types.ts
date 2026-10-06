@@ -68,6 +68,6 @@ export interface TerminalConfigView {
   retail: boolean;
   /** The tenant's languages, in its order; the kiosk switches among them. */
   languages: Lang[];
-  /** What the kiosk opens in (FD2: Amharic for `demo`). */
+  /** The tenant's default (FD2: Amharic for `demo`); the kiosk opens in it only without English. */
   defaultLanguage: Lang;
 }

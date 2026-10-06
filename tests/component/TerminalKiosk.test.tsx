@@ -65,14 +65,14 @@ type Row = (typeof BOARD)[number]["events"][number];
 const FIRST = BOARD[0].events[0];
 const HOME_WIN = FIRST.markets.matchResult!.outcomes[0];
 const matchName = (row: Row) =>
-  `${row.event.home.name.am} – ${row.event.away.name.am}`;
+  `${row.event.home.name.en} – ${row.event.away.name.en}`;
 /** A price's accessible name, as the player's board gives it. */
 const priceName = (
   row: Row,
-  outcome: { label: { am: string }; odds: string | null },
+  outcome: { label: { en: string }; odds: string | null },
 ) =>
   new RegExp(
-    `^${matchName(row)}: ${outcome.label.am} ${formatOdds(outcome.odds!).replace(".", "\\.")}`,
+    `^${matchName(row)}: ${outcome.label.en} ${formatOdds(outcome.odds!).replace(".", "\\.")}`,
   );
 const homeWin = () =>
   screen.findByRole("button", { name: priceName(FIRST, HOME_WIN) });
@@ -81,7 +81,7 @@ const homeWin = () =>
 const slip = () =>
   within(
     screen
-      .getAllByRole("heading", { level: 2, name: am.betSlip.title })[0]
+      .getAllByRole("heading", { level: 2, name: en.betSlip.title })[0]
       .closest("aside")!,
   );
 
@@ -95,14 +95,14 @@ describe("the player's board on the kiosk (F8ca AC-1)", () => {
     // The sports, from /v1/sports, as the player's tabs and sidebar list them.
     for (const sport of SPORTS) {
       expect(
-        screen.getAllByRole("button", { name: new RegExp(sport.name.am) })
+        screen.getAllByRole("button", { name: new RegExp(sport.name.en) })
           .length,
       ).toBeGreaterThan(0);
     }
     // Today first in the day strip, pressed.
     expect(
       screen.getByRole("button", {
-        name: new RegExp(am.board.filters.today),
+        name: new RegExp(en.board.filters.today),
         pressed: true,
       }),
     ).toBeInTheDocument();
@@ -110,7 +110,7 @@ describe("the player's board on the kiosk (F8ca AC-1)", () => {
     // Every match and its 1X2 prices as sent; a price the API left out locked.
     for (const section of BOARD) {
       expect(
-        screen.getAllByText(section.competition.name.am).length,
+        screen.getAllByText(section.competition.name.en).length,
       ).toBeGreaterThan(0);
       for (const row of section.events) {
         for (const outcome of row.markets.matchResult!.outcomes) {
@@ -118,7 +118,7 @@ describe("the player's board on the kiosk (F8ca AC-1)", () => {
             name:
               outcome.odds === null
                 ? new RegExp(
-                    `^${matchName(row)}: ${outcome.label.am}, ${am.a11y.suspended}`,
+                    `^${matchName(row)}: ${outcome.label.en}, ${en.a11y.suspended}`,
                   )
                 : priceName(row, outcome),
           });
@@ -130,7 +130,7 @@ describe("the player's board on the kiosk (F8ca AC-1)", () => {
     // The top competitions, from the terminal's routes.
     expect(
       screen.getByRole("link", {
-        name: new RegExp(TOP_COMPETITIONS[0].name.am),
+        name: new RegExp(TOP_COMPETITIONS[0].name.en),
       }),
     ).toBeInTheDocument();
     expect(asked.length).toBeGreaterThan(0);
@@ -145,23 +145,23 @@ describe("the player's board on the kiosk (F8ca AC-1)", () => {
     await homeWin();
 
     for (const name of [
-      am.header.login,
-      am.header.register,
-      am.nav.myBets,
-      am.nav.wallet,
-      am.header.responsibleGaming,
-      am.betSlip.myBets,
+      en.header.login,
+      en.header.register,
+      en.nav.myBets,
+      en.nav.wallet,
+      en.header.responsibleGaming,
+      en.betSlip.myBets,
     ]) {
       expect(screen.queryByRole("button", { name })).toBeNull();
       expect(screen.queryByRole("link", { name })).toBeNull();
     }
     expect(
-      screen.queryByRole("button", { name: am.sidebar.addFavourite }),
+      screen.queryByRole("button", { name: en.sidebar.addFavourite }),
     ).toBeNull();
     expect(
-      screen.queryByRole("button", { name: am.sidebar.pinLeague }),
+      screen.queryByRole("button", { name: en.sidebar.pinLeague }),
     ).toBeNull();
-    expect(screen.queryByText(am.sidebar.favourites)).toBeNull();
+    expect(screen.queryByText(en.sidebar.favourites)).toBeNull();
     // The shop this PC belongs to is named in the bar.
     expect(screen.getByText(TERMINAL.shop.name)).toBeInTheDocument();
   });
@@ -172,10 +172,10 @@ describe("the player's board on the kiosk (F8ca AC-1)", () => {
     await homeWin();
 
     const footer = within(screen.getByRole("contentinfo"));
-    expect(footer.getByText(am.sidebar.licence)).toBeInTheDocument();
+    expect(footer.getByText(en.sidebar.licence)).toBeInTheDocument();
     expect(footer.getByText("21+")).toBeInTheDocument();
-    expect(footer.getByText(am.sidebar.playResponsibly)).toBeInTheDocument();
-    expect(footer.getByText(am.footer.helpline)).toBeInTheDocument();
+    expect(footer.getByText(en.sidebar.playResponsibly)).toBeInTheDocument();
+    expect(footer.getByText(en.footer.helpline)).toBeInTheDocument();
     // Terms, privacy, help: the player's pages, which a terminal host doesn't serve.
     expect(footer.queryAllByRole("link")).toEqual([]);
   });
@@ -189,7 +189,7 @@ describe("the player's board on the kiosk (F8ca AC-1)", () => {
     expect(lastBoardQuery().get("date")).toBe(TODAY);
 
     const today = screen.getByRole("button", {
-      name: new RegExp(am.board.filters.today),
+      name: new RegExp(en.board.filters.today),
       pressed: true,
     });
     const strip = today.parentElement!;
@@ -199,7 +199,7 @@ describe("the player's board on the kiosk (F8ca AC-1)", () => {
 
     const other = SPORTS[1];
     await user.click(
-      screen.getAllByRole("button", { name: new RegExp(other.name.am) })[0],
+      screen.getAllByRole("button", { name: new RegExp(other.name.en) })[0],
     );
     await waitFor(() => expect(lastBoardQuery().get("sport")).toBe(other.id));
     expect(address.params.get("sport")).toBe(other.slug);
@@ -214,9 +214,9 @@ describe("the player's board on the kiosk (F8ca AC-1)", () => {
     });
     renderTerminal();
 
-    expect(await screen.findByText(am.board.empty.title)).toBeInTheDocument();
+    expect(await screen.findByText(en.board.empty.title)).toBeInTheDocument();
     await user.click(
-      screen.getByRole("button", { name: am.board.empty.action }),
+      screen.getByRole("button", { name: en.board.empty.action }),
     );
     expect(address.href).toBe("/");
     expect(await homeWin()).toBeInTheDocument();
@@ -231,9 +231,9 @@ describe("the player's board on the kiosk (F8ca AC-1)", () => {
     });
     renderTerminal({ retry: false });
 
-    expect(await screen.findByText(am.board.error.title)).toBeInTheDocument();
+    expect(await screen.findByText(en.board.error.title)).toBeInTheDocument();
     fail = false;
-    await user.click(screen.getByRole("button", { name: am.common.retry }));
+    await user.click(screen.getByRole("button", { name: en.common.retry }));
     expect(await homeWin()).toBeInTheDocument();
   });
 
@@ -313,22 +313,22 @@ describe("picking prices into the kiosk's slip (F8ca AC-2)", () => {
 
     const price = await homeWin();
     expect(price).toHaveAttribute("aria-pressed", "false");
-    expect(slip().getByText(am.betSlip.emptyTitle)).toBeInTheDocument();
+    expect(slip().getByText(en.betSlip.emptyTitle)).toBeInTheDocument();
 
     await user.click(price);
     expect(price).toHaveAttribute("aria-pressed", "true");
     expect(slip().getByText(matchName(FIRST))).toBeInTheDocument();
-    expect(slip().getByText(HOME_WIN.label.am)).toBeInTheDocument();
+    expect(slip().getByText(HOME_WIN.label.en)).toBeInTheDocument();
     expect(slip().getByText(formatOdds(HOME_WIN.odds!))).toBeInTheDocument();
     expect(
       screen.getByRole("button", {
-        name: am.nav.slipAria.replace("{n}", "1"),
+        name: en.nav.slipAria.replace("{n}", "1"),
       }),
     ).toBeInTheDocument();
 
     await user.click(price);
     expect(price).toHaveAttribute("aria-pressed", "false");
-    expect(slip().getByText(am.betSlip.emptyTitle)).toBeInTheDocument();
+    expect(slip().getByText(en.betSlip.emptyTitle)).toBeInTheDocument();
   });
 
   it("removes one pick and clears the slip", async () => {
@@ -346,14 +346,14 @@ describe("picking prices into the kiosk's slip (F8ca AC-2)", () => {
 
     await user.click(
       slip().getByRole("button", {
-        name: am.betSlip.remove.replace("{pick}", HOME_WIN.label.am),
+        name: en.betSlip.remove.replace("{pick}", HOME_WIN.label.en),
       }),
     );
     expect(slip().queryByText(matchName(FIRST))).toBeNull();
     expect(slip().getByText(matchName(second))).toBeInTheDocument();
 
-    await user.click(slip().getByRole("button", { name: am.betSlip.clearAll }));
-    expect(slip().getByText(am.betSlip.emptyTitle)).toBeInTheDocument();
+    await user.click(slip().getByRole("button", { name: en.betSlip.clearAll }));
+    expect(slip().getByText(en.betSlip.emptyTitle)).toBeInTheDocument();
   });
 });
 
@@ -361,30 +361,33 @@ describe("the kiosk's language (F8ca AC-3)", () => {
   const switchTo = (lang: "en" | "am") =>
     screen.getByRole("button", { name: lang === "en" ? "EN" : "አማ" });
 
-  it("opens in the tenant's default language and switches with one tap", async () => {
+  it("opens in English and switches to Amharic with one tap", async () => {
     const user = userEvent.setup();
+    // The contract's tenant offers both, with Amharic as its default: the
+    // kiosk opens in English all the same (the user's decision, rework 2).
+    expect(KIOSK_CONFIG.defaultLanguage).toBe("am");
     routes();
     renderTerminal();
 
     await homeWin();
-    expect(document.documentElement.lang).toBe("am");
-    expect(switchTo("am")).toHaveAttribute("aria-pressed", "true");
-    expect(
-      screen.getByRole("button", { name: am.board.filters.top }),
-    ).toBeInTheDocument();
-
-    await user.click(switchTo("en"));
     expect(document.documentElement.lang).toBe("en");
+    expect(switchTo("en")).toHaveAttribute("aria-pressed", "true");
     expect(
       screen.getByRole("button", { name: en.board.filters.top }),
     ).toBeInTheDocument();
-    expect(
-      screen.getAllByRole("heading", { level: 2, name: en.betSlip.title })
-        .length,
-    ).toBeGreaterThan(0);
 
     await user.click(switchTo("am"));
     expect(document.documentElement.lang).toBe("am");
+    expect(
+      screen.getByRole("button", { name: am.board.filters.top }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getAllByRole("heading", { level: 2, name: am.betSlip.title })
+        .length,
+    ).toBeGreaterThan(0);
+
+    await user.click(switchTo("en"));
+    expect(document.documentElement.lang).toBe("en");
   });
 
   it("asks in the kiosk's language", async () => {
@@ -392,49 +395,9 @@ describe("the kiosk's language (F8ca AC-3)", () => {
     routes();
     renderTerminal();
     await homeWin();
-    expect(boardReads().at(-1)!.headers["Accept-Language"]).toBe("am");
-
-    await user.click(switchTo("en"));
-    await user.click(
-      screen.getByRole("button", { name: en.board.filters.upcoming }),
-    );
-    await waitFor(() =>
-      expect(lastBoardQuery().get("filter")).toBe("upcoming"),
-    );
     expect(boardReads().at(-1)!.headers["Accept-Language"]).toBe("en");
-  });
 
-  it("starts in English for a tenant whose default is English", async () => {
-    routes({
-      config: () => json(200, { ...KIOSK_CONFIG, defaultLanguage: "en" }),
-    });
-    renderTerminal();
-    expect(
-      await screen.findByRole("button", { name: en.board.filters.top }),
-    ).toBeInTheDocument();
-    expect(document.documentElement.lang).toBe("en");
-  });
-
-  it("falls back to the tenant's default, on screen and in its calls, when the language chosen is no longer offered", async () => {
-    const user = userEvent.setup();
-    routes();
-    const { queryClient } = renderTerminal();
-    await homeWin();
-    await user.click(switchTo("en"));
-    expect(document.documentElement.lang).toBe("en");
-
-    // The tenant now offers Amharic only.
-    act(() =>
-      queryClient.setQueryData(terminalKeys.config(), {
-        ...KIOSK_CONFIG,
-        languages: ["am"],
-        defaultLanguage: "am",
-      }),
-    );
-    expect(
-      await screen.findByRole("button", { name: am.board.filters.top }),
-    ).toBeInTheDocument();
-    expect(document.documentElement.lang).toBe("am");
+    await user.click(switchTo("am"));
     await user.click(
       screen.getByRole("button", { name: am.board.filters.upcoming }),
     );
@@ -444,13 +407,58 @@ describe("the kiosk's language (F8ca AC-3)", () => {
     expect(boardReads().at(-1)!.headers["Accept-Language"]).toBe("am");
   });
 
-  it("offers no switch when the tenant has one language", async () => {
+  it("opens in the tenant's default where it doesn't offer English", async () => {
     routes({
       config: () =>
         json(200, {
           ...KIOSK_CONFIG,
           languages: ["am"],
           defaultLanguage: "am",
+        }),
+    });
+    renderTerminal();
+    expect(
+      await screen.findByRole("button", { name: am.board.filters.top }),
+    ).toBeInTheDocument();
+    expect(document.documentElement.lang).toBe("am");
+  });
+
+  it("falls back to English, on screen and in its calls, when the language chosen is no longer offered", async () => {
+    const user = userEvent.setup();
+    routes();
+    const { queryClient } = renderTerminal();
+    await homeWin();
+    await user.click(switchTo("am"));
+    expect(document.documentElement.lang).toBe("am");
+
+    // The tenant now offers English only.
+    act(() =>
+      queryClient.setQueryData(terminalKeys.config(), {
+        ...KIOSK_CONFIG,
+        languages: ["en"],
+        defaultLanguage: "en",
+      }),
+    );
+    expect(
+      await screen.findByRole("button", { name: en.board.filters.top }),
+    ).toBeInTheDocument();
+    expect(document.documentElement.lang).toBe("en");
+    await user.click(
+      screen.getByRole("button", { name: en.board.filters.upcoming }),
+    );
+    await waitFor(() =>
+      expect(lastBoardQuery().get("filter")).toBe("upcoming"),
+    );
+    expect(boardReads().at(-1)!.headers["Accept-Language"]).toBe("en");
+  });
+
+  it("offers no switch when the tenant has one language", async () => {
+    routes({
+      config: () =>
+        json(200, {
+          ...KIOSK_CONFIG,
+          languages: ["en"],
+          defaultLanguage: "en",
         }),
     });
     renderTerminal();
@@ -469,12 +477,12 @@ describe("the slip below xl, and prices offline (F8ca AC-2)", () => {
     await user.click(await homeWin());
 
     const bar = screen.getByRole("button", {
-      name: am.nav.slipAria.replace("{n}", "1"),
+      name: en.nav.slipAria.replace("{n}", "1"),
     });
     await user.click(bar);
     const sheet = await screen.findByRole("dialog");
     await user.click(
-      within(sheet).getByRole("button", { name: am.betSlip.close }),
+      within(sheet).getByRole("button", { name: en.betSlip.close }),
     );
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     expect(bar).toHaveFocus();
@@ -493,7 +501,7 @@ describe("the slip below xl, and prices offline (F8ca AC-2)", () => {
     expect(
       screen.getByRole("button", {
         name: new RegExp(
-          `^${matchName(FIRST)}: ${HOME_WIN.label.am}, ${am.a11y.suspended}`,
+          `^${matchName(FIRST)}: ${HOME_WIN.label.en}, ${en.a11y.suspended}`,
         ),
       }),
     ).toBeDisabled();
@@ -520,7 +528,7 @@ describe("a tenant without shop betting (F8ca AC-4)", () => {
     expect(
       screen.getByRole("heading", {
         level: 1,
-        name: new RegExp(am.terminal.kiosk.unavailable.title),
+        name: new RegExp(en.terminal.kiosk.unavailable.title),
       }),
     ).toBeInTheDocument();
     expect(screen.queryByRole("complementary")).toBeNull();
@@ -543,14 +551,14 @@ describe("a league and a match on the kiosk (F8ca AC-6, AC-7)", () => {
 
     expect(
       screen.getByRole("link", {
-        name: new RegExp(TOP_COMPETITIONS[0].name.am),
+        name: new RegExp(TOP_COMPETITIONS[0].name.en),
       }),
     ).toHaveAttribute(
       "href",
       `/terminal/competition/${encodeURIComponent(TOP_COMPETITIONS[0].id)}`,
     );
     const more = screen.getAllByRole("link", {
-      name: am.board.moreMarketsAria.replace(
+      name: en.board.moreMarketsAria.replace(
         "{n}",
         String(FIRST.event.marketCount),
       ),
@@ -589,7 +597,7 @@ describe("a league and a match on the kiosk (F8ca AC-6, AC-7)", () => {
       (
         await screen.findAllByRole("button", {
           name: new RegExp(
-            `${outcome.label.am} ${formatOdds(outcome.odds!).replace(".", "\\.")}`,
+            `${outcome.label.en} ${formatOdds(outcome.odds!).replace(".", "\\.")}`,
           ),
         })
       ).length,
@@ -601,14 +609,14 @@ describe("a league and a match on the kiosk (F8ca AC-6, AC-7)", () => {
     ).toHaveLength(1);
     // The match header's own way back (not the brand's link), to the kiosk's home.
     expect(
-      screen.getByRole("link", { name: new RegExp(am.event.backToBoard) }),
+      screen.getByRole("link", { name: new RegExp(en.event.backToBoard) }),
     ).toHaveAttribute("href", "/");
   });
 
   it("says a match isn't there when the terminal has no book for it (in play, or gone)", async () => {
     routes({ event: () => json(200, null) });
     renderTerminal({ page: <EventDetailView eventId={EVENT.event.id} /> });
-    expect(await screen.findByText(am.event.notFound)).toBeInTheDocument();
+    expect(await screen.findByText(en.event.notFound)).toBeInTheDocument();
   });
 });
 
@@ -627,11 +635,11 @@ describe("search on the kiosk (F8ca AC-8)", () => {
     await homeWin();
 
     await user.type(
-      screen.getByRole("combobox", { name: am.header.search }),
+      screen.getByRole("combobox", { name: en.header.search }),
       "pre",
     );
     const option = await screen.findByRole("option", {
-      name: new RegExp(league.name.am),
+      name: new RegExp(league.name.en),
     });
     await user.click(option);
     expect(address.href).toBe(
@@ -646,12 +654,12 @@ describe("search on the kiosk (F8ca AC-8)", () => {
     await homeWin();
 
     await user.type(
-      screen.getByRole("combobox", { name: am.header.search }),
+      screen.getByRole("combobox", { name: en.header.search }),
       "ars",
     );
     const row = SEARCH.events[0];
     const option = await screen.findByRole("option", {
-      name: new RegExp(row.event.home.name.am),
+      name: new RegExp(row.event.home.name.en),
     });
     expect(lastQuery("/api/terminal/catalogue/search").get("q")).toBe("ars");
 
@@ -698,7 +706,7 @@ describe("the kiosk over time (F8ca AC-1)", () => {
     expect(lastBoardQuery().get("date")).toBe(TOMORROW);
     expect(
       screen.getByRole("button", {
-        name: new RegExp(am.board.filters.today),
+        name: new RegExp(en.board.filters.today),
         pressed: true,
       }),
     ).toBeInTheDocument();
@@ -754,7 +762,7 @@ describe("the kiosk over time (F8ca AC-1)", () => {
     await tick(30_000);
     expect(sportsReads().length).toBeGreaterThan(failed);
     expect(
-      screen.getAllByRole("button", { name: new RegExp(SPORTS[1].name.am) })
+      screen.getAllByRole("button", { name: new RegExp(SPORTS[1].name.en) })
         .length,
     ).toBeGreaterThan(0);
   });

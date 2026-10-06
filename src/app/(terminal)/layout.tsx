@@ -16,12 +16,13 @@ export const metadata: Metadata = {
  * theme is fixed: a kiosk keeps no preferences. Its providers are its own
  * (`providers.tsx`): a query client and nothing else. `data-api` sends the
  * shared fetchers to the terminal's own route handlers (`lib/api/client.ts`,
- * F8ca).
+ * F8ca). `lang` is English, the kiosk's first language (F8ca rework 2) until
+ * `KioskLocale` says otherwise.
  */
 export default function TerminalLayout({ children }: LayoutProps<"/">) {
   return (
     <html
-      lang="am"
+      lang="en"
       data-theme="dark"
       data-api="/api/terminal/"
       className={`${fontVariables} h-full antialiased`}

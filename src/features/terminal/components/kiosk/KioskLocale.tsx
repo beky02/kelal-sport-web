@@ -7,11 +7,12 @@ import type { TerminalConfigView } from "../../types";
 
 /**
  * The kiosk's locale (F8ca): its language (`kioskLanguage`: the customer's
- * choice while offered, else the tenant's default) with Release 1's Gregorian
- * dates and East Africa Time (D7), for every text hook below — and for the
- * kiosk's reads, which ask in it (`useLocale().lang`). `<html lang>` follows,
- * so the Amharic tokens (line height, no uppercasing) switch with it, and goes
- * back to what it was when the kiosk leaves the screen.
+ * choice while offered, else English, else the tenant's default) with
+ * Release 1's Gregorian dates and East Africa Time (D7), for every text hook
+ * below — and for the kiosk's reads, which ask in it (`useLocale().lang`).
+ * `<html lang>` follows, so the Amharic tokens (line height, no uppercasing)
+ * switch with it, and goes back to what it was when the kiosk leaves the
+ * screen.
  */
 export function KioskLocale({
   config,

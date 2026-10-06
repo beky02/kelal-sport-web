@@ -12,10 +12,11 @@ import type { Lang } from "@/types/common";
 
 /**
  * The language the terminal's own calls (activation, status, rotation) ask
- * in: Amharic, `demo`'s default (FD2). Their answers are states, shown in both
- * languages; the kiosk's reads ask in the kiosk's language (`terminalRead`).
+ * in: English, the terminal's first language (F8ca rework 2). Their answers
+ * are states, shown in both languages; the kiosk's reads ask in the kiosk's
+ * language (`terminalRead`).
  */
-const TERMINAL_LANG: Lang = "am";
+const TERMINAL_LANG: Lang = "en";
 
 /**
  * How far this PC's clock is from the server's, learnt from a `CLOCK_SKEW`
