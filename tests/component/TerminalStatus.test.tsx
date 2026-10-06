@@ -1,92 +1,30 @@
-import { StrictMode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { act, fireEvent, render, screen } from "@testing-library/react";
-import {
-  notifyManager,
-  QueryClient,
-  QueryClientProvider,
-} from "@tanstack/react-query";
-import { resetTerminalClock } from "@/features/terminal/api/client";
-import { TerminalApp } from "@/features/terminal/components/TerminalApp";
+import { act, fireEvent, screen } from "@testing-library/react";
+import { notifyManager } from "@tanstack/react-query";
 import { createDeviceKey } from "@/features/terminal/lib/device-key";
-import {
-  EMPTY_BODY_SHA256,
-  canonicalRequest,
-} from "@/features/terminal/lib/signing";
 import type { TerminalStatus } from "@/features/terminal/types";
-import { toTerminalInfo } from "@/lib/api/mappers/terminal";
 import en from "@/lib/i18n/messages/en.json";
 import { terminalKeys } from "@/lib/query/keys";
 import { CSRF_HEADER, CSRF_VALUE } from "@/lib/session-cookie";
-import { example } from "../contract";
+import {
+  TERMINAL,
+  type TerminalRenderOptions,
+  active,
+  asked,
+  json,
+  keys,
+  problem,
+  renderTerminal,
+  routes,
+  setUpTerminalTests,
+  signedFor,
+  terminalQueryClient,
+} from "./terminal";
 
-/** The device key store, in memory: jsdom has no IndexedDB. */
-const keys = vi.hoisted(() => ({ pair: null as CryptoKeyPair | null }));
-vi.mock("@/features/terminal/lib/device-key", async (importOriginal) => ({
-  ...(await importOriginal<
-    typeof import("@/features/terminal/lib/device-key")
-  >()),
-  deviceKeyStore: {
-    load: async () => keys.pair,
-    save: async (pair: CryptoKeyPair) => {
-      keys.pair = pair;
-    },
-  },
-}));
+setUpTerminalTests();
 
 const NOW = Date.parse("2026-10-06T09:00:00Z");
 const MINUTE = 60_000;
-const TERMINAL = toTerminalInfo(example("/v1/retail/terminal"));
-const active = (rotateDue = false): TerminalStatus => ({
-  state: "active",
-  terminal: TERMINAL,
-  rotateDue,
-});
-
-/** Every `/api/terminal/*` call, with when, its headers and its body. */
-let asked: {
-  route: string;
-  method: string;
-  headers: Record<string, string>;
-  at: number;
-}[] = [];
-
-const json = (status: number, body: unknown, headers = {}) =>
-  Response.json(body, {
-    status,
-    headers: {
-      "Content-Type":
-        status >= 400 ? "application/problem+json" : "application/json",
-      ...headers,
-    },
-  });
-
-const UNAVAILABLE = {
-  type: "about:blank",
-  title: "The sportsbook API could not be reached",
-  status: 503,
-  code: "SERVICE_UNAVAILABLE",
-};
-
-/**
- * The terminal's routes answer from `answer`, which may take fake time (a
- * slow rotation) by returning a promise that waits on the fake clock.
- */
-function routes(
-  answer: (route: string, method: string) => Response | Promise<Response>,
-) {
-  vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
-    const route = String(input);
-    const method = init?.method ?? "GET";
-    asked.push({
-      route,
-      method,
-      headers: { ...(init?.headers as Record<string, string>) },
-      at: Date.now() - NOW,
-    });
-    return answer(route, method);
-  });
-}
 
 const reads = () => asked.filter((a) => a.route === "/api/terminal/status");
 const rotations = () => asked.filter((a) => a.route === "/api/terminal/token");
@@ -99,48 +37,10 @@ async function tick(ms: number) {
   }
 }
 
-const testClient = () =>
-  new QueryClient({
-    defaultOptions: {
-      queries: { retry: false, gcTime: Infinity },
-      mutations: { retry: false },
-    },
-  });
-
-function renderTerminal(queryClient: QueryClient = testClient()) {
-  // Strict, as `next dev` renders: effects run twice on mount, so a rotation
-  // fired from one must still go once.
-  return render(
-    <StrictMode>
-      <QueryClientProvider client={queryClient}>
-        <TerminalApp />
-      </QueryClientProvider>
-    </StrictMode>,
-  );
-}
-
-const fromBase64 = (text: string) =>
-  Uint8Array.from(atob(text), (char) => char.charCodeAt(0));
-
-/** Whether a call's signature is the device key's over the API call `method path`. */
-const signedFor = (
-  call: (typeof asked)[number],
-  method: string,
-  path: string,
-) =>
-  crypto.subtle.verify(
-    { name: "ECDSA", hash: "SHA-256" },
-    keys.pair!.publicKey,
-    fromBase64(call.headers["X-Device-Signature"]),
-    new TextEncoder().encode(
-      canonicalRequest(
-        method,
-        path,
-        Number(call.headers["X-Device-Timestamp"]),
-        EMPTY_BODY_SHA256,
-      ),
-    ),
-  );
+// Strict, as `next dev` renders: effects run twice on mount, so a rotation
+// fired from one must still go once.
+const renderStrict = (options: TerminalRenderOptions = {}) =>
+  renderTerminal({ ...options, strict: true });
 
 const readyHeading = () =>
   screen.getByRole("heading", {
@@ -148,10 +48,14 @@ const readyHeading = () =>
     name: new RegExp(en.terminal.ready.title),
   });
 
+const offlineHeading = () =>
+  screen.queryByRole("heading", {
+    level: 1,
+    name: new RegExp(en.terminal.offline.title),
+  });
+
 beforeEach(async () => {
-  asked = [];
   keys.pair = await createDeviceKey();
-  resetTerminalClock();
   vi.useFakeTimers({
     now: NOW,
     toFake: [
@@ -169,14 +73,13 @@ beforeEach(async () => {
 
 afterEach(() => {
   vi.useRealTimers();
-  vi.restoreAllMocks();
   notifyManager.setScheduler((cb) => setTimeout(cb, 0));
 });
 
 describe("the terminal's status (AC-5)", () => {
   it("reads the status on boot and every 5 minutes", async () => {
-    routes(() => json(200, active()));
-    renderTerminal();
+    routes();
+    renderStrict();
 
     await tick(0);
     expect(readyHeading()).toBeInTheDocument();
@@ -193,16 +96,16 @@ describe("the terminal's status (AC-5)", () => {
 
   it("rotates the token when it is due, once, without touching the screen", async () => {
     let rotated = false;
-    routes(async (route) => {
-      if (route === "/api/terminal/token") {
+    routes({
+      status: () => json(200, active(!rotated)),
+      token: async () => {
         // A rotation that takes a second, so the screen can be watched during it.
         await new Promise((resolve) => setTimeout(resolve, 1_000));
         rotated = true;
         return json(200, { rotated: true });
-      }
-      return json(200, active(!rotated));
+      },
     });
-    renderTerminal();
+    renderStrict();
 
     await tick(0);
     const heading = readyHeading();
@@ -228,31 +131,32 @@ describe("the terminal's status (AC-5)", () => {
   });
 
   it("rotates once when a screen mounts with a due status already read, however often it mounts", async () => {
-    routes((route) =>
-      route === "/api/terminal/token"
-        ? json(200, { rotated: true })
-        : json(200, active(false)),
-    );
+    routes({
+      status: () => json(200, active(false)),
+      token: () => json(200, { rotated: true }),
+    });
     // A kiosk page opening with the status in the cache (F8c's pages share
     // it). Strict mode runs the mount's effects twice; a second page mounts
     // the same hook again.
-    const queryClient = testClient();
+    const queryClient = terminalQueryClient();
     queryClient.setQueryData(terminalKeys.status(), active(true));
-    renderTerminal(queryClient);
-    renderTerminal(queryClient);
+    renderStrict({ queryClient });
+    renderStrict({ queryClient });
 
     await tick(0);
     expect(rotations()).toHaveLength(1);
   });
 
   it("tries a failed rotation again at the next read", async () => {
-    const answers = [json(500, UNAVAILABLE), json(200, { rotated: true })];
-    routes((route) =>
-      route === "/api/terminal/token"
-        ? answers.shift()!
-        : json(200, active(true)),
-    );
-    renderTerminal();
+    const answers = [
+      problem(500, "SERVICE_UNAVAILABLE"),
+      json(200, { rotated: true }),
+    ];
+    routes({
+      status: () => json(200, active(true)),
+      token: () => answers.shift()!,
+    });
+    renderStrict();
 
     await tick(0);
     expect(rotations()).toHaveLength(1);
@@ -266,9 +170,11 @@ describe("the terminal's status (AC-5)", () => {
   });
 
   it("keeps the screen when a read fails after the terminal is up", async () => {
-    const answers = [json(200, active()), json(503, UNAVAILABLE)];
-    routes(() => answers.shift() ?? json(200, active()));
-    renderTerminal();
+    const answers = [json(200, active()), problem(503, "SERVICE_UNAVAILABLE")];
+    routes({ status: () => answers.shift() ?? json(200, active()) });
+    // The read fails for good at once; how the client retries it is the
+    // retry policy's test, below.
+    renderStrict({ retry: false });
 
     await tick(0);
     const heading = readyHeading();
@@ -279,8 +185,10 @@ describe("the terminal's status (AC-5)", () => {
   });
 
   it("stops reading once the terminal is revoked", async () => {
-    routes(() => json(200, { state: "blocked", reason: "revoked" }));
-    renderTerminal();
+    routes({
+      status: () => json(200, { state: "blocked", reason: "revoked" }),
+    });
+    renderStrict();
 
     await tick(0);
     expect(
@@ -300,8 +208,8 @@ describe("the terminal's status (AC-5)", () => {
       terminal: { ...TERMINAL, shop: { ...TERMINAL.shop, openNow: false } },
     };
     const answers = [json(200, closed)];
-    routes(() => answers.shift() ?? json(200, active()));
-    renderTerminal();
+    routes({ status: () => answers.shift() ?? json(200, active()) });
+    renderStrict();
 
     await tick(0);
     expect(
@@ -315,17 +223,12 @@ describe("the terminal's status (AC-5)", () => {
   });
 
   it("says the server can't be reached when the first read fails, and tries again on a tap", async () => {
-    const answers = [json(503, UNAVAILABLE)];
-    routes(() => answers.shift() ?? json(200, active()));
-    renderTerminal();
+    const answers = [problem(503, "SERVICE_UNAVAILABLE")];
+    routes({ status: () => answers.shift() ?? json(200, active()) });
+    renderStrict({ retry: false });
 
     await tick(0);
-    expect(
-      screen.getByRole("heading", {
-        level: 1,
-        name: new RegExp(en.terminal.offline.title),
-      }),
-    ).toBeInTheDocument();
+    expect(offlineHeading()).toBeInTheDocument();
 
     fireEvent.click(
       screen.getByRole("button", {
@@ -337,10 +240,36 @@ describe("the terminal's status (AC-5)", () => {
     expect(reads()).toHaveLength(2);
   });
 
+  it("says the server can't be reached only once the app's retry policy has tried the first read twice more", async () => {
+    routes({ status: () => problem(503, "SERVICE_UNAVAILABLE") });
+    renderStrict();
+
+    await tick(0);
+    expect(reads().map((r) => r.at)).toEqual([0]);
+    expect(screen.getByRole("status")).toBeInTheDocument();
+    expect(offlineHeading()).toBeNull();
+
+    // TanStack's backoff between tries: 1 s, then 2 s.
+    await tick(1_000 - 1);
+    expect(reads()).toHaveLength(1);
+    await tick(1);
+    expect(reads().map((r) => r.at)).toEqual([0, 1_000]);
+    expect(screen.getByRole("status")).toBeInTheDocument();
+    expect(offlineHeading()).toBeNull();
+
+    await tick(2_000 - 1);
+    expect(reads()).toHaveLength(2);
+    expect(offlineHeading()).toBeNull();
+    await tick(1);
+    expect(reads().map((r) => r.at)).toEqual([0, 1_000, 3_000]);
+    expect(offlineHeading()).toBeInTheDocument();
+    expect(screen.queryByRole("status")).toBeNull();
+  });
+
   it("asks nothing and shows activation when this browser holds no device key", async () => {
     keys.pair = null;
-    routes(() => json(200, active()));
-    renderTerminal();
+    routes();
+    renderStrict();
 
     await tick(0);
     expect(
@@ -355,8 +284,8 @@ describe("the terminal's status (AC-5)", () => {
 
 describe("signing the terminal's calls (AC-2)", () => {
   it("signs the status read for the API's path, not its own route", async () => {
-    routes(() => json(200, active()));
-    renderTerminal();
+    routes();
+    renderStrict();
     await tick(0);
 
     const [read] = reads();
@@ -387,8 +316,8 @@ describe("signing the terminal's calls (AC-2)", () => {
         ],
       }),
     ];
-    routes(() => answers.shift() ?? json(200, active()));
-    renderTerminal();
+    routes({ status: () => answers.shift() ?? json(200, active()) });
+    renderStrict();
     await tick(0);
 
     expect(reads().map((r) => r.headers["X-Device-Timestamp"])).toEqual([

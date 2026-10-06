@@ -1,113 +1,30 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { describe, expect, it } from "vitest";
+import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { resetTerminalClock } from "@/features/terminal/api/client";
-import { TerminalApp } from "@/features/terminal/components/TerminalApp";
 import {
   createDeviceKey,
   publicKeyBase64,
 } from "@/features/terminal/lib/device-key";
-import {
-  EMPTY_BODY_SHA256,
-  canonicalRequest,
-} from "@/features/terminal/lib/signing";
-import type { TerminalStatus } from "@/features/terminal/types";
-import {
-  toTerminalActivation,
-  toTerminalInfo,
-} from "@/lib/api/mappers/terminal";
-import type { components } from "@/lib/api/schema";
 import { P256_SPKI_BASE64 } from "@/lib/api/terminal-schemas";
 import am from "@/lib/i18n/messages/am.json";
 import en from "@/lib/i18n/messages/en.json";
 import { CSRF_HEADER, CSRF_VALUE } from "@/lib/session-cookie";
-import { example, responseExample } from "../contract";
+import {
+  active,
+  asked,
+  json,
+  keys,
+  problem,
+  renderTerminal,
+  routes,
+  setUpTerminalTests,
+  signedFor,
+} from "./terminal";
 
-/** The device key store, in memory: jsdom has no IndexedDB. */
-const keys = vi.hoisted(() => ({
-  pair: null as CryptoKeyPair | null,
-  broken: false,
-}));
-vi.mock("@/features/terminal/lib/device-key", async (importOriginal) => ({
-  ...(await importOriginal<
-    typeof import("@/features/terminal/lib/device-key")
-  >()),
-  deviceKeyStore: {
-    load: async () => keys.pair,
-    save: async (pair: CryptoKeyPair) => {
-      if (keys.broken) throw new DOMException("Blocked", "UnknownError");
-      keys.pair = pair;
-    },
-  },
-}));
-
-const ACTIVATION = toTerminalActivation(
-  responseExample(
-    "/v1/retail/terminals/activate",
-    "post",
-    200,
-  ) as components["schemas"]["TerminalActivation"],
-);
-const ACTIVE: TerminalStatus = {
-  state: "active",
-  terminal: toTerminalInfo(example("/v1/retail/terminal")),
-  rotateDue: false,
-};
-
-let asked: { route: string; init: RequestInit }[] = [];
-
-const json = (status: number, body: unknown, headers = {}) =>
-  Response.json(body, {
-    status,
-    headers: {
-      "Content-Type":
-        status >= 400 ? "application/problem+json" : "application/json",
-      ...headers,
-    },
-  });
-
-/** A Problem as the route handler passes it through from the API. */
-const problem = (status: number, code: string, headers = {}) =>
-  json(
-    status,
-    { type: "about:blank", title: "Refused", status, code },
-    headers,
-  );
-
-/** `/api/terminal/status` answers `status`; `/api/terminal/activate` answers `activation`. */
-function routes({
-  status = (): Response => json(200, ACTIVE),
-  activation = (): Response => json(200, ACTIVATION),
-}: {
-  status?: () => Response;
-  activation?: () => Response;
-} = {}) {
-  vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
-    const route = String(input);
-    asked.push({ route, init: init ?? {} });
-    if (route === "/api/terminal/status") return status();
-    if (route === "/api/terminal/activate") return activation();
-    throw new Error(`unexpected ${route}`);
-  });
-}
+setUpTerminalTests();
 
 const activations = () =>
   asked.filter((a) => a.route === "/api/terminal/activate");
-
-function renderTerminal() {
-  const queryClient = new QueryClient({
-    defaultOptions: {
-      queries: { retry: false, gcTime: Infinity },
-      mutations: { retry: false },
-    },
-  });
-  return render(
-    <QueryClientProvider client={queryClient}>
-      <TerminalApp />
-    </QueryClientProvider>,
-  );
-}
 
 /** Types a code on the activation screen and presses Activate. */
 async function activateWith(code: string) {
@@ -131,15 +48,6 @@ async function expectAlert(english: string, amharic: string) {
   expect(alert).toHaveTextContent(amharic);
 }
 
-beforeEach(() => {
-  asked = [];
-  keys.pair = null;
-  keys.broken = false;
-  resetTerminalClock();
-});
-
-afterEach(() => vi.restoreAllMocks());
-
 describe("activating a terminal (AC-4)", () => {
   it("activates with the code and a new device key, then reads the status and shows the shop", async () => {
     routes();
@@ -159,11 +67,10 @@ describe("activating a terminal (AC-4)", () => {
     // The code as the contract spells it, and the public half of the key the
     // browser now keeps.
     const [sent] = activations();
-    expect(sent.init.method).toBe("POST");
-    const headers = sent.init.headers as Record<string, string>;
-    expect(headers[CSRF_HEADER]).toBe(CSRF_VALUE);
-    expect(headers["Content-Type"]).toBe("application/json");
-    const body = JSON.parse(String(sent.init.body));
+    expect(sent.method).toBe("POST");
+    expect(sent.headers[CSRF_HEADER]).toBe(CSRF_VALUE);
+    expect(sent.headers["Content-Type"]).toBe("application/json");
+    const body = JSON.parse(String(sent.body));
     expect(body).toEqual({
       activationCode: "K7Q2M9XP",
       devicePublicKey: expect.stringMatching(P256_SPKI_BASE64),
@@ -174,30 +81,15 @@ describe("activating a terminal (AC-4)", () => {
 
     // The status that followed was signed with that key (AC-2).
     const read = asked.find((a) => a.route === "/api/terminal/status")!;
-    const readHeaders = read.init.headers as Record<string, string>;
-    expect(
-      await crypto.subtle.verify(
-        { name: "ECDSA", hash: "SHA-256" },
-        keys.pair!.publicKey,
-        Uint8Array.from(atob(readHeaders["X-Device-Signature"]), (c) =>
-          c.charCodeAt(0),
-        ),
-        new TextEncoder().encode(
-          canonicalRequest(
-            "GET",
-            "/v1/retail/terminal",
-            Number(readHeaders["X-Device-Timestamp"]),
-            EMPTY_BODY_SHA256,
-          ),
-        ),
-      ),
-    ).toBe(true);
+    expect(await signedFor(read, "GET", "/v1/retail/terminal")).toBe(true);
   });
 
   it("never shows the form again once activated, even when the status read that follows fails (Q1)", async () => {
     const reads = [problem(503, "SERVICE_UNAVAILABLE")];
-    routes({ status: () => reads.shift() ?? json(200, ACTIVE) });
-    renderTerminal();
+    routes({ status: () => reads.shift() ?? json(200, active()) });
+    // The read fails for good at once; how the client retries it is
+    // TerminalStatus's retry policy test.
+    renderTerminal({ retry: false });
 
     await activateWith("K7Q2M9XP");
     // Activated, but the status can't be read: the server-can't-be-reached
@@ -230,7 +122,7 @@ describe("activating a terminal (AC-4)", () => {
   });
 
   it("says the server couldn't be reached, not the browser, when the activation's answer doesn't parse (S2/Q7)", async () => {
-    routes({ activation: () => json(200, { id: 42 }) });
+    routes({ activate: () => json(200, { id: 42 }) });
     renderTerminal();
     await activateWith("K7Q2M9XP");
     await expectAlert(
@@ -240,7 +132,7 @@ describe("activating a terminal (AC-4)", () => {
   });
 
   it("says the code is wrong when the API answers 404, and keeps it to correct", async () => {
-    routes({ activation: () => problem(404, "NOT_FOUND") });
+    routes({ activate: () => problem(404, "NOT_FOUND") });
     renderTerminal();
 
     const field = await activateWith("K7Q2M9XP");
@@ -255,7 +147,7 @@ describe("activating a terminal (AC-4)", () => {
   });
 
   it("says the code has expired when the API answers 410 RETAIL_ACTIVATION_EXPIRED", async () => {
-    routes({ activation: () => problem(410, "RETAIL_ACTIVATION_EXPIRED") });
+    routes({ activate: () => problem(410, "RETAIL_ACTIVATION_EXPIRED") });
     renderTerminal();
     await activateWith("K7Q2M9XP");
     await expectAlert(
@@ -266,7 +158,7 @@ describe("activating a terminal (AC-4)", () => {
 
   it("says too many tries, with the minutes to wait, on 429", async () => {
     routes({
-      activation: () => problem(429, "RATE_LIMITED", { "Retry-After": "1750" }),
+      activate: () => problem(429, "RATE_LIMITED", { "Retry-After": "1750" }),
     });
     renderTerminal();
     await activateWith("K7Q2M9XP");
@@ -277,7 +169,7 @@ describe("activating a terminal (AC-4)", () => {
   });
 
   it("says too many tries, try later, on a 429 without Retry-After", async () => {
-    routes({ activation: () => problem(429, "RATE_LIMITED") });
+    routes({ activate: () => problem(429, "RATE_LIMITED") });
     renderTerminal();
     await activateWith("K7Q2M9XP");
     await expectAlert(
@@ -320,7 +212,7 @@ describe("activating a terminal (AC-4)", () => {
   });
 
   it("says the server couldn't be reached when activation fails otherwise", async () => {
-    routes({ activation: () => problem(503, "SERVICE_UNAVAILABLE") });
+    routes({ activate: () => problem(503, "SERVICE_UNAVAILABLE") });
     renderTerminal();
     await activateWith("K7Q2M9XP");
     await expectAlert(
