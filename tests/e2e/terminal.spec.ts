@@ -48,9 +48,13 @@ async function typeCode(page: Page, code: string) {
     .click();
 }
 
-/** The kiosk's heading (F8ca), in the tenant's default language: Amharic. */
+/**
+ * The kiosk (F8ca) — the player's home board — once it is up: its board's
+ * heading, named after the first sport (Football, in both languages: the
+ * fixtures' names).
+ */
 const kiosk = (page: Page) =>
-  page.getByRole("heading", { level: 1, name: am.terminal.kiosk.matches });
+  page.getByRole("heading", { level: 2, name: /^Football/ });
 
 /** Activates this browser against Prism, and waits for the kiosk. */
 async function activate(page: Page, baseURL: string | undefined) {
@@ -493,26 +497,23 @@ for (const [device, viewport] of Object.entries({
 /** A price's accessible name: "Arsenal – Chelsea: Draw 3.40", maybe "…, odds rising". */
 const PRICE = /: .+ \d+\.\d{2}(,|$)/;
 
-/** Every visible button's height under the kiosk's own elements, in px. */
-const buttonHeights = (page: Page) =>
-  page.evaluate(() =>
-    [
-      ...document.querySelectorAll(
-        "header button, main button, aside button, body > div button",
-      ),
-    ]
-      .filter((button) => (button as HTMLElement).offsetParent !== null)
-      .map((button) => ({
-        name: button.getAttribute("aria-label") ?? button.textContent ?? "",
-        height: button.getBoundingClientRect().height,
-      })),
-  );
+/** Answers the kiosk's board as the route handler would: `body`, with `status`. */
+const boardAnswers =
+  (body: unknown, status = 200) =>
+  (route: Route) =>
+    route.fulfill({
+      status,
+      contentType:
+        status >= 400 ? "application/problem+json" : "application/json",
+      json: body,
+    });
 
 /**
- * The kiosk (F8ca) against the dev server's catalogue — Prism's three matches,
- * or the simulated board when `NEXT_PUBLIC_REALTIME=simulate`, whose prices
- * move — so prices are found by their label's shape, as the player's screens
- * find them, in each language at each width.
+ * The kiosk (F8ca): the player's home, league and match pages in the kiosk's
+ * chrome, against the dev server's catalogue — Prism's, or the simulated board
+ * under `NEXT_PUBLIC_REALTIME=simulate`, whose prices move — so prices are
+ * found by their label's shape, as the player's screens find them. Each
+ * screen in each language at each width.
  */
 for (const [device, viewport] of Object.entries({
   phone: { width: 375, height: 812 },
@@ -536,76 +537,125 @@ for (const [device, viewport] of Object.entries({
         await page.unrouteAll({ behavior: "ignoreErrors" });
       });
 
-      /** Activated, in this describe's language, at the board. */
+      /** Activated, in this describe's language, at the home board. */
       async function open(page: Page, baseURL: string | undefined) {
         await activate(page, baseURL);
         if (lang === "en") {
-          await page.getByRole("button", { name: "English" }).click();
+          await page.getByRole("button", { name: "EN", exact: true }).click();
         }
-        await expect(
-          page.getByRole("heading", {
-            level: 1,
-            name: t.terminal.kiosk.matches,
-          }),
-        ).toBeVisible();
-        expect(await page.evaluate(() => document.documentElement.lang)).toBe(
-          lang,
-        );
+        await expect
+          .poll(() => page.evaluate(() => document.documentElement.lang))
+          .toBe(lang);
+        await expect(price(page)).toBeVisible();
       }
 
-      /** The first open price of the `n`th match on the board. */
-      const price = (page: Page, n: number) =>
-        page
-          .locator("main li")
-          .nth(n)
-          .getByRole("button", { name: PRICE, disabled: false })
-          .first();
+      /** Reloaded: the kiosk keeps no language, so this describe's is chosen again. */
+      async function reload(page: Page) {
+        await page.reload();
+        await expect(kiosk(page)).toBeVisible();
+        if (lang === "en") {
+          await page.getByRole("button", { name: "EN", exact: true }).click();
+        }
+      }
 
-      test("kiosk-board: the sports, the days and the matches with their prices (AC-1, AC-3)", async ({
+      /** The first open price on the page. */
+      const price = (page: Page, n = 0) =>
+        page
+          .locator("main")
+          .getByRole("button", { name: PRICE, disabled: false })
+          .nth(n);
+
+      test("kiosk-board: the player's home, without anything that needs a player (AC-1, AC-3)", async ({
         page,
         baseURL,
       }) => {
         await open(page, baseURL);
         await expect(
-          page.getByRole("navigation", { name: t.nav.sports }),
+          page.getByRole("button", { name: t.board.filters.top }),
         ).toBeVisible();
-        await expect(
-          page.getByRole("group", { name: t.terminal.kiosk.days }),
-        ).toBeVisible();
-        await expect(price(page, 0)).toBeVisible();
-        expect(
-          await page.getByRole("heading", { level: 2 }).count(),
-        ).toBeGreaterThan(0);
-        expect(
-          await page.getByRole("button", { name: PRICE }).count(),
-        ).toBeGreaterThanOrEqual(3);
+        for (const name of [
+          t.header.login,
+          t.header.register,
+          t.nav.myBets,
+          t.nav.wallet,
+          t.header.responsibleGaming,
+        ]) {
+          await expect(page.getByRole("button", { name })).toHaveCount(0);
+          await expect(page.getByRole("link", { name })).toHaveCount(0);
+        }
+        await expect(page.getByText(t.sidebar.favourites)).toHaveCount(0);
         await shoot(page, `kiosk-board-${lang}`, device, errors);
       });
 
-      test("kiosk-picks: picks in the slip, and every price, tab and button at least 48 px high (AC-2)", async ({
+      test("kiosk-picks: two picks in the player's slip (AC-2)", async ({
         page,
         baseURL,
       }) => {
         await open(page, baseURL);
         await price(page, 0).click();
-        await price(page, 1).click();
-
-        const heights = await buttonHeights(page);
-        expect(heights.length).toBeGreaterThan(10);
-        expect(heights.filter((button) => button.height < 48)).toEqual([]);
-
+        await price(page, 3).click();
         if (device === "phone") {
           await page
             .getByRole("button", { name: t.nav.slipAria.replace("{n}", "2") })
             .click();
         }
-        const slip = page.getByRole("complementary", { name: t.betSlip.title });
-        await expect(slip).toBeVisible();
-        await expect(slip.getByRole("listitem")).toHaveCount(2);
-        const slipHeights = await buttonHeights(page);
-        expect(slipHeights.filter((button) => button.height < 48)).toEqual([]);
+        await expect(
+          page.getByRole("button", { name: t.betSlip.clearAll }).first(),
+        ).toBeVisible();
         await shoot(page, `kiosk-picks-${lang}`, device, errors);
       });
+
+      test("kiosk-league: a league's page, from the kiosk's own address (AC-6)", async ({
+        page,
+        baseURL,
+      }) => {
+        // A league the board has (Prism's ids, or the simulated board's).
+        const answered = page.waitForResponse(BOARD);
+        await open(page, baseURL);
+        const [section] = await (await answered).json();
+        const path = `/terminal/competition/${encodeURIComponent(section.competition.id)}`;
+        await page.goto(terminalUrl(baseURL, path));
+        await expect(
+          kiosk(page).or(page.locator("main h2").first()),
+        ).toBeVisible();
+        if (lang === "en") {
+          await page.getByRole("button", { name: "EN", exact: true }).click();
+        }
+        await expect(price(page)).toBeVisible();
+        expect(new URL(page.url()).pathname).toBe(path);
+        await shoot(page, `kiosk-league-${lang}`, device, errors);
+      });
+
+      test("kiosk-match: a match's whole book, from its row's More (AC-7)", async ({
+        page,
+        baseURL,
+      }) => {
+        await open(page, baseURL);
+        await page
+          .locator("main")
+          .getByRole("link", { name: /\d/ })
+          .filter({ hasText: "+" })
+          .first()
+          .click();
+        await expect(page).toHaveURL(/\/terminal\/event\//);
+        await expect(price(page)).toBeVisible();
+        await shoot(page, `kiosk-match-${lang}`, device, errors);
+      });
+
+      if (device === "desktop") {
+        // The player's search shows from xl up; so does the kiosk's.
+        test("kiosk-search: the header's search, through the terminal (AC-8)", async ({
+          page,
+          baseURL,
+        }) => {
+          await open(page, baseURL);
+          await page
+            .getByRole("combobox", { name: t.header.search })
+            .fill("ars");
+          await expect(page.getByRole("option").first()).toBeVisible();
+          await shoot(page, `kiosk-search-${lang}`, device, errors);
+        });
+      }
 
       test("kiosk-loading: the board's rows to come", async ({
         page,
@@ -613,36 +663,23 @@ for (const [device, viewport] of Object.entries({
       }) => {
         await open(page, baseURL);
         await page.route(BOARD, () => undefined);
-        const day = page
-          .getByRole("group", { name: t.terminal.kiosk.days })
-          .getByRole("button")
-          .nth(1);
-        await day.click();
-        // The tapped day is the one shown, its rows to come, and nothing of
-        // the board before it (review U1).
-        await expect(day).toHaveAttribute("aria-pressed", "true");
-        await expect(page.locator("main [aria-busy=true]")).toBeVisible();
+        await reload(page);
         await expect(
           page.locator("main").getByRole("button", { name: PRICE }),
         ).toHaveCount(0);
         await shoot(page, `kiosk-loading-${lang}`, device, errors);
       });
 
-      test("kiosk-empty: no matches on a day, and the way back (AC-1)", async ({
+      test("kiosk-empty: no matches, and the way back (AC-1)", async ({
         page,
         baseURL,
       }) => {
         await open(page, baseURL);
-        await page.route(BOARD, (route) => route.fulfill({ json: [] }));
-        await page
-          .getByRole("group", { name: t.terminal.kiosk.days })
-          .getByRole("button")
-          .nth(2)
-          .click();
+        await page.route(BOARD, boardAnswers([]));
+        await reload(page);
         await expect(page.getByText(t.board.empty.title)).toBeVisible();
-        // A later day: the way back is to today, same sport.
         await expect(
-          page.getByRole("button", { name: t.terminal.kiosk.backToToday }),
+          page.getByRole("button", { name: t.board.empty.action }),
         ).toBeVisible();
         await shoot(page, `kiosk-empty-${lang}`, device, errors);
       });
@@ -652,23 +689,19 @@ for (const [device, viewport] of Object.entries({
         baseURL,
       }) => {
         await open(page, baseURL);
-        await page.route(BOARD, (route) =>
-          route.fulfill({
-            status: 503,
-            contentType: "application/problem+json",
-            json: {
+        await page.route(
+          BOARD,
+          boardAnswers(
+            {
               type: "about:blank",
               title: "The sportsbook API could not be reached",
               status: 503,
               code: "SERVICE_UNAVAILABLE",
             },
-          }),
+            503,
+          ),
         );
-        await page
-          .getByRole("group", { name: t.terminal.kiosk.days })
-          .getByRole("button")
-          .nth(1)
-          .click();
+        await reload(page);
         await expect(page.getByText(t.board.error.title)).toBeVisible({
           timeout: 15_000,
         });

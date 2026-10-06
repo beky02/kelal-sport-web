@@ -682,16 +682,33 @@ describe("the terminal cookie", () => {
 /** The kiosk's reads (F8ca), with the cookie helpers of the routes above. */
 async function loadReads() {
   const mod = await load();
-  const [config, sports, board] = await Promise.all([
-    import("@/app/api/terminal/config/route"),
-    import("@/app/api/terminal/catalogue/sports/route"),
-    import("@/app/api/terminal/catalogue/board/route"),
-  ]);
+  const [config, sports, board, top, countries, event, search] =
+    await Promise.all([
+      import("@/app/api/terminal/config/route"),
+      import("@/app/api/terminal/catalogue/sports/route"),
+      import("@/app/api/terminal/catalogue/board/route"),
+      import("@/app/api/terminal/catalogue/competitions/top/route"),
+      import("@/app/api/terminal/catalogue/competitions/countries/route"),
+      import("@/app/api/terminal/catalogue/events/[id]/route"),
+      import("@/app/api/terminal/catalogue/search/route"),
+    ]);
   return {
     ...mod,
     config: config.GET,
     sports: sports.GET,
     board: board.GET,
+    top: top.GET,
+    countries: countries.GET,
+    search: search.GET,
+    /** The match route, called as Next calls it: with its id. */
+    event: (request: Request) =>
+      event.GET(request, {
+        params: Promise.resolve({
+          id: decodeURIComponent(
+            new URL(request.url).pathname.split("/").at(-1)!,
+          ),
+        }),
+      }),
   };
 }
 type Reads = Awaited<ReturnType<typeof loadReads>>;
@@ -708,7 +725,12 @@ function catalogueAnswers() {
         return { status: 200, body: example("/v1/events") };
       case "/v1/config/public":
         return { status: 200, body: example("/v1/config/public") };
+      case "/v1/search":
+        return { status: 200, body: example("/v1/search") };
       default:
+        if (path(request).startsWith("/v1/events/")) {
+          return { status: 200, body: example("/v1/events/{id}") };
+        }
         return { status: 404, body: { code: "NOT_FOUND" } };
     }
   });
@@ -726,7 +748,14 @@ const READS = (mod: Reads) =>
     [mod.config, "/api/terminal/config"],
     [mod.sports, "/api/terminal/catalogue/sports"],
     [mod.board, "/api/terminal/catalogue/board?sport=s_football"],
+    [mod.top, "/api/terminal/catalogue/competitions/top"],
+    [mod.countries, "/api/terminal/catalogue/competitions/countries"],
+    [mod.event, `/api/terminal/catalogue/events/${EVENT_ID}`],
+    [mod.search, "/api/terminal/catalogue/search?q=saint"],
   ] as const;
+
+/** The contract's match: the one `/v1/events/{id}`'s example describes. */
+const EVENT_ID = example("/v1/events/{id}").id;
 
 describe("the kiosk's reads (F8ca AC-1, AC-5)", () => {
   it("answers the kiosk's reads only on a terminal host (AC-5)", async () => {
@@ -829,7 +858,7 @@ describe("the kiosk's reads (F8ca AC-1, AC-5)", () => {
       ["sport=s_football&date=2026-10-07T00:00", "date"],
       ["sport=s_football&filter=live", "filter"],
       ["sport=s_football&live=1", "live"],
-      ["sport=s_football&competition=t_epl", "competition"],
+      ["sport=s_football&competition=t_epl%2F..", "competition"],
       ["sport=s_football&sport=s_tennis", "sport"],
       // A date that is the right shape but not a day (review SEC3).
       ["sport=s_football&date=2026-02-30", "date"],
@@ -904,6 +933,144 @@ describe("the kiosk's reads (F8ca AC-1, AC-5)", () => {
     // A competition left with nothing to sell is not shown either.
     for (const section of board)
       expect(section.events.length).toBeGreaterThan(0);
+  });
+
+  it("reads one competition's board, for its page (AC-6)", async () => {
+    const mod = await loadReads();
+    catalogueAnswers();
+    const response = await read(
+      mod.board,
+      "/api/terminal/catalogue/board?sport=s_football&competition=t_epl",
+      withCookie(mod, terminal()),
+    );
+    expect(response.status).toBe(200);
+    for (const request of sent.filter((r) => path(r) === "/v1/events")) {
+      expect(new URL(request.url).searchParams.get("tournament")).toBe("t_epl");
+    }
+  });
+
+  it("reads the top competitions and the countries for a terminal's sidebar (AC-6)", async () => {
+    const mod = await loadReads();
+    catalogueAnswers();
+    for (const [route, url] of [
+      [mod.top, "/api/terminal/catalogue/competitions/top"],
+      [mod.countries, "/api/terminal/catalogue/competitions/countries"],
+    ] as const) {
+      const response = await read(route, url, withCookie(mod, terminal()));
+      expect(response.status, url).toBe(200);
+      expect(response.headers.get("cache-control")).toBe("no-store");
+      expect((await response.json()).length, url).toBeGreaterThan(0);
+    }
+    for (const request of sent) {
+      expect(request.headers.get("authorization")).toBeNull();
+    }
+  });
+
+  it("reads a match's whole book for a terminal, and nothing of a match in play (AC-7)", async () => {
+    const mod = await loadReads();
+    catalogueAnswers();
+    const response = await read(
+      mod.event,
+      `/api/terminal/catalogue/events/${EVENT_ID}`,
+      withCookie(mod, terminal()),
+    );
+    expect(response.status).toBe(200);
+    const detail = await response.json();
+    expect(detail.event.id).toBe(EVENT_ID);
+    expect(detail.markets.length).toBeGreaterThan(0);
+    expect(
+      sent.some((request) => path(request) === `/v1/events/${EVENT_ID}`),
+    ).toBe(true);
+
+    // In play: the kiosk sells before kick-off only (D8), so there is no book.
+    sent = [];
+    upstreamAnswers((request) =>
+      path(request) === "/v1/dictionary"
+        ? { status: 200, body: example("/v1/dictionary") }
+        : {
+            status: 200,
+            body: { ...example("/v1/events/{id}"), status: "live" },
+          },
+    );
+    const live = await read(
+      mod.event,
+      `/api/terminal/catalogue/events/${EVENT_ID}`,
+      withCookie(mod, terminal()),
+    );
+    expect(live.status).toBe(200);
+    expect(await live.json()).toBeNull();
+  });
+
+  it("refuses a match id or a search it can't send upstream, before calling the API", async () => {
+    const mod = await loadReads();
+    catalogueAnswers();
+    for (const [route, url, field] of [
+      [mod.event, "/api/terminal/catalogue/events/a%2Fb", "id"],
+      [mod.event, `/api/terminal/catalogue/events/${"x".repeat(65)}`, "id"],
+      [mod.event, `/api/terminal/catalogue/events/${EVENT_ID}?live=1`, "live"],
+      [mod.search, `/api/terminal/catalogue/search?q=${"a".repeat(65)}`, "q"],
+      [mod.search, "/api/terminal/catalogue/search?q=a&q=b", "q"],
+      [mod.search, "/api/terminal/catalogue/search?q=a&lite=0", "lite"],
+    ] as const) {
+      const response = await read(route, url, withCookie(mod, terminal()));
+      expect(response.status, url).toBe(400);
+      expect((await response.json()).errors, url).toEqual([
+        expect.objectContaining({ field }),
+      ]);
+    }
+    expect(sent).toHaveLength(0);
+  });
+
+  it("searches for a terminal, before kick-off only (AC-8)", async () => {
+    const mod = await loadReads();
+    const results = example("/v1/search");
+    upstreamAnswers((request) => {
+      switch (path(request)) {
+        case "/v1/dictionary":
+          return { status: 200, body: example("/v1/dictionary") };
+        case "/v1/sports":
+          return { status: 200, body: example("/v1/sports") };
+        case "/v1/search":
+          return {
+            status: 200,
+            body: {
+              ...results,
+              // The contract's match in play, and a copy of it before kick-off.
+              events: [
+                { ...results.events[0], status: "live" },
+                { ...results.events[0], id: "fx_before_kickoff" },
+              ],
+            },
+          };
+        default:
+          return { status: 404, body: { code: "NOT_FOUND" } };
+      }
+    });
+    const response = await read(
+      mod.search,
+      "/api/terminal/catalogue/search?q=saint",
+      withCookie(mod, terminal()),
+    );
+    expect(response.status).toBe(200);
+    const found = await response.json();
+    expect(
+      found.events.map((row: { event: { id: string } }) => row.event.id),
+    ).toEqual(["fx_before_kickoff"]);
+    expect(
+      new URL(sent.find((r) => path(r) === "/v1/search")!.url).searchParams.get(
+        "q",
+      ),
+    ).toBe("saint");
+
+    // Nothing typed: nothing asked.
+    sent = [];
+    const empty = await read(
+      mod.search,
+      "/api/terminal/catalogue/search?q=%20",
+      withCookie(mod, terminal()),
+    );
+    expect(await empty.json()).toEqual({ leagues: [], events: [] });
+    expect(sent.filter((r) => path(r) === "/v1/search")).toHaveLength(0);
   });
 
   it("reads the kiosk's config for a terminal: retail, the languages, the default (AC-3, AC-4)", async () => {

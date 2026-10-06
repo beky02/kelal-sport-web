@@ -2,8 +2,7 @@ import { Lock } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import type { OddsMovement } from "@/features/markets/types";
 
-/** `lg` is the shop kiosk's: 56 px, read from a step away (F8ca). */
-export type OddsButtonSize = "sm" | "md" | "lg";
+export type OddsButtonSize = "sm" | "md";
 
 export interface OddsButtonViewProps {
   /** Formatted price. Null renders the suspended state. */
@@ -46,12 +45,10 @@ export function OddsButtonView({
       aria-label={ariaLabel}
       className={cn(
         "font-body numeric relative flex w-full cursor-pointer items-center rounded-sm leading-none font-bold",
-        size === "sm" && "h-9 text-[13px]",
-        size === "md" && "h-11 text-sm",
-        size === "lg" && "h-14 text-lg",
-        // A lock alone is centred, label or not (review U4).
+        size === "sm" ? "h-9 text-[13px]" : "h-11 text-sm",
+        // A lock alone is centred, label or not (F8ca review U4).
         label && !suspended
-          ? cn("justify-between gap-1.5", size === "lg" ? "px-4" : "px-2.5")
+          ? "justify-between gap-1.5 px-2.5"
           : "justify-center",
 
         suspended
@@ -66,14 +63,13 @@ export function OddsButtonView({
       )}
     >
       {suspended ? (
-        <Lock size={size === "lg" ? 18 : 13} strokeWidth={1.5} aria-hidden />
+        <Lock size={13} strokeWidth={1.5} aria-hidden />
       ) : (
         <>
           {label && (
             <span
               className={cn(
-                "truncate font-medium",
-                size === "lg" ? "text-sm" : "text-xs",
+                "truncate text-xs font-medium",
                 selected ? "text-on-accent" : "text-muted",
               )}
             >

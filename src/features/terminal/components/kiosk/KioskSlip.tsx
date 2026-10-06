@@ -1,118 +1,90 @@
 "use client";
 
-import { ArrowLeft, Lock, Ticket, X } from "lucide-react";
+import { useMemo, useState } from "react";
+import { Ticket } from "lucide-react";
+import { Sheet } from "@/components/ui/Sheet";
+import { BetSelectionRow } from "@/features/bet-slip/components/BetSelectionRow";
+import { BetSlipHeader } from "@/features/bet-slip/components/BetSlipHeader";
+import { EmptySlip } from "@/features/bet-slip/components/EmptySlip";
 import { useBetSlipStore } from "@/features/bet-slip/stores/bet-slip.store";
-import type { BetSelection } from "@/features/bet-slip/types";
 import { useTranslation } from "@/lib/i18n/use-translation";
 
 /**
- * The kiosk's slip (F8ca): the picks, each removable, and Clear all. No
- * stake, no figure and no button to bet yet: F8cb prices it with the shop's
- * rule set, F8cc turns it into a code for the counter. The store is the
- * player's slip store, unchanged.
+ * The kiosk's slip (F8ca), from the player's slip parts: its header with
+ * Clear all, its empty state, and a row per pick (match, market, pick, the
+ * odds when tapped; two picks of one match marked). No stake, figure or
+ * button to bet yet: F8cb prices it with the shop's rule set, F8cc turns it
+ * into a code for the counter. The store is the player's slip store.
  */
-export function KioskSlip({
-  titleId,
-  headingRef,
-  onBack,
-}: {
-  titleId: string;
-  /** Where focus goes when the slip opens as a view of its own. */
-  headingRef: React.Ref<HTMLHeadingElement>;
-  /** Back to the board, below `lg` where the slip is a view of its own. */
-  onBack: () => void;
-}) {
-  const t = useTranslation();
+export function KioskSlip({ onClose }: { onClose?: () => void }) {
   const selections = useBetSlipStore((s) => s.selections);
-  const clear = useBetSlipStore((s) => s.clear);
+  // Two picks of one match can't share a multiple (the slip's default mode).
+  const conflicts = useMemo(() => {
+    const seen = new Map<string, number>();
+    for (const s of selections) {
+      seen.set(s.eventId, (seen.get(s.eventId) ?? 0) + 1);
+    }
+    return new Set([...seen].filter(([, n]) => n > 1).map(([id]) => id));
+  }, [selections]);
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
-      <div className="border-divider flex min-h-16 items-center gap-3 border-b px-4">
-        <button
-          type="button"
-          onClick={onBack}
-          className="text-text -ml-2 grid size-12 cursor-pointer place-items-center rounded-md lg:hidden"
-          aria-label={t.t("terminal.kiosk.backToMatches")}
-        >
-          <ArrowLeft className="size-6" aria-hidden />
-        </button>
-        <h2
-          id={titleId}
-          ref={headingRef}
-          tabIndex={-1}
-          className="text-xl font-bold"
-        >
-          {t.t("betSlip.title")}
-        </h2>
-        {selections.length > 0 && (
-          <button
-            type="button"
-            onClick={clear}
-            className="bg-raised border-divider text-text ml-auto min-h-12 cursor-pointer rounded-md border px-4 text-base font-bold hover:brightness-125"
-          >
-            {t.t("betSlip.clearAll")}
-          </button>
-        )}
-      </div>
-
+    <div className="flex flex-col pb-3">
+      <BetSlipHeader count={selections.length} onClose={onClose} />
       {selections.length === 0 ? (
-        <div className="flex flex-1 flex-col items-center justify-center gap-2 px-6 py-12 text-center">
-          <Ticket className="text-muted size-10" aria-hidden />
-          <p className="text-lg font-bold">{t.t("betSlip.emptyTitle")}</p>
-          <p className="text-muted text-base">{t.t("betSlip.emptyBody")}</p>
-        </div>
+        <EmptySlip />
       ) : (
-        <ul className="flex-1 overflow-y-auto">
-          {selections.map((selection) => (
-            <KioskPick key={selection.outcomeId} selection={selection} />
+        <div className="bg-surface mx-3 overflow-hidden rounded-lg">
+          {selections.map((selection, index) => (
+            <BetSelectionRow
+              key={selection.outcomeId}
+              selection={selection}
+              first={index === 0}
+              conflict={conflicts.has(selection.eventId)}
+              pending={false}
+            />
           ))}
-        </ul>
+        </div>
       )}
     </div>
   );
 }
 
 /**
- * One pick: the match, the market and the pick, at the price it had when it
- * was tapped. Nothing on the kiosk moves a pick's price after that (realtime
- * is off, and nothing places from it yet); F8cb decides where a priced slip's
- * odds come from (review M2).
+ * Below `xl`, where the slip has no column of its own: a bar that counts the
+ * picks and opens it as a sheet, as on the player's site (`MobileBetSlip`).
  */
-function KioskPick({ selection }: { selection: BetSelection }) {
+export function KioskMobileSlip() {
   const t = useTranslation();
-  const remove = useBetSlipStore((s) => s.removeSelection);
-  const pick = t.pick(selection.outcomeName);
+  const count = useBetSlipStore((s) => s.selections.length);
+  const [open, setOpen] = useState(false);
 
   return (
-    <li className="border-divider flex items-center gap-3 border-b px-4 py-3">
-      <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-        <span className="text-muted truncate text-sm">
-          {t.pick(selection.eventName)}
-        </span>
-        <span className="text-base font-bold">{pick}</span>
-        <span className="text-muted truncate text-sm">
-          {t.pick(selection.marketName)}
-        </span>
-      </div>
-      {selection.suspended ? (
-        <span className="text-muted flex items-center gap-1 text-sm font-bold">
-          <Lock className="size-4" aria-hidden />
-          {t.t("betSlip.suspended")}
-        </span>
-      ) : (
-        <span className="numeric text-lg font-extrabold">
-          {t.odds(selection.currentOdds)}
-        </span>
+    <>
+      {/* As the player's: shown once there is something in the slip. */}
+      {count > 0 && !open && (
+        <div className="pointer-events-none fixed inset-x-0 bottom-0 z-30 flex justify-center p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] xl:hidden">
+          <button
+            type="button"
+            onClick={() => setOpen(true)}
+            aria-label={t.t("nav.slipAria", { n: count })}
+            className="bg-accent text-on-accent font-body pointer-events-auto flex h-12 cursor-pointer items-center gap-2.5 rounded-full px-5 text-sm font-bold shadow-[0_8px_24px_rgb(0_0_0/0.35)]"
+          >
+            <Ticket size={17} strokeWidth={1.5} aria-hidden />
+            {t.t("betSlip.title")}
+            <span className="bg-on-accent/20 grid size-[22px] place-items-center rounded-full text-xs font-extrabold">
+              {count}
+            </span>
+          </button>
+        </div>
       )}
-      <button
-        type="button"
-        onClick={() => remove(selection.outcomeId)}
-        aria-label={t.t("betSlip.remove", { pick })}
-        className="border-divider text-muted hover:text-text grid size-12 shrink-0 cursor-pointer place-items-center rounded-md border"
+      <Sheet
+        open={open}
+        onOpenChange={setOpen}
+        title={t.t("betSlip.title")}
+        className="xl:hidden"
       >
-        <X className="size-6" aria-hidden />
-      </button>
-    </li>
+        <KioskSlip onClose={() => setOpen(false)} />
+      </Sheet>
+    </>
   );
 }

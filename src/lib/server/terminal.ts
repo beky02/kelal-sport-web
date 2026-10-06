@@ -6,7 +6,13 @@ import {
   DEVICE_TIMESTAMP,
   TERMINAL_CALLS,
 } from "@/features/terminal/lib/calls";
-import type { BoardSection, EventFilters } from "@/features/events/types";
+import type {
+  BoardSection,
+  EventDetail,
+  EventFilters,
+  SportEvent,
+} from "@/features/events/types";
+import type { SearchResults } from "@/features/search/types";
 import type {
   ActivationForm,
   TerminalActivation,
@@ -250,6 +256,10 @@ export async function rotateTerminalToken(
  * parameter no pattern; this guard keeps anything else from an upstream URL.
  */
 const SPORT = /^s_[A-Za-z0-9_.-]{1,64}$/;
+/** A competition or a match: an opaque id (D3) of URL-safe characters. */
+const ID = /^[A-Za-z0-9_.:-]{1,64}$/;
+/** What a search may be: the length a person types, and no more. */
+const SEARCH_MAX = 64;
 const DATE = /^(\d{4})-(\d{2})-(\d{2})$/;
 /** A plain parameter name, safe to name back in `errors[].field`. */
 const NAME = /^[a-z_]{1,32}$/;
@@ -260,8 +270,11 @@ const FILTERS = [
 ] as const satisfies readonly NonNullable<EventFilters["filter"]>[];
 type BoardFilter = (typeof FILTERS)[number];
 
-/** What the kiosk may ask its board for: a sport, and optionally a day and an order. */
-const KNOWN = new Set(["sport", "date", "filter"]);
+/**
+ * What the kiosk may ask its board for: a sport, and optionally a day, an
+ * order and a competition (its page, F8ca review).
+ */
+const KNOWN = new Set(["sport", "date", "filter", "competition"]);
 
 /** A day that exists: `2026-02-30` has the shape and not the day (review SEC3). */
 function isDay(date: string): boolean {
@@ -299,11 +312,51 @@ export function boardQuery(
   if (filter !== null && !FILTERS.includes(filter as BoardFilter)) {
     return { field: "filter", code: "FORMAT" };
   }
+  const competition = params.get("competition");
+  if (competition !== null && !ID.test(competition)) {
+    return { field: "competition", code: "FORMAT" };
+  }
   return {
     sportId: sport,
+    competitionId: competition ?? undefined,
     date: date ?? undefined,
     filter: (filter as BoardFilter | null) ?? undefined,
   };
+}
+
+/** The first parameter that isn't one of `known`, or one given twice. */
+function strayParameter(
+  params: URLSearchParams,
+  known: ReadonlySet<string>,
+): { field: string; code: string } | null {
+  for (const key of params.keys()) {
+    if (!known.has(key)) {
+      return { field: NAME.test(key) ? key : "query", code: "UNKNOWN" };
+    }
+    if (params.getAll(key).length > 1) return { field: key, code: "FORMAT" };
+  }
+  return null;
+}
+
+/** A match's id from its route, checked before it is put in an upstream path. */
+export function eventQuery(
+  id: string,
+  params: URLSearchParams,
+): { id: string } | { field: string; code: string } {
+  return (
+    strayParameter(params, new Set()) ??
+    (ID.test(id) ? { id } : { field: "id", code: "FORMAT" })
+  );
+}
+
+/** A search, trimmed; too long, or anything beside it, is refused. */
+export function searchQuery(
+  params: URLSearchParams,
+): { q: string } | { field: string; code: string } {
+  const stray = strayParameter(params, new Set(["q"]));
+  if (stray) return stray;
+  const q = (params.get("q") ?? "").trim();
+  return q.length > SEARCH_MAX ? { field: "q", code: "MAX" } : { q };
 }
 
 /**
@@ -312,17 +365,29 @@ export function boardQuery(
  * match — which only the simulated board lists today — is left off, and so is
  * a competition left with nothing (review U3).
  */
+/** Before kick-off: what a shop sells (D8). */
+const beforeKickOff = (event: SportEvent) =>
+  event.status === "scheduled" || event.status === "starting_soon";
+
 export function preMatchBoard(sections: BoardSection[]): BoardSection[] {
   return sections
     .map((section) => {
-      const events = section.events.filter(
-        (row) =>
-          row.event.status === "scheduled" ||
-          row.event.status === "starting_soon",
-      );
+      const events = section.events.filter((row) => beforeKickOff(row.event));
       return events.length === section.events.length
         ? section
         : { ...section, events };
     })
     .filter((section) => section.events.length > 0);
 }
+
+/** A match's book on the kiosk: only before kick-off; otherwise there is none to show. */
+export const preMatchEvent = (
+  detail: EventDetail | null,
+): EventDetail | null =>
+  detail && beforeKickOff(detail.event) ? detail : null;
+
+/** Search results on the kiosk: matches before kick-off only. */
+export const preMatchSearch = (results: SearchResults): SearchResults => ({
+  ...results,
+  events: results.events.filter((row) => beforeKickOff(row.event)),
+});

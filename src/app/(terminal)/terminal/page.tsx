@@ -1,18 +1,16 @@
 import { Suspense } from "react";
-import { TerminalApp } from "@/features/terminal/components/TerminalApp";
-import { TerminalLoading } from "@/features/terminal/components/TerminalScreens";
+import { BoardSkeleton } from "@/features/sportsbook/components/BoardSkeleton";
+import { SportsbookView } from "@/features/sportsbook/components/SportsbookView";
 
 /**
- * The shop terminal (F8b; `/` on a terminal host). Static: what the terminal
- * is depends on this PC's device key and cookie, so it is decided in the
- * browser after the first paint (C18 §5, client-rendered). The kiosk keeps
- * its board filters in the URL (F8ca), so the app sits in a `<Suspense>` for
- * `useSearchParams`, as the player's home does.
+ * The kiosk's home (F8ca; `/` on a terminal host): the player's sportsbook
+ * page, in the kiosk's chrome. Its filters are in the URL, so it sits in a
+ * `<Suspense>` for `useSearchParams`, as the player's home does.
  */
-export default function TerminalPage() {
+export default function TerminalHomePage() {
   return (
-    <Suspense fallback={<TerminalLoading />}>
-      <TerminalApp />
+    <Suspense fallback={<BoardSkeleton />}>
+      <SportsbookView />
     </Suspense>
   );
 }

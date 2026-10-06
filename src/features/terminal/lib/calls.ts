@@ -33,16 +33,14 @@ export const TERMINAL_CALLS = {
 export type TerminalCall = (typeof TERMINAL_CALLS)[keyof typeof TERMINAL_CALLS];
 
 /**
- * The kiosk's reads (F8ca): unsigned GETs of this app's routes, each of which
- * composes several API calls (the board is `/v1/events` in two languages and
- * `/v1/dictionary`), read anonymously as the contract allows (F8ca decision
- * 2), so there is no single API call to sign. The routes still insist on an
- * activated terminal's cookie.
+ * The kiosk's own reads (F8ca): unsigned GETs of this app's routes, read
+ * anonymously as the contract allows (F8ca decision 2), so there is no API
+ * call to sign; the routes still insist on an activated terminal's cookie.
+ * The catalogue's — `/api/terminal/catalogue/*` — are made by the player's
+ * fetchers (`<html data-api>`).
  */
 export const TERMINAL_READS = {
   config: "/api/terminal/config",
-  sports: "/api/terminal/catalogue/sports",
-  board: "/api/terminal/catalogue/board",
 } as const;
 
 export type TerminalRead = (typeof TERMINAL_READS)[keyof typeof TERMINAL_READS];

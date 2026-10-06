@@ -2,6 +2,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { notifyManager } from "@tanstack/react-query";
+import { CompetitionView } from "@/features/competitions/components/CompetitionView";
+import { EventDetailView } from "@/features/events/components/EventDetailView";
 import { createDeviceKey } from "@/features/terminal/lib/device-key";
 import { formatOdds } from "@/lib/i18n/format";
 import am from "@/lib/i18n/messages/am.json";
@@ -10,9 +12,12 @@ import { terminalKeys } from "@/lib/query/keys";
 import { address } from "./navigation";
 import {
   BOARD,
+  EVENT,
   KIOSK_CONFIG,
+  SEARCH,
   SPORTS,
   TERMINAL,
+  TOP_COMPETITIONS,
   active,
   asked,
   json,
@@ -37,7 +42,7 @@ const TODAY = "2026-10-04";
 const TOMORROW = "2026-10-05";
 
 // An activated PC: its device key is here, so the status is read. Only the
-// date is fake here; the midnight test below fakes the timers too.
+// date is fake here; the timed tests below fake the timers too.
 beforeEach(async () => {
   keys.pair = await createDeviceKey();
   vi.useFakeTimers({ now: NOW, toFake: ["Date"] });
@@ -48,146 +53,145 @@ afterEach(() => {
   notifyManager.setScheduler((cb) => setTimeout(cb, 0));
 });
 
-const boardReads = () =>
-  asked.filter((a) => a.route.startsWith("/api/terminal/catalogue/board"));
-const lastBoardQuery = () =>
-  new URL(boardReads().at(-1)!.route, "http://terminal.localhost").searchParams;
+const reads = (route: string) => asked.filter((a) => a.route.startsWith(route));
+const boardReads = () => reads("/api/terminal/catalogue/board");
+const lastQuery = (route: string) =>
+  new URL(reads(route).at(-1)!.route, "http://terminal.localhost").searchParams;
+const lastBoardQuery = () => lastQuery("/api/terminal/catalogue/board");
+
+type Row = (typeof BOARD)[number]["events"][number];
 
 /** The contract's first match on the board, and its 1X2 market. */
 const FIRST = BOARD[0].events[0];
 const HOME_WIN = FIRST.markets.matchResult!.outcomes[0];
-const homeWinLabel = (lang: "en" | "am" = "am") =>
+const matchName = (row: Row) =>
+  `${row.event.home.name.am} – ${row.event.away.name.am}`;
+/** A price's accessible name, as the player's board gives it. */
+const priceName = (
+  row: Row,
+  outcome: { label: { am: string }; odds: string | null },
+) =>
   new RegExp(
-    `${FIRST.event.home.name[lang]}.*${HOME_WIN.label[lang]} ${formatOdds(HOME_WIN.odds!).replace(".", "\\.")}`,
+    `^${matchName(row)}: ${outcome.label.am} ${formatOdds(outcome.odds!).replace(".", "\\.")}`,
+  );
+const homeWin = () =>
+  screen.findByRole("button", { name: priceName(FIRST, HOME_WIN) });
+
+/** The slip's column, by the slip's own heading. */
+const slip = () =>
+  within(
+    screen
+      .getAllByRole("heading", { level: 2, name: am.betSlip.title })[0]
+      .closest("aside")!,
   );
 
-/** What a competition's heading says: its country, then its name (a continental cup has none). */
-const headingOf = ({ competition }: (typeof BOARD)[number]) =>
-  competition.region.code === null
-    ? competition.name.am
-    : `${competition.region.name.am} · ${competition.name.am}`;
-
-/** A competition's section on the board, named by its heading. */
-const sectionOf = (section: (typeof BOARD)[number]) =>
-  screen.getByRole("region", { name: headingOf(section) });
-
-/** The slip panel, by its heading. */
-const slipPanel = () =>
-  screen.getByRole("complementary", { name: am.betSlip.title });
-
-describe("the kiosk's board (F8ca AC-1)", () => {
-  it("shows the sports, the days and the board's matches with their prices once the terminal is active", async () => {
+describe("the player's board on the kiosk (F8ca AC-1)", () => {
+  it("shows the sports, the days and the board's matches with their prices, read through /api/terminal only", async () => {
     routes();
     renderTerminal();
 
     expect(await kioskHeading()).toBeInTheDocument();
-    // The sport tabs, from /v1/sports.
-    const tabs = screen.getByRole("navigation", { name: am.nav.sports });
-    await within(tabs).findByRole("button", { name: SPORTS[0].name.am });
+    await homeWin();
+    // The sports, from /v1/sports, as the player's tabs and sidebar list them.
     for (const sport of SPORTS) {
       expect(
-        within(tabs).getByRole("button", { name: sport.name.am }),
-      ).toBeInTheDocument();
+        screen.getAllByRole("button", { name: new RegExp(sport.name.am) })
+          .length,
+      ).toBeGreaterThan(0);
     }
+    // Today first in the day strip, pressed.
     expect(
-      within(tabs).getByRole("button", { name: SPORTS[0].name.am }),
-    ).toHaveAttribute("aria-pressed", "true");
-    // Today first, then five more days.
-    const days = screen.getByRole("group", { name: am.terminal.kiosk.days });
-    const dayButtons = within(days).getAllByRole("button");
-    expect(dayButtons).toHaveLength(6);
-    expect(dayButtons[0]).toHaveTextContent(am.board.filters.today);
-    expect(dayButtons[0]).toHaveAttribute("aria-pressed", "true");
+      screen.getByRole("button", {
+        name: new RegExp(am.board.filters.today),
+        pressed: true,
+      }),
+    ).toBeInTheDocument();
 
-    // Every match of the board, in its competition, with its 1X2 prices as sent.
-    await screen.findByRole("button", { name: homeWinLabel() });
+    // Every match and its 1X2 prices as sent; a price the API left out locked.
     for (const section of BOARD) {
-      const inSection = within(sectionOf(section));
-      for (const { event, markets } of section.events) {
-        expect(inSection.getByText(event.home.name.am)).toBeInTheDocument();
-        expect(inSection.getByText(event.away.name.am)).toBeInTheDocument();
-        for (const outcome of markets.matchResult!.outcomes) {
-          // A price the API left out is locked, and says so.
-          const name =
-            outcome.odds === null
-              ? `${outcome.label.am}, ${am.a11y.suspended}`
-              : `${outcome.label.am} ${formatOdds(outcome.odds)}`;
-          const price = inSection.getByRole("button", {
-            name: new RegExp(`: ${name.replace(".", "\\.")}`),
+      expect(
+        screen.getAllByText(section.competition.name.am).length,
+      ).toBeGreaterThan(0);
+      for (const row of section.events) {
+        for (const outcome of row.markets.matchResult!.outcomes) {
+          const price = screen.getByRole("button", {
+            name:
+              outcome.odds === null
+                ? new RegExp(
+                    `^${matchName(row)}: ${outcome.label.am}, ${am.a11y.suspended}`,
+                  )
+                : priceName(row, outcome),
           });
-          expect(price).toBeInTheDocument();
           if (outcome.odds === null) expect(price).toBeDisabled();
         }
       }
     }
-  });
 
-  it("names each competition with its country, so two Premier Leagues can be told apart", async () => {
-    routes();
-    renderTerminal();
-    await screen.findByRole("button", { name: homeWinLabel() });
-    for (const section of BOARD) {
-      expect(
-        within(sectionOf(section)).getByRole("heading", { level: 2 }),
-      ).toHaveTextContent(headingOf(section));
-    }
-    // No two sections are headed alike.
-    const headings = BOARD.map(headingOf);
-    expect(new Set(headings).size).toBe(headings.length);
-    // Prism's board has a domestic league, so at least one says its country.
-    expect(BOARD.some(({ competition }) => competition.region.code)).toBe(true);
-  });
-
-  it("reads the board for the sport and day in the URL, and only through /api/terminal", async () => {
-    const user = userEvent.setup();
-    routes();
-    renderTerminal();
-    await screen.findByRole("button", { name: homeWinLabel() });
-    expect(lastBoardQuery().get("sport")).toBe(SPORTS[0].id);
-
-    const tomorrow = TOMORROW;
-    const days = screen.getByRole("group", { name: am.terminal.kiosk.days });
-    await user.click(within(days).getAllByRole("button")[1]);
-    await waitFor(() => expect(lastBoardQuery().get("date")).toBe(tomorrow));
-    expect(address.params.get("date")).toBe(tomorrow);
-
-    const other = SPORTS[1];
-    await user.click(
-      within(screen.getByRole("navigation", { name: am.nav.sports })).getByRole(
-        "button",
-        { name: other.name.am },
-      ),
-    );
-    await waitFor(() => expect(lastBoardQuery().get("sport")).toBe(other.id));
-    expect(address.params.get("sport")).toBe(other.slug);
-
+    // The top competitions, from the terminal's routes.
+    expect(
+      screen.getByRole("link", {
+        name: new RegExp(TOP_COMPETITIONS[0].name.am),
+      }),
+    ).toBeInTheDocument();
     expect(asked.length).toBeGreaterThan(0);
     for (const call of asked) {
       expect(call.route.startsWith("/api/terminal/")).toBe(true);
     }
   });
 
-  it("says there are no matches on an empty day and goes back to today", async () => {
-    const user = userEvent.setup();
-    address.go("/?sport=basketball&date=2026-10-06");
-    routes({
-      board: (params) => json(200, params.get("date") === TODAY ? BOARD : []),
-    });
+  it("offers nothing that needs a player: no log in, register, my bets, wallet, responsible gaming or favourites", async () => {
+    routes();
     renderTerminal();
+    await homeWin();
 
-    expect(await screen.findByText(am.board.empty.title)).toBeInTheDocument();
-    expect(screen.getByText(am.terminal.kiosk.emptyBody)).toBeInTheDocument();
-    await user.click(
-      screen.getByRole("button", { name: am.terminal.kiosk.backToToday }),
-    );
-    // Today, same sport.
-    expect(address.href).toBe("/?sport=basketball");
+    for (const name of [
+      am.header.login,
+      am.header.register,
+      am.nav.myBets,
+      am.nav.wallet,
+      am.header.responsibleGaming,
+      am.betSlip.myBets,
+    ]) {
+      expect(screen.queryByRole("button", { name })).toBeNull();
+      expect(screen.queryByRole("link", { name })).toBeNull();
+    }
     expect(
-      await screen.findByRole("button", { name: homeWinLabel() }),
-    ).toBeInTheDocument();
+      screen.queryByRole("button", { name: am.sidebar.addFavourite }),
+    ).toBeNull();
+    expect(
+      screen.queryByRole("button", { name: am.sidebar.pinLeague }),
+    ).toBeNull();
+    expect(screen.queryByText(am.sidebar.favourites)).toBeNull();
+    // The shop this PC belongs to is named in the bar.
+    expect(screen.getByText(TERMINAL.shop.name)).toBeInTheDocument();
   });
 
-  it("offers the start of the board when today itself is empty", async () => {
+  it("reads the board for the sport and day in the URL", async () => {
+    const user = userEvent.setup();
+    routes();
+    renderTerminal();
+    await homeWin();
+    expect(lastBoardQuery().get("sport")).toBe(SPORTS[0].id);
+    expect(lastBoardQuery().get("date")).toBe(TODAY);
+
+    const today = screen.getByRole("button", {
+      name: new RegExp(am.board.filters.today),
+      pressed: true,
+    });
+    const strip = today.parentElement!;
+    await user.click(within(strip).getAllByRole("button")[1]);
+    await waitFor(() => expect(lastBoardQuery().get("date")).toBe(TOMORROW));
+    expect(address.params.get("date")).toBe(TOMORROW);
+
+    const other = SPORTS[1];
+    await user.click(
+      screen.getAllByRole("button", { name: new RegExp(other.name.am) })[0],
+    );
+    await waitFor(() => expect(lastBoardQuery().get("sport")).toBe(other.id));
+    expect(address.params.get("sport")).toBe(other.slug);
+  });
+
+  it("says there are no matches on an empty board and goes back to the start", async () => {
     const user = userEvent.setup();
     address.go("/?sport=basketball");
     routes({
@@ -197,38 +201,11 @@ describe("the kiosk's board (F8ca AC-1)", () => {
     renderTerminal();
 
     expect(await screen.findByText(am.board.empty.title)).toBeInTheDocument();
-    expect(
-      screen.queryByRole("button", { name: am.terminal.kiosk.backToToday }),
-    ).toBeNull();
     await user.click(
       screen.getByRole("button", { name: am.board.empty.action }),
     );
     expect(address.href).toBe("/");
-    expect(
-      await screen.findByRole("button", { name: homeWinLabel() }),
-    ).toBeInTheDocument();
-  });
-
-  it("says the sports couldn't load and tries again on a tap", async () => {
-    const user = userEvent.setup();
-    let fail = true;
-    routes({
-      sports: () =>
-        fail ? problem(503, "SERVICE_UNAVAILABLE") : json(200, SPORTS),
-    });
-    renderTerminal({ retry: false });
-
-    const tabs = await screen.findByRole("navigation", { name: am.nav.sports });
-    expect(
-      await within(tabs).findByText(am.terminal.kiosk.sportsFailed),
-    ).toBeInTheDocument();
-    fail = false;
-    await user.click(
-      within(tabs).getByRole("button", { name: am.common.retry }),
-    );
-    expect(
-      await within(tabs).findByRole("button", { name: SPORTS[0].name.am }),
-    ).toBeInTheDocument();
+    expect(await homeWin()).toBeInTheDocument();
   });
 
   it("says the matches couldn't load and tries again on a tap", async () => {
@@ -243,9 +220,7 @@ describe("the kiosk's board (F8ca AC-1)", () => {
     expect(await screen.findByText(am.board.error.title)).toBeInTheDocument();
     fail = false;
     await user.click(screen.getByRole("button", { name: am.common.retry }));
-    expect(
-      await screen.findByRole("button", { name: homeWinLabel() }),
-    ).toBeInTheDocument();
+    expect(await homeWin()).toBeInTheDocument();
   });
 
   it("says the server can't be reached when the config can't be read, and tries again", async () => {
@@ -278,7 +253,7 @@ describe("the kiosk's board (F8ca AC-1)", () => {
             : { state: "inactive", reason: "expired" },
         );
       },
-      sports: () => problem(401, "AUTH_INVALID_CREDENTIALS"),
+      board: () => problem(401, "AUTH_INVALID_CREDENTIALS"),
     });
     renderTerminal({ retry: false });
 
@@ -293,27 +268,20 @@ describe("the kiosk's board (F8ca AC-1)", () => {
 });
 
 describe("picking prices into the kiosk's slip (F8ca AC-2)", () => {
-  it("puts a tapped price in the slip and takes it out on a second tap", async () => {
+  it("puts a tapped price in the player's slip and takes it out on a second tap", async () => {
     const user = userEvent.setup();
     routes();
     renderTerminal();
 
-    const price = await screen.findByRole("button", { name: homeWinLabel() });
+    const price = await homeWin();
     expect(price).toHaveAttribute("aria-pressed", "false");
-    expect(
-      within(slipPanel()).getByText(am.betSlip.emptyTitle),
-    ).toBeInTheDocument();
+    expect(slip().getByText(am.betSlip.emptyTitle)).toBeInTheDocument();
 
     await user.click(price);
     expect(price).toHaveAttribute("aria-pressed", "true");
-    const slip = within(slipPanel());
-    expect(slip.getByText(HOME_WIN.label.am)).toBeInTheDocument();
-    expect(
-      slip.getByText(
-        `${FIRST.event.home.name.am} – ${FIRST.event.away.name.am}`,
-      ),
-    ).toBeInTheDocument();
-    expect(slip.getByText(formatOdds(HOME_WIN.odds!))).toBeInTheDocument();
+    expect(slip().getByText(matchName(FIRST))).toBeInTheDocument();
+    expect(slip().getByText(HOME_WIN.label.am)).toBeInTheDocument();
+    expect(slip().getByText(formatOdds(HOME_WIN.odds!))).toBeInTheDocument();
     expect(
       screen.getByRole("button", {
         name: am.nav.slipAria.replace("{n}", "1"),
@@ -322,7 +290,7 @@ describe("picking prices into the kiosk's slip (F8ca AC-2)", () => {
 
     await user.click(price);
     expect(price).toHaveAttribute("aria-pressed", "false");
-    expect(slip.getByText(am.betSlip.emptyTitle)).toBeInTheDocument();
+    expect(slip().getByText(am.betSlip.emptyTitle)).toBeInTheDocument();
   });
 
   it("removes one pick and clears the slip", async () => {
@@ -330,60 +298,54 @@ describe("picking prices into the kiosk's slip (F8ca AC-2)", () => {
     routes();
     renderTerminal();
 
-    const outcomes = FIRST.markets.matchResult!.outcomes;
-    const second = BOARD[0].events[1] ?? BOARD[1].events[0];
+    const second = BOARD[1].events[0];
+    const away = second.markets.matchResult!.outcomes[2];
+    await user.click(await homeWin());
     await user.click(
-      await screen.findByRole("button", { name: homeWinLabel() }),
+      screen.getByRole("button", { name: priceName(second, away) }),
     );
-    await user.click(
-      screen.getByRole("button", {
-        name: new RegExp(
-          `${second.event.home.name.am}.*${second.markets.matchResult!.outcomes[2].label.am} `,
-        ),
-      }),
-    );
-    const slip = within(slipPanel());
-    expect(slip.getAllByRole("listitem")).toHaveLength(2);
+    expect(slip().getByText(matchName(second))).toBeInTheDocument();
 
     await user.click(
-      slip.getByRole("button", {
-        name: am.betSlip.remove.replace("{pick}", outcomes[0].label.am),
+      slip().getByRole("button", {
+        name: am.betSlip.remove.replace("{pick}", HOME_WIN.label.am),
       }),
     );
-    expect(slip.getAllByRole("listitem")).toHaveLength(1);
+    expect(slip().queryByText(matchName(FIRST))).toBeNull();
+    expect(slip().getByText(matchName(second))).toBeInTheDocument();
 
-    await user.click(slip.getByRole("button", { name: am.betSlip.clearAll }));
-    expect(slip.queryAllByRole("listitem")).toHaveLength(0);
-    expect(slip.getByText(am.betSlip.emptyTitle)).toBeInTheDocument();
+    await user.click(slip().getByRole("button", { name: am.betSlip.clearAll }));
+    expect(slip().getByText(am.betSlip.emptyTitle)).toBeInTheDocument();
   });
 });
 
 describe("the kiosk's language (F8ca AC-3)", () => {
+  const switchTo = (lang: "en" | "am") =>
+    screen.getByRole("button", { name: lang === "en" ? "EN" : "አማ" });
+
   it("opens in the tenant's default language and switches with one tap", async () => {
     const user = userEvent.setup();
     routes();
     renderTerminal();
 
-    expect(await kioskHeading()).toBeInTheDocument();
+    await homeWin();
     expect(document.documentElement.lang).toBe("am");
-
-    await user.click(screen.getByRole("button", { name: "English" }));
+    expect(switchTo("am")).toHaveAttribute("aria-pressed", "true");
     expect(
-      await screen.findByRole("heading", {
-        level: 1,
-        name: en.terminal.kiosk.matches,
-      }),
+      screen.getByRole("button", { name: am.board.filters.top }),
     ).toBeInTheDocument();
+
+    await user.click(switchTo("en"));
     expect(document.documentElement.lang).toBe("en");
     expect(
-      screen.getByRole("navigation", { name: en.nav.sports }),
+      screen.getByRole("button", { name: en.board.filters.top }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("complementary", { name: en.betSlip.title }),
-    ).toBeInTheDocument();
+      screen.getAllByRole("heading", { level: 2, name: en.betSlip.title })
+        .length,
+    ).toBeGreaterThan(0);
 
-    await user.click(screen.getByRole("button", { name: "አማርኛ" }));
-    expect(await kioskHeading()).toBeInTheDocument();
+    await user.click(switchTo("am"));
     expect(document.documentElement.lang).toBe("am");
   });
 
@@ -391,13 +353,16 @@ describe("the kiosk's language (F8ca AC-3)", () => {
     const user = userEvent.setup();
     routes();
     renderTerminal();
-    await screen.findByRole("button", { name: homeWinLabel() });
+    await homeWin();
     expect(boardReads().at(-1)!.headers["Accept-Language"]).toBe("am");
 
-    await user.click(screen.getByRole("button", { name: "English" }));
-    const days = screen.getByRole("group", { name: en.terminal.kiosk.days });
-    await user.click(within(days).getAllByRole("button")[1]);
-    await waitFor(() => expect(lastBoardQuery().get("date")).toBe(TOMORROW));
+    await user.click(switchTo("en"));
+    await user.click(
+      screen.getByRole("button", { name: en.board.filters.upcoming }),
+    );
+    await waitFor(() =>
+      expect(lastBoardQuery().get("filter")).toBe("upcoming"),
+    );
     expect(boardReads().at(-1)!.headers["Accept-Language"]).toBe("en");
   });
 
@@ -407,10 +372,7 @@ describe("the kiosk's language (F8ca AC-3)", () => {
     });
     renderTerminal();
     expect(
-      await screen.findByRole("heading", {
-        level: 1,
-        name: en.terminal.kiosk.matches,
-      }),
+      await screen.findByRole("button", { name: en.board.filters.top }),
     ).toBeInTheDocument();
     expect(document.documentElement.lang).toBe("en");
   });
@@ -419,14 +381,9 @@ describe("the kiosk's language (F8ca AC-3)", () => {
     const user = userEvent.setup();
     routes();
     const { queryClient } = renderTerminal();
-    await screen.findByRole("button", { name: homeWinLabel() });
-    await user.click(screen.getByRole("button", { name: "English" }));
-    expect(
-      await screen.findByRole("heading", {
-        level: 1,
-        name: en.terminal.kiosk.matches,
-      }),
-    ).toBeInTheDocument();
+    await homeWin();
+    await user.click(switchTo("en"));
+    expect(document.documentElement.lang).toBe("en");
 
     // The tenant now offers Amharic only.
     act(() =>
@@ -436,11 +393,16 @@ describe("the kiosk's language (F8ca AC-3)", () => {
         defaultLanguage: "am",
       }),
     );
-    expect(await kioskHeading()).toBeInTheDocument();
+    expect(
+      await screen.findByRole("button", { name: am.board.filters.top }),
+    ).toBeInTheDocument();
     expect(document.documentElement.lang).toBe("am");
-    const days = screen.getByRole("group", { name: am.terminal.kiosk.days });
-    await user.click(within(days).getAllByRole("button")[1]);
-    await waitFor(() => expect(lastBoardQuery().get("date")).toBe(TOMORROW));
+    await user.click(
+      screen.getByRole("button", { name: am.board.filters.upcoming }),
+    );
+    await waitFor(() =>
+      expect(lastBoardQuery().get("filter")).toBe("upcoming"),
+    );
     expect(boardReads().at(-1)!.headers["Accept-Language"]).toBe("am");
   });
 
@@ -454,8 +416,10 @@ describe("the kiosk's language (F8ca AC-3)", () => {
         }),
     });
     renderTerminal();
-    expect(await kioskHeading()).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "English" })).toBeNull();
+    await homeWin();
+    // No switch at all: not even the one language's own pill.
+    expect(screen.queryByRole("button", { name: "EN" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "አማ" })).toBeNull();
   });
 });
 
@@ -477,7 +441,6 @@ describe("a tenant without shop betting (F8ca AC-4)", () => {
       }),
     ).toBeInTheDocument();
     expect(screen.queryByRole("complementary")).toBeNull();
-    expect(screen.queryByRole("navigation")).toBeNull();
     expect(
       asked.filter((a) => a.route.startsWith("/api/terminal/catalogue/")),
     ).toHaveLength(0);
@@ -489,30 +452,109 @@ describe("a tenant without shop betting (F8ca AC-4)", () => {
   });
 });
 
-describe("the slip as a view of its own, below lg (F8ca AC-2)", () => {
-  it("moves focus to the slip when it opens, and back to its bar when it closes", async () => {
-    const user = userEvent.setup();
+describe("a league and a match on the kiosk (F8ca AC-6, AC-7)", () => {
+  it("links the sidebar's leagues and each match to the kiosk's own pages", async () => {
     routes();
     renderTerminal();
-    await screen.findByRole("button", { name: homeWinLabel() });
+    await homeWin();
 
-    await user.click(
-      screen.getByRole("button", { name: am.nav.slipAria.replace("{n}", "0") }),
-    );
     expect(
-      within(slipPanel()).getByRole("heading", { level: 2 }),
-    ).toHaveFocus();
+      screen.getByRole("link", {
+        name: new RegExp(TOP_COMPETITIONS[0].name.am),
+      }),
+    ).toHaveAttribute(
+      "href",
+      `/terminal/competition/${encodeURIComponent(TOP_COMPETITIONS[0].id)}`,
+    );
+    const more = screen.getAllByRole("link", {
+      name: am.board.moreMarketsAria.replace(
+        "{n}",
+        String(FIRST.event.marketCount),
+      ),
+    })[0];
+    expect(more).toHaveAttribute(
+      "href",
+      `/terminal/event/${encodeURIComponent(FIRST.event.id)}`,
+    );
+  });
 
-    await user.click(
-      screen.getByRole("button", { name: am.terminal.kiosk.backToMatches }),
-    );
+  it("shows a league's own board on its page (AC-6)", async () => {
+    routes();
+    const section = BOARD[1];
+    const row = section.events[0];
+    renderTerminal({
+      page: <CompetitionView competitionId={section.competition.id} />,
+    });
     expect(
-      screen.getByRole("button", { name: am.nav.slipAria.replace("{n}", "0") }),
-    ).toHaveFocus();
+      await screen.findByRole("button", {
+        name: priceName(row, row.markets.matchResult!.outcomes[0]),
+      }),
+    ).toBeInTheDocument();
+    expect(lastBoardQuery().get("competition")).toBe(section.competition.id);
+  });
+
+  it("shows a match's whole book on its page, and the way home (AC-7)", async () => {
+    routes();
+    renderTerminal({ page: <EventDetailView eventId={EVENT.event.id} /> });
+
+    // A market of the book, priced as the player's match page shows it.
+    const market = EVENT.markets.find(
+      (m) => m.status === "open" && m.outcomes.some((o) => o.odds !== null),
+    )!;
+    const outcome = market.outcomes.find((o) => o.odds !== null)!;
+    expect(
+      (
+        await screen.findAllByRole("button", {
+          name: new RegExp(
+            `${outcome.label.am} ${formatOdds(outcome.odds!).replace(".", "\\.")}`,
+          ),
+        })
+      ).length,
+    ).toBeGreaterThan(0);
+    expect(
+      reads(
+        `/api/terminal/catalogue/events/${encodeURIComponent(EVENT.event.id)}`,
+      ),
+    ).toHaveLength(1);
+    expect(
+      screen
+        .getAllByRole("link")
+        .some((link) => link.getAttribute("href") === "/"),
+    ).toBe(true);
+  });
+
+  it("says a match isn't there when the terminal has no book for it (in play, or gone)", async () => {
+    routes({ event: () => json(200, null) });
+    renderTerminal({ page: <EventDetailView eventId={EVENT.event.id} /> });
+    expect(await screen.findByText(am.event.notFound)).toBeInTheDocument();
   });
 });
 
-describe("the kiosk across midnight, East Africa Time (F8ca AC-1)", () => {
+describe("search on the kiosk (F8ca AC-8)", () => {
+  it("searches through the terminal and opens a match on the kiosk's page", async () => {
+    const user = userEvent.setup();
+    routes();
+    renderTerminal();
+    await homeWin();
+
+    await user.type(
+      screen.getByRole("combobox", { name: am.header.search }),
+      "ars",
+    );
+    const row = SEARCH.events[0];
+    const option = await screen.findByRole("option", {
+      name: new RegExp(row.event.home.name.am),
+    });
+    expect(lastQuery("/api/terminal/catalogue/search").get("q")).toBe("ars");
+
+    await user.click(option);
+    expect(address.href).toBe(
+      `/terminal/event/${encodeURIComponent(row.event.id)}`,
+    );
+  });
+});
+
+describe("the kiosk over time (F8ca AC-1)", () => {
   /** Moves the fake clock on by `ms`, then lets every answer it released land. */
   async function tick(ms: number) {
     await act(() => vi.advanceTimersByTimeAsync(ms));
@@ -521,12 +563,10 @@ describe("the kiosk across midnight, East Africa Time (F8ca AC-1)", () => {
     }
   }
 
-  it("moves its board and its day strip to the new day at midnight", async () => {
-    // 23:59:58 in Addis Ababa. Timers and the date fake; WebCrypto and the
-    // rest real. TanStack tells React on a microtask, not the fake clock's zero
-    // timeout (as in TerminalStatus.test.tsx).
+  /** Timers and the date fake; WebCrypto and the rest real (TerminalStatus.test.tsx). */
+  function fakeClock(now: string) {
     vi.useFakeTimers({
-      now: Date.parse("2026-10-04T20:59:58Z"),
+      now: Date.parse(now),
       toFake: [
         "setTimeout",
         "clearTimeout",
@@ -536,18 +576,45 @@ describe("the kiosk across midnight, East Africa Time (F8ca AC-1)", () => {
       ],
     });
     notifyManager.setScheduler((cb) => queueMicrotask(cb));
+  }
+
+  it("moves its board and its day strip to the new day at midnight", async () => {
+    // 23:59:58 in Addis Ababa.
+    fakeClock("2026-10-04T20:59:58Z");
     routes();
     renderTerminal();
-    // Status, then config, then the board: each answer a few turns apart.
     for (let i = 0; i < 20 && boardReads().length === 0; i += 1) await tick(0);
     expect(lastBoardQuery().get("date")).toBe(TODAY);
 
     await tick(3_000);
     expect(lastBoardQuery().get("date")).toBe(TOMORROW);
-    const today = within(
-      screen.getByRole("group", { name: am.terminal.kiosk.days }),
-    ).getAllByRole("button")[0];
-    expect(today).toHaveTextContent(am.board.filters.today);
-    expect(today).toHaveAttribute("aria-pressed", "true");
+    expect(
+      screen.getByRole("button", {
+        name: new RegExp(am.board.filters.today),
+        pressed: true,
+      }),
+    ).toBeInTheDocument();
+  });
+
+  it("reads the sports again by itself when they couldn't be read", async () => {
+    fakeClock("2026-10-04T08:00:00Z");
+    let fail = true;
+    routes({
+      sports: () =>
+        fail ? problem(503, "SERVICE_UNAVAILABLE") : json(200, SPORTS),
+    });
+    renderTerminal({ retry: false });
+    const sportsReads = () => reads("/api/terminal/catalogue/sports");
+    for (let i = 0; i < 20 && sportsReads().length === 0; i += 1) {
+      await tick(0);
+    }
+    const failed = sportsReads().length;
+    fail = false;
+    await tick(30_000);
+    expect(sportsReads().length).toBeGreaterThan(failed);
+    expect(
+      screen.getAllByRole("button", { name: new RegExp(SPORTS[1].name.am) })
+        .length,
+    ).toBeGreaterThan(0);
   });
 });

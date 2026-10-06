@@ -952,12 +952,6 @@
       "retry": "Try again"
     },
     "kiosk": {
-      "matches": "Matches",
-      "days": "Days",
-      "sportsFailed": "Couldn't load the sports.",
-      "emptyBody": "Try another sport or day.",
-      "backToToday": "Back to today",
-      "backToMatches": "Back to the matches",
       "unavailable": {
         "title": "Betting isn't available at this terminal",
         "body": "Ask the shop staff."

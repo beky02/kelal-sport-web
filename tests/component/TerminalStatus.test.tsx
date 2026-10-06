@@ -3,7 +3,6 @@ import { act, fireEvent, screen } from "@testing-library/react";
 import { notifyManager } from "@tanstack/react-query";
 import { createDeviceKey } from "@/features/terminal/lib/device-key";
 import type { TerminalStatus } from "@/features/terminal/types";
-import am from "@/lib/i18n/messages/am.json";
 import en from "@/lib/i18n/messages/en.json";
 import { terminalKeys } from "@/lib/query/keys";
 import { CSRF_HEADER, CSRF_VALUE } from "@/lib/session-cookie";
@@ -14,6 +13,7 @@ import {
   asked,
   json,
   keys,
+  kioskHeadingNow,
   problem,
   renderTerminal,
   routes,
@@ -46,12 +46,8 @@ async function tick(ms: number) {
 const renderStrict = (options: TerminalRenderOptions = {}) =>
   renderTerminal({ ...options, strict: true });
 
-/** The kiosk an active terminal of an open shop shows (F8ca), in Amharic. */
-const readyHeading = () =>
-  screen.getByRole("heading", {
-    level: 1,
-    name: am.terminal.kiosk.matches,
-  });
+/** The kiosk an active terminal of an open shop shows (F8ca): its board's heading. */
+const readyHeading = kioskHeadingNow;
 
 const offlineHeading = () =>
   screen.queryByRole("heading", {

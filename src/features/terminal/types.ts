@@ -1,4 +1,3 @@
-import type { EventFilters } from "@/features/events/types";
 import type { Lang } from "@/types/common";
 
 /**
@@ -72,11 +71,3 @@ export interface TerminalConfigView {
   /** What the kiosk opens in (FD2: Amharic for `demo`). */
   defaultLanguage: Lang;
 }
-
-/**
- * What the kiosk's board is asked for: a sport, a day (EAT) and an order
- * (F8ca) — the player's board filters, all three always set.
- */
-export type KioskBoardFilters = Required<
-  Pick<EventFilters, "sportId" | "date" | "filter">
->;

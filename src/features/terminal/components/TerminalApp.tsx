@@ -16,11 +16,14 @@ import {
  * The shop terminal (F8b): what the server says it is, read on boot and every
  * 5 minutes. Once there is an answer, a failed read changes nothing on screen
  * — the next read tries again — and a background rotation never shows. An
- * active terminal of an open shop is the kiosk (F8ca).
+ * active terminal of an open shop is the kiosk (F8ca), showing `children`:
+ * the sportsbook page the kiosk is on.
  */
-export function TerminalApp() {
+export function TerminalApp({ children }: { children: React.ReactNode }) {
   const status = useTerminalStatus();
-  if (status.data) return <TerminalScreen status={status.data} />;
+  if (status.data) {
+    return <TerminalScreen status={status.data}>{children}</TerminalScreen>;
+  }
   if (status.isError) {
     return (
       <TerminalOffline
@@ -32,7 +35,13 @@ export function TerminalApp() {
   return <TerminalLoading />;
 }
 
-function TerminalScreen({ status }: { status: TerminalStatus }) {
+function TerminalScreen({
+  status,
+  children,
+}: {
+  status: TerminalStatus;
+  children: React.ReactNode;
+}) {
   switch (status.state) {
     case "inactive":
       return <ActivationScreen lapsed={status.reason === "expired"} />;
@@ -40,7 +49,7 @@ function TerminalScreen({ status }: { status: TerminalStatus }) {
       return <TerminalBlocked reason={status.reason} />;
     case "active":
       return status.terminal.shop.openNow ? (
-        <Kiosk terminal={status.terminal} />
+        <Kiosk terminal={status.terminal}>{children}</Kiosk>
       ) : (
         <TerminalShell terminal={status.terminal}>
           <TerminalClosed />

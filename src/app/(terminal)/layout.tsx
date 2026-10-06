@@ -14,13 +14,16 @@ export const metadata: Metadata = {
  * loads the player's providers, session or account code, and a player never
  * loads the terminal's; the proxy serves it only on a terminal host. The
  * theme is fixed: a kiosk keeps no preferences. Its providers are its own
- * (`providers.tsx`): a query client and nothing else.
+ * (`providers.tsx`): a query client and nothing else. `data-api` sends the
+ * shared fetchers to the terminal's own route handlers (`lib/api/client.ts`,
+ * F8ca).
  */
 export default function TerminalLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="am"
       data-theme="dark"
+      data-api="/api/terminal/"
       className={`${fontVariables} h-full antialiased`}
     >
       <body className="bg-ground text-text flex min-h-full flex-col">

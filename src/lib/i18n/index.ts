@@ -9,13 +9,6 @@ export const LANGS: readonly Lang[] = ["en", "am"];
 /** Short label for the language switch. */
 export const LANG_LABEL: Record<Lang, string> = { en: "EN", am: "አማ" };
 
-/**
- * Each language's name in itself, for a switch a reader of the other script
- * must still find (the kiosk's, F8ca): the same in both catalogues, so not in
- * them.
- */
-export const LANG_NAME: Record<Lang, string> = { en: "English", am: "አማርኛ" };
-
 type Catalogue = typeof en;
 
 /** Dot-separated paths into the message tree, e.g. `betSlip.alerts.deposit`. */
