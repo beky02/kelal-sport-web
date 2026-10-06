@@ -1,9 +1,9 @@
 "use client";
 
 import { useMemo } from "react";
-import { useUiStore } from "@/stores/ui.store";
 import { pickLocale, type Lang, type Localized } from "@/types/common";
 import { formatMoney, formatNumber, formatOdds, formatPercent } from "./format";
+import { useLocale } from "./locale";
 import { translate, type Interpolations, type MessageKey } from ".";
 
 export interface Translator {
@@ -25,11 +25,12 @@ export interface Translator {
 /**
  * The one way components read text.
  *
- * Language lives in the UI store, so this is a thin memo over it rather than a
- * second context — one source of truth for which script is on screen.
+ * The language is the nearest `LocaleProvider`'s, which each site feeds from
+ * its own state (the player's stored preference, the kiosk's choice), so this
+ * is a thin memo over it — one source of truth for which script is on screen.
  */
 export function useTranslation(): Translator {
-  const lang = useUiStore((s) => s.lang);
+  const { lang } = useLocale();
 
   return useMemo(
     () => ({

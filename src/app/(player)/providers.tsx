@@ -5,6 +5,7 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { createQueryClient } from "@/lib/query/client";
 import { RealtimeProvider } from "@/lib/websocket/RealtimeProvider";
 import { useUiStore } from "@/stores/ui.store";
+import { PlayerLocale } from "./locale";
 
 /**
  * Mirrors theme and language onto <html>.
@@ -35,8 +36,10 @@ export function Providers({ children }: { children: React.ReactNode }) {
   return (
     <QueryClientProvider client={queryClient}>
       <DocumentPreferences />
-      {/* Inside the query provider: realtime messages patch its caches. */}
-      <RealtimeProvider>{children}</RealtimeProvider>
+      <PlayerLocale>
+        {/* Inside the query provider: realtime messages patch its caches. */}
+        <RealtimeProvider>{children}</RealtimeProvider>
+      </PlayerLocale>
     </QueryClientProvider>
   );
 }

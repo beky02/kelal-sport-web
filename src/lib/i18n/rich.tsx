@@ -1,8 +1,8 @@
 "use client";
 
 import { Fragment, type ReactNode } from "react";
-import { useUiStore } from "@/stores/ui.store";
 import { translate, type Interpolations, type MessageKey } from ".";
+import { useLocale } from "./locale";
 
 /**
  * A message with React nodes substituted into its placeholders.
@@ -16,7 +16,7 @@ import { translate, type Interpolations, type MessageKey } from ".";
  *   rich("auth.termsConsent", { terms: <Link…/>, privacy: <Link…/> })
  */
 export function useRichTranslation() {
-  const lang = useUiStore((s) => s.lang);
+  const { lang } = useLocale();
 
   return (
     key: MessageKey,
