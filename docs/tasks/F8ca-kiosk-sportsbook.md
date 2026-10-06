@@ -1,7 +1,7 @@
 ---
 id: F8ca
 title: Split from F8c — kiosk sportsbook: matches, picks and the kiosk's language
-status: verifying
+status: done
 depends_on: [F8b]
 contract_tags: [Catalogue, Config]
 touches_money: false
@@ -58,16 +58,16 @@ Out (do not build here):
 Each criterion must be proven by a named test, a command output or a `pnpm ui` screenshot in
 `verification.md`.
 
-- [ ] **AC-1** An activated terminal of an open shop shows sport tabs, a day strip and the board's
+- [x] **AC-1** An activated terminal of an open shop shows sport tabs, a day strip and the board's
       competitions with their matches and prices, read through `/api/terminal/*` only; loading, empty
       (with a way back to today) and error (Try again) states each have a screenshot.
-- [ ] **AC-2** Tapping a price puts the pick in the slip panel and tapping it again takes it out; each pick
+- [x] **AC-2** Tapping a price puts the pick in the slip panel and tapping it again takes it out; each pick
       can be removed and the slip cleared; prices, tabs and buttons are at least 48 px high.
-- [ ] **AC-3** The kiosk opens in the tenant's `default_language` (Amharic for `demo`); one tap switches
+- [x] **AC-3** The kiosk opens in the tenant's `default_language` (Amharic for `demo`); one tap switches
       every string, `<html lang>` and the `Accept-Language` of its calls.
-- [ ] **AC-4** With `features.retail: false` the terminal says betting isn't available here and shows no
+- [x] **AC-4** With `features.retail: false` the terminal says betting isn't available here and shows no
       board and no slip.
-- [ ] **AC-5** The kiosk's routes answer 404 on a player host and 401 without an activated terminal,
+- [x] **AC-5** The kiosk's routes answer 404 on a player host and 401 without an activated terminal,
       before calling the API; the terminal still loads nothing from `src/stores/` or the player's layout
       (`check-host-split.mjs`), and the player's screens read their language as before.
 
@@ -79,3 +79,5 @@ Each criterion must be proven by a named test, a command output or a `pnpm ui` s
 ## Notes
 
 - 2026-10-06: split from F8c while planning (about 3,500 changed lines in one PR).
+- 2026-10-06: verified (`docs/tasks/F8c/verification.md`). Contract request 015 is proposed. A
+  follow-up shares the price-to-slip wiring with the player's `OddsButton` (review Q11).
