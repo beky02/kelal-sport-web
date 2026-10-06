@@ -920,9 +920,40 @@
     }
   },
   "terminal": {
-    "placeholder": {
-      "title": "Shop terminal",
-      "body": "This screen isn't set up yet."
+    "loading": "Starting the terminal…",
+    "activate": {
+      "title": "Activate this terminal",
+      "body": "Type the 8-character activation code from the back office or the agent portal.",
+      "label": "Activation code",
+      "submit": "Activate",
+      "busy": "Activating…",
+      "lapsed": "This terminal's activation has lapsed. Type a new code.",
+      "format": "The code has 8 letters and digits.",
+      "wrongCode": "No terminal has this code. Check it and try again.",
+      "expired": "This code has expired. Ask for a new one.",
+      "tooMany": "Too many tries. Try again in {minutes} min.",
+      "tooManyLater": "Too many tries. Try again later.",
+      "unreachable": "Couldn't reach the server. Try again.",
+      "unsupported": "This browser can't keep the terminal's key. Use Chrome in kiosk mode."
+    },
+    "ready": {
+      "title": "This terminal is ready",
+      "body": "Betting will open on this screen."
+    },
+    "closed": {
+      "title": "This shop is closed",
+      "body": "Betting on this terminal opens when the shop does."
+    },
+    "blocked": {
+      "revokedTitle": "This terminal has been switched off",
+      "revokedBody": "It was removed from the shop's terminals. Ask the shop staff.",
+      "deviceTitle": "This PC can't run the terminal",
+      "deviceBody": "The shop's settings don't allow this PC. Ask the shop staff."
+    },
+    "offline": {
+      "title": "Can't reach the server",
+      "body": "The terminal will try again by itself.",
+      "retry": "Try again"
     }
   }
 }

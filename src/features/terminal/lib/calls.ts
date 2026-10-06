@@ -33,6 +33,9 @@ export const TERMINAL_CALLS = {
 export type TerminalCall = (typeof TERMINAL_CALLS)[keyof typeof TERMINAL_CALLS];
 export type SignedCall = Extract<TerminalCall, { signed: true }>;
 
+/** How often a terminal reads its status (`getTerminalSelf`: "on boot and every 5 minutes"). */
+export const STATUS_INTERVAL_MS = 5 * 60_000;
+
 /** The device headers the browser adds to a signed call (the route adds `X-Device-Id`). */
 export const DEVICE_TIMESTAMP = "X-Device-Timestamp";
 export const DEVICE_SIGNATURE = "X-Device-Signature";

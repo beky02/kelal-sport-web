@@ -51,3 +51,29 @@ export class ContractError extends Error {
     this.name = "ContractError";
   }
 }
+
+/**
+ * The `ApiError` for a failed answer from one of this app's route handlers:
+ * the RFC 7807 Problem they pass through from the API — its `code`, its
+ * `errors[]` — and the `Retry-After` a 429 carries. `fallback` names the
+ * request when there is no Problem to read.
+ */
+export async function problemError(
+  response: Response,
+  fallback: string,
+): Promise<ApiError> {
+  const problem = (await response.json().catch(() => null)) as {
+    title?: string;
+    code?: string;
+    errors?: ProblemFieldError[];
+  } | null;
+  const retryAfter = response.headers.get("retry-after")?.trim() ?? "";
+  return new ApiError(
+    problem?.title ?? `${fallback} failed with ${response.status}`,
+    response.status,
+    problem?.code ?? "http_error",
+    problem,
+    problem?.errors ?? [],
+    /^\d{1,6}$/.test(retryAfter) ? Number(retryAfter) : null,
+  );
+}

@@ -22,6 +22,20 @@ export function checkCharacter(body: string): string {
 }
 
 /**
+ * What someone typed, as Crockford's alphabet forgives it: upper case, without
+ * spaces, hyphens or the dashes they become — non-breaking (as the error's own
+ * example is written), en and em dashes from chat apps, minus signs — and with
+ * O read as 0 and I or L as 1. Whether the result is a code is the caller's
+ * check.
+ */
+export const compactCrockford = (raw: string): string =>
+  raw
+    .toUpperCase()
+    .replace(/[\s\u2010-\u2015\u2212-]/g, "")
+    .replace(/O/g, "0")
+    .replace(/[IL]/g, "1");
+
+/**
  * A ticket number as someone typed or linked it → the canonical
  * `XXXX-XXXX-C`, or null.
  *
@@ -32,13 +46,7 @@ export function checkCharacter(body: string): string {
  * ticket number, and is never sent to the API or shown back.
  */
 export function normaliseTicketNumber(raw: string): string | null {
-  const compact = raw
-    .toUpperCase()
-    // Hyphens, and the dashes they become: non-breaking (as the error's own
-    // example is written), en and em dashes from chat apps, minus signs.
-    .replace(/[\s\u2010-\u2015\u2212-]/g, "")
-    .replace(/O/g, "0")
-    .replace(/[IL]/g, "1");
+  const compact = compactCrockford(raw);
   if (!/^[0-9A-HJKMNP-TV-Z]{9}$/.test(compact)) return null;
   const body = compact.slice(0, 8);
   if (checkCharacter(body) !== compact[8]) return null;
