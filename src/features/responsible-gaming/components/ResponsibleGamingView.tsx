@@ -5,9 +5,7 @@ import Link from "next/link";
 import { BookOpen, Loader2, Phone, Send, ShieldCheck } from "lucide-react";
 import { useTranslation } from "@/lib/i18n/use-translation";
 import { Card } from "@/components/ui/Card";
-import { Segmented } from "@/components/ui/Segmented";
 import { Skeleton } from "@/components/ui/Skeleton";
-import { Switch } from "@/components/ui/Switch";
 import { cn } from "@/lib/utils/cn";
 import { routes } from "@/config/routes";
 import { useSession } from "@/features/auth/hooks/use-session";
@@ -41,9 +39,7 @@ export function ResponsibleGamingView() {
   const session = useSession();
   const openAuth = useAuthStore((s) => s.open);
   const selfExclusion = useSelfExclude();
-
-  const [sessionReminder, setSessionReminder] = useState(true);
-  const [interval, setInterval] = useState("60");
+  const reminderMinutes = session.player?.flags.realityCheckMinutes ?? null;
 
   const [breakLength, setBreakLength] = useState<BreakLength>("24h");
   const [exclusion, setExclusion] = useState<ExclusionLength>("6m");
@@ -182,29 +178,23 @@ export function ResponsibleGamingView() {
             )}
           </Card>
 
-          {/* The reality check's interval: F7b moves it to the account. */}
-          <Card className="mx-4 mt-4.5 flex flex-col gap-3 p-3.5">
-            <Switch
-              checked={sessionReminder}
-              onChange={setSessionReminder}
-              size="lg"
-              label={
-                <span className="font-display text-base">
-                  {t.t("rg.sessionReminder")}
-                </span>
-              }
-              note={t.t("rg.sessionReminderBody")}
-            />
-            {sessionReminder && (
-              <Segmented
-                value={interval}
-                onChange={setInterval}
-                options={["30", "60", "90", "120"].map((n) => ({
-                  value: n,
-                  label: t.t("rg.minutes", { n }),
-                }))}
-              />
-            )}
+          {/* The reality check's interval is the account's (`/api/me`), and
+              nothing in the contract changes it yet: shown, not offered
+              (contract request 012). */}
+          <Card className="mx-4 mt-4.5 flex items-center gap-3 p-3.5">
+            <span className="flex-1">
+              <span className="font-display block text-base">
+                {t.t("rg.sessionReminder")}
+              </span>
+              <span className="text-muted block text-xs">
+                {t.t("rg.sessionReminderBody")}
+              </span>
+            </span>
+            <span className="shrink-0 text-sm font-semibold">
+              {reminderMinutes
+                ? t.t("rg.sessionReminderEvery", { n: reminderMinutes })
+                : t.t("rg.sessionReminderOff")}
+            </span>
           </Card>
         </>
       )}

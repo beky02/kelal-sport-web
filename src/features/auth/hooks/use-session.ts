@@ -9,6 +9,7 @@ import {
   type QueryClient,
 } from "@tanstack/react-query";
 import {
+  accountKeys,
   betKeys,
   paymentKeys,
   rgKeys,
@@ -17,6 +18,7 @@ import {
   walletKeys,
 } from "@/lib/query/keys";
 import { useSystemStore } from "@/stores/system.store";
+import { useUiStore } from "@/stores/ui.store";
 import { getMe, login, logout, register } from "../api/auth";
 import { FORGET_AT_ONCE } from "./use-account";
 import type { Player, SessionView } from "../types";
@@ -68,8 +70,8 @@ export function useSession(): SessionState {
 /**
  * Drops everything only a player may see. Done whenever the session changes
  * hands — logout, a session found gone, a login — so the next player never
- * sees the previous one's balance, payments, bets or break, however fresh the
- * cache.
+ * sees the previous one's balance, payments, bets, break or devices, however
+ * fresh the cache.
  */
 export function forgetPlayer(queryClient: QueryClient): void {
   for (const key of [
@@ -78,6 +80,7 @@ export function forgetPlayer(queryClient: QueryClient): void {
     betKeys.all,
     transactionKeys.all,
     rgKeys.all,
+    accountKeys.all,
   ]) {
     queryClient.removeQueries({ queryKey: key });
   }
@@ -86,14 +89,14 @@ export function forgetPlayer(queryClient: QueryClient): void {
 /**
  * Someone has just signed in — by logging in or by registering. Whatever the
  * previous player left in the cache goes, then `/api/me` is read so every
- * screen flips together.
+ * screen flips together. Answers with that read, or null when it failed.
  */
-async function signedIn(queryClient: QueryClient): Promise<void> {
+async function signedIn(queryClient: QueryClient): Promise<SessionView | null> {
   forgetPlayer(queryClient);
   try {
     // Read who is signed in now, whether or not a screen is watching: the
     // cache entry may not have a query function yet.
-    await queryClient.fetchQuery({
+    return await queryClient.fetchQuery({
       queryKey: sessionKeys.me(),
       queryFn: ({ signal }) => getMe(signal),
       staleTime: 0,
@@ -101,17 +104,25 @@ async function signedIn(queryClient: QueryClient): Promise<void> {
   } catch {
     // The cookie is set; the sign-in stood. `useSession` reads again on the
     // next mount or focus rather than asking for the password twice.
+    return null;
   }
 }
 
-/** Logs in. On success `/api/me` is read again, so every screen flips together. */
+/**
+ * Logs in. On success `/api/me` is read again, so every screen flips together,
+ * and the page takes the language saved on the account: a player signing in
+ * on another device reads it as they chose it (F7b, AC-8). If that read
+ * failed, the page keeps the language it has.
+ */
 export function useLogin() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: login,
     ...FORGET_AT_ONCE,
     onSuccess: async (result) => {
-      if (result.status === "ok") await signedIn(queryClient);
+      if (result.status !== "ok") return;
+      const account = (await signedIn(queryClient))?.player?.language;
+      if (account) useUiStore.getState().setLang(account);
     },
   });
 }
@@ -122,6 +133,7 @@ export function useRegister() {
   return useMutation({
     mutationFn: register,
     ...FORGET_AT_ONCE,
+    // The language stays the one just chosen: registration sent it.
     onSuccess: () => signedIn(queryClient),
   });
 }

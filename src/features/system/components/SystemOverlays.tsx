@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { Clock, Lock } from "lucide-react";
+import type { Interpolations, MessageKey } from "@/lib/i18n";
 import { useTranslation } from "@/lib/i18n/use-translation";
 import { SYSTEM } from "@/config/constants";
 import { routes } from "@/config/routes";
@@ -9,7 +10,22 @@ import { useLogout } from "@/features/auth/hooks/use-session";
 import { useSystemStore } from "@/stores/system.store";
 import { FullScreenNotice } from "./FullScreenNotice";
 import { SystemDialog } from "./SystemDialog";
-import { useSessionActivity } from "../hooks/use-session-activity";
+import { useRealityCheck } from "../hooks/use-reality-check";
+
+/** "1 h 30 min", "2 h", "45 min": the time played, as the reality check says it. */
+function played(minutes: number): { key: MessageKey; values: Interpolations } {
+  const hours = Math.floor(minutes / 60);
+  const rest = minutes % 60;
+  if (hours === 0) {
+    return { key: "system.realityPlayedMinutes", values: { minutes: rest } };
+  }
+  if (rest === 0)
+    return { key: "system.realityPlayedHours", values: { hours } };
+  return {
+    key: "system.realityPlayedHoursMinutes",
+    values: { hours, minutes: rest },
+  };
+}
 
 /**
  * Renders whichever interruption is currently active.
@@ -26,10 +42,13 @@ export function SystemOverlays() {
   const dismiss = useSystemStore((s) => s.dismiss);
   const logout = useLogout();
 
-  const activity = useSessionActivity(overlay === "reality");
+  const reality = useRealityCheck();
+  const playedFor = played(reality.playedMinutes);
 
+  // A break needs its length, and the question asked once in full sentences:
+  // both are on the responsible-gaming page (F7a).
   const toLimits = () => {
-    dismiss();
+    reality.answer();
     router.push(routes.responsibleGaming);
   };
 
@@ -39,38 +58,17 @@ export function SystemOverlays() {
         open={overlay === "reality"}
         icon={<Clock size={22} strokeWidth={1.6} />}
         title={t.t("system.realityTitle")}
-        body={t.t("system.realityBody", {
-          duration: SYSTEM.realityCheck.after,
-        })}
-        stats={
-          activity.data
-            ? [
-                {
-                  label: t.t("system.realityStaked"),
-                  value: t.money(activity.data.staked),
-                },
-                {
-                  label: t.t("system.realityWon"),
-                  value: t.money(activity.data.won),
-                },
-                {
-                  label: t.t("system.realityNet"),
-                  // Written as a signed figure: "− ETB 230.00" reads as a loss
-                  // where "-230" reads as a number.
-                  value: `${activity.data.net < 0 ? "− " : ""}${t.money(Math.abs(activity.data.net))}`,
-                },
-              ]
-            : undefined
-        }
+        // Time only: the session's staked, won and net come from the API once
+        // the contract has them (contract request 012, F7e) — never added up
+        // here.
+        body={t.t(playedFor.key, playedFor.values)}
         actions={[
           {
             label: t.t("system.realityKeepPlaying"),
             kind: "primary",
-            onClick: dismiss,
+            onClick: reality.answer,
           },
           {
-            // A break needs its length, and the question asked once in full
-            // sentences: both are on the responsible-gaming page.
             label: t.t("system.realityTakeBreak"),
             kind: "secondary",
             onClick: toLimits,

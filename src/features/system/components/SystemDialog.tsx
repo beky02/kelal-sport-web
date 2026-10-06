@@ -54,7 +54,6 @@ export function SystemDialog({
   icon,
   title,
   body,
-  stats,
   actions,
   initialFocus,
 }: {
@@ -63,8 +62,6 @@ export function SystemDialog({
   icon: React.ReactNode;
   title: string;
   body: string;
-  /** Three figures, shown side by side. The last is tinted as a loss. */
-  stats?: Array<{ label: string; value: string }>;
   actions: SystemAction[];
   /** The kind of action focus opens on; the first action when not given. */
   initialFocus?: SystemAction["kind"];
@@ -109,24 +106,6 @@ export function SystemDialog({
           <Dialog.Description className="text-muted text-sm text-pretty">
             {body}
           </Dialog.Description>
-
-          {stats && (
-            <div className="grid grid-cols-3 gap-1.5">
-              {stats.map((stat, index) => (
-                <div key={stat.label} className="bg-raised rounded-md p-2.5">
-                  <div className="text-muted text-[11px]">{stat.label}</div>
-                  <div
-                    className={cn(
-                      "numeric text-[15px] font-extrabold",
-                      index === stats.length - 1 ? "text-loss" : "text-text",
-                    )}
-                  >
-                    {stat.value}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
 
           <SystemActions actions={actions} />
         </Dialog.Content>

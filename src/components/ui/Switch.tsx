@@ -8,6 +8,7 @@ export function Switch({
   label,
   note,
   size = "md",
+  pending = false,
   className,
 }: {
   checked: boolean;
@@ -16,6 +17,8 @@ export function Switch({
   /** Secondary line under the label, for settings that need explaining. */
   note?: string;
   size?: "md" | "lg";
+  /** Waiting for the server to say what the setting now is: pressing does nothing. */
+  pending?: boolean;
   className?: string;
 }) {
   return (
@@ -23,9 +26,15 @@ export function Switch({
       type="button"
       role="switch"
       aria-checked={checked}
-      onClick={() => onChange(!checked)}
+      aria-busy={pending || undefined}
+      // Not `disabled`: a pressed control that disables itself drops keyboard
+      // and screen-reader focus to the page (review Q3).
+      aria-disabled={pending || undefined}
+      onClick={() => {
+        if (!pending) onChange(!checked);
+      }}
       className={cn(
-        "font-body flex min-h-12 w-full cursor-pointer items-center justify-between gap-3 text-left text-[13px]",
+        "font-body flex min-h-12 w-full cursor-pointer items-center justify-between gap-3 text-left text-[13px] aria-disabled:cursor-wait aria-disabled:opacity-60",
         className,
       )}
     >

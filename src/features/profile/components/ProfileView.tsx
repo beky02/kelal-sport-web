@@ -24,6 +24,13 @@ import type {
   Theme,
 } from "@/types/common";
 import { cn } from "@/lib/utils/cn";
+import {
+  useAccountSaving,
+  useChangeLanguage,
+  useUpdateAccount,
+} from "../hooks/use-account";
+import { DevicesSection } from "./DevicesSection";
+import { SaveProblem } from "./SaveProblem";
 import { InfoRow, SettingsRow, SettingsSection } from "./SettingsRow";
 
 /** The first letters of the first two names: `Abebe Kebede` → `AK`. */
@@ -43,14 +50,16 @@ const initials = (name: string) =>
  * header because they are needed mid-task.
  *
  * Nothing here is a profile "edit" form: name, phone and date of birth come
- * from the account (`/api/me`) and are shown, not typed over.
+ * from the account (`/api/me`) and are shown, not typed over. The language
+ * and the Offers consent are the account's too (F7b): saved through
+ * `PATCH /api/me`, and what the API answers is what is shown.
  */
 export function ProfileView() {
   const t = useTranslation();
   const router = useRouter();
 
   const lang = useUiStore((s) => s.lang);
-  const setLang = useUiStore((s) => s.setLang);
+  const changeLanguage = useChangeLanguage();
   const theme = useUiStore((s) => s.theme);
   const setTheme = useUiStore((s) => s.setTheme);
   const clock = useUiStore((s) => s.clock);
@@ -63,15 +72,18 @@ export function ProfileView() {
   const { isLoading, isGuest, player, kycVerified } = useSession();
   const logout = useLogout();
   const openAuth = useAuthStore((s) => s.open);
+  const saving = useAccountSaving();
+  const consent = useUpdateAccount();
+  const language = useUpdateAccount();
 
-  // Local until there is a notifications endpoint; offers stay off by default.
-  const [notifications, setNotifications] = useState([
-    true,
-    true,
-    true,
-    true,
-    false,
-  ]);
+  // The language this page reads in isn't the account's: a save failed, or
+  // another device changed it. Said once nothing is being saved.
+  const languageUnsaved =
+    player !== null && !saving && player.language !== lang;
+
+  // Local until there is a notifications endpoint (C14). Offers is the
+  // account's marketing consent, below.
+  const [notifications, setNotifications] = useState([true, true, true, true]);
   const toggleNotification = (index: number) =>
     setNotifications((current) =>
       current.map((on, i) => (i === index ? !on : on)),
@@ -85,7 +97,6 @@ export function ProfileView() {
     { label: t.t("profile.notifSettled") },
     { label: t.t("profile.notifPayments") },
     { label: t.t("profile.notifSession") },
-    { label: t.t("profile.notifOffers"), note: t.t("profile.notifOffersBody") },
   ];
 
   const kycLabel = kycVerified
@@ -202,18 +213,40 @@ export function ProfileView() {
         </>
       )}
 
+      {player && <DevicesSection />}
+
       <SettingsSection>{t.t("profile.preferences")}</SettingsSection>
       <div className="border-divider border-t">
-        <SettingsRow label={t.t("profile.language")}>
+        <SettingsRow
+          label={t.t("profile.language")}
+          note={player && saving ? t.t("profile.languageSaving") : undefined}
+        >
           <Segmented<Lang>
             value={lang}
-            onChange={setLang}
+            onChange={changeLanguage}
             options={[
               { value: "en", label: "English" },
               { value: "am", label: "አማርኛ" },
             ]}
           />
         </SettingsRow>
+        {languageUnsaved && (
+          <div
+            role="status"
+            className="border-divider flex min-h-12 items-center gap-3 border-b px-4"
+          >
+            <span className="text-muted flex-1 text-xs">
+              {t.t("profile.languageNotSaved")}
+            </span>
+            <button
+              type="button"
+              onClick={() => language.mutate({ language: lang })}
+              className="bg-raised text-text font-body min-h-11 shrink-0 cursor-pointer rounded-lg px-3 text-xs font-bold"
+            >
+              {t.t("profile.languageSave")}
+            </button>
+          </div>
+        )}
 
         <SettingsRow label={t.t("profile.theme")}>
           <Segmented<Theme>
@@ -292,6 +325,24 @@ export function ProfileView() {
                 className="border-divider min-h-14 border-b px-4"
               />
             ))}
+            {/* The account's marketing consent: the API's value, waiting for
+                its answer rather than assuming it (plan decision 8). */}
+            <Switch
+              checked={player.marketingConsent ?? false}
+              onChange={(next) => consent.mutate({ marketingConsent: next })}
+              pending={consent.isPending}
+              label={t.t("profile.notifOffers")}
+              note={t.t("profile.notifOffersBody")}
+              size="lg"
+              className="border-divider min-h-14 border-b px-4"
+            />
+            <SaveProblem
+              title="profile.saveFailed"
+              error={consent.isPending ? null : consent.error}
+              onRetry={() =>
+                consent.variables && consent.mutate(consent.variables)
+              }
+            />
           </div>
         </>
       )}

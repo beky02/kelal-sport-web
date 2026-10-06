@@ -48,6 +48,7 @@ import type {
   RegisterResult,
   SessionView,
 } from "@/features/auth/types";
+import type { AccountChange, DeviceSession } from "@/features/profile/types";
 import { isIsoDate } from "@/features/auth/lib/birth-date";
 import { toE164 } from "@/features/auth/lib/phone";
 import { compareMoney } from "@/lib/money";
@@ -328,12 +329,6 @@ export const ticketCheckSchema = z.object({
     )
     .min(1),
 }) satisfies z.ZodType<TicketCheck>;
-
-export const sessionActivitySchema = z.object({
-  staked: z.number(),
-  won: z.number(),
-  net: z.number(),
-});
 
 /** `/api/wallet`: the API's balances, each the contract's `Money` string. */
 export const walletBalancesSchema = z.object({
@@ -758,6 +753,35 @@ export const playerSchema = z.object({
 export const sessionViewSchema = z.object({
   player: playerSchema.nullable(),
 }) satisfies z.ZodType<SessionView>;
+
+/**
+ * What `PATCH /api/me` accepts from the browser: the language, the marketing
+ * consent, or both — strict, so nothing else about the account rides along.
+ * Whether the API takes it is the API's to say.
+ */
+export const accountChangeSchema = z
+  .strictObject({
+    language: langSchema.optional(),
+    marketingConsent: z.boolean().optional(),
+  })
+  .refine(
+    (change) =>
+      change.language !== undefined || change.marketingConsent !== undefined,
+    "Nothing to change",
+  ) satisfies z.ZodType<AccountChange>;
+
+/** `/api/me/sessions`: the devices signed in to the account (REG-10). */
+export const deviceSessionsSchema = z.array(
+  z.object({
+    id: z.string(),
+    platform: z.enum(["android", "ios", "web"]),
+    userAgent: z.string().nullable(),
+    ip: z.string().nullable(),
+    createdAt: z.iso.datetime({ offset: true }),
+    lastUsedAt: z.iso.datetime({ offset: true }),
+    current: z.boolean(),
+  }) satisfies z.ZodType<DeviceSession>,
+);
 
 export const playerSummarySchema = z.object({
   id: z.string(),

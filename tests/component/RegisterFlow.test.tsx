@@ -272,6 +272,23 @@ describe("registering through the dialog", () => {
     expect(posts("/api/kyc/fayda/otp")).toHaveLength(0);
   });
 
+  it("registering keeps the language just chosen, whatever /api/me says (AC-8)", async () => {
+    // Prism's player reads Amharic; this one registered in English, and
+    // registration sent it — the page doesn't flip.
+    api((call) => happy(call));
+    render(<AuthDialog />, { session: "guest" });
+
+    await phoneStep();
+    await codeStep();
+    await detailsStep();
+    await userEvent.click(
+      await screen.findByRole("button", { name: "Do this later" }),
+    );
+
+    expect(CONTRACT_PLAYER.language).toBe("am");
+    expect(useUiStore.getState().lang).toBe("en");
+  });
+
   it("waits for resend_after on the code step; Change number to the same number sends nothing new", async () => {
     // A clock the test moves: the countdown and the challenge's deadlines
     // read Date and tick on setInterval.

@@ -17,6 +17,7 @@ the `/contract-request` skill and applied in the backend with `/contract-change`
 | [009](009-deposit-reference-and-examples.md)   | The provider's reference on a deposit (DEP-08); examples for every deposit state and refusal; whether a 502 is kept under its key                                                     | F6b           | proposed |
 | [010](010-withdrawal-examples-and-reasons.md)  | Examples for every withdrawal state, the cancel and each refusal; review reasons as codes; an account already saved; the kind of account a method pays to; self-exclusion and the 502 | F6c           | proposed |
 | [011](011-rg-limits-and-exclusion.md)          | Removing a time limit; minutes used and when a period resets; which exclusion is in force and what a second one does; RG refusal examples; the RG operations' missing responses       | F7a           | proposed |
+| [012](012-reality-check-and-account.md)        | The reality check's figures and play session; the interval's meaning and a way to set it; a session's start; a `PATCH /v1/me` example                                                 | F7b           | proposed |
 | [013](013-platform-and-retail-chain.md)        | Brand and partner agents, every shop under an agent, one agent level; the retail admin errors; the platform console's operations                                                      | FD6           | proposed |
 
 Status: `proposed` → `accepted` (backend agreed) → `in-contract` (merged in the backend) → `synced` (here).

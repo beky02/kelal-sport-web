@@ -49,7 +49,7 @@ other job is public: `/t/{x}` with no ticket number in it gets a 404 rendered wh
 
 ## Caches and identity
 
-Everything only a player may see — wallet, bets, transactions, payments, limits — is removed from the
+Everything only a player may see — wallet, bets, transactions, payments, limits, devices — is removed from the
 query cache whenever the session changes hands: on logout, on a successful login before `/api/me` is
 read, after a break or self-exclusion is started (F7a), and when the watcher sees a player become a guest.
 However fresh the cache, the next player never sees the previous one's balance. Whether a break is in
@@ -147,8 +147,23 @@ Verification is needed before a withdrawal, not before a bet (C02 §2); the ID s
 ## Profile data
 
 Name, phone (masked in the identity row, full under Personal info) and date of birth come from
-`/v1/me`; they are shown, not edited. Language and marketing consent change through `PATCH /v1/me`
-(F7). Active devices (`/v1/me/sessions`, REG-10) are F7.
+`/v1/me`; they are shown, not edited.
+
+Language and marketing consent are the account's (F7b), through `PATCH /api/me` → `PATCH /v1/me`. Only
+the changed field is sent, and the API's answer (`Me`) becomes `/api/me`'s entry, so what is shown is
+what the API kept, never what was asked. Offers (the marketing consent) waits for that answer. The
+language changes the page at once (it is how this device reads) and is saved on the account for a signed-in
+player from any switch (header, profile, age gate); a guest's stays on the device. **Logging in takes the
+account's language** (registration doesn't: it sent the one just chosen), so a player reads their choice
+on another device. While the page's language and the account's differ (a failed save, or a change on
+another device), Profile says "Not saved to your account" with Save. When F2a puts the language in the URL
+(FD2), the switch navigates and this save rides along.
+
+Devices signed in (REG-10, F7b) come from `/api/me/sessions` → `GET /v1/me/sessions`: this device marked
+(Log out is how it leaves), Sign out on each other one (`DELETE /api/me/sessions/{id}`; the id is checked
+before it goes upstream). A row leaves only once the API has answered and the list has been read again; a
+404 means it was gone already. The list (IPs included) sits under `accountKeys`, dropped with the other
+personal data when the session changes hands.
 
 ## Open items
 

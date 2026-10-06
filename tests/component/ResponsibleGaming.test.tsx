@@ -335,6 +335,33 @@ describe("the limits (AC-1)", () => {
   });
 });
 
+describe("the session reminder (AC-10)", () => {
+  const reminder = () =>
+    screen.getByText("Session reminder").closest("div") as HTMLElement;
+
+  it("shows the account's interval, and Off without one", async () => {
+    api();
+    const { unmount } = render(<ResponsibleGamingView />);
+    await screen.findByRole("region", { name: "Deposit limit" });
+
+    // Prism's player: every 60 minutes, set on the account — shown, not
+    // offered, since the contract can't change it yet.
+    expect(reminder()).toHaveTextContent("Every 60 min");
+    expect(within(reminder()).queryByRole("switch")).toBeNull();
+    expect(within(reminder()).queryByRole("button")).toBeNull();
+    unmount();
+
+    render(<ResponsibleGamingView />, {
+      session: {
+        ...CONTRACT_PLAYER,
+        flags: { ...CONTRACT_PLAYER.flags, realityCheckMinutes: null },
+      },
+    });
+    await screen.findByRole("region", { name: "Deposit limit" });
+    expect(reminder()).toHaveTextContent("Off");
+  });
+});
+
 describe("setting a limit (AC-5)", () => {
   it("raising a limit shows it pending from the API's effective time (AC-5)", async () => {
     saves = [[200, RAISED]];

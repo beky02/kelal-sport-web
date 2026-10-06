@@ -87,9 +87,16 @@ session revoked: 401); 401 → the session-ended path.
 
 ## Reality check (RG-04, F7)
 
-Every `rg.reality_check_minutes` of play the dialog shows time played and the session's staked, won and
-net figures from `/v1/me/sessions` and the API, never computed in the browser; Keep playing, Take a
-break or My limits.
+Built in F7b. Every `Me.flags.reality_check_minutes` of play (the account's interval, read with `/api/me`;
+`null` means none, and the browser invents no interval) a dialog opens over whatever page the player is on
+and says how long they have been playing. Keep playing, Take a break and View my limits each answer it, and
+the next check comes one interval later. Take a break and View my limits open Responsible gaming, where a
+break is asked for with its length. Clicking away doesn't close it, and it waits while another dialog is
+up. The play session is this tab's visit, from when it first showed the signed-in player, kept in
+`sessionStorage` so a reload neither restarts it nor skips a check that came due. Another player, or
+signing out, ends it. The session's staked, won and net figures come from the API and are never computed
+in the browser. The contract has none yet (contract request 012), so the dialog shows no money until F7e,
+which also moves the timing to the API's play session.
 
 ## Log out (built in F4a)
 

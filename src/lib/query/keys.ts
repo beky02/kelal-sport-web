@@ -83,6 +83,18 @@ export const rgKeys = {
   limits: () => [...rgKeys.all, "limits"] as const,
 };
 
+/**
+ * The player's account (F7b): the devices signed in to it — personal data
+ * (IPs), under one root the session watcher drops when the player changes.
+ * `update` names the mutation that saves a preference, so any screen can tell
+ * a save is under way.
+ */
+export const accountKeys = {
+  all: ["account"] as const,
+  sessions: () => [...accountKeys.all, "sessions"] as const,
+  update: () => [...accountKeys.all, "update"] as const,
+};
+
 export const walletKeys = {
   all: ["wallet"] as const,
   balance: () => [...walletKeys.all, "balance"] as const,

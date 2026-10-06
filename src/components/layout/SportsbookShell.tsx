@@ -4,6 +4,7 @@ import { AuthDialog } from "@/features/auth/components/AuthDialog";
 import { SessionWatcher } from "@/features/auth/hooks/use-session";
 import { MobileBetSlip } from "@/features/bet-slip/components/MobileBetSlip";
 import { NetworkWatcher } from "@/features/system/hooks/use-online-status";
+import { RealityCheckWatcher } from "@/features/system/hooks/use-reality-check";
 import {
   CoolOffBanner,
   OfflineBanner,
@@ -46,6 +47,7 @@ export function SportsbookShell({
     <>
       <NetworkWatcher />
       <SessionWatcher />
+      <RealityCheckWatcher />
       <DepositFollower />
       <AppHeader />
       <OfflineBanner />

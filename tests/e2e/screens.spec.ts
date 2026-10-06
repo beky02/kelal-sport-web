@@ -95,6 +95,43 @@ async function loginViaApi(page: Page) {
 }
 
 /**
+ * The account's language, as `/api/me` reads it: Prism's player saved Amharic,
+ * which a screen in English would rightly say isn't saved (F7b). A screen of
+ * the profile as it usually is reads its own language.
+ */
+const accountReads = (choose: (lang: Lang) => Lang) =>
+  async function (page: Page, lang: Lang) {
+    await loginViaApi(page);
+    await page.route("**/api/me", async (route) => {
+      if (route.request().method() !== "GET") return route.continue();
+      const response = await route.fetch();
+      const json = await response.json();
+      if (json.player) json.player.language = choose(lang);
+      await route.fulfill({ response, json });
+    });
+  };
+const playerReadingTheScreen = accountReads((lang) => lang);
+
+/** The devices list on Profile, once it has loaded. */
+const devicesShow = async (page: Page, _device: Device, lang: Lang) => {
+  await page.getByText(MESSAGES[lang].profile.thisDevice).first().waitFor();
+};
+
+/**
+ * The reality check, an hour into the visit: Prism's player has
+ * `reality_check_minutes: 60`. The page's clock is installed before it loads
+ * and moved on once it has.
+ */
+const realityCheckDue = async (page: Page, lang: Lang) => {
+  await page.clock.install();
+  await playerReadingTheScreen(page, lang);
+};
+const anHourLater = async (page: Page) => {
+  await page.clock.fastForward("01:00:00");
+  await page.getByRole("alertdialog").waitFor();
+};
+
+/**
  * The login dialog after an answer Prism is asked for with `Prefer` (next dev
  * forwards it): `code=202` is the new-device code step, `code=401` a wrong
  * password, `code=423` a locked account.
@@ -1035,7 +1072,7 @@ const SCREENS: Array<{
    */
   headers?: Record<string, string>;
   /** Runs before the page is opened — logging in, for the account pages. */
-  before?: (page: Page) => Promise<void>;
+  before?: (page: Page, lang: Lang) => Promise<void>;
   /**
    * Console errors this screen is expected to produce: Chrome logs a refused
    * fetch ("Failed to load resource … 401") as an error, and a refusal is the
@@ -1944,8 +1981,47 @@ const SCREENS: Array<{
     prepare: withdrawalShows((t) => t.withdraw.checkFailedTitle),
     allowConsole: /503/,
   },
-  { name: "profile", path: "/profile", before: loginViaApi },
+  {
+    // Both of Prism's devices, this one marked (AC-9).
+    name: "profile",
+    path: "/profile",
+    before: playerReadingTheScreen,
+    prepare: devicesShow,
+  },
+  {
+    // The account saved the other language: "Not saved to your account".
+    name: "profile-language-unsaved",
+    path: "/profile",
+    before: accountReads((lang) => (lang === "en" ? "am" : "en")),
+    prepare: devicesShow,
+  },
+  {
+    name: "profile-devices-failed",
+    path: "/profile",
+    before: async (page, lang) => {
+      await playerReadingTheScreen(page, lang);
+      await page.route("**/api/me/sessions", (route) =>
+        route.fulfill({
+          status: 503,
+          contentType: "application/problem+json",
+          json: problemJson(503, "SERVICE_UNAVAILABLE"),
+        }),
+      );
+    },
+    prepare: async (page, _device, lang) => {
+      await page.getByText(MESSAGES[lang].profile.devicesFailed).waitFor();
+    },
+    allowConsole: /503/,
+  },
   { name: "profile-guest", path: "/profile" },
+  {
+    // An hour into the visit: time played, no money figures (AC-10). Over
+    // My bets, a page one screen long, so the dialog is the picture.
+    name: "reality-check",
+    path: "/my-bets",
+    before: realityCheckDue,
+    prepare: anHourLater,
+  },
   {
     // Prism's limits: a weekly deposit limit with a raise pending (AC-5).
     name: "responsible-gaming",
@@ -2266,7 +2342,7 @@ for (const [device, viewport] of Object.entries(DEVICES)) {
               }),
             );
           }
-          if (screen.before) await screen.before(page);
+          if (screen.before) await screen.before(page, lang);
           await page.goto(screen.path);
           await settle(page);
           if (screen.prepare) {

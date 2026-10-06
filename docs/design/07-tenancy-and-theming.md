@@ -39,7 +39,7 @@ gets the view it needs through `/api/config`. What the frontend takes from it:
 | `real_money_enabled`                          | A clear notice; placing, depositing and withdrawing disabled (CFG-04)                                                                             | F1                                |
 | `betting` (the `RuleSet`)                     | slipcalc's rules, quick stakes, `default_odds_policy`                                                                                             | Built (F3a)                       |
 | `legal.terms_version`, `rules_url`, `min_age` | Registration consent and the age copy (F4b: `terms_version` checked by the register route handler, `min_age` in the age box); the rules link (F1) | F4b, F1                           |
-| `rg.reality_check_minutes`                    | The reality check                                                                                                                                 | F7                                |
+| `rg.reality_check_minutes`                    | Not in the contract's `PublicConfig`: the interval in force is `Me.flags.reality_check_minutes` (F7b; request 012 asks the backend to confirm)    | F7b                               |
 | `dictionary_version`                          | Dictionary refresh (304 when unchanged)                                                                                                           | F2b                               |
 | `min_app_version`                             | The Android app only                                                                                                                              | —                                 |
 

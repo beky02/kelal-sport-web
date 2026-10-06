@@ -9,6 +9,7 @@ import { routes } from "@/config/routes";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { useSession } from "@/features/auth/hooks/use-session";
 import { useAuthStore } from "@/features/auth/stores/auth.store";
+import { useChangeLanguage } from "@/features/profile/hooks/use-account";
 import { HeaderSearch } from "@/features/search/components/HeaderSearch";
 import { useWallet } from "@/features/wallet/hooks/use-wallet";
 import { LANG_LABEL } from "@/lib/i18n";
@@ -37,7 +38,7 @@ export function AppHeader() {
   const t = useTranslation();
 
   const lang = useUiStore((s) => s.lang);
-  const setLang = useUiStore((s) => s.setLang);
+  const setLang = useChangeLanguage();
   const setSidebarOpen = useUiStore((s) => s.setSidebarOpen);
 
   const { isLoading, isGuest } = useSession();

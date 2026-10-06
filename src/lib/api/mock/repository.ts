@@ -281,13 +281,6 @@ function boardMarkets(event: SportEvent, raw: RawMatch): BoardMarkets {
 
 // ── queries ─────────────────────────────────────────────────────────────────
 
-export interface SessionActivity {
-  staked: number;
-  won: number;
-  /** Won minus staked. Negative is the usual case and is shown in the loss tint. */
-  net: number;
-}
-
 export const mockRepository = {
   async listBoard(
     filters: EventFilters = {},
@@ -415,16 +408,5 @@ export const mockRepository = {
         ),
       ];
     });
-  },
-
-  /**
-   * This session's activity, for the reality check.
-   *
-   * Server-owned: the client cannot be trusted to total up what someone has
-   * staked, and the whole point of a reality check is that the figure is true.
-   */
-  async getSessionActivity(): Promise<SessionActivity> {
-    await delay(100);
-    return { staked: 350, won: 120, net: -230 };
   },
 };
