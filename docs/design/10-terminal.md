@@ -108,8 +108,8 @@ slip, and the slip's picks. F8cb adds the stake and the figures; F8cc adds Get c
 
 | State              | When                                     | Shows                                                                                 | Screenshot                                     |
 | ------------------ | ---------------------------------------- | ------------------------------------------------------------------------------------- | ---------------------------------------------- |
-| Config loading     | Before `/api/terminal/config` answers    | Top bar; "Starting the terminal…" (bilingual)                                         | —                                              |
-| Config unreadable  | The config read failed (network, 5xx)    | Top bar; "Can't reach the server" + Try again (bilingual)                             | —                                              |
+| Config loading     | Before `/api/terminal/config` answers    | Top bar; "Starting the terminal…" (bilingual)                                         | `terminal-kiosk-config-loading`                |
+| Config unreadable  | The config read failed (network, 5xx)    | Top bar; "Can't reach the server" + Try again (bilingual)                             | `terminal-kiosk-config-offline`                |
 | Board              | Config read, shop betting on             | Sports, days, competitions and their matches with prices                              | `terminal-kiosk-board-{am,en}-{phone,desktop}` |
 | Picks              | Prices tapped                            | The picks in the slip; the rows tinted; prices pressed                                | `terminal-kiosk-picks-{am,en}-…`               |
 | Board loading      | A sport or day not read yet              | Skeleton rows                                                                         | `terminal-kiosk-loading-{am,en}-…`             |

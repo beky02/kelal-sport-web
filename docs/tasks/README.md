@@ -38,7 +38,7 @@ Engineering Decisions say differently. The order follows the Build Plan's fronte
 | [F8](F8-terminal.md)                          | Shop terminal app                                                                                      | F8a                | B9            | todo        |
 | [F8b](F8b-terminal-activation.md)             | Split from F8: terminal activation, the device key and signed requests                                 | F8a                | B9            | done        |
 | [F8c](F8c-terminal-slip-code.md)              | Split from F8: kiosk sportsbook and slip to code                                                       | F8b                | B9            | in_progress |
-| [F8ca](F8ca-kiosk-sportsbook.md)              | Split from F8c: kiosk sportsbook — matches, picks, the kiosk's language, `features.retail`             | F8b                | —             | planned     |
+| [F8ca](F8ca-kiosk-sportsbook.md)              | Split from F8c: kiosk sportsbook — matches, picks, the kiosk's language, `features.retail`             | F8b                | —             | verifying   |
 | [F8cb](F8cb-kiosk-slip.md)                    | Split from F8c: the kiosk's slip priced with the retail rule set, stake on a keypad                    | F8ca               | B9            | todo        |
 | [F8cc](F8cc-slip-code.md)                     | Split from F8c: slip to an 8-digit code with a QR, idle reset, the rate limit                          | F8cb               | B9            | todo        |
 | [F9](F9-pos.md)                               | Cashier POS app (in `kelalsport-ops`)                                                                  | F12                | B9            | todo        |

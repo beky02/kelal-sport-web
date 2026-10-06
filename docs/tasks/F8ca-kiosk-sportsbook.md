@@ -1,7 +1,7 @@
 ---
 id: F8ca
 title: Split from F8c — kiosk sportsbook: matches, picks and the kiosk's language
-status: planned
+status: verifying
 depends_on: [F8b]
 contract_tags: [Catalogue, Config]
 touches_money: false

@@ -412,6 +412,55 @@ for (const [device, viewport] of Object.entries({
       await expect(kiosk(page)).toBeVisible();
     });
 
+    test("kiosk-config-loading: the shop's bar while the kiosk's config is read (F8ca)", async ({
+      page,
+      baseURL,
+    }) => {
+      await activate(page, baseURL);
+      await page.route(CONFIG, () => undefined);
+      await page.reload();
+      await expect(page.getByRole("status")).toContainText(en.terminal.loading);
+      await expect(page.getByText("Adama Kebele 04")).toBeVisible();
+      await shoot(page, "kiosk-config-loading", device, errors);
+    });
+
+    test("kiosk-config-offline: the kiosk's config can't be read; Try again (F8ca)", async ({
+      page,
+      baseURL,
+    }) => {
+      await activate(page, baseURL);
+      await page.route(CONFIG, (route) =>
+        route.fulfill({
+          status: 503,
+          contentType: "application/problem+json",
+          json: {
+            type: "about:blank",
+            title: "The sportsbook API could not be reached",
+            status: 503,
+            code: "SERVICE_UNAVAILABLE",
+          },
+        }),
+      );
+      await page.reload();
+      await expect(heading(page)).toContainText(en.terminal.offline.title, {
+        timeout: 15_000,
+      });
+      await expect(page.getByText("Adama Kebele 04")).toBeVisible();
+      await shoot(
+        page,
+        "kiosk-config-offline",
+        device,
+        errors,
+        /status of 503/,
+      );
+
+      await page.unroute(CONFIG);
+      await page
+        .getByRole("button", { name: new RegExp(en.terminal.offline.retry) })
+        .click();
+      await expect(kiosk(page)).toBeVisible();
+    });
+
     test("unavailable: a tenant without shop betting shows no sportsbook (F8ca AC-4)", async ({
       page,
       baseURL,

@@ -1,5 +1,28 @@
 # F8c — verification (F8ca — kiosk sportsbook)
 
+## Self-review
+
+- **Money moves:** none in F8ca. Nothing is placed, booked, deposited or withdrawn; the slip store is the
+  player's, unchanged, and shows the odds as the board sent them (`t.odds`, display only).
+- **New values:** the kiosk's language reaches the locale (`KioskLocale`), `<html lang>` and every terminal
+  call's `Accept-Language` (`kioskLanguage()`), grepped. The slip bar's count is `selections.length`. The
+  switch offers `config.languages` minus the current one. A chosen language the tenant dropped gives way
+  to its default.
+- **Async tests:** each kiosk test waits for the price, heading or query it asserts on (`findBy…`,
+  `waitFor` on the board query) before acting. One test checked the sport tabs before `/sports` answered;
+  it now waits for them. Store-driven changes after a click are synchronous.
+- **Personal data:** none. No player is signed in on a terminal; `terminalKeys` hold the shop's config
+  and the public catalogue.
+- **Route handlers:** each of the three kiosk reads checks the host, then the terminal cookie's tenant and
+  expiry (401 before anything is called). The board's query is checked whole before it reaches an
+  upstream URL. Answers are `no-store`, and no `Prefer` goes upstream, not even under `next dev`. Each has
+  a test.
+- **Screens:** board, picks, loading, empty and error, each in am/en at phone and desktop; unavailable,
+  config loading and config unreadable, bilingual, at both widths. All looked at.
+- **Docs:** the plan's design, keys, files and test names match the code (changes while implementing are
+  marked there). 10-terminal, 06-language, 09-security, 00-overview and 01-screens are updated, as are the
+  translation notes and the README status.
+
 ## Tests proven
 
 Each new acceptance test, green, then failed once against the behaviour it guards broken on purpose, and
