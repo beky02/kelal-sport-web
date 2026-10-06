@@ -600,3 +600,12 @@ Windows`), so the Amharic puts them after a colon rather than suffixing them.
 Removed with the mock figures (no source until F7e): `system.realityBody`, `realityStaked`, `realityWon`,
 `realityNet`. The provenance note above that names `system.realityBody` still says where an older string
 came from.
+
+## Shop terminal placeholder (F8a, 2026-10-06)
+
+What a terminal host shows until F8b builds the terminal. Composed; needs review with the rest.
+
+| Key                          | Amharic             | Composed from                                                       |
+| ---------------------------- | ------------------- | ------------------------------------------------------------------- |
+| `terminal.placeholder.title` | የሱቅ ተርሚናል           | New: ሱቅ (shop) + ተርሚናል, the transliterated word                     |
+| `terminal.placeholder.body`  | ይህ ስክሪን ገና አልተዘጋጀም። | New; ገና … (not yet) as in `betSlip.alerts.realMoney` (… ገና አልተጀመረም) |

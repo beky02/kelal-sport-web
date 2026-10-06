@@ -42,4 +42,17 @@ export const routes = {
   privacy: "/privacy",
   help: "/help",
   telegram: "/telegram",
+
+  /**
+   * The shop terminal (FD1): its pages and route handlers, served only on a
+   * terminal host, where `/` shows `terminal` (`src/proxy.ts`).
+   */
+  terminal: "/terminal",
+  terminalApi: "/api/terminal",
+  /**
+   * Next's own 404 page, the one an unmatched URL gets. The proxy answers a
+   * route of the other site with it, so the route reads as one that doesn't
+   * exist.
+   */
+  notFound: "/_not-found",
 } as const;
