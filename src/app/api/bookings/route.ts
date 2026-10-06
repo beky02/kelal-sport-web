@@ -1,15 +1,12 @@
 import { z } from "zod";
 import { bookingRequestSchema } from "@/lib/api/schemas";
-import { readJson } from "@/lib/server/body";
+import { BODY_CAPS, readJson } from "@/lib/server/body";
 import { createBooking } from "@/lib/server/bookings";
 import { assertSameOrigin } from "@/lib/server/csrf";
 import { problemResponse, respond } from "@/lib/server/respond";
 import { mockPreference } from "@/lib/server/upstream";
 
 const idempotencyKeySchema = z.uuid();
-
-/** Far more than any slip (30 legs) needs; nothing bigger is read. */
-const MAX_BODY_BYTES = 16 * 1024;
 
 export async function POST(request: Request) {
   // Only this site's own pages book (C18 §4.4): origin, CSRF header, JSON.
@@ -28,7 +25,7 @@ export async function POST(request: Request) {
     );
   }
 
-  const json = await readJson(request, MAX_BODY_BYTES);
+  const json = await readJson(request, BODY_CAPS.slip);
   if (json === "too_large") {
     return problemResponse(413, "VALIDATION_FAILED", "Too large");
   }

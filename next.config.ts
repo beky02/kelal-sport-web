@@ -23,8 +23,8 @@ const nextConfig: NextConfig = {
   experimental: {
     // The proxy runs on every route handler (F8a), and Next reads each request
     // body for it before the handler runs, keeping up to this much in memory —
-    // 10 MB by default. Above the largest body a handler accepts (16 KiB, bets
-    // and bookings), so none is cut. A bigger one is still refused (413 with a
+    // 10 MB by default. Above the largest body a handler accepts (BODY_CAPS in
+    // lib/server/body.ts: 16 KiB, bets and bookings), so none is cut. A bigger one is still refused (413 with a
     // Content-Length; a chunked one arrives cut and fails as not JSON), but only
     // once it has all arrived: the edge must cap bodies (09-security).
     proxyClientMaxBodySize: "32kb",

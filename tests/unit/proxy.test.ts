@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { readdirSync, readFileSync, statSync } from "node:fs";
+import { readdirSync, statSync } from "node:fs";
 import { join, relative, sep } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
@@ -18,6 +18,8 @@ vi.stubEnv("TERMINAL_HOST_MAP", "");
 vi.stubEnv("TENANT_HOST_MAP", "");
 vi.stubEnv("TRUSTED_PROXY_HOPS", "0");
 const { config, proxy } = await import("@/proxy");
+// After the stubs too: body.ts reaches lib/server/config.ts through respond.ts.
+const { BODY_CAPS } = await import("@/lib/server/body");
 
 const PLAYER = "localhost:3000";
 const TERMINAL = "terminal.localhost:3000";
@@ -327,23 +329,10 @@ function bytes(size: string | number | undefined): number {
   return Number(match[1]) * unit;
 }
 
-/** The body caps the route handlers declare (`MAX_BODY_BYTES = n * 1024`). */
-function handlerCaps(dir = join(process.cwd(), "src")): number[] {
-  return readdirSync(dir).flatMap((name) => {
-    const path = join(dir, name);
-    if (statSync(path).isDirectory()) return handlerCaps(path);
-    if (!/\.tsx?$/.test(name)) return [];
-    return [
-      ...readFileSync(path, "utf8").matchAll(
-        /MAX_(?:BODY_)?BYTES = (\d+) \* 1024/g,
-      ),
-    ].map((match) => Number(match[1]) * 1024);
-  });
-}
-
 describe("the request body the proxy holds (F8a decision 9)", () => {
   it("buffers no more of a body for the proxy than the largest handler accepts, with room", () => {
-    const caps = handlerCaps();
+    // readJson and readForm take no cap but these (BodyCap), so they are all.
+    const caps = Object.values(BODY_CAPS);
     expect(caps.length).toBeGreaterThan(0);
     const limit = bytes(nextConfig.experimental?.proxyClientMaxBodySize);
     // Never cut a body a handler accepts…

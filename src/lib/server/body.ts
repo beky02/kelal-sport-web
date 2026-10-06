@@ -3,12 +3,28 @@ import type { z } from "zod";
 import { problemResponse } from "./respond";
 
 /**
+ * Every size a handler may read a body up to, and no other: `maxBytes` takes
+ * only these values (literal types, so `64 * 1024` does not type-check). The
+ * proxy holds each body before the handler runs, and next.config.ts's
+ * `proxyClientMaxBodySize` must stay above the largest of these, or a body a
+ * handler accepts would arrive cut (F8a decision 9, tests/unit/proxy.test.ts).
+ */
+export const BODY_CAPS = {
+  /** 4 KiB: a form, a code, a login — a phone, a password, a six-digit code. */
+  form: 4_096,
+  /** 16 KiB: far more than any slip (30 legs) needs — bets and bookings. */
+  slip: 16_384,
+} as const;
+
+export type BodyCap = (typeof BODY_CAPS)[keyof typeof BODY_CAPS];
+
+/**
  * The request body as JSON, `null` when it is not JSON, or `"too_large"` —
  * without ever holding more than `maxBytes`, whatever `Content-Length` claims.
  */
 export async function readJson(
   request: Request,
-  maxBytes: number,
+  maxBytes: BodyCap,
 ): Promise<unknown | "too_large"> {
   const declared = Number(request.headers.get("content-length") ?? "0");
   if (declared > maxBytes) return "too_large";
@@ -33,9 +49,6 @@ export async function readJson(
   }
 }
 
-/** A JSON body small enough to hold — a form, a code — and nothing bigger. */
-const FORM_MAX_BYTES = 4 * 1024;
-
 /**
  * The request's JSON body checked against `schema`, or the Problem to answer
  * instead: 413 when it is over `maxBytes` (a form's 4 KiB unless the route
@@ -46,7 +59,7 @@ export async function readForm<T>(
   request: Request,
   schema: z.ZodType<T>,
   refusal: string,
-  maxBytes: number = FORM_MAX_BYTES,
+  maxBytes: BodyCap = BODY_CAPS.form,
 ): Promise<T | Response> {
   const json = await readJson(request, maxBytes);
   if (json === "too_large") {

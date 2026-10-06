@@ -1,13 +1,10 @@
 import { loginFormSchema } from "@/lib/api/schemas";
 import { login, logout, webDevice } from "@/lib/server/auth";
-import { readJson } from "@/lib/server/body";
+import { BODY_CAPS, readJson } from "@/lib/server/body";
 import { assertSameOrigin } from "@/lib/server/csrf";
 import { problemResponse, respond } from "@/lib/server/respond";
 import { ensureDevice, readSession, sessionCookie } from "@/lib/server/session";
 import { mockPreference } from "@/lib/server/upstream";
-
-/** A phone, a password and at most a six-digit code: nothing bigger is read. */
-const MAX_BODY_BYTES = 4 * 1024;
 
 /**
  * Logs in. The API's tokens end up sealed in the session cookie and nowhere
@@ -17,7 +14,7 @@ export async function POST(request: Request) {
   const refused = assertSameOrigin(request);
   if (refused) return refused;
 
-  const json = await readJson(request, MAX_BODY_BYTES);
+  const json = await readJson(request, BODY_CAPS.form);
   if (json === "too_large") {
     return problemResponse(413, "VALIDATION_FAILED", "Too large");
   }

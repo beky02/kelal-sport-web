@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { placeBetRequestSchema } from "@/lib/api/schemas";
 import { loadMyBets, placeBet } from "@/lib/server/bets";
-import { readForm } from "@/lib/server/body";
+import { BODY_CAPS, readForm } from "@/lib/server/body";
 import { assertSameOrigin } from "@/lib/server/csrf";
 import { problemResponse, respond } from "@/lib/server/respond";
 import { readSession, SessionGoneError } from "@/lib/server/session";
@@ -46,9 +46,6 @@ export function GET(request: Request) {
   });
 }
 
-/** Far more than any slip (30 legs) needs; nothing bigger is read. */
-const MAX_BODY_BYTES = 16 * 1024;
-
 /**
  * Places the slip (C08). Every check runs before anything is sent upstream:
  * this site's own page (origin, CSRF header, JSON), one `Idempotency-Key`
@@ -75,7 +72,7 @@ export async function POST(request: Request) {
     request,
     placeBetRequestSchema,
     "Not a bet",
-    MAX_BODY_BYTES,
+    BODY_CAPS.slip,
   );
   if (bet instanceof Response) return bet;
 
