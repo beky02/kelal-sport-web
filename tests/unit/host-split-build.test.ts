@@ -140,6 +140,69 @@ describe("the host split in the build output (F8a AC-4)", () => {
     );
   });
 
+  describe("with each chunk's own modules known (F8b: the terminal's own providers)", () => {
+    // The player's providers need the framework's chunk and a library chunk
+    // (React Query) and are defined in their own; the terminal needs the same
+    // library. `defines` says which chunk holds which module id.
+    const shared = {
+      [`${P}/providers.tsx`]: {
+        id: 21,
+        chunks: [
+          "/_next/static/chunks/query.js",
+          "/_next/static/chunks/providers.js",
+        ],
+      },
+    };
+    const player = {
+      ...playerHome,
+      clientModules: { ...playerHome.clientModules, ...shared },
+    };
+    const terminalWith = (...files: string[]) => ({
+      ...terminalPage,
+      entryJSFiles: {
+        ...terminalPage.entryJSFiles,
+        [`${T}/layout`]: ["static/chunks/framework.js", ...files],
+      },
+    });
+    const defines = (file: string, id: number | string) =>
+      file === "static/chunks/providers.js" && id === 21;
+
+    it("lets the terminal share a library chunk the player's layout needs", () => {
+      expect(
+        hostSplitViolations(
+          [player, terminalWith("static/chunks/query.js")],
+          defines,
+        ),
+      ).toEqual([]);
+    });
+
+    it("still finds the terminal loading the chunk that holds the player's layout", () => {
+      expect(
+        hostSplitViolations(
+          [player, terminalWith("static/chunks/providers.js")],
+          defines,
+        ),
+      ).toEqual([
+        expect.stringMatching(
+          /loads the player layout's chunk static\/chunks\/providers\.js/,
+        ),
+      ]);
+    });
+
+    it("counts every chunk of a module whose own chunk can't be found", () => {
+      expect(
+        hostSplitViolations(
+          [player, terminalWith("static/chunks/query.js")],
+          () => false,
+        ),
+      ).toEqual([
+        expect.stringMatching(
+          /loads the player layout's chunk static\/chunks\/query\.js/,
+        ),
+      ]);
+    });
+  });
+
   it("fails when there is nothing to check", () => {
     expect(hostSplitViolations([playerHome])).toContainEqual(
       expect.stringMatching(/no route under \(terminal\)/),

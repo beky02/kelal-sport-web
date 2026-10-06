@@ -10,9 +10,13 @@
  * of its layouts and pages loads — and exits 1 with what it found otherwise.
  *
  * "The player's layout" is its client modules under `src/app/(player)/`
- * (`providers.tsx`) and the chunks that hold them; a library the terminal
- * imports itself in its own chunk (React Query, a store) is not counted. F8b,
- * which gives the terminal its own providers, decides what it may share.
+ * (`providers.tsx`) and the chunks that hold them. Since F8b gave the terminal
+ * its own providers, both sites need the same libraries — React, React Query
+ * — which the bundler puts in chunks both load. A module's `chunks` in the
+ * manifest are everything it needs, those libraries included, so a layout's
+ * chunks are the ones that **define** its modules: the chunk whose code
+ * registers the module's id. Where none of a module's chunks does, every
+ * chunk it needs counts, as before, so the check never passes by not finding.
  */
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join, relative, resolve } from "node:path";
@@ -46,23 +50,37 @@ function chunksOf(manifest) {
   ]);
 }
 
+/**
+ * The chunks holding a client module's own code: those of its chunks that
+ * `defines` says register its id, or — when none does, or it has no id —
+ * every chunk it needs.
+ */
+function holdingChunks(module, defines) {
+  const chunks = (module.chunks ?? []).map(chunk);
+  const own =
+    module.id === undefined ? [] : chunks.filter((c) => defines(c, module.id));
+  return own.length > 0 ? own : chunks;
+}
+
 /** The chunks holding the client modules under `folder`, across `manifests`. */
-function chunksOfModulesIn(manifests, folder) {
+function chunksOfModulesIn(manifests, folder, defines) {
   return new Set(
     manifests.flatMap((m) =>
       Object.entries(m.clientModules ?? {})
         .filter(([id]) => id.includes(folder))
-        .flatMap(([, module]) => (module.chunks ?? []).map(chunk)),
+        .flatMap(([, module]) => holdingChunks(module, defines)),
     ),
   );
 }
 
 /**
  * What breaks the split, as sentences; empty when nothing does. Each manifest
- * is `{ route, entryJSFiles, clientModules }`. Fails when there is nothing to
+ * is `{ route, entryJSFiles, clientModules }`; `defines(chunk, id)` says
+ * whether a chunk (`static/chunks/…`) registers module `id` (by default none
+ * does, so every chunk a module needs counts). Fails when there is nothing to
  * check, so it can never pass by finding nothing.
  */
-export function hostSplitViolations(manifests) {
+export function hostSplitViolations(manifests, defines = () => false) {
   const found = [];
   const player = manifests.filter((m) => site(m) === "player");
   const terminal = manifests.filter((m) => site(m) === "terminal");
@@ -73,13 +91,13 @@ export function hostSplitViolations(manifests) {
   if (player.length === 0) found.push("Found no route under (player)");
   if (terminal.length === 0) found.push("Found no route under (terminal)");
 
-  const playerLayout = chunksOfModulesIn(player, PLAYER);
+  const playerLayout = chunksOfModulesIn(player, PLAYER, defines);
   if (player.length > 0 && playerLayout.size === 0) {
     found.push(
       "Found no client module of the player's layout: nothing to check the terminal against",
     );
   }
-  const terminalOwn = chunksOfModulesIn(terminal, TERMINAL);
+  const terminalOwn = chunksOfModulesIn(terminal, TERMINAL, defines);
 
   const check = (routes, otherFolder, otherChunks, whose) => {
     for (const m of routes) {
@@ -117,8 +135,32 @@ function readManifests(file) {
   }));
 }
 
+/**
+ * Whether a built chunk registers module `id`: Turbopack writes each module
+ * as its id (or ids) followed by its factory, `…,21993,e=>{…`. A use of the
+ * module (`e.i(21993)`) is not a definition.
+ */
+function chunkDefines(next) {
+  const read = new Map();
+  return (file, id) => {
+    if (!read.has(file)) {
+      let code = "";
+      try {
+        code = readFileSync(join(next, file), "utf8");
+      } catch {
+        code = "";
+      }
+      read.set(file, code);
+    }
+    return new RegExp(`[,\\[]${id},(?:\\d+,)*[A-Za-z_$][\\w$]*=>`).test(
+      read.get(file),
+    );
+  };
+}
+
 function main() {
-  const app = resolve(import.meta.dirname, "../.next/server/app");
+  const next = resolve(import.meta.dirname, "../.next");
+  const app = join(next, "server/app");
   let files;
   try {
     files = manifestFiles(app);
@@ -127,7 +169,7 @@ function main() {
     process.exit(1);
   }
   const manifests = files.flatMap(readManifests);
-  const found = hostSplitViolations(manifests);
+  const found = hostSplitViolations(manifests, chunkDefines(next));
   if (found.length > 0) {
     console.error("The host split leaks (F8a AC-4):");
     for (const line of found) console.error(`  - ${line}`);

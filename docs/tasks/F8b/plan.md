@@ -164,31 +164,32 @@ included) in `TRANSLATION-NOTES.md`.
 
 ## Files
 
-| File                                                                                                 | Why                                                                       |
-| ---------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
-| `src/lib/server/seal.ts` (new)                                                                       | AES-GCM sealing by purpose, shared by the session and terminal cookies    |
-| `src/lib/server/session.ts`                                                                          | Uses `seal.ts`; behaviour unchanged                                       |
-| `src/lib/server/terminal-session.ts` (new)                                                           | The sealed terminal cookie                                                |
-| `src/lib/server/terminal.ts` (new)                                                                   | Host guard, device headers, activate / status / rotate loaders            |
-| `src/lib/server/config.ts`                                                                           | `Retail - terminal` tag; refused in `API_REAL_TAGS` until 004             |
-| `src/lib/api/mappers/terminal.ts` (new)                                                              | Contract ↔ domain                                                         |
-| `src/lib/api/schemas.ts`                                                                             | Route-answer and form schemas                                             |
-| `src/lib/api/errors.ts`, `src/lib/api/client.ts`                                                     | `problemError` shared by both clients                                     |
-| `src/lib/query/keys.ts`                                                                              | `terminalKeys`                                                            |
-| `src/app/api/terminal/{activate,status,token}/route.ts` (new)                                        | The three route handlers                                                  |
-| `src/features/terminal/**` (new)                                                                     | types, calls, code, signing, device key, client, api, hooks, components   |
-| `src/features/tickets/lib/number.ts`                                                                 | `compactCrockford` exported for the activation code (behaviour unchanged) |
-| `src/app/(terminal)/layout.tsx`, `providers.tsx` (new), `terminal/page.tsx`                          | Providers; the page renders `TerminalApp`                                 |
-| `src/lib/i18n/messages/{en,am}.json`, `TRANSLATION-NOTES.md`                                         | Strings                                                                   |
-| `tests/unit/terminal-signing.test.ts` (new)                                                          | AC-2: the key and the signature                                           |
-| `tests/unit/terminal-mappers.test.ts` (new)                                                          | Mappers against the contract's examples                                   |
-| `tests/unit/terminal-route.test.ts` (new)                                                            | AC-2, AC-4, AC-5 at the route handlers                                    |
-| `tests/component/TerminalActivation.test.tsx` (new)                                                  | AC-4 on screen                                                            |
-| `tests/component/TerminalStatus.test.tsx` (new)                                                      | AC-5 with fake timers; AC-2 skew retry                                    |
-| `tests/unit/server-config.test.ts`, `tests/unit/session.test.ts`                                     | The new refusal; a cookie sealed before the move still opens              |
-| `tests/e2e/terminal.spec.ts` (new), `tests/e2e/hosts.spec.ts`                                        | Screens; the terminal host now shows activation                           |
-| `docs/design/10-terminal.md` (new), `00-overview.md`, `01-screens.md`, `09-security.md`, `README.md` | Design pages                                                              |
-| `docs/contract-requests/014-device-signature.md` (new), `README.md`                                  | Decision 3 (approved at the plan gate)                                    |
+| File                                                                                                 | Why                                                                                                                                    |
+| ---------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/lib/server/seal.ts` (new)                                                                       | AES-GCM sealing by purpose, shared by the session and terminal cookies                                                                 |
+| `src/lib/server/session.ts`                                                                          | Uses `seal.ts`; behaviour unchanged                                                                                                    |
+| `src/lib/server/terminal-session.ts` (new)                                                           | The sealed terminal cookie                                                                                                             |
+| `src/lib/server/terminal.ts` (new)                                                                   | Host guard, device headers, activate / status / rotate loaders                                                                         |
+| `src/lib/server/config.ts`                                                                           | `Retail - terminal` tag; refused in `API_REAL_TAGS` until 004                                                                          |
+| `src/lib/api/mappers/terminal.ts` (new)                                                              | Contract ↔ domain                                                                                                                      |
+| `src/lib/api/schemas.ts`                                                                             | Route-answer and form schemas                                                                                                          |
+| `src/lib/api/errors.ts`, `src/lib/api/client.ts`                                                     | `problemError` shared by both clients                                                                                                  |
+| `src/lib/query/keys.ts`                                                                              | `terminalKeys`                                                                                                                         |
+| `src/app/api/terminal/{activate,status,token}/route.ts` (new)                                        | The three route handlers                                                                                                               |
+| `src/features/terminal/**` (new)                                                                     | types, calls, code, signing, device key, client, api, hooks, components                                                                |
+| `src/features/tickets/lib/number.ts`                                                                 | `compactCrockford` exported for the activation code (behaviour unchanged)                                                              |
+| `src/app/(terminal)/layout.tsx`, `providers.tsx` (new), `terminal/page.tsx`                          | Providers; the page renders `TerminalApp`                                                                                              |
+| `src/lib/i18n/messages/{en,am}.json`, `TRANSLATION-NOTES.md`                                         | Strings                                                                                                                                |
+| `tests/unit/terminal-signing.test.ts` (new)                                                          | AC-2: the key and the signature                                                                                                        |
+| `tests/unit/terminal-mappers.test.ts` (new)                                                          | Mappers against the contract's examples                                                                                                |
+| `tests/unit/terminal-route.test.ts` (new)                                                            | AC-2, AC-4, AC-5 at the route handlers                                                                                                 |
+| `tests/component/TerminalActivation.test.tsx` (new)                                                  | AC-4 on screen                                                                                                                         |
+| `tests/component/TerminalStatus.test.tsx` (new)                                                      | AC-5 with fake timers; AC-2 skew retry                                                                                                 |
+| `tests/unit/server-config.test.ts`, `tests/unit/session.test.ts`                                     | The new refusal; a cookie sealed before the move still opens                                                                           |
+| `tests/e2e/terminal.spec.ts` (new), `tests/e2e/hosts.spec.ts`                                        | Screens; the terminal host now shows activation                                                                                        |
+| `scripts/check-host-split.mjs`, `tests/unit/host-split-build.test.ts`                                | Added in verification: both sites now share library chunks; a layout's chunks are those that define its modules (F8a left this to F8b) |
+| `docs/design/10-terminal.md` (new), `00-overview.md`, `01-screens.md`, `09-security.md`, `README.md` | Design pages                                                                                                                           |
+| `docs/contract-requests/014-device-signature.md` (new), `README.md`                                  | Decision 3 (approved at the plan gate)                                                                                                 |
 
 ## Acceptance criteria → tests
 

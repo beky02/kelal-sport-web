@@ -33,7 +33,10 @@ as a route that doesn't exist and nothing of the other site renders. Paths are c
 boundaries (`/terminals` is not the terminal's) and decoded as well as raw (`/%74erminal` is); on a
 terminal host an undecodable path or one with a `.`/`..` segment is refused. Each root layout has its
 own JavaScript: `pnpm verify` reads the build's client manifests and fails if a player route loads
-`(terminal)` code or the terminal loads the player layout's (`scripts/check-host-split.mjs`). Unit tests
+`(terminal)` code or the terminal loads the player layout's (`scripts/check-host-split.mjs`). Since F8b
+both sites share library chunks (React, React Query, `lib/query`); a layout's chunks are the ones whose
+code defines its modules (found by module id), so sharing a library passes and loading the player's
+providers or preferences store does not. Unit tests
 cover both hosts, the spellings and the matcher over every route and public file; a Playwright check
 visits `localhost` and `terminal.localhost`.
 
