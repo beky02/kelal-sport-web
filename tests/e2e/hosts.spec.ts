@@ -4,9 +4,9 @@ import am from "../../src/lib/i18n/messages/am.json";
 
 /**
  * The host split (F8a AC-3, FD1) against the dev server: one build, two
- * sites. Outside production `terminal.localhost` is the terminal's host
- * (`TERMINAL_HOST_MAP` unset) and Chrome sends any `*.localhost` to this
- * machine, so the browser reaches both. Node can't resolve
+ * sites. `terminal.localhost` is the terminal's host — the default outside
+ * production, and what `.env.example` sets — and Chrome sends any
+ * `*.localhost` to this machine, so the browser reaches both. Node can't resolve
  * `terminal.localhost`, so the terminal is visited through the page, not
  * `request`.
  */
@@ -100,15 +100,54 @@ for (const [device, viewport] of Object.entries({
   });
 }
 
-test("still refuses a 1 MB login with 413 now the proxy runs on route handlers (F8a decision 9)", async ({
-  request,
-}) => {
-  const response = await request.post("/api/auth/login", {
-    data: JSON.stringify({ phone: "9".repeat(1024 * 1024), password: "x" }),
-    headers: {
-      "Content-Type": "application/json",
-      "X-Requested-With": "KelalSport",
-    },
+test.describe("an oversized login, now the proxy holds route-handler bodies (F8a decision 9)", () => {
+  const headers = {
+    "Content-Type": "application/json",
+    "X-Requested-With": "KelalSport",
+  };
+  const body = JSON.stringify({
+    phone: "9".repeat(1024 * 1024),
+    password: "x",
   });
-  expect(response.status()).toBe(413);
+
+  test("is refused with 413 when it says its length", async ({ request }) => {
+    const response = await request.post("/api/auth/login", {
+      data: body,
+      headers,
+    });
+    expect(response.status()).toBe(413);
+  });
+
+  test("is refused, and goes nowhere, when it is sent chunked", async ({
+    baseURL,
+  }) => {
+    // No Content-Length: Next cuts it at 32 KiB for the proxy, so the handler
+    // sees a cut body and refuses it as not JSON (09-security, known limits).
+    const send = (text: string) => {
+      const bytes = new TextEncoder().encode(text);
+      const chunked = new ReadableStream<Uint8Array>({
+        start(controller) {
+          for (let at = 0; at < bytes.length; at += 16 * 1024) {
+            controller.enqueue(bytes.subarray(at, at + 16 * 1024));
+          }
+          controller.close();
+        },
+      });
+      return fetch(new URL("/api/auth/login", baseURL), {
+        method: "POST",
+        headers,
+        body: chunked,
+        duplex: "half",
+      } as RequestInit & { duplex: "half" });
+    };
+    // A chunked login of the usual size goes through (Prism's player)…
+    const usual = await send(
+      JSON.stringify({ phone: "911234567", password: "correct horse battery" }),
+    );
+    expect(usual.status).toBe(200);
+    // …a megabyte doesn't.
+    const response = await send(body);
+    expect([413, 422]).toContain(response.status);
+    expect((await response.json()).code).toBe("VALIDATION_FAILED");
+  });
 });

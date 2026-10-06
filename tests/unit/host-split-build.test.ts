@@ -86,7 +86,7 @@ describe("the host split in the build output (F8a AC-4)", () => {
     );
   });
 
-  it("finds a player route that references (terminal)", () => {
+  it("finds a player route that loads a chunk of (terminal)", () => {
     const terminalWithCode = {
       ...terminalPage,
       clientModules: {
@@ -108,6 +108,23 @@ describe("the host split in the build output (F8a AC-4)", () => {
         /\/\(player\)\/page loads the terminal's chunk static\/chunks\/kiosk\.js/,
       ),
     ]);
+  });
+
+  it("finds a player route that references a module of (terminal)", () => {
+    const leaky = {
+      ...playerHome,
+      clientModules: {
+        ...playerHome.clientModules,
+        [`${T}/terminal/Kiosk.tsx`]: {
+          chunks: ["/_next/static/chunks/kiosk.js"],
+        },
+      },
+    };
+    expect(hostSplitViolations([leaky, terminalPage])).toContainEqual(
+      expect.stringMatching(
+        /\/\(player\)\/page references \[project\]\/src\/app\/\(terminal\)\/terminal\/Kiosk\.tsx/,
+      ),
+    );
   });
 
   it("finds a route under both root layouts", () => {

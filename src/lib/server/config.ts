@@ -178,6 +178,8 @@ function paymentRedirectHosts(raw: string | undefined): string[] {
     : CONTRACT_EXAMPLE_PROVIDER_HOSTS;
 }
 
+const defaultTenant = process.env.DEFAULT_TENANT ?? "demo";
+
 const parsed = schema.safeParse({
   apiBaseUrl: process.env.API_BASE_URL ?? "http://localhost:4010",
   apiRealUrl: process.env.API_REAL_URL || undefined,
@@ -185,11 +187,11 @@ const parsed = schema.safeParse({
     .split(",")
     .map((tag) => tag.trim())
     .filter(Boolean),
-  defaultTenant: process.env.DEFAULT_TENANT ?? "demo",
+  defaultTenant,
   tenantHostMap: parseHostMap(process.env.TENANT_HOST_MAP),
   terminalHostMap: terminalHostMap(
     process.env.TERMINAL_HOST_MAP,
-    process.env.DEFAULT_TENANT ?? "demo",
+    defaultTenant,
   ),
   trustedProxyHops: Number(process.env.TRUSTED_PROXY_HOPS?.trim() || "0"),
   paymentRedirectHosts: paymentRedirectHosts(

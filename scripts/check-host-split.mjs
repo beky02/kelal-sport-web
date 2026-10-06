@@ -8,6 +8,11 @@
  * Reads every route's client reference manifest in `.next/server/app` — the
  * client modules a route uses, the chunks each lives in, and the chunks each
  * of its layouts and pages loads — and exits 1 with what it found otherwise.
+ *
+ * "The player's layout" is its client modules under `src/app/(player)/`
+ * (`providers.tsx`) and the chunks that hold them; a library the terminal
+ * imports itself in its own chunk (React Query, a store) is not counted. F8b,
+ * which gives the terminal its own providers, decides what it may share.
  */
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join, relative, resolve } from "node:path";
@@ -130,8 +135,8 @@ function main() {
   }
   const count = (s) => manifests.filter((m) => site(m) === s).length;
   console.log(
-    `Host split holds: ${count("player")} player routes load nothing from (terminal); ` +
-      `${count("terminal")} terminal route(s) load nothing from the player's layout ` +
+    `Host split holds: ${count("player")} player routes load no module or chunk of (terminal); ` +
+      `${count("terminal")} terminal route(s) load no module of (player) nor a chunk holding one ` +
       `(${relative(process.cwd(), app)}, ${files.length} manifests).`,
   );
 }

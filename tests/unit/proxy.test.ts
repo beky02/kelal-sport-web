@@ -10,7 +10,12 @@ import nextConfig from "../../next.config";
 vi.mock("server-only", () => ({}));
 
 // Outside production with no TERMINAL_HOST_MAP, terminal.localhost is the
-// terminal (lib/server/config.ts); every other host is the player site.
+// terminal (lib/server/config.ts); every other host is the player site. Set
+// before the import, so the shell's environment can't change the answers.
+vi.stubEnv("NODE_ENV", "test");
+vi.stubEnv("TERMINAL_HOST_MAP", "");
+vi.stubEnv("TENANT_HOST_MAP", "");
+vi.stubEnv("TRUSTED_PROXY_HOPS", "0");
 const { config, proxy } = await import("@/proxy");
 
 const PLAYER = "localhost:3000";
