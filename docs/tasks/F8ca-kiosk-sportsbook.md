@@ -99,3 +99,6 @@ Each criterion must be proven by a named test, a command output or a `pnpm ui` s
   now the player's home, league and match pages and search, without what needs a player, at the player's
   sizes (AC-2's 48 px dropped by the user). AC-6, AC-7 and AC-8 were added. Plan: "Rework" in
   `docs/tasks/F8c/plan.md`.
+- 2026-10-06, the rework's review: the kiosk polls prices every 30 s whatever the realtime setting, locks
+  them while offline, and carries the footer's licence, 21+ and helpline without its links (SRS RG-05).
+  The player's Terms, Privacy and Help pages aren't reachable on a terminal host.

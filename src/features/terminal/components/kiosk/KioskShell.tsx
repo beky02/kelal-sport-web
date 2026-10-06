@@ -1,20 +1,21 @@
 "use client";
 
+import { FooterBar, FooterNotices } from "@/components/layout/AppFooter";
 import { CountriesCard } from "@/components/layout/CountriesCard";
 import { SHELL_GRID } from "@/components/layout/shell-grid";
 import { SportsCard } from "@/components/layout/SportsCard";
 import { TopCompetitionsCard } from "@/components/layout/TopCompetitionsCard";
 import type { SportsbookShellProps } from "@/features/sportsbook/chrome";
 import { useBoardFilters } from "@/features/sportsbook/hooks/use-board-filters";
-import { cn } from "@/lib/utils/cn";
 import { KioskHeader } from "./KioskHeader";
 import { KioskMobileSlip, KioskSlip } from "./KioskSlip";
 
 /**
  * The kiosk's frame around a sportsbook page (F8ca): the player's columns at
  * the player's widths (`SHELL_GRID`), with the kiosk's header, the player's
- * sidebar without Favourites, and the kiosk's slip. None of the player's
- * watchers: no session, wallet, reality check or realtime.
+ * sidebar without Favourites, the kiosk's slip, and the player's footer
+ * without its links (SRS RG-05). None of the player's watchers: no session,
+ * wallet, reality check or realtime.
  */
 export function KioskShell({
   live = false,
@@ -26,7 +27,7 @@ export function KioskShell({
       <KioskHeader />
       {phoneSubheader && <div className="md:hidden">{phoneSubheader}</div>}
 
-      <div className={cn(SHELL_GRID, "pb-20 xl:pb-3")}>
+      <div className={SHELL_GRID}>
         <aside className="hidden lg:block">
           <KioskSidebar live={live} />
         </aside>
@@ -37,6 +38,12 @@ export function KioskShell({
           <KioskSlip />
         </aside>
       </div>
+
+      <FooterBar>
+        <FooterNotices />
+      </FooterBar>
+      {/* Room for the slip's bar below `xl`, so it never sits over the licence. */}
+      <div aria-hidden className="h-20 shrink-0 xl:hidden" />
 
       <KioskMobileSlip />
     </>

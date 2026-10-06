@@ -166,6 +166,20 @@ describe("the player's board on the kiosk (F8ca AC-1)", () => {
     expect(screen.getByText(TERMINAL.shop.name)).toBeInTheDocument();
   });
 
+  it("carries the licence, the age limit and the helpline, with no link to the player's pages (SRS RG-05, review U6)", async () => {
+    routes();
+    renderTerminal();
+    await homeWin();
+
+    const footer = within(screen.getByRole("contentinfo"));
+    expect(footer.getByText(am.sidebar.licence)).toBeInTheDocument();
+    expect(footer.getByText("21+")).toBeInTheDocument();
+    expect(footer.getByText(am.sidebar.playResponsibly)).toBeInTheDocument();
+    expect(footer.getByText(am.footer.helpline)).toBeInTheDocument();
+    // Terms, privacy, help: the player's pages, which a terminal host doesn't serve.
+    expect(footer.queryAllByRole("link")).toEqual([]);
+  });
+
   it("reads the board for the sport and day in the URL", async () => {
     const user = userEvent.setup();
     routes();

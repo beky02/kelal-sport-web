@@ -41,6 +41,9 @@ is **reversed** by this, and the rest of the plan stands where this section does
 - search takes the contract's 2–50 characters (S2); ids of dots alone are refused (SEC1);
 - one `SHELL_GRID`, and a `KioskBar` for the config states (Q6, U7);
 - no leagues drawer, because terminals are PC screens (C19 §11; S4, U3).
+- the footer's licence, 21+ and helpline on every kiosk page, without the links to the player's pages
+  (SRS RG-05, and the user's "the main page without" its account items; review U6). Not a question for
+  the user: RG-05 decides it, and nothing above it says otherwise.
 
 **Files (rework).** `features/sportsbook/chrome.tsx` (new); `(player)/sportsbook-chrome.tsx` (new),
 `(player)/providers.tsx`, `(player)/locale.tsx`. The views and components that read the chrome:

@@ -140,6 +140,10 @@ stake and the figures; F8cc adds Get code.
   screen may already be wrong, as on the player's site. There is no break lock; a kiosk has no player.
 - **One bar.** `KioskBar` (brand and shop) frames the config's loading and unreadable states; with search
   and the language switch it is `KioskHeader`. Nothing jumps when the board arrives.
+- **The footer's notices, without its links.** The licence line, 21+ and the helpline sit at the foot of
+  every kiosk page, as on the player's (SRS RG-05: responsible-gambling information and a helpline on every
+  page; `FooterBar` and `FooterNotices` from `AppFooter`). Terms, Privacy, Responsible gaming, Help and
+  Telegram are left out: they are the player's pages, which a terminal host doesn't serve.
 - **No leagues drawer.** Terminals are PC screens (C19 §11), and the sidebar is there from `lg`. Below
   `lg` the kiosk has the sport tabs and the board, and below `xl` no search, as the player's.
 - **A 401 on any read** makes the terminal's query client read its status again
