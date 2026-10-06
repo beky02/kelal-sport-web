@@ -102,9 +102,6 @@ Each new acceptance test, green, then run against the behaviour broken once, the
 | e2e hosts › shows the terminal placeholder at / on the terminal host (phone, desktop)                          | `/` not rewritten on a terminal host (dev server)                                                                                      | failed |
 | e2e hosts › answers /terminal and /api/terminal/x with a 404 on the player host                                | the player host's terminal-path check removed (dev server)                                                                             | failed |
 
-The placeholder check first asserted "no button" with `getByRole`, which also finds the dev server's
-tools button inside its shadow root once an issue has been shown (seen after the mutation runs). It now
-counts the page's own DOM; 15 runs (`--repeat-each=3`) green.
 | host-split-build › finds a terminal route that loads the player layout's code | terminal routes not checked | failed |
 | host-split-build › finds a terminal route that loads the player layout's code | chunk paths not normalised (`/_next/static/…` vs `static/…`) | failed |
 | host-split-build › finds a terminal route that references a module of (player) | module references not checked | failed |
@@ -112,6 +109,67 @@ counts the page's own DOM; 15 runs (`--repeat-each=3`) green.
 | host-split-build › finds a route under both root layouts | a route under both layouts not reported | failed |
 | host-split-build › fails when there is nothing to check | passes with no terminal route | failed |
 | host-split-build › fails when there is nothing to check | passes with no client module of the player's layout | failed |
+| proxy › guards the account pages it always guarded and no more, now it runs everywhere (review S1) | `/wallet` and `/transactions` guarded with what is below them again | failed |
+| proxy › looks only at /t/{one segment}, as before it ran everywhere (review S1) | the ticket check takes any depth again | failed |
+| proxy › (whole file, review Q3) with `TRUSTED_PROXY_HOPS=1 TERMINAL_HOST_MAP=kiosk.example=demo` in the shell | the file as it was, environment not pinned: 5 failed; pinned: 23 passed | failed |
+| host-split-build › finds a player route that references a module of (terminal) (review Q5) | module references not checked | failed |
+| server-config › maps a terminal host… and proxy › treats a terminal host spelt with its root dot (review SEC3) | before the fix (no root-dot strip): 2 failed | failed |
+| proxy › lets the image optimiser, which skips the proxy, fetch no app path (review SEC6) | `images.localPatterns` removed | failed |
+| proxy › runs on every page and route handler and on no public file (review SEC5) | a temporary `src/app/(player)/[lang]/wallet/page.tsx`: `/flags/wallet` unmatched | failed |
+| e2e hosts › an oversized login… is refused, and goes nowhere, when it is sent chunked (review Q1) | not a mutation: a chunked login of the usual size answers 200 in the same test, so the refusal is the size, not chunking | — |
+
+The placeholder check first asserted "no button" with `getByRole`, which also finds the dev server's
+tools button inside its shadow root once an issue has been shown (seen after the mutation runs). It now
+counts the page's own DOM; 15 runs (`--repeat-each=3`) green.
+
+What Next does before the proxy (plan decision 7), on the dev server: `//terminal` and `/terminal/` answer
+308 to `/terminal` on both hosts, which the proxy then answers (404 on a player host, the page on a
+terminal host); `/%74erminal` reaches the proxy as written and is refused on both.
+
+## Review findings
+
+Panel: spec-verifier, quality-reviewer, security-reviewer, ui-checker (no money-reviewer: no money path
+touched). All four: PASS, no BLOCKER or MAJOR.
+
+| id   | reviewer | severity | summary                                                                                                                                                     | decision                                                                                                                                                                  |
+| ---- | -------- | -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| S1   | spec     | MINOR    | Running everywhere, the proxy's prefix guard sent a guest on `/wallet/x` or `/transactions/x` to log in (was Next's 404), and `/t/a/b` got the ticket's 404 | fixed in `345a2f1` (tests first, proven)                                                                                                                                  |
+| S2   | spec     | MINOR    | "Only new tests added" — one proxy test (the old exact-matcher assertion) was replaced                                                                      | fixed: AC-1 row says so                                                                                                                                                   |
+| S3   | spec     | MINOR    | F1's "Read first" names `src/app/layout.tsx`                                                                                                                | fixed in `d0beebd` (file added to the plan's list)                                                                                                                        |
+| S4   | spec     | MINOR    | Build-check proofs fell outside the table; decision 7's note on `//terminal` and `/terminal/` missing                                                       | fixed (this file)                                                                                                                                                         |
+| Q1   | quality  | MINOR    | The 1 MB e2e test sends a Content-Length, so it can't show the chunked case; `next.config` comment claimed 413 for it                                       | fixed in `4a37012`: chunked case with a same-size control; comment corrected                                                                                              |
+| Q2   | quality  | MINOR    | The build check only knows modules under `(player)/`; its success line claimed more                                                                         | fixed in `4a37012`: header and success line say exactly what is checked; which libraries the terminal may share is F8b's (follow-up)                                      |
+| Q3   | quality  | MINOR    | Proxy tests depended on the shell's `TERMINAL_HOST_MAP` / `TRUSTED_PROXY_HOPS`                                                                              | fixed in `4a37012` (stubbed before import; proven)                                                                                                                        |
+| Q4   | quality  | MINOR    | `handlerCaps` finds caps by a source regex; a cap written differently is missed                                                                             | follow-up: export the caps from `lib/server/body.ts` (touches handlers outside this task)                                                                                 |
+| Q5   | quality  | MINOR    | Test named "references (terminal)" only exercised the chunk branch                                                                                          | fixed in `4a37012` (renamed + reference case; proven)                                                                                                                     |
+| Q6   | quality  | MINOR    | `DEFAULT_TENANT ?? "demo"` read twice                                                                                                                       | fixed in `4a37012`                                                                                                                                                        |
+| SEC1 | security | MINOR    | Bodies are now read to their end for the proxy before any handler (only 32 KiB kept); docs said "refused before it is read"                                 | fixed in `d0beebd`: docs and comment corrected; an edge body cap is a go-live requirement in 09-security                                                                  |
+| SEC2 | security | MINOR    | `/` is two prerendered documents by host; a shared cache keyed without Host could swap them                                                                 | fixed in `d0beebd`: go-live requirement in 09-security (cache key on the client's Host)                                                                                   |
+| SEC3 | security | MINOR    | `terminal.kelalsport.et.` (root dot) was in neither map → full player site on a shop's host name                                                            | fixed in `d0beebd` (one root dot stripped; tests first, proven; checked on the dev server)                                                                                |
+| SEC4 | security | MINOR    | `.env.example` set `TERMINAL_HOST_MAP=terminal.localhost=demo`; copied to production it makes a forgeable terminal host                                     | fixed in `d0beebd` (left blank; production example in the comment)                                                                                                        |
+| SEC5 | security | MINOR    | A future dynamic first segment (`[lang]`) named `flags` would skip the proxy                                                                                | fixed in `d0beebd`: the matcher test also tries `flags` in every dynamic segment (proven with a temporary `[lang]` page); 09-security notes F2a must refuse non-languages |
+| SEC6 | security | MINOR    | `/_next/image` skips the proxy and could fetch any app path                                                                                                 | fixed in `d0beebd`: `images.localPatterns: []` (nothing uses `next/image`); unit test with Next's matcher                                                                 |
+| U1   | ui       | MINOR    | The placeholder's body lines were spaced like title-to-body, not as a pair                                                                                  | fixed in `e043376` (screenshot re-taken and looked at)                                                                                                                    |
+| U2   | ui       | MINOR    | The Amharic body looks lighter than the English                                                                                                             | rejected: same body style as every Amharic line in the player app (06-language); the kiosk's typography is F8c's                                                          |
+| U3   | ui       | MINOR    | No brand mark on the placeholder                                                                                                                            | rejected: tenant branding comes from `/v1/config/public` (F1) and the terminal's own screens (F8b); a hardcoded mark would be the raw brand the design system forbids     |
+
+Notes: the spec-verifier noted AC-4's "player route loads nothing from (terminal)" half has nothing to
+compare yet (the terminal has no client code); the ui-checker counted 546 PNGs per run — 544 from the
+136 screens plus `booking-not-found-en-desktop` and `ticket-check-not-found-en-desktop`, written by the
+booking and ticket specs, compared the same way; the security-reviewer's ~70 probes (encodings, dot
+segments, RSC header and `.rsc`, `X-Forwarded-Host`, `x-middleware-subrequest`) found no way across.
+
+## Gaps
+
+- **`next start` not run.** The split, the `/_not-found` rewrite and the body buffer were seen under
+  `next dev` and in unit tests; the build's manifests show the proxy on Node with the matcher as written
+  and `/_not-found` as an app route. Running `hosts.spec.ts` against a production server needs a launch
+  configuration in `.claude/` (the user's to approve) — recommended before F8b.
+- **The image optimiser on this dev server** answers `/_next/image?url=/api/me` with 500, not 400: a VS
+  Code extension's hook (Console Ninja) injected into `next dev` throws while the refusal is logged. The
+  unit test proves the configuration refuses it with Next's own matcher.
+- **Flaky:** none in the final run; the baseline run had 2 flaky auth tests (`auth.spec.ts` › logs in
+  through the dialog…, › logging out clears the session…), not touched here.
 
 ## Self-review
 
