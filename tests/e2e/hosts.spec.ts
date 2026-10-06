@@ -54,7 +54,7 @@ for (const [device, viewport] of Object.entries({
   test.describe(device, () => {
     test.use({ viewport });
 
-    test("shows the terminal placeholder at / on the terminal host, in both languages (AC-3)", async ({
+    test("shows the terminal's activation at / on the terminal host, in both languages, and nothing of the player's (AC-3, F8b)", async ({
       page,
       baseURL,
     }) => {
@@ -70,24 +70,19 @@ for (const [device, viewport] of Object.entries({
       expect(new URL(page.url()).pathname).toBe("/");
 
       const heading = page.getByRole("heading", { level: 1 });
-      await expect(heading).toContainText(am.terminal.placeholder.title);
-      await expect(heading).toContainText(en.terminal.placeholder.title);
-      await expect(page.getByText(am.terminal.placeholder.body)).toBeVisible();
-      await expect(page.getByText(en.terminal.placeholder.body)).toBeVisible();
-      // Nothing of the player's site: no header, no slip, no login. Counted
-      // in the page's own DOM: role queries would also find the dev server's
-      // tools button, inside its shadow root.
-      const controls = await page.evaluate(
-        () => document.querySelectorAll("header, nav, button, a, input").length,
-      );
-      expect(controls, "header, navigation or controls").toBe(0);
-
-      await page.addStyleTag({
-        content: "nextjs-portal { display: none !important; }",
-      });
-      await page.screenshot({
-        path: `test-results/ui/terminal-placeholder-${device}.png`,
-        fullPage: true,
+      await expect(heading).toContainText(am.terminal.activate.title);
+      await expect(heading).toContainText(en.terminal.activate.title);
+      // Nothing of the player's site: no header, navigation or links — only
+      // the activation form's one field and one button (F8b). Counted in the
+      // page's own DOM: role queries would also find the dev server's tools
+      // button, inside its shadow root.
+      const controls = await page.evaluate(() => ({
+        player: document.querySelectorAll("header, nav, a").length,
+        form: document.querySelectorAll("button, input").length,
+      }));
+      expect(controls, "header, navigation or controls").toEqual({
+        player: 0,
+        form: 2,
       });
 
       const overflow = await page.evaluate(

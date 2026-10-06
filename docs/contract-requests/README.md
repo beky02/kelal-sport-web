@@ -19,5 +19,6 @@ the `/contract-request` skill and applied in the backend with `/contract-change`
 | [011](011-rg-limits-and-exclusion.md)          | Removing a time limit; minutes used and when a period resets; which exclusion is in force and what a second one does; RG refusal examples; the RG operations' missing responses       | F7a           | proposed |
 | [012](012-reality-check-and-account.md)        | The reality check's figures and play session; the interval's meaning and a way to set it; a session's start; a `PATCH /v1/me` example                                                 | F7b           | proposed |
 | [013](013-platform-and-retail-chain.md)        | Brand and partner agents, every shop under an agent, one agent level; the retail admin errors; the platform console's operations                                                      | FD6           | proposed |
+| [014](014-device-signature.md)                 | The device signature's exact signing string; how a revoked terminal and a bad signature are answered; named terminal examples; 004 for terminal routes                                | F8b           | proposed |
 
 Status: `proposed` → `accepted` (backend agreed) → `in-contract` (merged in the backend) → `synced` (here).

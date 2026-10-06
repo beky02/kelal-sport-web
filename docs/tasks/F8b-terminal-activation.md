@@ -1,7 +1,7 @@
 ---
 id: F8b
 title: Split from F8 — terminal activation, the device key and signed requests
-status: todo
+status: done
 depends_on: [F8a]
 contract_tags: [Retail - terminal]
 touches_money: false
@@ -37,9 +37,9 @@ Out: browsing and slips (F8c).
 
 ## Acceptance criteria
 
-- [ ] **AC-2** Requests carry `X-Device-Id`, `X-Device-Timestamp` and `X-Device-Signature` from a
+- [x] **AC-2** Requests carry `X-Device-Id`, `X-Device-Timestamp` and `X-Device-Signature` from a
       non-extractable WebCrypto key.
-- [ ] **AC-4** Activation takes the one-time code; a wrong code, too many attempts and a revoked terminal
+- [x] **AC-4** Activation takes the one-time code; a wrong code, too many attempts and a revoked terminal
       each say so, and a revoked terminal offers nothing else (route and component tests; `pnpm ui`).
-- [ ] **AC-5** The terminal reads its status on boot and every 5 minutes and rotates its token before it
+- [x] **AC-5** The terminal reads its status on boot and every 5 minutes and rotates its token before it
       expires without interrupting the screen (hook test with fake timers).

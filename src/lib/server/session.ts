@@ -1,16 +1,11 @@
 import "server-only";
-import {
-  createCipheriv,
-  createDecipheriv,
-  createHash,
-  hkdfSync,
-  randomBytes,
-} from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 import { z } from "zod";
 import type { components } from "@/lib/api/schema";
 import { DEVICE_COOKIE, SESSION_COOKIE } from "@/lib/session-cookie";
 import type { Lang } from "@/types/common";
-import { forwardedHeader, sessionSecret, sessionSecrets } from "./config";
+import { forwardedHeader } from "./config";
+import { openJson, sealJson, type Purpose } from "./seal";
 import { UpstreamError, retryAfterOf, unwrap, upstream } from "./upstream";
 
 export { DEVICE_COOKIE, SESSION_COOKIE };
@@ -40,77 +35,23 @@ const sessionSchema = z.object({
 
 // ── sealing ─────────────────────────────────────────────────────────────────
 
-const VERSION = "v1";
-/** The cookie's purpose, bound into the key so the secret serves nothing else. */
-const KEY_INFO = `kelal.session.${VERSION}`;
-const keyFor = (secret: string) =>
-  Buffer.from(hkdfSync("sha256", secret, "", KEY_INFO, 32));
-const encode = (bytes: Buffer) => bytes.toString("base64url");
-const decode = (text: string) => Buffer.from(text, "base64url");
-/** The version is authenticated too: a `v1` tag cannot be presented as another. */
-const AAD = Buffer.from(VERSION, "utf8");
+/** The session cookie's purpose (`seal.ts`): its own key, so nothing else opens as one. */
+const SESSION_PURPOSE: Purpose = {
+  info: "kelal.session.v1",
+  version: "v1",
+};
 
 /** AES-256-GCM: confidentiality and integrity in one; a changed byte opens to nothing. */
-export function seal(
-  session: Session,
-  secret: string = sessionSecret(),
-): string {
-  const iv = randomBytes(12);
-  const cipher = createCipheriv("aes-256-gcm", keyFor(secret), iv);
-  cipher.setAAD(AAD);
-  const sealed = Buffer.concat([
-    cipher.update(Buffer.from(JSON.stringify(session), "utf8")),
-    cipher.final(),
-  ]);
-  return [
-    VERSION,
-    encode(iv),
-    encode(sealed),
-    encode(cipher.getAuthTag()),
-  ].join(".");
-}
-
-function openWith(
-  secret: string,
-  iv: string,
-  sealed: string,
-  tag: string,
-): Session | null {
-  try {
-    const decipher = createDecipheriv(
-      "aes-256-gcm",
-      keyFor(secret),
-      decode(iv),
-    );
-    decipher.setAAD(AAD);
-    decipher.setAuthTag(decode(tag));
-    const plain = Buffer.concat([
-      decipher.update(decode(sealed)),
-      decipher.final(),
-    ]).toString("utf8");
-    const parsed = sessionSchema.safeParse(JSON.parse(plain));
-    return parsed.success ? parsed.data : null;
-  } catch {
-    return null;
-  }
-}
+export const seal = (session: Session, secret?: string): string =>
+  sealJson(SESSION_PURPOSE, session, secret);
 
 /**
  * The session a cookie value holds, or null for anything tampered, foreign or
  * stale in shape. Tried with the current secret, then the previous one during
  * a rotation (`sessionSecrets()`), unless a secret is given.
  */
-export function open(value: string, secret?: string): Session | null {
-  const [version, iv, sealed, tag, ...rest] = value.split(".");
-  if (version !== VERSION || !iv || !sealed || !tag || rest.length > 0) {
-    return null;
-  }
-  for (const candidate of secret ? [secret] : sessionSecrets()) {
-    const session = openWith(candidate, iv, sealed, tag);
-    if (session) return session;
-  }
-  return null;
-}
+export const open = (value: string, secret?: string): Session | null =>
+  openJson(SESSION_PURPOSE, sessionSchema, value, secret);
 
 // ── cookies ─────────────────────────────────────────────────────────────────
 

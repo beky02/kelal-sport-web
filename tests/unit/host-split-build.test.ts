@@ -1,6 +1,9 @@
 // @vitest-environment node
 import { describe, expect, it } from "vitest";
-import { hostSplitViolations } from "../../scripts/check-host-split.mjs";
+import {
+  definesModule,
+  hostSplitViolations,
+} from "../../scripts/check-host-split.mjs";
 
 /**
  * The build-output check behind F8a AC-4, on manifests shaped like the ones
@@ -137,6 +140,129 @@ describe("the host split in the build output (F8a AC-4)", () => {
     };
     expect(hostSplitViolations([both, terminalPage])).toContainEqual(
       expect.stringMatching(/loads both root layouts/),
+    );
+  });
+
+  describe("with each chunk's own modules known (F8b: the terminal's own providers)", () => {
+    // The player's providers need the framework's chunk and a library chunk
+    // (React Query) and are defined in their own; the terminal needs the same
+    // library. `defines` says which chunk holds which module id.
+    const shared = {
+      [`${P}/providers.tsx`]: {
+        id: 21,
+        chunks: [
+          "/_next/static/chunks/query.js",
+          "/_next/static/chunks/providers.js",
+        ],
+      },
+    };
+    const player = {
+      ...playerHome,
+      clientModules: { ...playerHome.clientModules, ...shared },
+    };
+    const terminalWith = (...files: string[]) => ({
+      ...terminalPage,
+      entryJSFiles: {
+        ...terminalPage.entryJSFiles,
+        [`${T}/layout`]: ["static/chunks/framework.js", ...files],
+      },
+    });
+    const defines = (file: string, id: number | string) =>
+      file === "static/chunks/providers.js" && id === 21;
+
+    it("lets the terminal share a library chunk the player's layout needs", () => {
+      expect(
+        hostSplitViolations(
+          [player, terminalWith("static/chunks/query.js")],
+          defines,
+        ),
+      ).toEqual([]);
+    });
+
+    it("still finds the terminal loading the chunk that holds the player's layout", () => {
+      expect(
+        hostSplitViolations(
+          [player, terminalWith("static/chunks/providers.js")],
+          defines,
+        ),
+      ).toEqual([
+        expect.stringMatching(
+          /loads the player layout's chunk static\/chunks\/providers\.js/,
+        ),
+      ]);
+    });
+
+    it("finds the terminal loading the chunk that holds the player's stores or realtime code (review Q2)", () => {
+      // An F8c component that imported the preferences store would pull in a
+      // module the player's providers own, wherever the bundler put it.
+      const withStore = {
+        ...player,
+        clientModules: {
+          ...player.clientModules,
+          "[project]/src/stores/ui.store.ts": {
+            id: 6573,
+            chunks: [
+              "/_next/static/chunks/query.js",
+              "/_next/static/chunks/store.js",
+            ],
+          },
+        },
+      };
+      const definesStore = (file: string, id: number | string) =>
+        defines(file, id) || (file === "static/chunks/store.js" && id === 6573);
+      expect(
+        hostSplitViolations(
+          [withStore, terminalWith("static/chunks/store.js")],
+          definesStore,
+        ),
+      ).toEqual([
+        expect.stringMatching(
+          /loads the player layout's chunk static\/chunks\/store\.js/,
+        ),
+      ]);
+      // A terminal route that references the store is caught by name too.
+      const referencing = {
+        ...terminalPage,
+        clientModules: {
+          ...terminalPage.clientModules,
+          "[project]/src/stores/ui.store.ts": {
+            id: 6573,
+            chunks: ["/_next/static/chunks/store.js"],
+          },
+        },
+      };
+      expect(
+        hostSplitViolations([withStore, referencing], definesStore),
+      ).toContainEqual(expect.stringMatching(/references .*ui\.store\.ts/));
+    });
+
+    it("counts every chunk of a module whose own chunk can't be found", () => {
+      expect(
+        hostSplitViolations(
+          [player, terminalWith("static/chunks/query.js")],
+          () => false,
+        ),
+      ).toEqual([
+        expect.stringMatching(
+          /loads the player layout's chunk static\/chunks\/query\.js/,
+        ),
+      ]);
+    });
+  });
+
+  it("reads which chunk defines a module from Turbopack's output, not from a use of it", () => {
+    const code =
+      '(globalThis.TURBOPACK||(globalThis.TURBOPACK=[])).push(["object"==typeof document?document.currentScript:void 0,21993,e=>{"use strict";var t=e.i(6573)},88109,6573,743,e=>{"use strict"}]);';
+    expect(definesModule(code, 21993)).toBe(true);
+    expect(definesModule(code, 6573)).toBe(true); // one of several ids sharing a factory
+    expect(definesModule(code, 743)).toBe(true);
+    expect(definesModule(code, 88109)).toBe(true);
+    expect(definesModule(code, 1993)).toBe(false); // a suffix of another id
+    expect(definesModule(code, 4)).toBe(false);
+    expect(definesModule("var t=e.i(6573),r=e.i(1);", 6573)).toBe(false); // a use
+    // A number in a list of data is not a module.
+    expect(definesModule("var a=[1,6573,2],b={x:[0,6573,7]};", 6573)).toBe(
+      false,
     );
   });
 

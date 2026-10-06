@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { CSRF_HEADER, CSRF_VALUE } from "@/lib/session-cookie";
 import { useUiStore } from "@/stores/ui.store";
-import { ApiError, ContractError, type ProblemFieldError } from "./errors";
+import { ApiError, ContractError, problemError } from "./errors";
 
 type Params = Record<string, string | number | boolean | undefined>;
 
@@ -73,20 +73,7 @@ async function request<T>(
 
   if (!response.ok) {
     // RFC 7807 `Problem`, passed through from the API by the route handler.
-    const problem = (await response.json().catch(() => null)) as {
-      title?: string;
-      code?: string;
-      errors?: ProblemFieldError[];
-    } | null;
-    const retryAfter = response.headers.get("retry-after")?.trim() ?? "";
-    throw new ApiError(
-      problem?.title ?? `${method} ${path} failed with ${response.status}`,
-      response.status,
-      problem?.code ?? "http_error",
-      problem,
-      problem?.errors ?? [],
-      /^\d{1,6}$/.test(retryAfter) ? Number(retryAfter) : null,
-    );
+    throw await problemError(response, `${method} ${path}`);
   }
 
   // A 204 has nothing to parse; its schema says so (`z.undefined()`).

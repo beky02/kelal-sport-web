@@ -126,3 +126,12 @@ export const paymentKeys = {
   withdrawal: (id: string, lang: string) =>
     [...paymentKeys.withdrawals(id), lang] as const,
 };
+
+/**
+ * The shop terminal (F8b). No player is ever signed in on one, so nothing here
+ * is personal and no session watcher applies.
+ */
+export const terminalKeys = {
+  all: ["terminal"] as const,
+  status: () => [...terminalKeys.all, "status"] as const,
+};

@@ -228,6 +228,22 @@ describe("the sealed session cookie", () => {
     expect(open(seal(live(), other))).toBeNull();
   });
 
+  it("still opens a cookie sealed before the sealing moved into seal.ts (F8b), so nobody is signed out", async () => {
+    // Sealed by the pre-F8b `seal()` with the development secret.
+    const BEFORE_F8B =
+      "v1.0Jgt4oNrHXgr1ZrP.ssHgYsyz7i796-rl1pKIhy5IhI6MoZjIjaqcyn_ZdLUKvoEOa7ZXMfY6S23CdVqUfgld9cy9RW_MCiSMC9Ojt7yykeVFMyCUUIw5CtILIlWfnhF11CGa_HMyGUXM3i0.74Z9Y4H37MwK6dyhS1-FeQ";
+    const { open, DEVELOPMENT_SESSION_SECRET } = {
+      ...(await load()),
+      ...(await import("@/lib/server/config")),
+    };
+    expect(open(BEFORE_F8B, DEVELOPMENT_SESSION_SECRET)).toEqual({
+      tenant: "demo",
+      access: "eyJ.before.f8b",
+      refresh: "rt_before_f8b",
+      expiresAt: 1790000000000,
+    });
+  });
+
   it("turns the API's tokens into a session that expires when the access token does", async () => {
     const { sessionFromTokens } = await load();
     const tokens = TOKENS() as {

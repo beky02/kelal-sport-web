@@ -1245,8 +1245,16 @@ paths:
                   name: Players
         '304':
           description: Client version is current
+        '400':
+          $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+        '503':
+          $ref: '#/components/responses/Unavailable'
   /v1/sports:
     get:
       tags:
@@ -1291,8 +1299,14 @@ paths:
                   tournaments:
                   - id: t_nba
                     events_count: 12
+        '400':
+          $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '503':
+          $ref: '#/components/responses/Unavailable'
   /v1/events:
     get:
       tags:
@@ -1431,8 +1445,16 @@ paths:
                       odds: '2.70'
                       active: false
                 next_cursor: eyJzIjoiMjAyNi0xMC0wNFQxOTowMCJ9
+        '400':
+          $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+        '503':
+          $ref: '#/components/responses/Unavailable'
   /v1/events/popular:
     get:
       tags:
@@ -1450,6 +1472,7 @@ paths:
         schema:
           type: integer
           default: 10
+          minimum: 1
           maximum: 30
       - $ref: '#/components/parameters/TenantId'
       - $ref: '#/components/parameters/RequestId'
@@ -1515,8 +1538,16 @@ paths:
                       odds: '2.70'
                       active: false
                 next_cursor: null
+        '400':
+          $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+        '503':
+          $ref: '#/components/responses/Unavailable'
   /v1/events/{id}:
     get:
       tags:
@@ -1642,8 +1673,12 @@ paths:
                     tpl: o_no
                     odds: '2.05'
                     active: true
+        '400':
+          $ref: '#/components/responses/BadRequest'
         '404':
           $ref: '#/components/responses/NotFound'
+        '503':
+          $ref: '#/components/responses/Unavailable'
   /v1/search:
     get:
       tags:
@@ -1702,8 +1737,16 @@ paths:
                       tpl: o_2
                       odds: '3.30'
                       active: true
+        '400':
+          $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+        '503':
+          $ref: '#/components/responses/Unavailable'
   /v1/slips/quote:
     post:
       tags:
