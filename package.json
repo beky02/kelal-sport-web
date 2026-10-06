@@ -18,7 +18,7 @@
     "contract:sync": "node scripts/contract-sync.mjs",
     "check": "pnpm typecheck && pnpm lint && pnpm format:check && pnpm test",
     "ui": "playwright test",
-    "verify": "pnpm check && pnpm api:check && node scripts/contract-sync.mjs --check && pnpm build && pnpm ui"
+    "verify": "pnpm check && pnpm api:check && node scripts/contract-sync.mjs --check && pnpm build && node scripts/check-host-split.mjs && pnpm ui"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.9.1",

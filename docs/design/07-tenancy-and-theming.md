@@ -18,10 +18,11 @@ brand's players, bets or money unless that is decided otherwise (proposal 001, Q
 | Step                | Where                                                                                                                                                             | Status      |
 | ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------- |
 | The request arrives | `Host` → `TENANT_HOST_MAP` (`kelalsport.et=kelal,localhost=demo`) → tenant code, else `DEFAULT_TENANT`                                                            | Built       |
+| A terminal's host   | `TERMINAL_HOST_MAP` (`terminal.kelalsport.et=kelal`) names the tenant too, and makes the host the shop terminal's: the proxy serves it nothing else (09-security) | Built (F8a) |
 | Behind our edge     | `X-Forwarded-Host` (and `-Proto`, `-For`) are believed only when `TRUSTED_PROXY_HOPS` is set, and then only the entry the edge appended (the n-th from the right) | Built (F4a) |
 | Every API call      | `X-Tenant-Id: <code>` from the route handler; the API refuses a header that disagrees with its own host                                                           | Built       |
 | A player's session  | Sealed with its tenant; read under another tenant's host it is nothing                                                                                            | Built (F4a) |
-| Links we make       | `og:url` and share links use the tenant's own host, never a forwarded one it does not own                                                                         | Built (F3b) |
+| Links we make       | `og:url` and share links use the tenant's own host, never a forwarded one it does not own, and never a terminal host                                              | Built (F3b) |
 
 ## `/v1/config/public` (C16 §5)
 

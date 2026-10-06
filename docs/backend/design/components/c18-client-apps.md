@@ -12,6 +12,7 @@ C18 covers every front end. The Android app is built in **Flutter**; everything 
 | **Cashier POS** | Next.js | Chrome kiosk with silent printing | Cashiers, shop managers (C19) |
 | **Agent portal** | Next.js | Any browser | Agents (C19) |
 | **Back office** | Next.js + Refine | Desktop browser | Operator staff (C15) |
+| **Platform console** | Next.js (stack details: the web repo's FD1) | Desktop browser, behind Cloudflare Access or an IP allow-list | Platform staff: create and run brands (C16 section 9) |
 
 **Why this split.** Next.js renders pages on the server, so a phone on 3G gets readable odds as HTML before any JavaScript runs, search engines can index match pages, and Telegram link previews work without a separate service. It also gives the back office the React data-grid ecosystem. Flutter stays for Android, where offline storage, push and a native feel matter and where your Flutter experience pays off most. **The cost** is two UI codebases and the slip calculator written twice (Dart and TypeScript); the shared OpenAPI contract and one golden CSV that both must pass keep them in step.
 
@@ -42,7 +43,8 @@ client/
    │  ├─ terminal/                # terminal.{brand} shop self-service
    │  ├─ pos/                     # pos.{brand}      cashier counter
    │  ├─ agent/                   # agents.{brand}   agent portal
-   │  └─ admin/                   # bo.{brand}       back office (Refine inside Next.js, C15)
+   │  ├─ admin/                   # bo.{brand}       back office (Refine inside Next.js, C15)
+   │  └─ console/                 # console.{platform domain} platform console (C16 section 9); not per brand
    └─ packages/
       ├─ api/                     # typed client generated from contracts/openapi.yaml; problem+json errors
       ├─ slipcalc/                # TypeScript port of C07 on decimal.js; runs the golden CSV
@@ -83,7 +85,7 @@ One build serves every tenant. Middleware reads the host, resolves the tenant (c
 
 - Login and registration go through route handlers that call FastAPI and set an `httpOnly`, `Secure`, `SameSite=Lax` session cookie on the site's own domain; access tokens stay on the server. Mutations carry a CSRF token header.
 - Middleware only redirects logged-out users away from account pages. **Authorisation is enforced by FastAPI on every call**, and route handlers re-check the session, so a middleware bypass (CVE-2025-29927) exposes nothing.
-- Terminal: device-bound token in IndexedDB, requests signed with a non-extractable WebCrypto key (C19 4.1). POS: staff session cookie plus the POS device signature. Agent portal: same pattern as players, with OTP.
+- Terminal: device-bound token in IndexedDB, requests signed with a non-extractable WebCrypto key (C19 4.1). POS: staff session cookie plus the POS device signature. Agent portal: same pattern as players, with OTP. Platform console: like the back office (password + TOTP), with a `platform` token held on the server; it is the one app that is not resolved to a tenant.
 
 ### 4.5 Responsive layout
 

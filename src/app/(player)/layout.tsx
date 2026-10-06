@@ -1,32 +1,8 @@
 import type { Metadata, Viewport } from "next";
-import { Barlow, Barlow_Condensed, Noto_Sans_Ethiopic } from "next/font/google";
 import { UI_STORAGE_KEY } from "@/stores/ui.store";
+import { fontVariables } from "../fonts";
 import { Providers } from "./providers";
-import "./globals.css";
-
-const barlow = Barlow({
-  variable: "--font-barlow",
-  subsets: ["latin"],
-  weight: ["400", "500", "700"],
-  display: "swap",
-});
-
-const barlowCondensed = Barlow_Condensed({
-  variable: "--font-barlow-condensed",
-  subsets: ["latin"],
-  weight: ["400", "600"],
-  display: "swap",
-});
-
-/**
- * Amharic. Loaded as a variable font because the design condenses its `wdth`
- * axis to 82% so headings sit with Barlow Condensed.
- */
-const notoEthiopic = Noto_Sans_Ethiopic({
-  variable: "--font-noto-ethiopic",
-  subsets: ["ethiopic"],
-  display: "swap",
-});
+import "../globals.css";
 
 export const metadata: Metadata = {
   title: "KelalSport",
@@ -66,7 +42,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     <html
       lang="en"
       data-theme="dark"
-      className={`${barlow.variable} ${barlowCondensed.variable} ${notoEthiopic.variable} h-full antialiased`}
+      className={`${fontVariables} h-full antialiased`}
       suppressHydrationWarning
     >
       <head>

@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://api.example.et/events/feed.bet_stop.json",
+  "title": "feed.bet_stop",
+  "description": "Betting stopped on these markets of a fixture: a provider bet stop, or kick-off (C05 §7, D5). Published by the feed service on NATS subject evt.feed.bet_stop (version 1). The markets are suspended in the catalogue and in Redis before the event is relayed. This is the `data` payload; the envelope (event_id, type, version, tenant_id, occurred_at, trace_id) is TD-02 §5. Feed events are global: the envelope's tenant_id is null (B4a plan, decision 5). New fields are additive only.",
+  "type": "object",
+  "required": [
+    "fixture_id",
+    "ts_ms",
+    "market_ids"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "fixture_id": {
+      "type": "string",
+      "pattern": "^fx_[a-z0-9_]{1,64}$",
+      "description": "Catalogue fixture ID (opaque; contract fixtures keep the contract's IDs, e.g. fx_arsenal_chelsea)"
+    },
+    "ts_ms": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "The provider's timestamp of the message, Unix milliseconds; changes apply in this order (FEED-07)"
+    },
+    "market_ids": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^mk_[a-z0-9_]{1,64}$"
+      },
+      "uniqueItems": true
+    }
+  }
+}

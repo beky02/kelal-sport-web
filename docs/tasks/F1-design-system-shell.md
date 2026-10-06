@@ -21,7 +21,7 @@ font and every state of the odds button are visible on one gallery page in both 
 - `docs/backend/engineering-decisions.md` D7 (theme token keys, fonts, money formats)
 - `docs/backend/design/components/c18-client-apps.md` §4.3, §4.5, §8
 - `contracts/openapi.yaml`: `GET /v1/config/public` (`PublicConfig`, `brand.colors`)
-- Existing: `src/app/globals.css`, `src/app/layout.tsx`, `src/config/constants.ts` (placeholder `SYSTEM`,
+- Existing: `src/app/globals.css`, `src/app/(player)/layout.tsx` and `src/app/fonts.ts` (F8a), `src/config/constants.ts` (placeholder `SYSTEM`,
   `LICENCE`, helpline), `src/components/ui/*`
 
 ## Scope

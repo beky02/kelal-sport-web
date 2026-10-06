@@ -16,9 +16,9 @@ The Platform lets adults in Ethiopia bet on sports and play virtual games on the
 
 | Release | Contents | Status |
 | --- | --- | --- |
-| **Release 1 — Pre-match sportsbook, online and in shops** | Registration and KYC, wallet and ledger, deposits and withdrawals, sports catalogue from an odds feed, bet slip, bet placement, booking codes, settlement, bet history, accumulator and welcome bonuses, responsible gambling, notifications, back office, regulator reporting, single-tenant configuration; retail shops (self-service terminals, cashier POS, printed tickets, payouts, shifts) and agents (hierarchy, cash settlement, commission); player web built in Next.js, responsive for desktop and phones | Specified in full here |
+| **Release 1 — Pre-match sportsbook, online and in shops** | Registration and KYC, wallet and ledger, deposits and withdrawals, sports catalogue from an odds feed, bet slip, bet placement, booking codes, settlement, bet history, accumulator and welcome bonuses, responsible gambling, notifications, back office, regulator reporting, per-tenant configuration and a platform console that creates and runs brands (how many brands are live at launch is open, Q5); retail shops (self-service terminals, cashier POS, printed tickets, payouts, shifts) and agents (brand and partner agents, one level, cash settlement, commission); player web built in Next.js, responsive for desktop and phones | Specified in full here |
 | **Release 2 — Virtual games** | Virtual football and other virtual sports from one provider, launched in the app, settled through the same wallet | Specified in full here (§4.17) |
-| **Later releases** | Live (in-play) betting, cash-out, casino aggregator, offline shop POS and cash-accepting terminals, Telegram and SMS betting, multi-operator admin | Out of scope for this SRS; the design must not block them (§2.5) |
+| **Later releases** | Live (in-play) betting, cash-out, casino aggregator, offline shop POS and cash-accepting terminals, Telegram and SMS betting, self-service brand onboarding, master agents | Out of scope for this SRS; the design must not block them (§2.5) |
 
 ### 1.3 Definitions, acronyms and abbreviations
 
@@ -27,6 +27,9 @@ The Platform lets adults in Ethiopia bet on sports and play virtual games on the
 | Accumulator (multi, parlay) | One bet combining 2 or more selections; wins only if all win. Odds multiply. |
 | Bet stop | Feed signal to suspend a market immediately. |
 | Booking code | Short code that stores an unplaced slip so it can be loaded on another device or in a shop. |
+| Brand (operator, tenant) | A licensed betting operator running on the Platform, with its own players, rules, domains, back office and shops. All its data carries its `tenant_id`. |
+| Agent; brand agent; partner agent | An agent runs shops for a brand; every shop has exactly one. A brand agent holds the shops the brand runs itself; a partner agent is a separate business. One agent level in Phase 1 (no master agents). |
+| Platform (company); platform console; platform staff | The company that runs this system and the brands on it; its staff create and run brands from the platform console (4.21), separate from every brand's back office. |
 | Slip code | 8-digit code a shop terminal shows for a slip; the cashier loads it to sell the ticket (C19). |
 | Terminal | Self-service PC or touch screen in a shop running the betting site in a locked browser, with no login and no money. |
 | Cashier POS | The cashier's web app in a shop: sells tickets from slip codes, prints receipts, pays out, runs shifts. |
@@ -98,7 +101,8 @@ The Platform is a new, self-contained system, not a component of an existing pro
 | F13 | Report every transaction to the regulator | 1 |
 | F14 | Offer virtual sports games paid from the same wallet | 2 |
 | F15 | Retail shops: self-service terminals, cashier POS, printed tickets, payouts, shifts (4.19) | 1 |
-| F16 | Agents: hierarchy, cash settlement, commission (4.20) | 1 |
+| F16 | Agents: brand and partner agents (one level; every shop under an agent), cash settlement, commission (4.20) | 1 |
+| F17 | Platform console: create, run and watch brands (4.21) | 1 |
 
 ### 2.3 User classes and characteristics
 
@@ -107,14 +111,15 @@ The Platform is a new, self-contained system, not a component of an existing pro
 | Player | Adult 21+, mostly Android, pays by telebirr / CBE Birr; many on 3G and prepaid data | Daily to weekly | Low to medium; Amharic-first for many | Fast, data-light, trustworthy payouts |
 | Shop customer | Anonymous adult betting with cash in a shop, often without a smartphone | Daily to weekly | Low | Simple terminal, printed ticket, quick payout |
 | Cashier / shop manager | Shop staff selling tickets and paying winnings; the manager also approves cancels and closes shifts | Daily, all day | Low to medium | Fast keyboard and scanner flow, reliable printing, clear cash totals |
-| Agent / master agent | Runs or supervises a group of shops; collects cash; earns commission | Daily | Medium | Shop figures, cash owed, commission statements |
-| Retail administrator | Operator staff managing agents, shops, terminals and payout approvals | Daily | Medium | Hierarchy control, limits, approval queue |
+| Agent (partner or brand agent) | Runs a group of shops for a brand, or the brand's own shops (brand agent); collects cash; a partner earns commission | Daily | Medium | Shop figures, cash owed, commission statements |
+| Retail administrator | Brand staff managing agents, shops, terminals and payout approvals | Daily | Medium | Hierarchy control, limits, approval queue |
 | Customer support agent | Operator staff answering players | Daily | Medium | Full player view, safe adjustments |
 | Trader / risk manager | Watches exposure, suspends markets, sets limits | During events | High | Real-time liability and control |
 | Finance officer | Reconciles payments, approves withdrawals, files tax | Daily | Medium | Accurate reports, approval queues |
 | Compliance officer | KYC review, AML alerts, RG cases, regulator requests | Daily | Medium | Evidence, audit trail |
 | Marketing manager | Banners, promotions, push campaigns | Weekly | Low to medium | Easy CMS, bonus setup |
 | System administrator | Configuration, users, roles | As needed | High | Safe, audited changes |
+| Platform staff | Staff of the company running the Platform; create brands, suspend or reactivate them, watch their status and totals; see no player data | As needed | High | Safe brand setup, licence-expiry warnings, per-brand totals |
 | Regulator (ELS) | Receives reports; may inspect | Continuous / on request | High | Complete, timely, reconciled data |
 
 ### 2.4 Operating environment
@@ -135,7 +140,7 @@ The Platform is a new, self-contained system, not a component of an existing pro
 
 - **DC-1** Money shall be stored as integer santim (1 ETB = 100 santim); odds as fixed-precision decimals. No floating-point money arithmetic.
 - **DC-2** All times are stored in UTC and shown in East Africa Time (UTC+3); the Ethiopian calendar may be offered as a display option.
-- **DC-3** Except the global feed and catalogue tables (Technical Design TD-02), every table carries a `tenant_id` from day one, even though Release 1 has one tenant, so later operators can be added without migration.
+- **DC-3** Except the global tenancy, platform, feed and catalogue tables (Technical Design TD-02), every table carries a `tenant_id` from day one, even though Release 1 has one tenant, so later operators can be added without migration.
 - **DC-4** Modules shall not read each other's tables; they call module interfaces or consume events.
 - **DC-5** Real-money operation is blocked by a configuration switch until a valid ELS licence number is recorded.
 - **DC-6** The system shall comply with the successor to Directive 172/2021 (TBD-1); where this SRS conflicts with it, the directive prevails.
@@ -221,7 +226,7 @@ Player devices are standard phones and PCs. Retail shops (Release 1) add: termin
 
 ## 4. System features
 
-Each feature lists its description and priority, the stimulus/response sequence, and numbered functional requirements. Requirement IDs use the feature prefix (e.g. BET-07). Features 4.1–4.16 and 4.18–4.20 are Release 1; 4.17 is Release 2.
+Each feature lists its description and priority, the stimulus/response sequence, and numbered functional requirements. Requirement IDs use the feature prefix (e.g. BET-07). Features 4.1–4.16 and 4.18–4.21 are Release 1; 4.17 is Release 2.
 
 ### 4.1 Registration and authentication (REG)
 
@@ -581,7 +586,7 @@ Each feature lists its description and priority, the stimulus/response sequence,
 
 | ID | Requirement | Pri | Ver |
 | --- | --- | --- | --- |
-| RET-01 | The system shall model each tenant's retail network as master agents, agents and shops, with terminals, cashiers and shop managers attached to shops. | M | I |
+| RET-01 | The system shall model each tenant's retail network as agents and shops: every shop belongs to exactly one agent and every agent to the tenant (one agent level; no master agents in Phase 1). An agent is a partner agent or a brand agent, which holds the shops the brand runs itself. Terminals, cashiers and shop managers are attached to shops. Creating a shop without an agent, or an agent under another agent, shall be refused. | M | T |
 | RET-02 | A terminal shall be activated once with a one-time code and bound to its shop and a browser device key; revoking it shall take effect on its next request. | M | T |
 | RET-03 | A terminal shall let anyone browse enabled sports and build a slip without logging in, and shall never place bets, hold money or show player data. | M | T |
 | RET-04 | On request, a terminal shall obtain an 8-digit slip code, valid until the earlier of the configured lifetime and the first leg's start, show it with a QR code, and then reset; an idle terminal shall reset after the configured time. | M | T |
@@ -601,17 +606,34 @@ Each feature lists its description and priority, the stimulus/response sequence,
 
 ### 4.20 Agents (AGT)
 
-**Description and priority.** Gives agents a web portal to run their shops and settle cash with the operator, and pays them commission. Design: Technical Design C19. Priority: High for Release 1.
+**Description and priority.** Gives agents a web portal to run their shops and settle cash with the operator, and pays them commission. Every shop has an agent: the brand's own shops sit under a brand agent, which works like any other agent but settles straight to the brand's bank and earns no commission unless the brand sets a plan. Design: Technical Design C19, `platform-retail-hierarchy.md`. Priority: High for Release 1.
 
 | ID | Requirement | Pri | Ver |
 | --- | --- | --- | --- |
-| AGT-01 | An agent shall see only its own subtree: shops, their status and today's and period figures (turnover, payouts, cancels, GGR, cash held, open shifts). | M | T |
+| AGT-01 | An agent shall see only its own shops: their status and today's and period figures (turnover, payouts, cancels, GGR, cash held, open shifts). | M | T |
 | AGT-02 | An agent shall be able to add and deactivate cashiers and terminals in its own shops; shop limits and commission plans shall be changed only by the operator. | M | T |
-| AGT-03 | Cash collected from a shop shall be recorded by the agent and confirmed by the shop manager before it is posted; unconfirmed or disputed settlements shall be flagged. Settlements from agent to operator shall carry a bank or payment reference. | M | T |
+| AGT-03 | Cash collected from a shop shall be recorded by the agent and confirmed by the shop manager before it is posted; unconfirmed or disputed settlements shall be flagged. Settlements from agent to operator shall carry a bank or payment reference. A brand agent's collected cash shall go straight to the brand's bank account. | M | T |
 | AGT-04 | Float given to a shop for payouts shall be recorded and confirmed the same way. | M | T |
-| AGT-05 | The system shall calculate commission weekly per agent or shop from its plan (net revenue or turnover, tiers, negative carry-forward), produce PDF and CSV statements, and accrue commission in the ledger. | M | T |
+| AGT-05 | The system shall calculate commission weekly per agent or shop from its plan (net revenue or turnover, tiers, negative carry-forward), produce PDF and CSV statements, and accrue commission in the ledger. An agent or shop without a plan (usually a brand agent) shall accrue nothing. | M | T |
 | AGT-06 | Agents shall log in with phone, password and OTP; all agent actions shall be audited. | M | T |
 | AGT-07 | Agents shall be able to take cash from online players and credit their wallets (agent-assisted deposits). | S (P1) | T |
+
+### 4.21 Platform (PLT)
+
+**Description and priority.** The company that runs the Platform creates and runs brands (tenants) from a platform console that is separate from every brand's back office. Platform staff see each brand's status and totals, never its players, bets or money. Design: `platform-retail-hierarchy.md`, Technical Design C16 (section 9), C01, C13. Priority: High for Release 1; how much of it is needed on day one depends on how many brands are live at launch (open question Q5).
+
+**Stimulus/response.** Platform staff enter a new brand's legal name, code, licence, domains, branding and languages and its first admin's email → system creates the tenant in `setup` with configuration version 1 from a template and emails the invitation → the brand's admin signs in to its back office and prepares the brand → platform staff set the brand `active`, and real money is on while its licence is valid.
+
+| ID | Requirement | Pri | Ver |
+| --- | --- | --- | --- |
+| PLT-01 | Platform staff shall create a brand with legal name, code, licence number and expiry, a domain for each app (player web, API, back office, terminal, POS, agent portal), branding and languages, a first configuration version from a template, and the brand's first back-office admin, invited by email. Repeating a creation shall not create a second brand. | M | T |
+| PLT-02 | Platform staff shall move a brand between setup, active and suspended, with a reason; real money shall be enabled only for an active brand with a valid licence (CFG-04). | M | T |
+| PLT-03 | Platform staff shall set feature flags per brand and read its configuration versions; after creation only the brand activates configuration versions (four-eyes for betting, payments and RG). | M | T |
+| PLT-04 | Platform staff shall see, per brand, its status, licence expiry (with a warning before it), active configuration version, health, active players, turnover and GGR. | M | D |
+| PLT-05 | Platform staff shall log in with password plus TOTP and receive a token of their own audience that is not tied to a tenant; a platform token shall be refused by every brand endpoint and a brand token by every platform endpoint. | M | T |
+| PLT-06 | Platform staff shall not see players' personal data, bets or money within a brand, only the aggregates in PLT-04 (open question Q4: access granted by a brand). | M | T |
+| PLT-07 | Every platform action shall be audited with actor, time, IP, the brand it touched, and before and after values. | M | T |
+| PLT-08 | If the Platform charges brands by GGR or by outlet (open question Q1), the system shall produce a monthly platform statement per brand from the brand's reported totals, and shall never post it to the brand's ledger. | S | T |
 
 ## 5. Non-functional requirements
 
@@ -713,7 +735,7 @@ Green states pay the player; red states end without payout. A settled bet return
 
 ## Appendix B — Core data entities
 
-Except the global feed and catalogue tables (Technical Design TD-02), every table carries `tenant_id`, `created_at` and `updated_at`; money is integer santim; IDs are UUIDv7 except ticket IDs.
+Except the global tenancy, platform, feed and catalogue tables (Technical Design TD-02), every table carries `tenant_id`, `created_at` and `updated_at`; money is integer santim; IDs are UUIDv7 except ticket IDs.
 
 | Entity | Key attributes | Owner feature |
 | --- | --- | --- |
@@ -735,6 +757,8 @@ Except the global feed and catalogue tables (Technical Design TD-02), every tabl
 | virtual\_round | provider, game\_id, round\_id, stake, win, status, provider\_txn\_ids | VRT |
 | outbox\_event / audit\_log | event type, payload, sent\_at, ack; actor, action, before, after, ip | REP |
 | tenant / tenant\_config | domain, brand, version, settings | CFG |
+| agent / shop | agent: kind (brand, partner), name, commission plan; shop: agent\_id (required), code, limits | RET, AGT |
+| platform\_staff / platform\_audit\_log | email, password, TOTP, status; actor, action, brand touched, before, after (global, not tenant-scoped) | PLT |
 
 ## Appendix C — To be determined
 
@@ -766,6 +790,6 @@ Gates and phases map to Build Plan milestones (Gate A = M1, Gate B = M2–M3, Ga
 | E13 Trading & risk | 4.15 BO-06 to BO-10 | 1 |
 | E14 Back office | 4.15 BO | 1 |
 | E15 Notifications | 4.14 NOT | 1 |
-| E16 Multi-tenancy | 4.18 CFG | 1 |
+| E16 Multi-tenancy | 4.18 CFG, 4.21 PLT | 1 |
 | E9 Retail shops, E10 Agents | 4.19 RET, 4.20 AGT | Release 1 |
 | E6 Live, casino part of E8 | Not in this SRS | Later |

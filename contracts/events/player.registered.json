@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://api.example.et/events/player.registered.json",
+  "title": "player.registered",
+  "description": "A player registered and was signed in (C01 §7, §8). Published by the identity module on NATS subject evt.player.registered (version 1). Consumers: C11 (welcome bonus, promo code), C13 (report), C14 (welcome message), C02 (duplicate checks), C12 (takes over the deposit limit chosen at registration, B8). The registration's session starts here: no player.login is published for it. Ids only, no personal data: ask identity's interface for details. This is the `data` payload; the envelope (event_id, type, version, tenant_id, occurred_at, trace_id) is TD-02 §5. New fields are additive only.",
+  "type": "object",
+  "required": ["player_id", "session_id", "device_id", "language", "marketing_consent", "promo_code", "deposit_limit", "terms_version"],
+  "additionalProperties": false,
+  "properties": {
+    "player_id": { "type": "string", "format": "uuid" },
+    "session_id": { "type": "string", "format": "uuid", "description": "The session the registration started" },
+    "device_id": { "type": "string", "format": "uuid", "description": "The device registered from (C02 duplicate signals)" },
+    "language": { "type": "string", "enum": ["am", "en"] },
+    "marketing_consent": { "type": "boolean" },
+    "promo_code": { "type": ["string", "null"], "minLength": 1, "maxLength": 64, "description": "As the player typed it (REG-12); C11 decides whether it is valid" },
+    "deposit_limit": {
+      "description": "The deposit limit chosen at registration (RG-01), also kept on identity.player until C12 holds it",
+      "oneOf": [
+        { "type": "null" },
+        {
+          "type": "object",
+          "required": ["period", "amount_santim"],
+          "additionalProperties": false,
+          "properties": {
+            "period": { "type": "string", "enum": ["day", "week", "month"] },
+            "amount_santim": { "type": "integer", "minimum": 0 }
+          }
+        }
+      ]
+    },
+    "terms_version": { "type": "string", "minLength": 1, "description": "The terms version the player accepted" }
+  }
+}

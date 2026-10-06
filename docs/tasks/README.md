@@ -34,7 +34,7 @@ Engineering Decisions say differently. The order follows the Build Plan's fronte
 | [F7c](F7c-promotions-inbox.md)                | Split from F7: promotions, my bonus and free bets, promo codes, the inbox                              | F4                 | —             | todo   |
 | [F7d](F7d-content-mocks.md)                   | Split from F7: content pages from the API; the mock repository deleted                                 | F6c, F7a, F7b, F7c | B1            | todo   |
 | [F7e](F7e-reality-check-figures.md)           | Split from F7b: the reality check's figures and play session from the API (after contract request 012) | F7b                | B8            | todo   |
-| [F8a](F8a-host-split.md)                      | Split the app by host: `(player)` and `(terminal)` route groups (FD1)                                  | F7b                | —             | todo   |
+| [F8a](F8a-host-split.md)                      | Split the app by host: `(player)` and `(terminal)` route groups (FD1)                                  | F7b                | —             | done   |
 | [F8](F8-terminal.md)                          | Shop terminal app                                                                                      | F8a                | B9            | todo   |
 | [F8b](F8b-terminal-activation.md)             | Split from F8: terminal activation, the device key and signed requests                                 | F8a                | B9            | todo   |
 | [F8c](F8c-terminal-slip-code.md)              | Split from F8: kiosk sportsbook and slip to code                                                       | F8b                | B9            | todo   |

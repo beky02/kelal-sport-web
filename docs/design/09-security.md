@@ -11,9 +11,50 @@ are in `docs/tasks/F3b/verification.md` and `docs/tasks/F4/verification.md`.
 | The browser never calls the API (D3) | `apiClient` only knows `/api/`; `lib/server/*` is `server-only`; the route handlers add `X-Tenant-Id`, `Accept-Language`, `X-Request-Id`, and `Authorization` from the session                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
 | Tokens never reach the browser       | Sealed in the httpOnly cookie; the login answer is a player summary; `/api/me` is the profile; the Playwright check reads `document.cookie`, `localStorage`, `sessionStorage` and every `/api` body after a real login                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
 | Who is signed in is the API's answer | `/api/me` on every load and on focus; no browser flag; player caches dropped on every session change                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
-| The proxy only redirects             | `src/proxy.ts` checks that a cookie exists and sends guests to log in (and answers `/t/{x}` without a ticket number with a 404, repeating nothing from the address); every route handler re-reads the session and the API checks every token (CVE-2025-29927)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| The proxy only redirects and splits  | `src/proxy.ts` keeps each host to its own site (below, F8a); on the player's it checks that a cookie exists and sends guests to log in (and answers `/t/{x}` without a ticket number with a 404, repeating nothing from the address); every route handler re-reads the session and the API checks every token (CVE-2025-29927)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
 | Money waits for the server           | No optimistic placement, deposit, withdrawal or cash out. One `Idempotency-Key` per bet: a bet with no answer stays unconfirmed — Try again sends the same request with the same key until a ticket comes back, and a different bet goes only by the player's explicit choice, never the same picks at the same prices under a new key (F5a). Placing is scoped to the signed-in player: hidden from a guest, dropped when someone else signs in, and Try again reads `/api/me` afresh first (within the attempt's 30 s), so a tab that missed a sign-in elsewhere sends nothing for the next player. Deposits (F6b) and withdrawals (F6c) the same way: one key per intent, the same key on Try again after no answer, `/api/me` asked first; each flow is the signed-in player's alone and starts afresh for anyone else. A withdrawal's cancel takes no key (the contract has none, and a repeat can only be refused) |
 | Secrets stay out of the repo         | `.env.local` is never read or printed; nothing sensitive in code, tests, fixtures, logs or screenshots; `SESSION_SECRET` is required in production and the server refuses to start without it                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+
+## The host split (F8a, FD1)
+
+One build serves two sites. A host in `TERMINAL_HOST_MAP` is a shop terminal's; every other host is the
+player site (07-tenancy). The proxy runs on every page and route handler — everything but Next's own
+`/_next/*`, `/favicon.ico` and `public/flags/`, excluded by path and never by extension, so
+`/event/x.png` is still a page — and decides by the host the tenant is read from (`requestHost`: a
+forwarded host only behind `TRUSTED_PROXY_HOPS`).
+
+| Host     | Served                                                                                               | Anything else                                             |
+| -------- | ---------------------------------------------------------------------------------------------------- | --------------------------------------------------------- |
+| Terminal | `/` (shows `/terminal`, no redirect), `/terminal`, `/terminal/*`, `/api/terminal`, `/api/terminal/*` | 404 — no login, account, wallet or `/api/me` on a shop PC |
+| Player   | Everything but the terminal's paths                                                                  | `/terminal…` and `/api/terminal…`: 404                    |
+
+A refused path is rewritten to Next's own 404 page (`/_not-found`) with status 404, so it reads exactly
+as a route that doesn't exist and nothing of the other site renders. Paths are compared on segment
+boundaries (`/terminals` is not the terminal's) and decoded as well as raw (`/%74erminal` is); on a
+terminal host an undecodable path or one with a `.`/`..` segment is refused. Each root layout has its
+own JavaScript: `pnpm verify` reads the build's client manifests and fails if a player route loads
+`(terminal)` code or the terminal loads the player layout's (`scripts/check-host-split.mjs`). Unit tests
+cover both hosts, the spellings and the matcher over every route and public file; a Playwright check
+visits `localhost` and `terminal.localhost`.
+
+The split is the proxy's. A request that skips it (CVE-2025-29927) reaches only what a guest could: a
+player handler finds no session on a terminal host, because the cookie is bound to the player's host
+(`__Host-`, no `Domain`). F8b's `/api/terminal/*` handlers must check `isTerminalHost` themselves too, so
+a player host can never reach them even then.
+
+Running on every route handler, the proxy makes Next read each request body for it before the handler
+runs, holding up to `experimental.proxyClientMaxBodySize` in memory — 10 MB by default, 32 KiB here:
+above the largest body a handler accepts (16 KiB, bets and bookings), so none is cut, and nobody can make
+the server hold megabytes per request. An oversized body is still refused (413 with a `Content-Length`
+over the handler's cap), but only after all of it has arrived: before F8a the handler stopped reading at
+its cap. Hence the edge requirements below.
+
+The same `/` answers two documents by host (the player's home, the terminal's placeholder), and both are
+prerendered with a long `s-maxage`.
+
+**Before go-live (edge):** cap request bodies at about 32 KiB (`client_max_body_size` or the like), so an
+oversized body is refused before it is read; and key every shared cache on the `Host` the client sent
+(not the upstream's name), or a cache could serve the terminal's `/` to players, or the reverse.
 
 ## The session cookie
 
@@ -109,6 +150,21 @@ Dependencies are kept current (Renovate) and Next.js and React security releases
 48 hours (C18 §2).
 
 ## Known limits and follow-ups
+
+- Any body is read to its end for the proxy before a handler runs (only 32 KiB of it kept), so until the
+  edge caps bodies a client can make the server read an upload as long as Node's request timeout allows.
+  One sent without `Content-Length` (chunked) and over 32 KiB reaches the handler cut — Next drops the
+  chunk that crosses the limit and all after it — and is refused as not JSON (422 rather than 413). A cut
+  body is a prefix of what was sent, so nothing reaches the API that the sender didn't send; browsers
+  always send `Content-Length` for these bodies. The edge cap above is a go-live requirement (F8a review).
+- `/_next/image` skips the proxy; with no `images.localPatterns` it would fetch any app path internally on
+  either host. Nothing uses `next/image`, so `localPatterns: []` allows none (unit test with Next's own
+  matcher).
+- A host is compared without its port and one root dot (`terminal.kelalsport.et.` is the terminal), so a
+  fully qualified name can't reach the player site on a shop's host name.
+- The matcher skips `/flags/…` (public files). F2a's `[lang]` segment must refuse values that aren't a
+  language before rendering; the matcher test already tries `flags` in every dynamic segment and fails
+  if `/flags/…` would render a page without the proxy.
 
 - Refresh deduplication is per process: one replica, or sticky `/api/*`, until it moves to Redis or the
   backend adds a reuse grace window.

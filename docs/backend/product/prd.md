@@ -4,7 +4,7 @@ Sep 29, 2026 · @Bereket
 
 ## Summary
 
-We are building a regulator-ready sports betting and gaming platform for Ethiopia. It launches as one consumer brand and is architected from day one so other licensed operators can run on it later. Release 1 is pre-match sports betting, sold online and in retail shops (self-service terminals, a cashier counter and agents), because every operator buying a white label expects shops. Release 2 adds virtual games. Live betting and casino follow later. Players reach it through a Flutter Android app, a responsive Next.js web app for desktop and phone browsers, shop terminals, and Telegram (P1).
+We are building a regulator-ready sports betting and gaming platform for Ethiopia. It launches as one consumer brand and is architected from day one so other licensed operators can run on it: from Release 1 the company that runs the Platform creates and runs brands from its own platform console (whether more than one brand is live at launch is open, Q5 in the platform and retail hierarchy). Release 1 is pre-match sports betting, sold online and in retail shops (self-service terminals, a cashier counter and agents), because every operator buying a white label expects shops. Release 2 adds virtual games. Live betting and casino follow later. Players reach it through a Flutter Android app, a responsive Next.js web app for desktop and phone browsers, shop terminals, and Telegram (P1).
 
 **Why now.** The Ethiopian Lottery Service revoked every sports-betting licence on 15 December 2025 and is preparing a relaunch under a new framework built around real-time monitoring. Every operator that returns will need a platform that can report to the regulator from the start. Today's incumbent platform (Convex) is mid-rewrite and has no live-odds push, a 3.8 MB first page load, and a separate copy of the system per operator.
 
@@ -13,7 +13,7 @@ We are building a regulator-ready sports betting and gaming platform for Ethiopi
 - **Compliance built in**: a double-entry ledger, a full audit trail for every bet, responsible-gambling controls and a regulator reporting interface.
 - **Built for Ethiopian mobile networks**: small, paged odds data and live updates pushed to the app, not re-downloaded.
 - **One codebase, many tenants**: brand, tax, bonus and payment rules are configuration, so a second operator is a setup task, not a fork.
-- **Shops included**: terminals that need no login, a cashier POS that prints tickets, and an agent hierarchy with cash control and commission, all running in a browser, so a white-label operator can open shops on day one without installing software.
+- **Shops included**: terminals that need no login, a cashier POS that prints tickets, and agents with cash control and commission (every shop under an agent; a brand's own shops under its brand agent), all running in a browser, so a white-label operator can open shops on day one without installing software.
 
 The product name is a placeholder; “the Platform” is used throughout. The companion SRS tab specifies how each requirement is met.
 
@@ -57,19 +57,20 @@ The first goal is a licence; everything else follows from it. Targets below are 
 
 ## Users and personas
 
-Nine user types touch the Platform; the first four decide whether it succeeds.
+Ten user types touch the Platform; the first four decide whether it succeeds. The ownership chain behind them is Platform → Brand → Agent → Shop (`docs/design/platform-retail-hierarchy.md`).
 
 | Persona | Who they are | Needs | Channel |
 | --- | --- | --- | --- |
 | **Online player** | Adult (21+) football fan in Addis or a regional city, Android phone, pays with telebirr, patchy 3G/4G | Quick odds, cheap on data, instant deposits, fast withdrawals, Amharic | Flutter Android app, responsive Next.js web, Telegram Mini App |
 | **Retail player** | Bets in a shop with cash, often without a smartphone | Printed ticket, booking codes, easy payout | Shop terminal (no login) to build a slip and get a code, then the cashier counter; SMS |
 | **Cashier** | Shop employee selling tickets and paying winnings | Fast ticket entry and printing, payouts, end-of-day cash report | Cashier POS (Next.js web app in Chrome kiosk, receipt printer, barcode scanner) |
-| **Agent** | Runs or supervises shops and top-ups in an area; earns commission | Balance, sub-agent and shop management, commission statements | Agent portal (Next.js), Telegram |
+| **Agent** | Runs shops for a brand in an area (a partner agent), or the brand's own shops (a brand agent); a partner earns commission | Balance, shop management, cash owed, commission statements | Agent portal (Next.js), Telegram |
 | **Trader / risk manager** | Operator staff watching liability and odds | Liability per market, limits, suspend or re-price, alerts on sharp or suspicious bettors | Back office |
 | **Customer support** | Handles player issues | Player 360° view, bet and transaction history, manual adjustments with approval | Back office |
 | **Finance / compliance officer** | Reconciles money, files tax and regulator reports | Reconciliation, tax reports, AML flags, audit log exports | Back office |
 | **Regulator (Ethiopian Lottery Service)** | Monitors operators in real time | Real-time transaction and bet feed, tax and commission totals, player protection data | Regulator interface |
-| **Tenant operator (phase 2+)** | Another licensed brand on the Platform | Own brand, rules, payment methods and data, isolated from other tenants | Tenant admin |
+| **Tenant operator (brand)** | A licensed brand on the Platform; Phase 1 (how many are live at launch: Q5) | Own brand, rules, payment methods, agents, shops and data, isolated from other brands | Its own back office |
+| **Platform staff** | The company that runs the Platform | Create brands, suspend or reactivate them, watch status, licence expiry and totals; never see a brand's players, bets or money | Platform console (Next.js) |
 
 ## Feature requirements
 
@@ -88,13 +89,13 @@ Sixteen epics make up version 1. **P0** means required for launch, **P1** means 
 | **E7 Settlement & cash-out** | Automatic settlement from the feed, voids and resettlement, bet history, winnings to wallet | Full and partial cash-out | Auto cash-out rules |
 | **E8 Casino & virtuals** | One aggregator: slots, crash games (Aviator-type), virtual sports; wallet integration; responsible-gaming limits apply | Lobby personalisation, jackpots display | Live dealer, own instant games |
 | **E9 Retail shops** | Self-service terminals (browser in kiosk mode, no login) that turn a slip into a numeric slip code; cashier POS: load code, sell, print receipt with barcode, scan to pay out, cancel within window, shift and Z report; payout rules and big-win approval; shop cash limit | Local print bridge (ESC/POS, cash drawer), SMS ticket check | Offline-tolerant POS, cash-accepting terminals |
-| **E10 Agents** | Agent hierarchy (master agent → agent → shop), shop cash positions, float top-ups, two-sided cash settlements, commission rules and weekly statements, web agent portal | Agent-assisted online player deposits | Agent-level promotions |
+| **E10 Agents** | Agents and shops (brand → agent → shop, one agent level; every shop under an agent, the brand's own shops under a brand agent), shop cash positions, float top-ups, two-sided cash settlements, commission rules and weekly statements, web agent portal | Agent-assisted online player deposits | Master agents (regional supervisors), agent-level promotions |
 | **E11 Bonuses & promotions** | Accumulator bonus table, free bets, welcome bonus with wagering rules, promo codes | Cashback (lost-by-one), referral program, tournaments / leaderboards | Missions, XP levels, spin wheel, quizzes |
 | **E12 Compliance & responsible gambling** | Deposit, stake and loss limits; self-exclusion; reality checks; AML rules and flags; KYC review queue; tax engine; audit log; regulator reporting interface | Automated suspicious-pattern detection | Affordability checks |
 | **E13 Trading & risk** | Liability per market and event, stake limits per player / market, suspend and re-price, margin settings, alerts | Player risk segmentation, bet delay per player | Own odds compilation |
 | **E14 Back office** | Role-based admin, player 360°, bet and ticket search, manual adjustments with 4-eyes approval, finance reports, content CMS (banners, pages) | Promotion builder UI, BI dashboards | Custom report builder |
 | **E15 Notifications & channels** | Push notifications, SMS (OTP, receipts), in-app inbox, Telegram support link | Telegram betting bot, SMS betting short code | USSD, WhatsApp |
-| **E16 Multi-tenancy & configuration** | Tenant ID on every record, per-tenant config (branding, limits, tax, bonus, payment methods, languages), tenant-isolated data | Tenant admin console | Self-service tenant onboarding, per-tenant odds margins |
+| **E16 Multi-tenancy & configuration** | Tenant ID on every record, per-tenant config (branding, limits, tax, bonus, payment methods, languages), tenant-isolated data; platform console: create a brand (tenant, domains, licence, branding, first admin), suspend or reactivate it, feature flags, watch status, licence expiry and totals | Platform statement per brand, if the Platform charges by GGR or outlet (Q1) | Self-service tenant onboarding, per-tenant odds margins, platform access to a brand's data by the brand's grant (Q4) |
 
 ## Key user journeys
 
@@ -184,3 +185,4 @@ No real-money traffic before Gate C. Gates map to the Build Plan milestones: Gat
 - [ ] Brand name, and which company holds the licence?
 - [ ] Team size and budget for the build (drives the phase dates).
 - [ ] Does the directive license each shop (outlet) separately, allow self-service terminals, and set a claim period for unclaimed retail winnings?
+- [ ] Platform and retail hierarchy (`docs/design/platform-retail-hierarchy.md` §7): how a brand pays the Platform (Q1), brand agents (Q2), the shop manager (Q3), platform access to brand data (Q4), brands live at launch (Q5), who reports to the regulator (Q6), brand-agent portal logins (Q7), withdrawals while a brand is suspended (Q8).

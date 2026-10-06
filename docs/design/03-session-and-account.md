@@ -45,7 +45,8 @@ The proxy (`src/proxy.ts`) only redirects a visitor with no session cookie away 
 `/wallet` and `/transactions` to `/login?next=…`; it opens nothing and decides nothing. Every route
 handler reads the session itself and the API checks every token (C18 §4.4, CVE-2025-29927). Its one
 other job is public: `/t/{x}` with no ticket number in it gets a 404 rendered whole (08-performance,
-"Without JavaScript").
+"Without JavaScript"). Since F8a it also keeps each host to its own site (09-security, "The host split"):
+a shop terminal's host has no login, no account pages and no `/api/me`.
 
 ## Caches and identity
 

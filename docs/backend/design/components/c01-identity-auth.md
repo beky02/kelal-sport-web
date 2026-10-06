@@ -95,7 +95,7 @@ create table identity.device (
 create index ix_device_fp on identity.device (tenant_id, fingerprint);
 ```
 
-OTP challenges live in Redis (`otp:{purpose}:{phone}`: code hash, attempts, expiry) because they are short-lived; each send is also logged in `notify.message` for audit.
+OTP challenges live in `identity.otp_challenge` (id = the API's `challenge_id`, purpose, phone, code HMAC, attempts, expiry, used-at), so answering a code commits with the registration, login or reset it unlocks; the send counters live in Redis (`rl:otp_send:{tenant}:{phone}`). Decided in B5b (plan, decision 1), where TD-02 §1 and this page disagreed. Each send will also be logged in `notify.message` for audit (B13).
 
 ## 6. API
 
@@ -194,8 +194,21 @@ Besides players and back-office staff, C01 issues tokens to three retail princip
 | --- | --- | --- | --- |
 | `terminal` | One-time activation code, then a device key (WebCrypto, non-extractable) signs every request | 90-day access token, rotated silently; revocable from the portal | Public catalogue, `/v1/retail/slip-codes` (create), ticket check |
 | `retail_staff` (cashier, shop manager) | Username + 6-digit PIN, only from an activated POS device of the same shop | Bearer token (audience retail\_staff), 12 h, held by the POS app's Next.js server; ends at shift close | `/v1/retail/*` cashier routes for its own shop |
-| `agent` | Phone + password + OTP (same flow as players, separate user table) | Access 15 min + refresh 30 days | `/v1/agent/*` for its own subtree |
+| `agent` | Phone + password + OTP (same flow as players, separate user table) | Access 15 min + refresh 30 days | `/v1/agent/*` for its own shops (one agent level; a brand agent is an agent like any other, D10) |
 
 Agent credentials live in `identity.agent_credential` (agent\_id, tenant\_id, phone\_e164, password\_hash, failed\_attempts, locked\_until); all principals share `identity.session` with a `principal_type` column.
 
 PIN lockout after 5 failures (manager or agent resets); all retail logins are written to the audit log with device and IP.
+
+## Platform staff (added for the platform layer)
+
+The Platform company's staff run brands from the platform console (C16 section 9). They are a principal of their own, decided on 5 Oct 2026 (Engineering Decisions D10):
+
+| Principal | How it signs in | Token | Allowed routes |
+| --- | --- | --- | --- |
+| `platform` (platform staff) | Email + password + TOTP, like back-office staff (C15); lockout after 5 failures | Audience `platform`, **no `tid`**; access 15 min + rotating refresh with reuse detection, held by the console's Next.js server | `/v1/platform/*` only |
+
+- Platform staff are not tenant-scoped: their accounts and sessions live in the global `platform` schema (`platform.staff`, `platform.session`), because `identity.session` is tenant-scoped.
+- The token verifier refuses a `platform` token on every brand route (wrong audience, and no `tid` to match the request's tenant), and refuses every brand audience on `/v1/platform/*`. Tests prove both directions for each audience.
+- Every sign-in and every console action is written to `platform.audit_log` with the brand it touched.
+- Platform staff never receive a brand's player, bet or money data through their token (Q4).

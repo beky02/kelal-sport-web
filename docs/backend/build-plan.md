@@ -9,6 +9,7 @@ What to build next, in order, on the frontend and the backend. Written 30 Sep 20
 | Component | Third party | Mock we build now | Swap to real when |
 | --- | --- | --- | --- |
 | C01 OTP by SMS | AfroMessage / SMSEthiopia | `ConsoleSmsProvider`: writes the code to the log; in dev every OTP is `000000` | SMS sender ID and account approved |
+| C14 Email (brand admin invitations, B16) | An email service (not chosen) | Console provider: writes the message to the log | Before the first real brand is created |
 | C02 KYC | Fayda eKYC | `FakeFayda`: FIN ending in 0 = verified, 1 = needs\_info (name mismatch), 2 = provider down | Partner access to Fayda |
 | C04 Payments | telebirr, CBE Birr, Chapa, M-Pesa | `MockPaymentProvider` with a dev page `/dev/pay/{id}` that approves, fails or times out a payment; Chapa sandbox as the first real adapter | Merchant accounts (after the licence application) |
 | C05 Odds feed | Sportradar / LSports / OddsMatrix | `FakeFeed`: loads fixtures from JSON (the contract's fixtures plus generated leagues), moves odds on a random walk every few seconds, suspends markets at kick-off, publishes scripted results and the occasional rollback | Feed trial (OddsMatrix offers one month) |
@@ -33,7 +34,8 @@ What to build next, in order, on the frontend and the backend. Written 30 Sep 20
 | F7 | Account, limits, self-exclusion, promotions, inbox | Screens done against Prism |
 | F8 | Shop terminal app: activation, kiosk layout, slip → code screen, idle reset | Code screen shows `4829 1735` with QR, then resets |
 | F9 | Cashier POS app: login, open shift, sell from a code, print the receipt (HTML + print CSS), scan and pay, cancel, cash in/out, close shift with Z report | A receipt prints from Chrome on the dev machine; all POS error codes shown clearly |
-| F10 | Agent portal; then the back office (Refine) once the admin APIs exist | — |
+| F10 | Agent portal; then the back office (Refine) once the admin APIs exist. Retail admin creates agents with a `kind` and every shop under an agent; the agent portal works the same for a brand agent (D10) | — |
+| F11 | Platform console (`console.{platform domain}`): sign-in with TOTP, brand list and creation, status, flags, figures | Against Prism once the `Platform` tag is in the contract (B16's first step) |
 
 ## 3. Backend track (FastAPI)
 
@@ -48,8 +50,10 @@ What to build next, in order, on the frontend and the backend. Written 30 Sep 20
 | B6 | C08 placement (re-price, limits, liability in Redis, `BET_STAKE` posting, idempotency) and C09 bookings and ticket check | Placing the same idempotency key twice returns one ticket |
 | B7 | C10 settlement from fake-feed results, including rollbacks; accumulator bonus funding (C11) | Win, loss, void and rollback all post correctly |
 | B8 | C04 payments with `MockPaymentProvider` (then the Chapa sandbox) and the withdrawal rule chain; C12 limits and self-exclusion | Register → deposit → bet → settle → withdraw works end to end (milestone M2) |
-| B9 | C19 retail: hierarchy, terminal activation, slip codes, sale, receipt model, payout, cancel, shifts, settlements, commission | The shop flow works end to end (milestone M3) |
+| B9 | C19 retail: agents (brand and partner, one level) and shops, terminal activation, slip codes, sale, receipt model, payout, cancel, shifts, settlements, commission | The shop flow works end to end (milestone M3) |
 | B10 | C15 admin APIs with audit and approvals; C13 reporting to `FileSink` and daily summaries | Back office usable for an internal demo (milestone M4) |
+| B16 | Platform console backend (C16 §9): platform staff with their own token audience, brand creation and lifecycle, flags, per-brand figures, platform audit; email sender with a console mock | A second brand is created from the console and serves its own `/v1/config/public` |
+| B17 | Monthly platform statement per brand (C13), only if the Platform charges by GGR or outlet | Blocked until the product owner answers Q1 |
 | B11 | Real providers as accounts arrive: SMS, Chapa, then telebirr and CBE Birr, Fayda, the odds-feed trial, the regulator adapter | Each adapter passes the same tests as its mock |
 
 **Golden CSV (B3, shared by Python, Dart and TypeScript) — already built.** `contracts/golden/` holds `rules.json` (rule sets `default_2026_10`, `no_tax`, `net_win_tax_refund_void`, `small_caps`), `slips.csv` (366 rows: hand-picked edge cases plus 300 seeded random cases), `reference_slipcalc.py` (the executable definition of Engineering Decisions D1), `generate.py` (`--check` mode for CI) and a TypeScript port `ts/slipcalc.ts` that already passes every row. Columns: `case_id, rules, bet_type, system_sizes, stake, stake_is_per_line, leg_odds, leg_results, settled, expected_error, lines, stake_per_line, total_stake, stake_tax, net_stake, total_odds, gross_payout, acca_bonus, win_tax, stake_tax_refund, net_payout, capped, warnings`. Lists are `;`-separated; money is a 2-decimal string; when `expected_error` is set the outputs are empty. Full spec in `contracts/golden/README.md`. So B3 is now "port the reference into `modules/slipcalc` and make pytest pass the CSV", and F3 is "copy `slipcalc.ts` into `packages/slipcalc` and wire it to the slip store".

@@ -92,6 +92,10 @@ paths:
                 challenge_id: 01J9A7QK3M8X2B7Y4Z5N6P0R1S
                 expires_in: 300
                 resend_after: 60
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
         '409':
           $ref: '#/components/responses/Conflict'
         '422':
@@ -151,10 +155,16 @@ paths:
                   access_token: eyJhbGciOi...
                   expires_in: 900
                   refresh_token: rt_2b7Y4Z5N6P0R1S
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
         '409':
           $ref: '#/components/responses/Conflict'
         '422':
           $ref: '#/components/responses/Unprocessable'
+        '503':
+          $ref: '#/components/responses/Unavailable'
       security: []
       parameters:
       - $ref: '#/components/parameters/TenantId'
@@ -208,10 +218,22 @@ paths:
                 otp_required: true
                 challenge_id: 01J9A7QK3M8X2B7Y4Z5N6P0R1T
                 expires_in: 300
+        '400':
+          $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
         '423':
           $ref: '#/components/responses/Locked'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '503':
+          $ref: '#/components/responses/Unavailable'
       security: []
       parameters:
       - $ref: '#/components/parameters/TenantId'
@@ -254,6 +276,8 @@ paths:
           $ref: '#/components/responses/NotFound'
         '422':
           $ref: '#/components/responses/Unprocessable'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
         '503':
           $ref: '#/components/responses/Unavailable'
       security: []
@@ -299,6 +323,10 @@ paths:
       responses:
         '204':
           description: Password changed; all sessions revoked
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
         '422':
           $ref: '#/components/responses/Unprocessable'
       security: []
@@ -7384,6 +7412,8 @@ components:
       properties:
         fingerprint:
           type: string
+          minLength: 1
+          maxLength: 200
         platform:
           type: string
           enum:
@@ -7392,6 +7422,8 @@ components:
           - web
         app_version:
           type: string
+          minLength: 1
+          maxLength: 50
     RegisterRequest:
       type: object
       required:
@@ -7446,6 +7478,8 @@ components:
           type:
           - string
           - 'null'
+          minLength: 1
+          maxLength: 64
         marketing_consent:
           type: boolean
           default: false

@@ -2,7 +2,7 @@
 
 ## 1. Purpose & scope
 
-C15 is the operator's console. It covers staff identity and roles, player management, trading and risk screens, finance and compliance queues, content management, reports and configuration. Most business logic stays in the owning modules; C15 provides staff authentication, RBAC, the audit hook, and the admin front end. It implements BO-01 to BO-16.
+C15 is each brand's (operator's) console, served at `bo.{brand}`; its staff are tenant-scoped and see only their brand. The Platform company's staff use the separate platform console (C16 section 9, C18), which creates a brand and its first back-office admin and never replaces the back office. C15 covers staff identity and roles, player management, trading and risk screens, finance and compliance queues, content management, reports and configuration. Most business logic stays in the owning modules; C15 provides staff authentication, RBAC, the audit hook, and the admin front end. It implements BO-01 to BO-16.
 
 ## 2. Research notes
 
@@ -91,11 +91,11 @@ Permission matrix tests (every staff route × role), the four-eyes constraint (t
 
 ## Retail screens (added for C19)
 
-The back office gets a Retail section for operator staff; agents use their own portal (C18/C19), not the back office.
+The back office gets a Retail section for the brand's staff; agents use their own portal (C18/C19), not the back office. The brand's own shops sit under a brand agent, so they appear and work like any agent's (C19 §3).
 
 | Screen | What staff do there |
 | --- | --- |
-| Agents and shops | Tree view of master agents, agents and shops; create, suspend, close; set shop limits, opening hours, payout rules and commission plan |
+| Agents and shops | Agents (brand and partner, one level; D10) with their shops; create an agent with its kind, create every shop under an agent; suspend, close; set shop limits, opening hours, payout rules and commission plan |
 | Terminals and POS devices | Create a terminal and show its activation code; see last-seen time, IP and app version; revoke |
 | Staff | Cashiers and shop managers per shop; reset PIN; daily cancel limit |
 | Payout approvals | Queue of big-win payouts waiting for head office, with ticket, shop, customer ID; approve or reject |

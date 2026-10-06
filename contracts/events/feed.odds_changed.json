@@ -1,0 +1,98 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://api.example.et/events/feed.odds_changed.json",
+  "title": "feed.odds_changed",
+  "description": "Prices or statuses of a fixture's markets changed (C05 §7). Published by the feed service on NATS subject evt.feed.odds_changed (version 1), one event per applied provider message: every market the message changed, as stored after it. Odds are the provider's raw prices, before any tenant margin (C06 applies that when it serves a price). This is the `data` payload; the envelope (event_id, type, version, tenant_id, occurred_at, trace_id) is TD-02 §5. Feed events are global: the envelope's tenant_id is null (B4a plan, decision 5). New fields are additive only.",
+  "type": "object",
+  "required": [
+    "fixture_id",
+    "ts_ms",
+    "fixture_status",
+    "markets"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "fixture_id": {
+      "type": "string",
+      "pattern": "^fx_[a-z0-9_]{1,64}$",
+      "description": "Catalogue fixture ID (opaque; contract fixtures keep the contract's IDs, e.g. fx_arsenal_chelsea)"
+    },
+    "ts_ms": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "The provider's timestamp of the message, Unix milliseconds; changes apply in this order (FEED-07)"
+    },
+    "fixture_status": {
+      "type": "string",
+      "enum": [
+        "not_started",
+        "live",
+        "suspended",
+        "ended",
+        "closed",
+        "cancelled",
+        "postponed",
+        "abandoned"
+      ]
+    },
+    "markets": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "market_id",
+          "status",
+          "outcomes"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "market_id": {
+            "type": "string",
+            "pattern": "^mk_[a-z0-9_]{1,64}$"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "suspended",
+              "deactivated",
+              "settled",
+              "cancelled"
+            ]
+          },
+          "outcomes": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "id",
+                "odds",
+                "active"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "pattern": "^oc_[a-z0-9_]{1,64}$",
+                  "description": "The outcome ID slips, bets and bookings use"
+                },
+                "odds": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "pattern": "^\\d{1,7}\\.\\d{2,3}$",
+                  "description": "Raw provider odds; null when the provider has no price"
+                },
+                "active": {
+                  "type": "boolean",
+                  "description": "The provider offers this outcome (its market's status still decides whether it can be bet on)"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
