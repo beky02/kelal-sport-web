@@ -295,3 +295,92 @@ describe("the payment redirect allow-list (AC-3)", () => {
     await expect(load()).rejects.toThrow(/PAYMENT_REDIRECT_HOSTS/);
   });
 });
+
+describe("the shop terminal's hosts (F8a, FD1)", () => {
+  it("maps a terminal host to its tenant and marks it as a terminal", async () => {
+    vi.stubEnv("TENANT_HOST_MAP", "kelalsport.et=kelal,localhost=demo");
+    vi.stubEnv(
+      "TERMINAL_HOST_MAP",
+      "terminal.kelalsport.et=kelal, Terminal.Demo.et=demo",
+    );
+    const { isTerminalHost, tenantForHost, tenantFromHeaders } = await load();
+
+    expect(isTerminalHost("terminal.kelalsport.et")).toBe(true);
+    expect(isTerminalHost("terminal.demo.et:443")).toBe(true);
+    expect(tenantForHost("terminal.kelalsport.et")).toBe("kelal");
+    expect(
+      tenantFromHeaders(new Headers({ host: "terminal.demo.et:3000" })),
+    ).toBe("demo");
+
+    // The player's hosts, and hosts in neither map, are the player site.
+    for (const host of ["kelalsport.et", "localhost:3000", "other.example"]) {
+      expect(isTerminalHost(host), host).toBe(false);
+    }
+    expect(isTerminalHost(null)).toBe(false);
+    expect(tenantForHost("kelalsport.et")).toBe("kelal");
+    expect(tenantForHost("other.example")).toBe("demo");
+    // Only the maps' own entries: never a name every object inherits.
+    for (const host of ["toString", "constructor", "__proto__"]) {
+      expect(isTerminalHost(host), host).toBe(false);
+      expect(tenantForHost(host), host).toBe("demo");
+    }
+  });
+
+  it("refuses to start with a host in both TENANT_HOST_MAP and TERMINAL_HOST_MAP", async () => {
+    vi.stubEnv("TENANT_HOST_MAP", "kelalsport.et=kelal");
+    vi.stubEnv("TERMINAL_HOST_MAP", "KelalSport.et=kelal");
+    await expect(load()).rejects.toThrow(/TERMINAL_HOST_MAP/);
+  });
+
+  it("has no terminal host in production unless one is configured, and terminal.localhost elsewhere", async () => {
+    vi.stubEnv("TERMINAL_HOST_MAP", "");
+    vi.stubEnv("DEFAULT_TENANT", "demo");
+
+    vi.stubEnv("NODE_ENV", "production");
+    const production = await load();
+    expect(production.serverConfig.terminalHostMap).toEqual({});
+    expect(production.isTerminalHost("terminal.localhost:3000")).toBe(false);
+
+    vi.stubEnv("NODE_ENV", "development");
+    const development = await load();
+    expect(development.serverConfig.terminalHostMap).toEqual({
+      "terminal.localhost": "demo",
+    });
+    expect(development.isTerminalHost("terminal.localhost:3000")).toBe(true);
+
+    // A map, when given, is the map — in development too.
+    vi.stubEnv("TERMINAL_HOST_MAP", "kiosk.demo.et=demo");
+    const listed = await load();
+    expect(listed.isTerminalHost("terminal.localhost")).toBe(false);
+    expect(listed.isTerminalHost("kiosk.demo.et")).toBe(true);
+  });
+
+  it("decides by the host tenants are read from: a forwarded host counts only behind a trusted proxy", async () => {
+    vi.stubEnv("TERMINAL_HOST_MAP", "terminal.kelalsport.et=kelal");
+    const { isTerminalHost, requestHost } = await load();
+    const forged = new Headers({
+      host: "kelalsport.et",
+      "x-forwarded-host": "terminal.kelalsport.et",
+    });
+    expect(isTerminalHost(requestHost(forged))).toBe(false);
+
+    vi.stubEnv("TRUSTED_PROXY_HOPS", "1");
+    const trusted = await load();
+    expect(trusted.isTerminalHost(trusted.requestHost(forged))).toBe(true);
+  });
+
+  it("never makes a player link on a terminal host", async () => {
+    vi.stubEnv("TENANT_HOST_MAP", "kelalsport.et=kelal");
+    vi.stubEnv("TERMINAL_HOST_MAP", "terminal.kelalsport.et=kelal");
+    const { publicOrigin, ownedOrigin } = await load();
+    const onTerminal = new Headers({ host: "terminal.kelalsport.et" });
+
+    expect(publicOrigin(onTerminal, "kelal")).toBe("https://kelalsport.et");
+    expect(ownedOrigin(onTerminal, "kelal")).toBe("https://kelalsport.et");
+
+    // A tenant with only a terminal host owns no player origin.
+    vi.stubEnv("TENANT_HOST_MAP", "");
+    const terminalOnly = await load();
+    expect(terminalOnly.ownedOrigin(onTerminal, "kelal")).toBeNull();
+  });
+});

@@ -20,51 +20,71 @@ const CONTRACT_EXAMPLE_PROVIDER_HOSTS = [
  * Server-only configuration. Nothing here reaches the browser: the browser
  * never calls the API (D3), so it never needs to know where it is.
  */
-const schema = z.object({
-  /** The sportsbook API — Prism on :4010 locally, the backend on :8000. */
-  apiBaseUrl: z.string().url(),
-  /**
-   * The real backend, for the OpenAPI tags in `apiRealTags` (D7). Screens move
-   * from Prism to the backend one tag at a time as its pieces land.
-   */
-  apiRealUrl: z.string().url().optional(),
-  apiRealTags: z
-    .array(z.string())
-    .refine((tags) => !tags.includes("Bookings") && !tags.includes("Auth"), {
-      // Bookings and logins would reach the API from this server's address, so
-      // its per-IP and per-device limits (booking codes, OTP sends, failed
-      // passwords) would be one bucket for every player. Refused until contract
-      // request 004 (X-Client-IP / X-Client-Device) lands.
-      message:
-        "Bookings and Auth cannot use the real API yet: contract request 004 (client IP and device) must land first",
-    }),
-  /** Tenant for hosts not in the map. `demo` locally. */
-  defaultTenant: z.string().min(1),
-  /** `host=tenant` pairs, comma-separated: `kelalsport.et=kelal,localhost=demo`. */
-  tenantHostMap: z.record(z.string(), z.string()),
-  /**
-   * How many proxies of ours stand in front of this server and set
-   * `X-Forwarded-*`. At 0 (the default) only `Host` is believed: a forwarded
-   * host or address is whatever the client typed (F4 AC-7, contract request
-   * 004). At n, the edge's `X-Forwarded-Host` and `-Proto` are trusted and the
-   * player's address is the n-th `X-Forwarded-For` entry from the right — the
-   * one the trusted edge appended, never the first.
-   */
-  trustedProxyHops: z.number().int().nonnegative(),
-  /**
-   * The payment providers' pages a deposit may send the player to
-   * (`next_action.redirect`), as exact host names: `checkout.chapa.co`. No
-   * wildcards, no schemes, no ports — see `isAllowedProviderUrl`.
-   */
-  paymentRedirectHosts: z.array(
-    z
-      .string()
-      .regex(
-        HOST_NAME,
-        "PAYMENT_REDIRECT_HOSTS takes host names, like checkout.chapa.co",
+const schema = z
+  .object({
+    /** The sportsbook API — Prism on :4010 locally, the backend on :8000. */
+    apiBaseUrl: z.string().url(),
+    /**
+     * The real backend, for the OpenAPI tags in `apiRealTags` (D7). Screens move
+     * from Prism to the backend one tag at a time as its pieces land.
+     */
+    apiRealUrl: z.string().url().optional(),
+    apiRealTags: z
+      .array(z.string())
+      .refine((tags) => !tags.includes("Bookings") && !tags.includes("Auth"), {
+        // Bookings and logins would reach the API from this server's address, so
+        // its per-IP and per-device limits (booking codes, OTP sends, failed
+        // passwords) would be one bucket for every player. Refused until contract
+        // request 004 (X-Client-IP / X-Client-Device) lands.
+        message:
+          "Bookings and Auth cannot use the real API yet: contract request 004 (client IP and device) must land first",
+      }),
+    /** Tenant for hosts not in the map. `demo` locally. */
+    defaultTenant: z.string().min(1),
+    /** `host=tenant` pairs, comma-separated: `kelalsport.et=kelal,localhost=demo`. */
+    tenantHostMap: z.record(z.string(), z.string()),
+    /**
+     * The shop terminal's hosts (FD1), `host=tenant` pairs like the player's:
+     * `terminal.kelalsport.et=kelal`. A host here serves only the terminal; a
+     * host in neither map is the player site (`src/proxy.ts`).
+     */
+    terminalHostMap: z.record(z.string(), z.string()),
+    /**
+     * How many proxies of ours stand in front of this server and set
+     * `X-Forwarded-*`. At 0 (the default) only `Host` is believed: a forwarded
+     * host or address is whatever the client typed (F4 AC-7, contract request
+     * 004). At n, the edge's `X-Forwarded-Host` and `-Proto` are trusted and the
+     * player's address is the n-th `X-Forwarded-For` entry from the right — the
+     * one the trusted edge appended, never the first.
+     */
+    trustedProxyHops: z.number().int().nonnegative(),
+    /**
+     * The payment providers' pages a deposit may send the player to
+     * (`next_action.redirect`), as exact host names: `checkout.chapa.co`. No
+     * wildcards, no schemes, no ports — see `isAllowedProviderUrl`.
+     */
+    paymentRedirectHosts: z.array(
+      z
+        .string()
+        .regex(
+          HOST_NAME,
+          "PAYMENT_REDIRECT_HOSTS takes host names, like checkout.chapa.co",
+        ),
+    ),
+  })
+  .refine(
+    ({ tenantHostMap, terminalHostMap }) =>
+      !Object.keys(terminalHostMap).some((host) =>
+        Object.hasOwn(tenantHostMap, host),
       ),
-  ),
-});
+    {
+      // One host, one site: which one it serves must never depend on the order
+      // the maps are read in.
+      message:
+        "A host cannot be in both TENANT_HOST_MAP and TERMINAL_HOST_MAP: it serves the player site or the terminal",
+      path: ["terminalHostMap"],
+    },
+  );
 
 /**
  * Lets `next dev` and the tests run with no `.env.local`. Production refuses
@@ -126,6 +146,23 @@ function parseHostMap(raw: string | undefined): Record<string, string> {
 }
 
 /**
+ * `TERMINAL_HOST_MAP`. Unset or blank: no terminal host in production — no
+ * host serves the terminal until one is configured (fail closed) — and
+ * `terminal.localhost` for the default tenant anywhere else, so `next dev` and
+ * Playwright can reach it (Chrome sends any `*.localhost` to this machine).
+ */
+function terminalHostMap(
+  raw: string | undefined,
+  defaultTenant: string,
+): Record<string, string> {
+  const listed = parseHostMap(raw);
+  if (Object.keys(listed).length > 0) return listed;
+  return process.env.NODE_ENV === "production"
+    ? {}
+    : { "terminal.localhost": defaultTenant };
+}
+
+/**
  * `PAYMENT_REDIRECT_HOSTS`, comma-separated. Unset or blank: none in
  * production — every redirect is refused until hosts are listed (fail
  * closed) — and the contract's example hosts anywhere else.
@@ -150,6 +187,10 @@ const parsed = schema.safeParse({
     .filter(Boolean),
   defaultTenant: process.env.DEFAULT_TENANT ?? "demo",
   tenantHostMap: parseHostMap(process.env.TENANT_HOST_MAP),
+  terminalHostMap: terminalHostMap(
+    process.env.TERMINAL_HOST_MAP,
+    process.env.DEFAULT_TENANT ?? "demo",
+  ),
   trustedProxyHops: Number(process.env.TRUSTED_PROXY_HOPS?.trim() || "0"),
   paymentRedirectHosts: paymentRedirectHosts(
     process.env.PAYMENT_REDIRECT_HOSTS,
@@ -192,11 +233,31 @@ export type ApiTag =
   | "Inbox"
   | "Config";
 
+/** A host without its port, in lower case: the key both host maps use. */
+const hostName = (host: string | null): string =>
+  (host ?? "").split(":")[0].toLowerCase();
+
+/** A map's own entry for `name` — never one inherited from Object (`toString`). */
+const entry = (map: Record<string, string>, name: string) =>
+  Object.hasOwn(map, name) ? map[name] : undefined;
+
 /** The tenant a request belongs to, from the host it arrived on. */
 export function tenantForHost(host: string | null): string {
-  const name = (host ?? "").split(":")[0].toLowerCase();
-  return serverConfig.tenantHostMap[name] ?? serverConfig.defaultTenant;
+  const name = hostName(host);
+  return (
+    entry(serverConfig.tenantHostMap, name) ??
+    entry(serverConfig.terminalHostMap, name) ??
+    serverConfig.defaultTenant
+  );
 }
+
+/**
+ * Whether a request arrived on a shop terminal's host (FD1): one in
+ * `TERMINAL_HOST_MAP`. Every other host is the player site. Pass it
+ * `requestHost(headers)`, so it reads the host tenants are read from.
+ */
+export const isTerminalHost = (host: string | null): boolean =>
+  Object.hasOwn(serverConfig.terminalHostMap, hostName(host));
 
 /**
  * The first value of a forwarded header. Proxies that append (`a, b`) put the
