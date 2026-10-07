@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { Check, Loader2, Ticket } from "lucide-react";
 import { Dialog } from "radix-ui";
 import { Barcode } from "@/components/ui/Barcode";
@@ -122,17 +122,11 @@ function BookBet({
   onBook,
 }: ReturnType<typeof useBookBet>) {
   const t = useTranslation();
-  // The slip is mounted twice below `xl` (its hidden column and the sheet):
-  // only the one whose button was tapped opens the code.
-  const bookedHere = useRef(false);
-  const [showing, setShowing] = useState(false);
-  useEffect(() => {
-    if (receipt && bookedHere.current) {
-      bookedHere.current = false;
-      setShowing(true);
-    }
-    if (!receipt) setShowing(false);
-  }, [receipt]);
+  // Asked for by this slip's button: the slip is mounted twice below `xl`
+  // (its hidden column and the sheet), and only the one tapped opens the
+  // code — once it has arrived, and until Done.
+  const [asked, setAsked] = useState(false);
+  const showing = asked && receipt !== null;
   const off = pending || (!onBook && !receipt);
 
   return (
@@ -141,10 +135,9 @@ function BookBet({
         <button
           type="button"
           onClick={() => {
-            if (receipt) return setShowing(true);
             if (off) return;
-            bookedHere.current = true;
-            onBook?.();
+            setAsked(true);
+            if (!receipt) onBook?.();
           }}
           aria-disabled={off}
           aria-busy={pending}
@@ -166,7 +159,7 @@ function BookBet({
         <BookedCode
           receipt={receipt}
           open={showing}
-          onClose={() => setShowing(false)}
+          onClose={() => setAsked(false)}
         />
       )}
     </>
