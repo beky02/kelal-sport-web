@@ -38,10 +38,6 @@ async function openSlipWithPicks(page: Page, device: Device, lang: Lang) {
       })
       .click();
   }
-  await page
-    .getByRole("button", { name: t.betSlip.howCalculated })
-    .last()
-    .click();
 }
 
 /**
@@ -65,18 +61,11 @@ async function bookAsGuest(page: Page, device: Device, lang: Lang) {
   await page.waitForURL("/");
   await openSlipWithPicks(page, device, lang);
   await page.getByRole("button", { name: t.betSlip.bookBet }).click();
-  await page.getByTestId("booking-code").filter({ visible: true }).waitFor();
-  // On a phone the sheet scrolls inside itself: bring the code card and its
-  // share buttons into view. On desktop, a full-page shot of a scrolled page
-  // paints the sticky header mid-page, so go back to the top.
-  if (device === "phone") {
-    await page
-      .getByRole("button", { name: t.betSlip.copyCode })
-      .filter({ visible: true })
-      .scrollIntoViewIfNeeded();
-  } else {
-    await page.evaluate(() => window.scrollTo(0, 0));
-  }
+  // The code opens in a dialog over the slip (the user's fourth review),
+  // with its Copy and Share. A full-page shot of a scrolled page paints the
+  // sticky header mid-page, so go back to the top.
+  await page.getByRole("dialog", { name: t.betSlip.bookingCode }).waitFor();
+  await page.evaluate(() => window.scrollTo(0, 0));
 }
 
 /**

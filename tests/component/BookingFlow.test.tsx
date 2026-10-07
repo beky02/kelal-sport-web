@@ -166,7 +166,9 @@ describe("loading a booking code in the slip", () => {
     // Stake tax floor(5000 × 0.15) = 7.50; floor(4250 × 2.10) = 89.25, not
     // the 87.12 the code's 2.05 would give.
     expect(screen.getByTestId("net-payout")).toHaveTextContent("ETB 89.25");
-    expect(screen.getByText("− ETB 7.50")).toBeInTheDocument();
+    // The stake tax is in the payout, not a line of its own (the user's
+    // decision, 2026-10-07).
+    expect(screen.queryByText("− ETB 7.50")).toBeNull();
   });
 
   it("starts a loaded slip without standing consent to price moves", async () => {
@@ -412,6 +414,7 @@ describe("booking the slip", () => {
     await userEvent.click(screen.getByRole("button", { name: "Book bet" }));
     await screen.findByTestId("booking-code");
     expect(sent[1].key).toBe(sent[0].key);
+    await userEvent.click(screen.getByRole("button", { name: "Done" }));
 
     // A different slip is a different intent: the old code no longer applies.
     await userEvent.click(screen.getByRole("button", { name: "50" }));
@@ -431,10 +434,12 @@ describe("booking the slip", () => {
 
     render(<BetSlip />);
 
-    expect(screen.getByTestId("booking-code")).toHaveTextContent("7KQ2M9X");
-    const booked = screen.getByRole("button", { name: "Booked" });
-    expect(booked).toHaveAttribute("aria-disabled", "true");
-    await userEvent.click(booked);
+    // Its code is kept, a tap away: "Booked" opens it, and books nothing.
+    expect(screen.queryByTestId("booking-code")).toBeNull();
+    await userEvent.click(screen.getByRole("button", { name: "Booked" }));
+    expect(await screen.findByTestId("booking-code")).toHaveTextContent(
+      "7KQ2M9X",
+    );
     expect(sent).toHaveLength(1);
   });
 
@@ -503,20 +508,34 @@ describe("booking the slip", () => {
     }
   });
 
-  it("moves focus to the new code so it is read out, and keeps Book focusable while asking", async () => {
+  it("opens the new code in a dialog over the slip, with focus in it, and Booked opens it again (the user's fourth review)", async () => {
     api(() => [201, RECEIPT()]);
     render(<BetSlip />);
-    const book = screen.getByRole("button", { name: "Book bet" });
 
-    await userEvent.click(book);
+    await userEvent.click(screen.getByRole("button", { name: "Book bet" }));
 
-    const panel = await screen.findByTestId("booking-code");
-    await waitFor(() => expect(panel).toHaveFocus());
-    expect(panel).toHaveAttribute("role", "status");
-    // Announced as done, not removed from the tab order.
+    const dialog = await screen.findByRole("dialog", { name: "Booking code" });
+    expect(dialog).toHaveTextContent("7KQ2M9X");
+    await waitFor(() =>
+      expect(dialog).toContainElement(document.activeElement as HTMLElement),
+    );
+    // The player can still copy it or send it on.
+    expect(
+      within(dialog).getByRole("button", { name: "Copy code" }),
+    ).toBeInTheDocument();
+    expect(
+      within(dialog).getByRole("link", { name: /Share on Telegram/ }),
+    ).toBeInTheDocument();
+
+    await userEvent.click(within(dialog).getByRole("button", { name: "Done" }));
+    expect(screen.queryByRole("dialog", { name: "Booking code" })).toBeNull();
     const booked = screen.getByRole("button", { name: "Booked" });
-    expect(booked).toHaveAttribute("aria-disabled", "true");
-    expect(booked).not.toBeDisabled();
+    expect(booked).not.toHaveAttribute("aria-disabled", "true");
+    await userEvent.click(booked);
+    expect(
+      await screen.findByRole("dialog", { name: "Booking code" }),
+    ).toBeInTheDocument();
+    expect(sent).toHaveLength(1);
   });
 
   it("offers the stake the API will take when it refuses the booking's stake", async () => {

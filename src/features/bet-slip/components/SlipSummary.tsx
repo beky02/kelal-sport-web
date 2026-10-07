@@ -1,12 +1,8 @@
 "use client";
 
-import { useState } from "react";
-import type { RuleSetJson } from "@golden/slipcalc";
 import { useTranslation } from "@/lib/i18n/use-translation";
 import { compareMoney } from "@/lib/money";
 import type { BetSlipTotals } from "../lib/calculate";
-import { taxLineLabel, taxLines } from "../lib/tax-lines";
-import { CalculationSteps } from "./CalculationSteps";
 
 function Line({ label, value }: { label: React.ReactNode; value: string }) {
   return (
@@ -20,23 +16,17 @@ function Line({ label, value }: { label: React.ReactNode; value: string }) {
 }
 
 /**
- * What is withheld before the payout, with the full working one tap away.
- *
- * Which taxes appear, and at what rate, is the tenant's rule set; every amount
- * is slipcalc's. "—" until there is a quote to show.
+ * The slip's odds before the payout: total odds for a multiple, the lines for
+ * a system, and an accumulator bonus when there is one. No stake-tax or
+ * winnings-tax line and no working (the user's decision, 2026-10-07): the
+ * slip shows what the player gets (`PayoutSummary`), and the placed ticket
+ * itemises the taxes (SRS HIS-02).
  */
-export function TaxBreakdown({
-  totals,
-  rules,
-}: {
-  totals: BetSlipTotals;
-  rules: RuleSetJson;
-}) {
+export function SlipSummary({ totals }: { totals: BetSlipTotals }) {
   const t = useTranslation();
-  const [open, setOpen] = useState(false);
   const { quote } = totals;
-  const amount = (value: string | null | undefined) =>
-    value ? t.money(value) : "—";
+  const bonus = quote && compareMoney(quote.accaBonus, "0.00") > 0;
+  if (totals.mode === "single" && !bonus) return null;
 
   return (
     <div className="bg-surface border-border numeric mx-4 mt-3 flex flex-col gap-[7px] rounded-lg border p-3">
@@ -63,33 +53,11 @@ export function TaxBreakdown({
         />
       )}
 
-      {taxLines(rules, quote).map((tax) => (
-        <Line
-          key={tax.code}
-          label={taxLineLabel(t, tax)}
-          value={`− ${amount(tax.amount)}`}
-        />
-      ))}
-
-      {quote && compareMoney(quote.accaBonus, "0.00") > 0 && (
+      {bonus && (
         <Line
           label={t.t("betSlip.accaBonus")}
           value={`+ ${t.money(quote.accaBonus)}`}
         />
-      )}
-
-      <button
-        type="button"
-        aria-expanded={open}
-        disabled={!quote}
-        onClick={() => setOpen(!open)}
-        className="text-text font-body h-7 cursor-pointer self-start bg-transparent text-xs font-semibold underline underline-offset-[3px] disabled:cursor-default disabled:opacity-45"
-      >
-        {open ? t.t("betSlip.hideCalculation") : t.t("betSlip.howCalculated")}
-      </button>
-
-      {open && quote && (
-        <CalculationSteps quote={quote} rules={rules} mode={totals.mode} />
       )}
     </div>
   );

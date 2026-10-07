@@ -93,34 +93,17 @@ describe("BetSlip", () => {
     expect(screen.getByText("+ ETB 44.83")).toBeInTheDocument();
   });
 
-  it("explains the full calculation on request, in D1's order", async () => {
+  it("shows no tax line and no working on the slip, only what the player gets (the user's decision, 2026-10-07)", () => {
     seedReferenceSlip();
     render(<BetSlip />);
 
-    await userEvent.click(
-      screen.getByRole("button", { name: "How is this calculated?" }),
-    );
-
-    expect(screen.getByText("Net stake")).toBeInTheDocument();
-    expect(screen.getByText("ETB 85.00")).toBeInTheDocument(); // 100 − 15% stake tax
-    expect(screen.getByText("Gross return")).toBeInTheDocument();
-    expect(screen.getByText("ETB 579.57")).toBeInTheDocument(); // floor(85 × 6.81858)
-    // floor((579.57 − 85.00) × 3%) = 14.83, as its own row in the working.
-    const working = screen.getByTestId("calculation-steps");
-    const bonusRow = within(working)
-      .getByText("Accumulator bonus")
-      .closest("div")!;
-    expect(bonusRow).toHaveTextContent(/^\+\s*Accumulator bonus\s*ETB 14\.83$/);
-  });
-
-  it("states the tenant's tax rates and the win-tax threshold", () => {
-    seedReferenceSlip();
-    render(<BetSlip />);
-
-    expect(screen.getByText(/Stake tax/)).toHaveTextContent("Stake tax · 15%");
-    expect(screen.getByText(/Winnings tax/)).toHaveTextContent(
-      "Winnings tax · 15% of the whole win once it’s over ETB 1,000.00",
-    );
+    // The reference slip still pays slipcalc's figure, taxes included.
+    expect(netPayout()).toBeInTheDocument();
+    expect(screen.queryByText(/Stake tax/)).toBeNull();
+    expect(screen.queryByText(/Winnings tax/)).toBeNull();
+    expect(
+      screen.queryByRole("button", { name: "How is this calculated?" }),
+    ).toBeNull();
   });
 
   it("follows the tenant's rule set: no_tax shows no tax lines and pays 681.85", () => {

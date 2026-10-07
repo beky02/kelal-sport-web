@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Check, Loader2 } from "lucide-react";
 import { useTranslation } from "@/lib/i18n/use-translation";
@@ -24,14 +24,19 @@ import {
 } from "@/features/bookings/hooks/use-bookings";
 import { bookingErrorMessage } from "@/features/bookings/lib/errors";
 import { bookingRequestFrom } from "@/features/bookings/lib/request";
-import { BookingAlert, BookingCode, LoadBookingCode } from "./BookingCode";
+import {
+  BookingAlert,
+  BookingCodeActions,
+  LoadBookingCode,
+} from "./BookingCode";
+import { BookingCodeDialog } from "./BookingCodeDialog";
 import { EmptySlip } from "./EmptySlip";
 import { OddsPolicySetting } from "./OddsPolicySetting";
 import { PayoutSummary } from "./PayoutSummary";
 import { PlaceBetButton } from "./PlaceBetButton";
 import { SlipAlerts } from "./SlipAlerts";
 import { StakeInput } from "./StakeInput";
-import { TaxBreakdown } from "./TaxBreakdown";
+import { SlipSummary } from "./SlipSummary";
 
 /**
  * The bet slip.
@@ -142,17 +147,12 @@ export function BetSlip({ onClose }: { onClose?: () => void }) {
   const bookedCode = signature ? booking.receiptFor(signature) : null;
   const bookError = signature ? booking.errorFor(signature) : null;
   const bookFailure = bookError ? bookingErrorMessage(bookError, "") : null;
-  // Book bet keeps focus while it asks (aria-disabled, not disabled); once the
-  // code arrives, focus moves to it so it is read out and can be copied.
-  const bookedNow = useRef(false);
-  const codePanel = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (bookedCode && bookedNow.current) {
-      bookedNow.current = false;
-      codePanel.current?.focus();
-    }
-  }, [bookedCode]);
-  const bookDisabled = !bookingRequest || booking.isPending || !!bookedCode;
+  // Book bet keeps focus while it asks (aria-disabled, not disabled). The code
+  // opens in a dialog once it arrives, for the slip whose button asked — the
+  // slip is mounted twice below 1280 px — and "Booked" opens it again.
+  const [codeAsked, setCodeAsked] = useState(false);
+  const showingCode = codeAsked && bookedCode !== null;
+  const bookDisabled = !bookedCode && (!bookingRequest || booking.isPending);
 
   const conflicts = useMemo(
     () => new Set(totals.conflictEventIds),
@@ -241,7 +241,7 @@ export function BetSlip({ onClose }: { onClose?: () => void }) {
           />
           {rules ? (
             <>
-              <TaxBreakdown totals={totals} rules={rules.calc} />
+              <SlipSummary totals={totals} />
               <PayoutSummary totals={totals} rules={rules.calc} />
             </>
           ) : (
@@ -295,13 +295,15 @@ export function BetSlip({ onClose }: { onClose?: () => void }) {
                   <button
                     type="button"
                     onClick={() => {
-                      if (bookDisabled || !bookingRequest) return;
-                      bookedNow.current = true;
-                      booking.book(bookingRequest);
+                      if (bookDisabled) return;
+                      setCodeAsked(true);
+                      if (!bookedCode && bookingRequest) {
+                        booking.book(bookingRequest);
+                      }
                     }}
-                    // Off while the slip can't be booked, while asking, and
-                    // once this slip has its code — announced as off, but
-                    // still focusable, so a keyboard user keeps their place.
+                    // Off while the slip can't be booked and while asking —
+                    // announced as off, but still focusable, so a keyboard
+                    // user keeps their place. Once booked, it shows the code.
                     aria-disabled={bookDisabled}
                     aria-busy={booking.isPending}
                     className="bg-raised text-text font-body flex h-12 cursor-pointer items-center justify-center gap-2 rounded-md text-sm font-bold aria-disabled:cursor-not-allowed aria-disabled:opacity-45"
@@ -322,7 +324,13 @@ export function BetSlip({ onClose }: { onClose?: () => void }) {
                 </button>
               </div>
               {bookingCodes && bookedCode && (
-                <BookingCode ref={codePanel} receipt={bookedCode} />
+                <BookingCodeDialog
+                  receipt={bookedCode}
+                  open={showingCode}
+                  onClose={() => setCodeAsked(false)}
+                >
+                  <BookingCodeActions receipt={bookedCode} />
+                </BookingCodeDialog>
               )}
               <div className="pb-2" />
             </>

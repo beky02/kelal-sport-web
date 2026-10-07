@@ -485,10 +485,12 @@ describe("loading booking codes in the kiosk slip (F8ca AC-9)", () => {
     await user.click(slip().getByRole("button", { name: en.betSlip.bookBet }));
 
     // The code in a dialog over the slip: code, barcode, no Copy or Share.
-    const dialog = within(
-      await screen.findByRole("dialog", { name: en.betSlip.bookingCode }),
-    );
-    expect(dialog.getByTestId("booking-code")).toHaveTextContent(BOOKED.code);
+    const box = await screen.findByRole("dialog", {
+      name: en.betSlip.bookingCode,
+    });
+    const dialog = within(box);
+    expect(box).toHaveAttribute("data-testid", "booking-code");
+    expect(box).toHaveTextContent(BOOKED.code);
     expect(
       dialog.getByRole("img", {
         name: `${en.betSlip.bookingCode}: ${BOOKED.code}`,
