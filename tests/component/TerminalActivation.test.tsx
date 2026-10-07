@@ -277,7 +277,8 @@ describe("a terminal that may not run (AC-4)", () => {
           "button, a, input, select, textarea, [tabindex]",
         ),
       ).toHaveLength(1);
-      expect(container.querySelector("a")).toHaveAttribute("href", "/terminal");
+      // The terminal's one bar: the brand, home, and nothing else to press.
+      expect(container.querySelector("a")).toHaveAttribute("href", "/");
     },
   );
 });

@@ -12,6 +12,7 @@ import { terminalKeys } from "@/lib/query/keys";
 import { address } from "./navigation";
 import {
   BOARD,
+  BOOKED,
   BOOKING,
   EVENT,
   KIOSK_CONFIG,
@@ -381,41 +382,150 @@ describe("picking prices into the kiosk's slip (F8ca AC-2)", () => {
 });
 
 describe("loading booking codes in the kiosk slip (F8ca AC-9)", () => {
-  it("loads current picks through the terminal route and explains a started match", async () => {
+  /** The contract's booking: the leg still on sale, and the one that started. */
+  const [ON_SALE, STARTED] = BOOKING.legs;
+
+  /** The slip's sheet, opened from its bar with `n` picks in it. */
+  const openSlip = async (user: ReturnType<typeof userEvent.setup>, n = 0) => {
+    await user.click(
+      screen.getByRole("button", {
+        name: en.nav.slipAria.replace("{n}", String(n)),
+      }),
+    );
+    return within(screen.getByRole("dialog"));
+  };
+
+  /** A pick in the slip, by its Remove button (one per pick). */
+  const pickNamed = (
+    slip: ReturnType<typeof within>,
+    pick: string | undefined,
+  ) =>
+    slip.queryByRole("button", {
+      name: en.betSlip.remove.replace("{pick}", pick ?? ""),
+    });
+
+  it("loads a code's picks into the slip through the terminal, at the server's prices, and says what couldn't come", async () => {
+    expect(ON_SALE.unavailable).toBeNull();
+    expect(STARTED.unavailable).toBe("EVENT_STARTED");
     const user = userEvent.setup();
     routes();
     renderTerminal();
     await homeWin();
 
-    await user.click(
-      screen.getByRole("button", {
-        name: en.nav.slipAria.replace("{n}", "0"),
-      }),
-    );
-    const dialog = within(screen.getByRole("dialog"));
-    const input = dialog.getByLabelText(en.betSlip.loadCode);
-    await user.type(input, "7kq2-m9x");
-    await user.click(dialog.getByRole("button", { name: en.betSlip.load }));
+    const slip = await openSlip(user);
+    await user.type(slip.getByLabelText(en.betSlip.loadCode), "7kq2-m9x");
+    await user.click(slip.getByRole("button", { name: en.betSlip.load }));
 
+    // The leg still on sale is in the slip, at the server's price now, with
+    // the code's price struck through beside it.
     await waitFor(() =>
-      expect(reads("/api/terminal/bookings/")).toHaveLength(1),
+      expect(pickNamed(slip, ON_SALE.outcomeName?.en)).not.toBeNull(),
     );
-    await waitFor(() =>
-      expect(dialog.getByTestId("booking-notice")).toBeInTheDocument(),
+    expect(slip.getByText(ON_SALE.eventName!.en)).toBeInTheDocument();
+    expect(
+      slip.getByText(formatOdds(ON_SALE.odds!), { exact: false }),
+    ).toBeInTheDocument();
+    expect(slip.getByText(formatOdds(ON_SALE.oddsAtCode!))).toBeInTheDocument();
+    // …and only it: the started match is said, not added.
+    expect(
+      slip.getAllByRole("button", {
+        name: new RegExp(`^${en.betSlip.remove.replace("{pick}", ".+")}$`),
+      }),
+    ).toHaveLength(1);
+    const notice = slip.getByTestId("booking-notice");
+    expect(notice).toHaveTextContent(
+      en.booking.loaded.replace("{code}", BOOKING.code),
     );
-    expect(dialog.getByTestId("booking-notice")).toHaveTextContent(
-      en.booking.notAddedTitle,
-    );
-    expect(dialog.getByTestId("booking-notice")).toHaveTextContent(
-      en.booking.reason.EVENT_STARTED,
-    );
+    expect(notice).toHaveTextContent(en.booking.reason.EVENT_STARTED);
+    // No amount at all: the code's stake hint is the online slip's, and the
+    // kiosk prices nothing before F8cb.
+    expect(BOOKING.stakeHint).not.toBeNull();
+    expect(slip.queryByText(BOOKING.stakeHint!, { exact: false })).toBeNull();
+    expect(slip.queryByText(/ETB|ብር/)).toBeNull();
+
     const call = asked.find((entry) =>
       entry.route.startsWith("/api/terminal/bookings/"),
     );
-    expect(call?.route).toBe("/api/terminal/bookings/7KQ2M9X");
+    expect(call?.route).toBe(`/api/terminal/bookings/${BOOKING.code}`);
     expect(call?.method).toBe("GET");
     expect(call?.headers["Accept-Language"]).toBe("en");
-    expect(BOOKING.legs).toHaveLength(2);
+  });
+
+  it("leaves the slip as it was when nothing in the code can be added, and says so", async () => {
+    const user = userEvent.setup();
+    routes({
+      booking: () => json(200, { ...BOOKING, legs: [STARTED] }),
+    });
+    renderTerminal();
+    await user.click(await homeWin());
+
+    const slip = await openSlip(user, 1);
+    await user.type(slip.getByLabelText(en.betSlip.loadCode), BOOKING.code);
+    await user.click(slip.getByRole("button", { name: en.betSlip.load }));
+
+    expect(await slip.findByTestId("booking-notice")).toHaveTextContent(
+      en.booking.nothingAdded.replace("{code}", BOOKING.code),
+    );
+    // The pick tapped on the board is still there, and nothing else is.
+    expect(pickNamed(slip, HOME_WIN.label.en)).not.toBeNull();
+    expect(pickNamed(slip, STARTED.outcomeName?.en)).toBeNull();
+  });
+
+  it("books the slip as a code through the terminal once there is a pick, with one key per slip (the user's third review)", async () => {
+    const user = userEvent.setup();
+    routes();
+    renderTerminal();
+    await homeWin();
+    // Nothing to book in an empty slip.
+    expect(
+      slip().queryByRole("button", { name: en.betSlip.bookBet }),
+    ).toBeNull();
+
+    await user.click(await homeWin());
+    await user.click(slip().getByRole("button", { name: en.betSlip.bookBet }));
+
+    // The code in a dialog over the slip: code, barcode, no Copy or Share.
+    const box = await screen.findByRole("dialog", {
+      name: en.betSlip.bookingCode,
+    });
+    const dialog = within(box);
+    expect(box).toHaveAttribute("data-testid", "booking-code");
+    expect(box).toHaveTextContent(BOOKED.code);
+    expect(
+      dialog.getByRole("img", {
+        name: `${en.betSlip.bookingCode}: ${BOOKED.code}`,
+      }),
+    ).toBeInTheDocument();
+    expect(
+      dialog.queryByRole("button", { name: en.betSlip.copyCode }),
+    ).toBeNull();
+    expect(dialog.queryByRole("link", { name: /Telegram/ })).toBeNull();
+    expect(screen.queryByText(en.betSlip.shareTelegram)).toBeNull();
+    const calls = asked.filter(
+      (call) => call.route === "/api/terminal/bookings",
+    );
+    expect(calls).toHaveLength(1);
+    expect(calls[0].method).toBe("POST");
+    expect(calls[0].headers["Idempotency-Key"]).toMatch(/^[0-9a-f-]{36}$/);
+    // The picks only: the kiosk prices nothing, so it sends no stake.
+    expect(JSON.parse(calls[0].body!)).toEqual({
+      betType: "single",
+      systemSizes: [],
+      outcomeIds: [HOME_WIN.id],
+      stake: null,
+    });
+    // Done closes it; "Booked" opens it again, and books nothing more.
+    await user.click(dialog.getByRole("button", { name: en.betSlip.done }));
+    expect(
+      screen.queryByRole("dialog", { name: en.betSlip.bookingCode }),
+    ).toBeNull();
+    await user.click(slip().getByRole("button", { name: en.booking.booked }));
+    expect(
+      await screen.findByRole("dialog", { name: en.betSlip.bookingCode }),
+    ).toBeInTheDocument();
+    expect(
+      asked.filter((call) => call.route === "/api/terminal/bookings"),
+    ).toHaveLength(1);
   });
 
   it("does not offer a loader when booking codes are disabled", async () => {
@@ -473,17 +583,22 @@ describe("the kiosk starting (F8ca AC-1, rework 2)", () => {
     renderTerminal();
 
     const starting = async () => {
-      // The page's frame: the brand's bar and a page still loading, said to a
-      // screen reader in the page's language — no spinner, no message.
+      // The page itself, as the main page looks while it loads: the
+      // terminal's bar, the sidebar's cards and the board's rows to come —
+      // inert, with nothing priced — and a screen reader told the terminal
+      // is starting, in the page's language. No spinner, no message.
+      const bar = screen.getByRole("banner");
       expect(
-        within(screen.getByRole("banner")).getByRole("link", {
-          name: /KelalSport/,
-        }),
-      ).toBeInTheDocument();
-      expect(screen.getByRole("main")).toHaveAttribute("aria-busy", "true");
+        within(bar).getByRole("link", { name: /KelalSport/ }),
+      ).toHaveAttribute("href", "/");
+      expect(bar.closest("[inert]")).not.toBeNull();
+      expect(screen.getByText(en.sidebar.topCompetitions)).toBeInTheDocument();
+      expect(screen.getByTestId("board-skeleton")).toBeInTheDocument();
+      expect(
+        screen.queryByRole("button", { name: priceName(FIRST, HOME_WIN) }),
+      ).toBeNull();
       expect(screen.getByRole("status")).toHaveTextContent(en.terminal.loading);
       expect(screen.queryByText(am.terminal.loading)).toBeNull();
-      expect(screen.queryByRole("heading")).toBeNull();
     };
 
     await waitFor(() => expect(reads("/api/terminal/status")).toHaveLength(1));
@@ -500,7 +615,23 @@ describe("the kiosk starting (F8ca AC-1, rework 2)", () => {
 
     config.release();
     await homeWin();
-    expect(screen.getByRole("main")).not.toHaveAttribute("aria-busy");
+    expect(screen.getByRole("banner").closest("[inert]")).toBeNull();
+    expect(screen.queryByTestId("board-skeleton")).toBeNull();
+  });
+
+  it("holds a match page's book too while the terminal starts, and reads it once the kiosk is up", async () => {
+    const status = held();
+    routes({ status: async () => (await status.answer, json(200, active())) });
+    renderTerminal({ page: <EventDetailView eventId={EVENT.event.id} /> });
+
+    await waitFor(() => expect(reads("/api/terminal/status")).toHaveLength(1));
+    expect(reads("/api/terminal/catalogue/events/")).toHaveLength(0);
+
+    status.release();
+    await waitFor(() =>
+      expect(reads("/api/terminal/catalogue/events/")).toHaveLength(1),
+    );
+    expect(reads("/api/terminal/config")).toHaveLength(1);
   });
 });
 

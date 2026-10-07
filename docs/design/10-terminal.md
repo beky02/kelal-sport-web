@@ -121,10 +121,10 @@ retail is enabled.
   offline. Each hook subscribes as narrowly as before. Without a provider, `useSportsbookChrome` throws
   rather than run a page with no price lock.
 
-- **The data goes to the terminal's routes.** `apiClient` re-roots `catalogue/` and `bookings/{code}` reads,
-  and only those, to
-  `/api/terminal/` when the page's `<html data-api>` is exactly that (the terminal's root layout says so);
-  any other value is ignored, so no markup can send a call elsewhere. So the player's fetchers, hooks and keys run unchanged on
+- **The data goes to the terminal's routes.** `apiClient` re-roots GETs of `catalogue/…` and of exactly
+  `bookings/{code}` (a 7-character code), never one with a `.` or `..` segment, to `/api/terminal/` when
+  the page's `<html data-api>` is exactly that (the terminal's root layout says so). It ignores any other
+  value, so no markup can send a call elsewhere. So the player's fetchers, hooks and keys run unchanged on
   the kiosk against the terminal's mirror routes (below). The host split and the proxy are unchanged.
 - **The language** is English when the tenant offers it; otherwise it is the tenant's
   `default_language`. The customer's tap wins while offered. It is switched with the player's `EN | አማ`
@@ -133,7 +133,7 @@ retail is enabled.
   - The choice lives in `features/terminal/stores/kiosk.store.ts`. It is never persisted, so a reload and
     F8cc's idle reset both return to the default. `kioskLanguage(chosen, config)` is the one rule, and
     nothing of the config is copied into the store.
-  - A choice the tenant no longer offers gives way to its default.
+  - A choice the tenant no longer offers gives way to English, or the tenant's default without it.
   - `KioskLocale` sets `<html lang>`, from which the text hooks (through `LocaleProvider`) and
     `apiClient`'s `Accept-Language` both read.
   - Before the config is known, the terminal and its own calls (status, rotation) use English.
@@ -145,11 +145,19 @@ retail is enabled.
   board at the next read. The player polls only while realtime is off.
 - **Prices lock while the PC is offline** (`navigator.onLine`, the kiosk's `useOnline`): what is on
   screen may already be wrong, as on the player's site. There is no break lock; a kiosk has no player.
-- **Brand only.** `TerminalBrandBar` and `KioskBar` show the brand, never shop name, address, PC label or
-  terminal id. The brand link stays on `/terminal`. While status or config loads, `TerminalStarting` uses
-  the shared `BoardSkeleton` in the player's three-column `SHELL_GRID`; it performs no catalogue reads.
-  The config error and closed/blocked states keep the brand-only bar. The active kiosk bar adds search and
-  language.
+- **One bar, brand only.** `TerminalBar` shows the brand, never a shop name, address, PC label or terminal
+  id. The brand goes home, `/`, which a terminal host serves as the kiosk, as the kiosk's own links do. It
+  frames starting, the config's unreadable state, "unavailable", a blocked terminal and a closed shop. With
+  search and the language switch it is `KioskHeader`. The activation screen has no bar: a new PC shows its
+  code form and nothing else (F8b AC-4).
+- **Starting is the main page's loading** (the user's second review). Until the status, then the config,
+  answer, `KioskStarting` renders the page the kiosk is on, for real, in a query client of its own whose
+  reads are all off. It is `inert`, so nothing on it can be tapped or typed into. So the frame, the
+  sidebar's and the board's loading rows, the day strip, the slip and the footer are the kiosk's own, and
+  nothing moves when it comes up (review U1; `terminal.spec.ts` › "kiosk-config-loading" measures the
+  board's rows across the hand-over). Nothing is read before the terminal is known to sell. A visually
+  hidden status says "Starting the terminal…" in the page's language. The match book's hook only ever
+  switches its read off, so a held client holds it too.
 - **The footer's notices, without its links.** The licence line, 21+ and the helpline sit at the foot of
   every kiosk page, as on the player's (SRS RG-05: responsible-gambling information and a helpline on every
   page; `FooterBar` and `FooterNotices` from `AppFooter`). Terms, Privacy, Responsible gaming, Help and
@@ -167,19 +175,19 @@ retail is enabled.
   upstream call, checks the activated terminal, and returns `no-store`. The shared booking notice names
   unavailable legs such as a match that has started.
 
-| State                         | When                                            | Shows                                                                                       | Screenshot                                            |
-| ----------------------------- | ----------------------------------------------- | ------------------------------------------------------------------------------------------- | ----------------------------------------------------- |
-| Status/config loading         | Before status or `/api/terminal/config` answers | Brand-only bar; the shared board skeleton and a visually hidden English status announcement | `terminal-loading`, `terminal-kiosk-config-loading`   |
-| Config unreadable             | The config read failed (network, 5xx)           | Brand-only bar; "Can't reach the server" + Try again (bilingual)                            | `terminal-kiosk-config-offline`                       |
-| Home board                    | Config read, shop betting on                    | The player's home, without what needs a player                                              | `terminal-kiosk-board-{am,en}-{phone,desktop}`        |
-| Picks                         | Prices tapped                                   | The picks in the slip; prices pressed; rows tinted                                          | `terminal-kiosk-picks-…`                              |
-| A league                      | `/terminal/competition/[id]`                    | That league's board                                                                         | `terminal-kiosk-league-…`                             |
-| A match                       | `/terminal/event/[id]`                          | Every market of the match; Back                                                             | `terminal-kiosk-match-…`                              |
-| Search                        | Something typed (`xl` up, as the player's)      | Leagues and matches found, each opening on the kiosk                                        | `terminal-kiosk-search-{am,en}-desktop`               |
-| Load booking code             | A code entered in the slip                      | Re-priced available picks; unavailable legs explained                                       | `terminal-kiosk-booking-code-{am,en}-{phone,desktop}` |
-| Board loading / empty / error | The player's board states                       | Skeleton; "No matches right now" + Show football; "Couldn't load matches" + Try again       | `terminal-kiosk-{loading,empty,error}-…`              |
-| Sports unreadable             | The sports read failed                          | No tabs; read again every 30 s (`useSports`, both sites)                                    | — (component test)                                    |
-| A match in play               | The terminal's route answers `null`             | The player's "match not found"                                                              | — (component test)                                    |
+| State                         | When                                            | Shows                                                                                                                          | Screenshot                                            |
+| ----------------------------- | ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------- |
+| Status/config loading         | Before status or `/api/terminal/config` answers | The kiosk's page with its reads held (`KioskStarting`): its bar, loading rows and slip; a hidden status in the page's language | `terminal-loading`, `terminal-kiosk-config-loading`   |
+| Config unreadable             | The config read failed (network, 5xx)           | Brand-only bar; "Can't reach the server" + Try again (bilingual)                                                               | `terminal-kiosk-config-offline`                       |
+| Home board                    | Config read, shop betting on                    | The player's home, without what needs a player                                                                                 | `terminal-kiosk-board-{am,en}-{phone,desktop}`        |
+| Picks                         | Prices tapped                                   | The picks in the slip; prices pressed; rows tinted                                                                             | `terminal-kiosk-picks-…`                              |
+| A league                      | `/terminal/competition/[id]`                    | That league's board                                                                                                            | `terminal-kiosk-league-…`                             |
+| A match                       | `/terminal/event/[id]`                          | Every market of the match; Back                                                                                                | `terminal-kiosk-match-…`                              |
+| Search                        | Something typed (`xl` up, as the player's)      | Leagues and matches found, each opening on the kiosk                                                                           | `terminal-kiosk-search-{am,en}-desktop`               |
+| Load booking code             | A code entered in the slip                      | Re-priced available picks; unavailable legs explained                                                                          | `terminal-kiosk-booking-code-{am,en}-{phone,desktop}` |
+| Board loading / empty / error | The player's board states                       | Skeleton; "No matches right now" + Show football; "Couldn't load matches" + Try again                                          | `terminal-kiosk-{loading,empty,error}-…`              |
+| Sports unreadable             | The sports read failed                          | No tabs; read again every 30 s (`useSports`, both sites)                                                                       | — (component test)                                    |
+| A match in play               | The terminal's route answers `null`             | The player's "match not found"                                                                                                 | — (component test)                                    |
 
 ## Signed calls (D3)
 
@@ -224,9 +232,9 @@ refuse anything else with 401 before calling anything. They forward no `Prefer`.
   `errors: [{ field: "X-Device-Timestamp", code: "CLOCK_SKEW", current: "<server ms>" }]` instead of
   calling the API. The browser learns the offset and signs again, once, and signs every later call with
   the corrected time. Without this, a shop PC with a wrong clock could be shown as switched off.
-- **Language.** Calls go out with the kiosk's language (`Accept-Language`): Amharic until a config says
-  otherwise, then the customer's choice or the tenant's default. The terminal's own screens show both
-  languages.
+- **Language.** Calls go out with the kiosk's language (`Accept-Language`): English until a config says
+  otherwise, then the customer's choice, English, or the tenant's default without it. The terminal's own
+  screens show both languages, English first and Amharic a step down.
 
 ## What the terminal loads
 

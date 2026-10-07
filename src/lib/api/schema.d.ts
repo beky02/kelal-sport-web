@@ -5970,7 +5970,10 @@ export interface operations {
                     "application/json": components["schemas"]["Quote"];
                 };
             };
+            400: components["responses"]["BadRequest"];
+            404: components["responses"]["NotFound"];
             422: components["responses"]["Unprocessable"];
+            503: components["responses"]["Unavailable"];
         };
     };
     listMyBets: {
@@ -5984,6 +5987,7 @@ export interface operations {
                 cursor?: components["parameters"]["Cursor"];
             };
             header?: {
+                "Accept-Language"?: components["parameters"]["AcceptLanguage"];
                 /** @description Tenant code (e.g. `demo`). Sent by the Next.js server and non-browser clients; browsers are resolved by host. Must match the host's tenant when both are present, otherwise 400. */
                 "X-Tenant-Id"?: components["parameters"]["TenantId"];
                 /** @description Client-generated request id, echoed back in the response and in problem.request_id */
@@ -6090,7 +6094,10 @@ export interface operations {
                     };
                 };
             };
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["Unprocessable"];
         };
     };
     placeBet: {
@@ -6102,6 +6109,7 @@ export interface operations {
                  * @example 3f0c8b8e-6a3d-4c1e-9d0f-1b2a3c4d5e6f
                  */
                 "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+                "Accept-Language"?: components["parameters"]["AcceptLanguage"];
                 /** @description Tenant code (e.g. `demo`). Sent by the Next.js server and non-browser clients; browsers are resolved by host. Must match the host's tenant when both are present, otherwise 400. */
                 "X-Tenant-Id"?: components["parameters"]["TenantId"];
                 /** @description Client-generated request id, echoed back in the response and in problem.request_id */
@@ -6195,8 +6203,10 @@ export interface operations {
                     "application/json": components["schemas"]["PlacedBet"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
             /** @description Odds changed or selection unavailable */
             409: {
                 headers: {
@@ -6214,6 +6224,7 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
+                "Accept-Language"?: components["parameters"]["AcceptLanguage"];
                 /** @description Tenant code (e.g. `demo`). Sent by the Next.js server and non-browser clients; browsers are resolved by host. Must match the host's tenant when both are present, otherwise 400. */
                 "X-Tenant-Id"?: components["parameters"]["TenantId"];
                 /** @description Client-generated request id, echoed back in the response and in problem.request_id */
@@ -6282,6 +6293,8 @@ export interface operations {
                     "application/json": components["schemas"]["Bet"];
                 };
             };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
             404: components["responses"]["NotFound"];
         };
     };

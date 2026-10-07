@@ -682,7 +682,7 @@ describe("the terminal cookie", () => {
 /** The kiosk's reads (F8ca), with the cookie helpers of the routes above. */
 async function loadReads() {
   const mod = await load();
-  const [config, sports, board, top, countries, event, search, booking] =
+  const [config, sports, board, top, countries, event, search, booking, books] =
     await Promise.all([
       import("@/app/api/terminal/config/route"),
       import("@/app/api/terminal/catalogue/sports/route"),
@@ -692,6 +692,7 @@ async function loadReads() {
       import("@/app/api/terminal/catalogue/events/[id]/route"),
       import("@/app/api/terminal/catalogue/search/route"),
       import("@/app/api/terminal/bookings/[code]/route"),
+      import("@/app/api/terminal/bookings/route"),
     ]);
   return {
     ...mod,
@@ -701,6 +702,7 @@ async function loadReads() {
     top: top.GET,
     countries: countries.GET,
     search: search.GET,
+    bookBet: books.POST,
     booking: (request: Request) =>
       booking.GET(request, {
         params: Promise.resolve({
@@ -1141,9 +1143,13 @@ describe("the kiosk's reads (F8ca AC-1, AC-5)", () => {
     expect(response.status).toBe(200);
     expect(response.headers.get("cache-control")).toBe("no-store");
     expect((await response.json()).code).toBe("7KQ2M9X");
+    // Read in both languages, for the names of each leg.
+    const reads = sent.filter((request) =>
+      path(request).includes("/v1/bookings/"),
+    );
     expect(
-      sent.filter((request) => path(request).includes("/v1/bookings/")),
-    ).toHaveLength(2);
+      reads.map((request) => request.headers.get("accept-language")).sort(),
+    ).toEqual(["am", "en"]);
     expect(
       sent.every((request) => request.headers.get("prefer") === null),
     ).toBe(true);
@@ -1155,6 +1161,65 @@ describe("the kiosk's reads (F8ca AC-1, AC-5)", () => {
       withCookie(mod, terminal()),
     );
     expect(invalid.status).toBe(422);
+    expect(invalid.headers.get("cache-control")).toBe("no-store");
+    expect((await invalid.json()).code).toBe("VALIDATION_FAILED");
+    expect(sent).toHaveLength(0);
+  });
+
+  it("books a slip for an activated terminal, with the browser's key, and refuses it otherwise before calling the API (the user's third review)", async () => {
+    vi.stubEnv("NODE_ENV", "development");
+    const mod = await loadReads();
+    upstreamAnswers((request) =>
+      path(request) === "/v1/bookings" && request.method === "POST"
+        ? { status: 201, body: responseExample("/v1/bookings", "post", 201) }
+        : { status: 404, body: { code: "NOT_FOUND" } },
+    );
+    const key = "0b7e2a5c-5d1e-4f43-9a2b-6c1d2e3f4a5b";
+    const body = JSON.stringify({
+      betType: "single",
+      systemSizes: [],
+      outcomeIds: ["oc_ac_1"],
+      stake: null,
+    });
+    const book = (headers: Record<string, string>, payload = body) =>
+      mod.bookBet(
+        new Request(`${BASE}/api/terminal/bookings`, {
+          method: "POST",
+          headers,
+          body: payload,
+        }),
+      );
+    const signed = (extra: Record<string, string> = {}) =>
+      withCookie(mod, terminal(), {
+        ...SAME_SITE,
+        "idempotency-key": key,
+        prefer: "code=500",
+        ...extra,
+      });
+
+    const created = await book(signed());
+    expect(created.status).toBe(201);
+    expect(created.headers.get("cache-control")).toBe("no-store");
+    expect(sent).toHaveLength(1);
+    expect(sent[0].method).toBe("POST");
+    expect(sent[0].headers.get("idempotency-key")).toBe(key);
+    expect(sent[0].headers.get("prefer")).toBeNull();
+
+    sent.length = 0;
+    const refusals = [
+      // A player host: not the terminal's route at all.
+      await book({ ...signed(), host: "localhost:3000" }),
+      // No terminal cookie.
+      await book({ ...SAME_SITE, "idempotency-key": key }),
+      // Another site's page.
+      await book(signed({ origin: "https://evil.example" })),
+      // No key, or not a booking.
+      await book(signed({ "idempotency-key": "" })),
+      await book(signed(), JSON.stringify({ outcomeIds: [] })),
+    ];
+    expect(refusals.map((response) => response.status)).toEqual([
+      404, 401, 403, 400, 422,
+    ]);
     expect(sent).toHaveLength(0);
   });
 

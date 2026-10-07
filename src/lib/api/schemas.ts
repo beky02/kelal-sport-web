@@ -61,6 +61,7 @@ export {
   bookingRequestSchema,
   bookingSchema,
 } from "./booking-schemas";
+import { moneySchema } from "./money-schema";
 import {
   DEPOSIT_STATUSES,
   PAYMENT_METHOD_CODES,
@@ -110,10 +111,7 @@ export {
   teamSchema,
 };
 
-/** A decimal-string amount of money, `"1250.00"`. */
-// `abort`: a later check (an amount above zero) never sees what isn't one —
-// it would throw, and a malformed body must be a 422, never a 500.
-export const moneySchema = z.string().regex(/^-?\d+\.\d{2}$/, { abort: true });
+export { moneySchema };
 
 // ── My bets (F5b) ───────────────────────────────────────────────────────────
 

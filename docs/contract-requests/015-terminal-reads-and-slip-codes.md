@@ -13,7 +13,10 @@ same public endpoints as the player web (C06) with the terminal token attached, 
 margin and market set apply." The contract half-says the same:
 
 - `listSports`, `listEvents`, `listPopularEvents`, `getEvent`, `getDictionary`, `search`, `quoteSlip`,
-  `listBanners` and `getPublicConfig` list `terminalAuth` among their security schemes.
+  `listBanners`, `getPublicConfig` and `getBooking` list `terminalAuth` among their security schemes.
+  Since the user's second review (2026-10-07), the kiosk also loads a customer's booking code
+  (`getBooking`, re-priced at current odds), so the same question applies to it: is a code loaded at a
+  shop re-priced at the shop's odds?
 - `terminalAuth`'s description says "Every request is also signed with the device key (X-Device-Timestamp,
   X-Device-Signature)".
 - But none of those operations declares `X-Device-Id`, `X-Device-Timestamp` or `X-Device-Signature`. They
@@ -98,7 +101,7 @@ DeviceSignatureOptional:
 
 ```yaml
 # contracts/src/01_head_player.yaml → paths./v1/events.get (and listSports, listPopularEvents,
-# getEvent, getDictionary, search, getPublicConfig)
+# getEvent, getDictionary, search, getPublicConfig, getBooking)
 parameters:
   - { $ref: "#/components/parameters/AcceptLanguage" }
   - { $ref: "#/components/parameters/DeviceIdOptional" }
@@ -210,8 +213,8 @@ in the operation's description. If a closed shop is a 422, move its example ther
 
 ## Until it lands
 
-- The kiosk reads the catalogue and config anonymously, and shows online prices. The gap is listed in F8ca's
-  verification.
+- The kiosk reads the catalogue, config and booking codes anonymously, and shows online prices. The gap is
+  listed in F8ca's verification.
 - F8cc sends `Idempotency-Key` on `POST /v1/retail/slip-codes` anyway: Prism and the backend ignore an
   undeclared header, as for bookings (005).
 - F8cc switches on `code` only. Each refusal's screen is made in Playwright by answering the kiosk's own

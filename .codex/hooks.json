@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node '/Users/bereketchane/Desktop/kelal sport/kelalsport-web/.codex/hooks/protect-files.mjs'",
+            "command": "node \"$(git rev-parse --show-toplevel)/.codex/hooks/protect-files.mjs\"",
             "timeout": 10
           }
         ]
@@ -18,7 +18,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node '/Users/bereketchane/Desktop/kelal sport/kelalsport-web/.codex/hooks/format-file.mjs'",
+            "command": "node \"$(git rev-parse --show-toplevel)/.codex/hooks/format-file.mjs\"",
             "timeout": 30
           }
         ]
@@ -30,7 +30,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node '/Users/bereketchane/Desktop/kelal sport/kelalsport-web/.codex/hooks/session-start.mjs'",
+            "command": "node \"$(git rev-parse --show-toplevel)/.codex/hooks/session-start.mjs\"",
             "timeout": 10
           }
         ]
@@ -41,7 +41,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node '/Users/bereketchane/Desktop/kelal sport/kelalsport-web/.codex/hooks/stop-gate.mjs'",
+            "command": "node \"$(git rev-parse --show-toplevel)/.codex/hooks/stop-gate.mjs\"",
             "timeout": 600
           }
         ]

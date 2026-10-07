@@ -10,7 +10,11 @@ import {
   toBookingCreate,
   toBookingReceipt,
 } from "@/lib/api/mappers/bookings";
+import { usesRealApi } from "./config";
 import { UpstreamError, both, unwrap, upstream } from "./upstream";
+
+/** C09: a code lasts until the earlier of 24 h or the first leg's kick-off. */
+const DAY_MS = 24 * 60 * 60 * 1000;
 
 /**
  * Booking codes (C09), as the slip and the `/b/{code}` page want them.
@@ -61,9 +65,19 @@ export async function createBooking(
   // The API's clock, not ours or the phone's: the code lasts from then until
   // `expires_at`.
   const date = Date.parse(result.response.headers.get("date") ?? "");
-  const issuedAt = new Date(
-    Number.isNaN(date) ? Date.now() : date,
-  ).toISOString();
+  const issued = Number.isNaN(date) ? Date.now() : date;
+  const issuedAt = new Date(issued).toISOString();
+  // The mock (Prism) answers with the contract's example, whose `expires_at`
+  // is a fixed day: once that day has passed, every code booked in
+  // development arrives expired and the slip drops it at once. From the mock
+  // only, a past expiry becomes C09's longest life, 24 h from issue; the real
+  // API's answer is never touched.
+  if (!usesRealApi("Bookings") && Date.parse(created.expires_at) <= issued) {
+    return toBookingReceipt(
+      { ...created, expires_at: new Date(issued + DAY_MS).toISOString() },
+      issuedAt,
+    );
+  }
   return toBookingReceipt(created, issuedAt);
 }
 

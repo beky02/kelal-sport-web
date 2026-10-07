@@ -1,4 +1,9 @@
-/** Booking boundary schemas, kept out of the player-wide schema bundle. */
+/**
+ * The booking schemas (F3b), apart from `schemas.ts` so the shop kiosk, which
+ * loads a booking by its code (F8ca), carries these and none of the player's
+ * other schemas (F8b review Q3). Each carries `satisfies z.ZodType<Domain>`,
+ * as there.
+ */
 import { z } from "zod";
 import type {
   Booking,
@@ -8,9 +13,8 @@ import type {
 import { BOOKING_CODE } from "@/features/bookings/lib/code";
 import { compareMoney } from "@/lib/money";
 import { localizedSchema, oddsSchema } from "./catalogue-schemas";
-import { ODDS_PATTERN } from "./patterns";
+import { moneySchema } from "./money-schema";
 
-const moneySchema = z.string().regex(/^-?\d+\.\d{2}$/, { abort: true });
 const betTypeSchema = z.enum(["single", "multiple", "system"]);
 
 /** The contract's booking-code alphabet (Crockford base32). */
@@ -25,7 +29,7 @@ const bookingLegSchema = z.object({
   outcomeName: localizedSchema.nullable(),
   startTime: z.string().nullable(),
   odds: oddsSchema.nullable(),
-  oddsAtCode: z.string().regex(ODDS_PATTERN).nullable(),
+  oddsAtCode: oddsSchema.nullable(),
   unavailable: z
     .enum([
       "EVENT_STARTED",
@@ -47,6 +51,7 @@ export const bookingSchema = z.object({
   legs: z.array(bookingLegSchema),
 }) satisfies z.ZodType<Booking>;
 
+/** Only http(s): the link is put in front of players and into share links. */
 const shareUrlSchema = z
   .string()
   .url()
@@ -59,10 +64,15 @@ export const bookingReceiptSchema = z.object({
   issuedAt: z.string(),
 }) satisfies z.ZodType<BookingReceipt>;
 
+/**
+ * What `/api/bookings` accepts from the browser; checked before anything is
+ * sent on, and strict so nothing extra rides along.
+ */
 export const bookingRequestSchema = z.strictObject({
   betType: betTypeSchema,
   systemSizes: z.array(z.number().int().min(1).max(30)).max(30),
   outcomeIds: z.array(z.string().min(1).max(64)).min(1).max(30),
+  // A hint for whoever loads the code: an amount, never zero or negative.
   stake: moneySchema
     .refine((stake) => compareMoney(stake, "0.00") > 0, "Not a stake")
     .nullable(),

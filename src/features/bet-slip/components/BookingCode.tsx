@@ -1,34 +1,22 @@
 "use client";
 
-import { useId, useState, type Ref } from "react";
+import { useId, useState } from "react";
 import { CircleAlert, Loader2, Send } from "lucide-react";
 import { useBetSlipStore } from "../stores/bet-slip.store";
 import { useTranslation } from "@/lib/i18n/use-translation";
-import { Barcode } from "@/components/ui/Barcode";
 import { useLoadBooking } from "@/features/bookings/hooks/use-bookings";
-import { useValidUntil } from "@/features/bookings/hooks/use-valid-until";
 import { normaliseBookingCode } from "@/features/bookings/lib/code";
 import { bookingErrorMessage } from "@/features/bookings/lib/errors";
 import type { BookingReceipt } from "@/features/bookings/types";
 import { telegramShareUrl } from "@/lib/share";
 
 /**
- * A slip saved without placing it, under the code the server issued.
- *
- * The path that matters for a guest, and for anyone without a funded account: the
- * code can be placed later, sent to someone, or read out at an agent shop. Big
- * and tracked out because it gets read aloud and typed in.
+ * What a player can do with a booked code, under it in its dialog
+ * (`BookingCodeDialog`): copy it, or send it on Telegram — to place later, to
+ * someone, or to read out at an agent shop.
  */
-export function BookingCode({
-  receipt,
-  ref,
-}: {
-  receipt: BookingReceipt;
-  /** Focused when the code has just been issued, so it is read out. */
-  ref?: Ref<HTMLDivElement>;
-}) {
+export function BookingCodeActions({ receipt }: { receipt: BookingReceipt }) {
   const t = useTranslation();
-  const validUntil = useValidUntil();
   const [copied, setCopied] = useState(false);
   const { code } = receipt;
 
@@ -43,25 +31,7 @@ export function BookingCode({
   };
 
   return (
-    <div
-      ref={ref}
-      tabIndex={-1}
-      role="status"
-      aria-label={`${t.t("betSlip.bookingCode")} ${code}`}
-      data-testid="booking-code"
-      className="bg-surface focus-visible:outline-accent mx-4 mt-3.5 flex flex-col gap-2.5 rounded-lg p-3.5 outline-none focus-visible:outline-2"
-    >
-      <div className="text-muted flex flex-wrap items-baseline justify-between gap-x-2 text-[11px]">
-        <span>{t.t("betSlip.bookingCode")}</span>
-        <span>{validUntil(receipt.expiresAt)}</span>
-      </div>
-
-      <div className="font-display text-3xl leading-none tracking-[0.14em]">
-        {code}
-      </div>
-
-      <Barcode code={code} label={t.t("betSlip.bookingCode")} />
-
+    <>
       <div className="grid grid-cols-2 gap-2">
         <button
           type="button"
@@ -83,9 +53,8 @@ export function BookingCode({
           {t.t("betSlip.shareTelegram")}
         </a>
       </div>
-
       <p className="text-muted text-[11px]">{t.t("betSlip.bookHint")}</p>
-    </div>
+    </>
   );
 }
 

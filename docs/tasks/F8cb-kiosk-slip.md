@@ -30,6 +30,11 @@ rule set.
   the counter won't sell at, so this plan decides whether to wait for 015 or to say so on the slip (copy
   about money: ask at the plan gate). It also decides where the slip's odds come from after a tap
   (nothing on the kiosk updates them in F8ca; F8ca review M2).
+- F8ca's booking-code loader (rework 2; review M2 of its third round): a loaded code leaves its
+  `stake_hint` in the shared slip's `stake`, its bet type in `mode` and its sizes in `systemK`
+  (`replaceSlip`). This plan decides whether the shop honours a code's stake hint, where the kiosk's stake
+  starts, how the kiosk accepts a moved price before pricing (the kiosk passes `pending={false}` today),
+  and whether `BookingNotice` gets `priced` for a system code's sizes note (`priced={null}` in F8ca).
 
 ## Scope
 

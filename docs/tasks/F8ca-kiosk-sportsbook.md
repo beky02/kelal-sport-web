@@ -115,3 +115,6 @@ Each criterion must be proven by a named test, a command output or a `pnpm ui` s
 - 2026-10-07, the user's second review: shop/PC details removed from the UI; startup uses the shared board
   skeleton; English is the first language when offered; the slip loads booking codes through a guarded
   terminal route. F8ca is complete after the second review; the final gate and evidence are in `docs/tasks/F8c/verification.md`.
+- 2026-10-07: the user's third and fourth reviews: Book bet on the kiosk, the booked code in a dialog (no Copy
+  or Telegram on the kiosk), and no tax lines on the player's slip. Verified: `pnpm verify` passes (1,610
+  tests, 640 screens). Codex's tooling commit `33cd943` is still on this branch.

@@ -847,7 +847,10 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/Quote' }
               example: { lines: 1, stake_per_line: "100.00", total_stake: "100.00", stake_tax: "15.00", net_stake: "85.00", total_odds: "7.59", gross_payout: "645.46", acca_bonus: "44.83", taxes: { STAKE_TAX: "15.00" }, win_tax: "0.00", stake_tax_refund: "0.00", net_payout: "690.29", capped: false, warnings: [], rules_version: 7 }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
         '422': { $ref: '#/components/responses/Unprocessable' }
+        '503': { $ref: '#/components/responses/Unavailable' }
 
   # ---------------------------------------------------------------- Bets (C08)
   /v1/bets:
@@ -856,7 +859,9 @@ paths:
       operationId: placeBet
       summary: Place a bet
       security: [ { playerAuth: [] } ]
-      parameters: [ { $ref: '#/components/parameters/IdempotencyKey' } ]
+      parameters:
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+        - { $ref: '#/components/parameters/AcceptLanguage' }
       requestBody:
         required: true
         content:
@@ -879,6 +884,7 @@ paths:
               schema: { $ref: '#/components/schemas/PlacedBet' }
               example:
                 $ref: '#/components/examples/PlacedBetExample/value'
+        '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '409':
@@ -905,6 +911,7 @@ paths:
                     detail: A selection is no longer available.
                     request_id: req_01J9A80
                     errors: [ { field: "legs[0].outcome_id", code: EVENT_STARTED } ]
+        '404': { $ref: '#/components/responses/NotFound' }
         '422': { $ref: '#/components/responses/Unprocessable' }
         '503': { $ref: '#/components/responses/Unavailable' }
     get:
@@ -920,6 +927,7 @@ paths:
         - { $ref: '#/components/parameters/To' }
         - { $ref: '#/components/parameters/Limit' }
         - { $ref: '#/components/parameters/Cursor' }
+        - { $ref: '#/components/parameters/AcceptLanguage' }
       responses:
         '200':
           description: Page of bets
@@ -936,6 +944,10 @@ paths:
                   - $ref: '#/components/examples/BetOpenExample/value'
                   - $ref: '#/components/examples/BetWonExample/value'
                 next_cursor: null
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
 
   /v1/bets/{id}:
     get:
@@ -943,7 +955,9 @@ paths:
       operationId: getBet
       summary: Bet detail with leg results
       security: [ { playerAuth: [] } ]
-      parameters: [ { $ref: '#/components/parameters/IdPath' } ]
+      parameters:
+        - { $ref: '#/components/parameters/IdPath' }
+        - { $ref: '#/components/parameters/AcceptLanguage' }
       responses:
         '200':
           description: Bet
@@ -952,6 +966,8 @@ paths:
               schema: { $ref: '#/components/schemas/Bet' }
               example:
                 $ref: '#/components/examples/BetWonExample/value'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { $ref: '#/components/responses/NotFound' }
 
   # ---------------------------------------------------------------- Bookings (C09)

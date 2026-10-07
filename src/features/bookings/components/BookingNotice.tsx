@@ -19,7 +19,12 @@ export interface PricedAs {
  * slip is not quite the one they were sent. When nothing could be added the
  * slip is left as it was, and this says so.
  */
-export function BookingNotice({ priced }: { priced?: PricedAs }) {
+export function BookingNotice({
+  priced,
+}: {
+  /** The bet the slip prices, or null where it prices none (the kiosk, before F8cb). */
+  priced: PricedAs | null;
+}) {
   const t = useTranslation();
   const notice = useBetSlipStore((s) => s.bookingNotice);
   const dismiss = useBetSlipStore((s) => s.dismissBookingNotice);

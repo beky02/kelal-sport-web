@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://api.example.et/events/bet.placed.json",
+  "title": "bet.placed",
+  "description": "A bet was placed and its stake posted (C08 §7). Published by the betting module on NATS subject evt.bet.placed (version 1), written to the outbox in the placement's transaction. Consumers: C12 (velocity checks), C13 (reports). Every amount is in santim and every number is the bet's own (slipcalc's quote at the odds taken). Ids only, no personal data. This is the `data` payload; the envelope (event_id, type, version, tenant_id, occurred_at, trace_id) is TD-02 §5. New fields are additive only.",
+  "type": "object",
+  "required": [
+    "bet_id", "ticket_id", "player_id", "channel", "bet_type", "system_sizes", "lines", "stake_santim",
+    "stake_bonus_santim", "stake_tax_santim", "potential_payout_santim", "acca_bonus_santim", "total_odds",
+    "rules_version", "odds_policy", "placed_at", "ledger_txn_id", "legs"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "bet_id": { "type": "string", "format": "uuid" },
+    "ticket_id": { "type": "string", "pattern": "^[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]$" },
+    "player_id": { "type": "string", "format": "uuid" },
+    "channel": { "type": "string", "enum": ["online"], "description": "Retail sales publish retail.ticket_sold (C19)" },
+    "bet_type": { "type": "string", "enum": ["single", "multiple", "system"] },
+    "system_sizes": { "type": "array", "items": { "type": "integer", "minimum": 1 }, "description": "Empty unless a system bet" },
+    "lines": { "type": "integer", "minimum": 1 },
+    "stake_santim": { "type": "integer", "minimum": 1, "description": "The stake charged (D1.3: a remainder isn't)" },
+    "stake_bonus_santim": { "type": "integer", "minimum": 0, "description": "Part paid from bonus balance; 0 until bonus stakes exist" },
+    "stake_tax_santim": { "type": "integer", "minimum": 0 },
+    "potential_payout_santim": { "type": "integer", "minimum": 0, "description": "The quote's net payout, after the max payout cap and payout taxes" },
+    "acca_bonus_santim": { "type": "integer", "minimum": 0 },
+    "total_odds": { "type": ["string", "null"], "pattern": "^[0-9]+\\.[0-9]{2}$", "description": "Display only, one-line bets (D1.11)" },
+    "rules_version": { "type": "integer", "minimum": 1, "description": "The tenant config version whose rules priced the bet" },
+    "odds_policy": { "type": "string", "enum": ["none", "higher", "any"] },
+    "placed_at": { "type": "string", "format": "date-time" },
+    "ledger_txn_id": { "type": "string", "format": "uuid", "description": "The BET_STAKE transaction" },
+    "legs": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 30,
+      "items": {
+        "type": "object",
+        "required": ["leg_no", "outcome_id", "market_id", "fixture_id", "odds_taken"],
+        "additionalProperties": false,
+        "properties": {
+          "leg_no": { "type": "integer", "minimum": 0 },
+          "outcome_id": { "type": "string", "pattern": "^oc_[a-z0-9_]{1,64}$" },
+          "market_id": { "type": "string", "pattern": "^mk_[a-z0-9_]{1,64}$" },
+          "fixture_id": { "type": "string", "pattern": "^fx_[a-z0-9_]{1,64}$" },
+          "odds_taken": { "type": "string", "pattern": "^\\d{1,6}\\.\\d{2,3}$" }
+        }
+      }
+    }
+  }
+}

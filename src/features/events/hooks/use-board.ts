@@ -30,6 +30,8 @@ export function useEvent(id: string, dataSaver: boolean) {
     queryFn: ({ signal }) => getEvent(id, dataSaver, signal),
     staleTime: STALE_TIME.eventDetail,
     refetchInterval,
-    enabled: id.length > 0,
+    // Only ever switched off, never on: a client whose reads are held (the
+    // kiosk starting, F8ca) holds this one too.
+    ...(id.length === 0 && { enabled: false }),
   });
 }

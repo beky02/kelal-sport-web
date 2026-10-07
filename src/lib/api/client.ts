@@ -1,38 +1,54 @@
 import { z } from "zod";
 import { CSRF_HEADER, CSRF_VALUE } from "@/lib/session-cookie";
+import { BOOKING_CODE } from "@/features/bookings/lib/code";
 import type { Lang } from "@/types/common";
 import { ApiError, ContractError, problemError } from "./errors";
 
 type Params = Record<string, string | number | boolean | undefined>;
+type Method = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
 
 /**
  * The browser only ever talks to this app's own route handlers under `/api`
  * (D3). They call the sportsbook API from the server, with the tenant header
  * and the session cookie the browser never sees.
  *
- * On the shop kiosk its catalogue and booking detail reads go through their
- * terminal-only mirrors, selected by `<html data-api>`.
+ * On the shop kiosk the catalogue's reads, a booking's read by its code and
+ * Book bet go to its own handlers, under `/api/terminal/` (FD1, F8ca): its root layout
+ * says so on `<html data-api>`, so the same fetchers work on both sites.
  */
 const BASE_PATH = "/api/";
 
-/** The one other base a page may name: the terminal's mirror of the catalogue. */
+/** The one other base a page may name: the terminal's mirror. */
 const TERMINAL_BASE_PATH = "/api/terminal/";
 
 /**
- * Where `path` goes: the terminal mirrors only catalogue and booking detail
- * reads, so only `catalogue/` and `bookings/` paths are re-rooted, and only when `<html data-api>`
+ * What the terminal mirrors (F8ca): catalogue reads, a booking read by its
+ * code — exactly `bookings/{code}` (review SEC1) — and Book bet, exactly
+ * `POST bookings`. Never the player's other calls. No `.` or `..` segment,
+ * so nothing re-rooted can resolve outside the mirror.
+ */
+function mirrored(method: Method, path: string): boolean {
+  if (method === "POST") return path === "bookings";
+  if (method !== "GET") return false;
+  if (
+    path.split(/[/?]/).some((segment) => segment === "." || segment === "..")
+  ) {
+    return false;
+  }
+  return (
+    path.startsWith("catalogue/") ||
+    (path.startsWith("bookings/") && BOOKING_CODE.test(path.slice(9)))
+  );
+}
+
+/**
+ * Where a call goes: a mirrored read is re-rooted only when `<html data-api>`
  * is exactly the terminal's — anything else a page could say is ignored, so
  * no markup can send a call to another origin (reviews SEC2, Q8). A player
  * call on a terminal host then fails as a plain 404.
  */
-function basePath(
-  method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE",
-  path: string,
-): string {
-  const mirroredRead =
-    method === "GET" &&
-    (path.startsWith("catalogue/") || path.startsWith("bookings/"));
-  if (typeof document === "undefined" || !mirroredRead) {
+function basePath(method: Method, path: string): string {
+  if (typeof document === "undefined" || !mirrored(method, path)) {
     return BASE_PATH;
   }
   return document.documentElement.getAttribute("data-api") ===
@@ -51,11 +67,7 @@ const pageLanguage = (): Lang =>
     ? "am"
     : "en";
 
-function buildUrl(
-  method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE",
-  path: string,
-  params?: Params,
-): string {
+function buildUrl(method: Method, path: string, params?: Params): string {
   const origin =
     typeof window === "undefined" ? "http://localhost" : window.location.origin;
   const relative = path.replace(/^\//, "");
@@ -74,7 +86,7 @@ function buildUrl(
  * clear message instead of rendering `NaN` inside an odds button.
  */
 async function request<T>(
-  method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE",
+  method: Method,
   path: string,
   schema: z.ZodType<T>,
   options: {
