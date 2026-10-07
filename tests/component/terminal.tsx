@@ -21,7 +21,7 @@ import {
   toSports,
   toTopCompetitions,
 } from "@/lib/api/mappers/catalogue";
-import { toBooking } from "@/lib/api/mappers/bookings";
+import { toBooking, toBookingReceipt } from "@/lib/api/mappers/bookings";
 import { toTerminalConfigView } from "@/lib/api/mappers/config";
 import {
   toTerminalActivation,
@@ -105,6 +105,16 @@ export const SEARCH = toSearchResults(
  * The contract's booking (`/v1/bookings/{code}`), mapped: one leg still on
  * sale, re-priced from 2.05 to 2.10, and one whose match has started.
  */
+/** The contract's answer to Book bet (`POST /v1/bookings`), mapped. */
+export const BOOKED = toBookingReceipt(
+  responseExample(
+    "/v1/bookings",
+    "post",
+    201,
+  ) as components["schemas"]["BookingCreated"],
+  "2026-10-04T08:00:00Z",
+);
+
 export const BOOKING = toBooking({
   en: example("/v1/bookings/{code}"),
   am: example("/v1/bookings/{code}"),
@@ -229,6 +239,7 @@ export function routes({
   event = () => json(200, EVENT),
   search = () => json(200, SEARCH),
   booking = () => json(200, BOOKING),
+  bookBet = () => json(201, BOOKED),
 }: {
   status?: Answer;
   activate?: Answer;
@@ -242,6 +253,8 @@ export function routes({
   event?: Answer;
   search?: Answer;
   booking?: Answer;
+  /** `POST /api/terminal/bookings`: Book bet. */
+  bookBet?: Answer;
 } = {}) {
   const answers = new Map<string, Answer | undefined>([
     ["/api/terminal/status", status],
@@ -253,6 +266,7 @@ export function routes({
     ["/api/terminal/catalogue/competitions/top", top],
     ["/api/terminal/catalogue/competitions/countries", countries],
     ["/api/terminal/catalogue/search", search],
+    ["/api/terminal/bookings", bookBet],
   ]);
   const since = Date.now();
   vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {

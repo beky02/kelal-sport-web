@@ -1,12 +1,22 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
-import { Ticket } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Check, Loader2, Ticket } from "lucide-react";
 import { Sheet } from "@/components/ui/Sheet";
 import { BetSelectionRow } from "@/features/bet-slip/components/BetSelectionRow";
 import { BetSlipHeader } from "@/features/bet-slip/components/BetSlipHeader";
 import { EmptySlip } from "@/features/bet-slip/components/EmptySlip";
-import { LoadBookingCode } from "@/features/bet-slip/components/BookingCode";
+import {
+  BookingAlert,
+  BookingCode,
+  LoadBookingCode,
+} from "@/features/bet-slip/components/BookingCode";
+import {
+  signatureOf,
+  useCreateBooking,
+} from "@/features/bookings/hooks/use-bookings";
+import { bookingErrorMessage } from "@/features/bookings/lib/errors";
+import { bookingRequestFrom } from "@/features/bookings/lib/request";
 import { BookingNotice } from "@/features/bookings/components/BookingNotice";
 import { calculateBetSlip } from "@/features/bet-slip/lib/calculate";
 import { useBetSlipStore } from "@/features/bet-slip/stores/bet-slip.store";
@@ -27,23 +37,26 @@ export function KioskSlip({ onClose }: { onClose?: () => void }) {
   const mode = useBetSlipStore((s) => s.mode);
   const systemK = useBetSlipStore((s) => s.systemK);
   const bookingCodes = useTerminalConfig().data?.bookingCodes ?? false;
-  // The slip's own rule for two picks of one match (`calculateBetSlip`): no
-  // rule set, so no figure — only which picks clash in the slip's mode.
-  const conflicts = useMemo(
+  // The slip's own rules without a rule set (`calculateBetSlip`): no figure —
+  // only which picks clash in the slip's mode, and the bet it would book.
+  const totals = useMemo(
     () =>
-      new Set(
-        calculateBetSlip({
-          selections,
-          mode,
-          stake: "",
-          systemK,
-          rules: null,
-          balance: null,
-          oddsPolicy: "any",
-        }).conflictEventIds,
-      ),
+      calculateBetSlip({
+        selections,
+        mode,
+        stake: "",
+        systemK,
+        rules: null,
+        balance: null,
+        oddsPolicy: "any",
+      }),
     [selections, mode, systemK],
   );
+  const conflicts = useMemo(
+    () => new Set(totals.conflictEventIds),
+    [totals.conflictEventIds],
+  );
+  const book = useBookBet(totals);
 
   return (
     // The player's slip body (`BetSlip`), so its tiles and rows read the same.
@@ -67,8 +80,77 @@ export function KioskSlip({ onClose }: { onClose?: () => void }) {
           ))}
         </div>
       )}
+      {bookingCodes && selections.length > 0 && <BookBet {...book} />}
       {bookingCodes && <LoadBookingCode />}
     </div>
+  );
+}
+
+/**
+ * Book bet, as the player's guest slip has it (the user's third review): the
+ * picks saved as a code the customer takes to the counter — no stake, since
+ * the kiosk prices nothing before F8cb. One `Idempotency-Key` per slip, reused
+ * on a retry (`useCreateBooking`); the code belongs to the slip it was asked
+ * for, and goes once the slip changes.
+ */
+function useBookBet(totals: ReturnType<typeof calculateBetSlip>) {
+  const selections = useBetSlipStore((s) => s.selections);
+  const booking = useCreateBooking();
+  const request = useMemo(
+    () => bookingRequestFrom({ selections, totals, stake: "" }),
+    [selections, totals],
+  );
+  const signature = request ? signatureOf(request) : null;
+  const receipt = signature ? booking.receiptFor(signature) : null;
+  const error = signature ? booking.errorFor(signature) : null;
+  return {
+    receipt,
+    failure: error ? bookingErrorMessage(error, "") : null,
+    pending: booking.isPending,
+    onBook: request && !receipt ? () => booking.book(request) : null,
+  };
+}
+
+function BookBet({
+  receipt,
+  failure,
+  pending,
+  onBook,
+}: ReturnType<typeof useBookBet>) {
+  const t = useTranslation();
+  const codePanel = useRef<HTMLDivElement>(null);
+  // Once the code arrives, focus goes to it, so it is read out.
+  useEffect(() => {
+    if (receipt) codePanel.current?.focus();
+  }, [receipt]);
+  const off = !onBook || pending;
+
+  return (
+    <>
+      <div className="px-4 pt-3">
+        <button
+          type="button"
+          onClick={() => {
+            if (!off) onBook?.();
+          }}
+          aria-disabled={off}
+          aria-busy={pending}
+          className="bg-accent text-on-accent font-body flex h-12 w-full cursor-pointer items-center justify-center gap-2 rounded-md text-sm font-bold aria-disabled:cursor-not-allowed aria-disabled:opacity-45"
+        >
+          {pending && (
+            <Loader2 size={16} className="animate-spin" aria-hidden />
+          )}
+          {receipt && <Check size={16} aria-hidden />}
+          {t.t(receipt ? "booking.booked" : "betSlip.bookBet")}
+        </button>
+      </div>
+      {failure && (
+        <div className="px-4 pt-2">
+          <BookingAlert>{t.t(failure.key, failure.values)}</BookingAlert>
+        </div>
+      )}
+      {receipt && <BookingCode ref={codePanel} receipt={receipt} />}
+    </>
   );
 }
 

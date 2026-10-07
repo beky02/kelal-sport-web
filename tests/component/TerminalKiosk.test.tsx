@@ -12,6 +12,7 @@ import { terminalKeys } from "@/lib/query/keys";
 import { address } from "./navigation";
 import {
   BOARD,
+  BOOKED,
   BOOKING,
   EVENT,
   KIOSK_CONFIG,
@@ -468,6 +469,39 @@ describe("loading booking codes in the kiosk slip (F8ca AC-9)", () => {
     // The pick tapped on the board is still there, and nothing else is.
     expect(pickNamed(slip, HOME_WIN.label.en)).not.toBeNull();
     expect(pickNamed(slip, STARTED.outcomeName?.en)).toBeNull();
+  });
+
+  it("books the slip as a code through the terminal once there is a pick, with one key per slip (the user's third review)", async () => {
+    const user = userEvent.setup();
+    routes();
+    renderTerminal();
+    await homeWin();
+    // Nothing to book in an empty slip.
+    expect(
+      slip().queryByRole("button", { name: en.betSlip.bookBet }),
+    ).toBeNull();
+
+    await user.click(await homeWin());
+    await user.click(slip().getByRole("button", { name: en.betSlip.bookBet }));
+
+    const panel = await slip().findByTestId("booking-code");
+    expect(within(panel).getByText(BOOKED.code)).toBeInTheDocument();
+    const calls = asked.filter(
+      (call) => call.route === "/api/terminal/bookings",
+    );
+    expect(calls).toHaveLength(1);
+    expect(calls[0].method).toBe("POST");
+    expect(calls[0].headers["Idempotency-Key"]).toMatch(/^[0-9a-f-]{36}$/);
+    // The picks only: the kiosk prices nothing, so it sends no stake.
+    expect(JSON.parse(calls[0].body!)).toEqual({
+      betType: "single",
+      systemSizes: [],
+      outcomeIds: [HOME_WIN.id],
+      stake: null,
+    });
+    expect(
+      slip().getByRole("button", { name: en.booking.booked }),
+    ).toHaveAttribute("aria-disabled", "true");
   });
 
   it("does not offer a loader when booking codes are disabled", async () => {

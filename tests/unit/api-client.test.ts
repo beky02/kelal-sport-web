@@ -51,14 +51,23 @@ describe("the browser's API client (F8ca R2)", () => {
     expect(askedUrl(read)).toBe("/api/terminal/bookings/7KQ2M9X");
     read.mockRestore();
 
+    // Book bet is mirrored too (the user's third review)…
     const create = stubFetch();
     await apiClient.post("/bookings", ok, {});
-    expect(askedUrl(create)).toBe("/api/bookings");
+    expect(askedUrl(create)).toBe("/api/terminal/bookings");
     create.mockRestore();
 
+    // …but no other write.
     const nestedWrite = stubFetch();
     await apiClient.post("/bookings/7KQ2M9X", ok, {});
     expect(askedUrl(nestedWrite)).toBe("/api/bookings/7KQ2M9X");
+    nestedWrite.mockRestore();
+
+    // The player's site books on its own route.
+    delete document.documentElement.dataset.api;
+    const player = stubFetch();
+    await apiClient.post("/bookings", ok, {});
+    expect(askedUrl(player)).toBe("/api/bookings");
   });
 
   it("re-roots a booking read only by its code, and nothing with a dot segment (review SEC1)", async () => {
