@@ -484,8 +484,21 @@ describe("loading booking codes in the kiosk slip (F8ca AC-9)", () => {
     await user.click(await homeWin());
     await user.click(slip().getByRole("button", { name: en.betSlip.bookBet }));
 
-    const panel = await slip().findByTestId("booking-code");
-    expect(within(panel).getByText(BOOKED.code)).toBeInTheDocument();
+    // The code in a dialog over the slip: code, barcode, no Copy or Share.
+    const dialog = within(
+      await screen.findByRole("dialog", { name: en.betSlip.bookingCode }),
+    );
+    expect(dialog.getByTestId("booking-code")).toHaveTextContent(BOOKED.code);
+    expect(
+      dialog.getByRole("img", {
+        name: `${en.betSlip.bookingCode}: ${BOOKED.code}`,
+      }),
+    ).toBeInTheDocument();
+    expect(
+      dialog.queryByRole("button", { name: en.betSlip.copyCode }),
+    ).toBeNull();
+    expect(dialog.queryByRole("link", { name: /Telegram/ })).toBeNull();
+    expect(screen.queryByText(en.betSlip.shareTelegram)).toBeNull();
     const calls = asked.filter(
       (call) => call.route === "/api/terminal/bookings",
     );
@@ -499,9 +512,18 @@ describe("loading booking codes in the kiosk slip (F8ca AC-9)", () => {
       outcomeIds: [HOME_WIN.id],
       stake: null,
     });
+    // Done closes it; "Booked" opens it again, and books nothing more.
+    await user.click(dialog.getByRole("button", { name: en.betSlip.done }));
     expect(
-      slip().getByRole("button", { name: en.booking.booked }),
-    ).toHaveAttribute("aria-disabled", "true");
+      screen.queryByRole("dialog", { name: en.betSlip.bookingCode }),
+    ).toBeNull();
+    await user.click(slip().getByRole("button", { name: en.booking.booked }));
+    expect(
+      await screen.findByRole("dialog", { name: en.betSlip.bookingCode }),
+    ).toBeInTheDocument();
+    expect(
+      asked.filter((call) => call.route === "/api/terminal/bookings"),
+    ).toHaveLength(1);
   });
 
   it("does not offer a loader when booking codes are disabled", async () => {

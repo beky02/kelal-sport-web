@@ -2,20 +2,23 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Check, Loader2, Ticket } from "lucide-react";
+import { Dialog } from "radix-ui";
+import { Barcode } from "@/components/ui/Barcode";
 import { Sheet } from "@/components/ui/Sheet";
 import { BetSelectionRow } from "@/features/bet-slip/components/BetSelectionRow";
 import { BetSlipHeader } from "@/features/bet-slip/components/BetSlipHeader";
 import { EmptySlip } from "@/features/bet-slip/components/EmptySlip";
 import {
   BookingAlert,
-  BookingCode,
   LoadBookingCode,
 } from "@/features/bet-slip/components/BookingCode";
 import {
   signatureOf,
   useCreateBooking,
 } from "@/features/bookings/hooks/use-bookings";
+import { useValidUntil } from "@/features/bookings/hooks/use-valid-until";
 import { bookingErrorMessage } from "@/features/bookings/lib/errors";
+import type { BookingReceipt } from "@/features/bookings/types";
 import { bookingRequestFrom } from "@/features/bookings/lib/request";
 import { BookingNotice } from "@/features/bookings/components/BookingNotice";
 import { calculateBetSlip } from "@/features/bet-slip/lib/calculate";
@@ -88,7 +91,8 @@ export function KioskSlip({ onClose }: { onClose?: () => void }) {
 
 /**
  * Book bet, as the player's guest slip has it (the user's third review): the
- * picks saved as a code the customer takes to the counter — no stake, since
+ * picks saved as a code the customer takes to the counter, shown in a dialog
+ * (`BookedCode`) — no stake, since
  * the kiosk prices nothing before F8cb. One `Idempotency-Key` per slip, reused
  * on a retry (`useCreateBooking`); the code belongs to the slip it was asked
  * for, and goes once the slip changes.
@@ -118,12 +122,18 @@ function BookBet({
   onBook,
 }: ReturnType<typeof useBookBet>) {
   const t = useTranslation();
-  const codePanel = useRef<HTMLDivElement>(null);
-  // Once the code arrives, focus goes to it, so it is read out.
+  // The slip is mounted twice below `xl` (its hidden column and the sheet):
+  // only the one whose button was tapped opens the code.
+  const bookedHere = useRef(false);
+  const [showing, setShowing] = useState(false);
   useEffect(() => {
-    if (receipt) codePanel.current?.focus();
+    if (receipt && bookedHere.current) {
+      bookedHere.current = false;
+      setShowing(true);
+    }
+    if (!receipt) setShowing(false);
   }, [receipt]);
-  const off = !onBook || pending;
+  const off = pending || (!onBook && !receipt);
 
   return (
     <>
@@ -131,7 +141,10 @@ function BookBet({
         <button
           type="button"
           onClick={() => {
-            if (!off) onBook?.();
+            if (receipt) return setShowing(true);
+            if (off) return;
+            bookedHere.current = true;
+            onBook?.();
           }}
           aria-disabled={off}
           aria-busy={pending}
@@ -149,8 +162,67 @@ function BookBet({
           <BookingAlert>{t.t(failure.key, failure.values)}</BookingAlert>
         </div>
       )}
-      {receipt && <BookingCode ref={codePanel} receipt={receipt} />}
+      {receipt && (
+        <BookedCode
+          receipt={receipt}
+          open={showing}
+          onClose={() => setShowing(false)}
+        />
+      )}
     </>
+  );
+}
+
+/**
+ * The booked code in a dialog over the slip, as most betting apps show it
+ * (the user's fourth review): the code large, its barcode for the counter's
+ * scanner and how long it lasts. No Copy or Share: a shop PC is no one's to
+ * copy to or share from. Done closes it; "Booked" opens it again.
+ */
+function BookedCode({
+  receipt,
+  open,
+  onClose,
+}: {
+  receipt: BookingReceipt;
+  open: boolean;
+  onClose: () => void;
+}) {
+  const t = useTranslation();
+  const validUntil = useValidUntil();
+  return (
+    <Dialog.Root open={open} onOpenChange={(next) => !next && onClose()}>
+      <Dialog.Portal>
+        {/* Above the slip's sheet (z-50), which it opens over on a phone. */}
+        <Dialog.Overlay className="fixed inset-0 z-[55] bg-black/60" />
+        <Dialog.Content
+          aria-describedby={undefined}
+          className="bg-surface border-border fixed top-1/2 left-1/2 z-[56] flex w-[400px] max-w-[calc(100vw-2.5rem)] -translate-x-1/2 -translate-y-1/2 flex-col gap-3 rounded-lg border p-6 outline-none"
+        >
+          <div className="text-muted flex flex-wrap items-baseline justify-between gap-x-2 text-xs">
+            <Dialog.Title className="text-text text-lg">
+              {t.t("betSlip.bookingCode")}
+            </Dialog.Title>
+            <span>{validUntil(receipt.expiresAt)}</span>
+          </div>
+          <div
+            data-testid="booking-code"
+            className="font-display text-4xl leading-none tracking-[0.14em]"
+          >
+            {receipt.code}
+          </div>
+          <Barcode code={receipt.code} label={t.t("betSlip.bookingCode")} />
+          <Dialog.Close asChild>
+            <button
+              type="button"
+              className="bg-accent text-on-accent font-body mt-1 h-12 cursor-pointer rounded-md text-sm font-bold"
+            >
+              {t.t("betSlip.done")}
+            </button>
+          </Dialog.Close>
+        </Dialog.Content>
+      </Dialog.Portal>
+    </Dialog.Root>
   );
 }
 
