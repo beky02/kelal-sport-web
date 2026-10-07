@@ -1,5 +1,21 @@
 # F8c — verification (F8ca — kiosk sportsbook)
 
+## Review brief — second user review (2026-10-07)
+
+- **User changes:** remove shop address/name and terminal/PC labels from the interface; use the shared
+  player board skeleton while status/config loads; start in English when the tenant offers it; add
+  **Load booking code** to the kiosk slip.
+- **Implementation:** the terminal brand links only to `/terminal`; `KioskBar` and terminal status frames
+  show no shop or device metadata. `TerminalStarting` and the kiosk config gate reuse `BoardSkeleton` and
+  `SHELL_GRID`. `kioskLanguage` picks English first, then the tenant default. The booking-code control
+  reuses the shared loader/notice and reads through `GET /api/terminal/bookings/[code]`, gated by the
+  active terminal and the tenant's `booking_codes` feature. Terminal writes remain on the player booking
+  path; no booking is placed here.
+- **User decisions:** English is preferred whenever offered; no further product decision was needed.
+- **Security/data:** the route validates and normalizes the code, returns `no-store`, uses the terminal
+  host/cookie check, and calls the existing read-only booking loader without `Prefer`. The browser mirrors
+  only GET booking detail and catalogue requests to `/api/terminal/`.
+
 ## Review brief — rework (the user's review, 2026-10-06)
 
 - **What changed since `39a081a`** (diff `git diff 39a081a..HEAD`): on the user's direction, the kiosk is
@@ -61,65 +77,75 @@ As of the rework and its review fixes (`d0088e3`).
   inside the match header, not anywhere on the page (Q1).
 - **Personal data:** none. No player signs in on a terminal; a 401 makes the terminal's client read its
   status again, never `/api/me`.
-- **Route handlers:** each of the seven kiosk reads checks the host first, then the terminal cookie's
+- **Route handlers:** each terminal read checks the host first, then the terminal cookie's
   tenant and expiry (401, nothing called). The board's query, the match id (never dots alone) and the
   search (2 to 50 characters) are checked before they reach an upstream URL. Answers are `no-store`, and
   no `Prefer` goes upstream, even under `next dev`. Each check has a test.
 - **Screens:** board, picks (and the phone's collapsed bar), league, match, loading, empty and error, in
   am/en at phone and desktop. Search at desktop, in both languages (the player's search starts at `xl`).
-  Unavailable, config loading and config unreadable, bilingual, at both widths. All looked at.
+  Unavailable, config loading and config unreadable, bilingual, at both widths. Booking-code screens were
+  inspected in both languages and widths; no shop/address or device label appears.
 - **Docs:** the plan's Rework section (R1–R8 and round 2), its Files and AC→tests match the code.
   10-terminal, 09-security, 06-language, 00-overview, 01-screens, `AGENTS.md`, the translation notes and
   the README status are current.
 
 ## Automated gate
 
-Final run, after the rework and its review fixes (`2892fe2`), on 2026-10-06. It ran against the running
-`next dev` (whose board is the simulated one, `NEXT_PUBLIC_REALTIME=simulate`) and Prism on :4010.
+Final run after the second review, on 2026-10-07. `pnpm verify` completed with exit 0 against the
+simulated development board and Prism.
 
-| Check                                   | Command                                  | Result                                                                                                                                  |
-| --------------------------------------- | ---------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
-| Typecheck, lint, Prettier, unit + comp. | `pnpm check`                             | PASS: 79 files, 1,588 tests                                                                                                             |
-| Generated types                         | `pnpm api:check`                         | PASS                                                                                                                                    |
-| Contract drift                          | `node scripts/contract-sync.mjs --check` | PASS: "contracts/ matches the backend. docs/backend/ matches the backend."                                                              |
-| Build                                   | `pnpm build`                             | PASS: the six `/api/terminal/catalogue/*` routes and `config` dynamic; `/terminal` static; `/terminal/{competition,event}/[id]` dynamic |
-| Host split                              | `node scripts/check-host-split.mjs`      | PASS: "19 player routes load no module or chunk of (terminal); 3 terminal route(s) load no module of (player) nor a chunk holding one"  |
-| Screens                                 | `pnpm ui`                                | PASS: 636 passed (6.0 m), none on retry                                                                                                 |
+| Check                                         | Command                                  | Result                                                                                         |
+| --------------------------------------------- | ---------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| Typecheck, lint, formatting, unit + component | `pnpm check`                             | PASS: 79 files, 1,596 tests                                                                    |
+| Generated API types                           | `pnpm api:check`                         | PASS                                                                                           |
+| Contract drift                                | `node scripts/contract-sync.mjs --check` | PASS: contracts and backend docs match                                                         |
+| Production build                              | `pnpm build`                             | PASS: includes `/api/terminal/bookings/[code]` and all terminal routes                         |
+| Host split                                    | `node scripts/check-host-split.mjs`      | PASS: 19 player routes load no terminal modules; 3 terminal page routes load no player modules |
+| UI screens                                    | `pnpm ui`                                | PASS: 640 passed (6.4 min)                                                                     |
 
-`pnpm verify` exit 0. Its summary:
+`pnpm verify` summary:
 
-```
- Test Files  79 passed (79)
-      Tests  1588 passed (1588)
-Generated API types match contracts/openapi.yaml.
-contracts/ matches the backend.
-docs/backend/ matches the backend.
-Host split holds: 19 player routes load no module or chunk of (terminal); 3 terminal route(s) load no module of (player) nor a chunk holding one (.next/server/app, 66 manifests).
-  636 passed (6.0m)
+```text
+Test Files  79 passed (79)
+     Tests  1596 passed (1596)
+Host split holds: 19 player routes load no module or chunk of (terminal); 3 terminal route(s) load no module of (player)
+  640 passed (6.4m)
 ```
 
-The run before it (at `704f50a`) passed everything up to the screens. Then 635 screens passed, one
-(`phone · en › home-slip`) didn't run, and it failed on "1 error was not a part of any test". That error
-was `auth.spec.ts`'s `/api/me` rewrite, still in flight when its test ended ("route.fetch: Test ended").
-That file predates this branch and was the only e2e file that didn't drop its routes after each test.
-`2892fe2` makes it do so, and the run above is clean.
-
-The first round's gate (1,567 tests, 626 screens, one terminal route) is in this file's history.
+The screenshots for the shared startup skeleton and booking-code flow were inspected after this run.
 
 ## Acceptance criteria
 
-F8ca's, as revised by the rework. Every test named here passes in the final `pnpm verify`.
+F8ca's criteria include the second user review and the booking-code loader. Each named test and screenshot
+is included in the final `pnpm verify` run.
 
-| AC   | Status | Evidence                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
-| ---- | ------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| AC-1 | PASS   | `TerminalKiosk.test.tsx` › "shows the sports, the days and the board's matches with their prices, read through /api/terminal only"; "offers nothing that needs a player: no log in, register, my bets, wallet, responsible gaming or favourites"; "carries the licence, the age limit and the helpline, with no link to the player's pages (SRS RG-05, review U6)"; "reads the board for the sport and day in the URL"; "says there are no matches on an empty board and goes back to the start"; "says the matches couldn't load and tries again on a tap"; "says the server can't be reached when the config can't be read, and tries again"; "reads the status again when the kiosk's config is refused as not activated"; "reads the status again when a kiosk read is refused as not activated"; "locks every price while the PC is offline, and opens them when it is back"; "moves its board and its day strip to the new day at midnight"; "reads the board again every 30 s, so a match that has kicked off leaves it (D5, D8)"; "reads the sports again by itself when they couldn't be read". `terminal-route.test.ts` › "reads the sports for a terminal (AC-1)"; "reads the board for a terminal… (AC-1)"; "keeps in-play and finished matches off the kiosk's board… (D8, review U3)". Screens: `terminal-kiosk-{board,loading,empty,error}-{am,en}-{phone,desktop}`, `terminal-kiosk-config-{loading,offline}-{phone,desktop}` |
-| AC-2 | PASS   | Sizes are the player's (the user's decision, 2026-10-06). `TerminalKiosk.test.tsx` › "puts a tapped price in the player's slip and takes it out on a second tap"; "removes one pick and clears the slip"; "returns focus to the slip's bar when its sheet closes". `terminal.spec.ts` › "kiosk-picks: two picks in the player's slip (AC-2)". Screens: `terminal-kiosk-picks-{am,en}-{phone,desktop}`, `terminal-kiosk-picks-bar-{am,en}-phone`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
-| AC-3 | PASS   | `TerminalKiosk.test.tsx` › "opens in the tenant's default language and switches with one tap"; "asks in the kiosk's language"; "starts in English for a tenant whose default is English"; "falls back to the tenant's default, on screen and in its calls, when the language chosen is no longer offered"; "offers no switch when the tenant has one language". `Locale.test.tsx`: 3 tests. `api-client.test.ts` › "calls this app's /api routes, in the page's language". `terminal-mappers.test.ts` › "maps the contract's config…". Every kiosk screen in `am` and `en`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
-| AC-4 | PASS   | `TerminalKiosk.test.tsx` › "says betting isn't available here, with no board and no slip, when retail is off". `terminal-mappers.test.ts` › "turns retail off only on an explicit false (AC-4)". `terminal-route.test.ts` › "reads the kiosk's config for a terminal… (AC-3, AC-4)". `terminal.spec.ts` › "unavailable…". Screens: `terminal-unavailable-{phone,desktop}`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
-| AC-5 | PASS   | `terminal-route.test.ts` › "answers the kiosk's reads only on a terminal host (AC-5)" (all seven: 404, `no-store`); "refuses the kiosk's reads without an activated terminal, and calls nothing (AC-5)"; "refuses a board query it doesn't know before calling the API (AC-5)"; "refuses a match id or a search it can't send upstream, before calling the API"; "never puts an id of dots into an upstream path…"; "never sends Prism's Prefer upstream, not even under next dev". `api-client.test.ts` › "re-roots only the catalogue the terminal mirrors…"; "takes no base it doesn't know…". `SportsbookChrome.test.tsx` › "refuses to be read without a site's chrome above it…". `check-host-split.mjs`: holds for the 3 terminal routes. The player's whole component suite and `pnpm ui` screens pass                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
-| AC-6 | PASS   | `TerminalKiosk.test.tsx` › "links the sidebar's leagues and each match to the kiosk's own pages"; "shows a league's own board on its page (AC-6)". `terminal-route.test.ts` › "reads one competition's board, for its page (AC-6)"; "reads the top competitions and the countries for a terminal's sidebar (AC-6)". `terminal.spec.ts` › "kiosk-league…". Screens: `terminal-kiosk-league-{am,en}-{phone,desktop}`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
-| AC-7 | PASS   | `TerminalKiosk.test.tsx` › "shows a match's whole book on its page, and the way home (AC-7)"; "says a match isn't there when the terminal has no book for it (in play, or gone)". `terminal-route.test.ts` › "reads a match's whole book for a terminal, and nothing of a match in play (AC-7)". `terminal.spec.ts` › "kiosk-match…". Screens: `terminal-kiosk-match-{am,en}-{phone,desktop}`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
-| AC-8 | PASS   | `TerminalKiosk.test.tsx` › "finds a league through the terminal and opens it on the kiosk's page"; "searches through the terminal and opens a match on the kiosk's page". `terminal-route.test.ts` › "searches for a terminal, before kick-off only (AC-8)"; "asks nothing for a search under the contract's two characters (review S2)". `terminal.spec.ts` › "kiosk-search…". Screens: `terminal-kiosk-search-{am,en}-desktop`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| AC   | Status | Evidence                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| ---- | ------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| AC-1 | PASS   | `TerminalKiosk.test.tsx`: board uses only terminal reads; no player-only features; no shop name, address or terminal/PC label; shared board skeleton appears while status/config loads; empty, error, retry, offline lock and 30 s price refresh. `terminal-route.test.ts`: host/activation gates, validated board, pre-match only. Screens: `terminal-kiosk-{board,loading,empty,error}-{am,en}-{phone,desktop}`, `terminal-kiosk-config-{loading,offline}-{phone,desktop}`.                |
+| AC-2 | PASS   | Shared player sizes and slip behavior: price toggle, remove, clear and focus restore tests; `kiosk-picks` and `kiosk-picks-bar` screenshots in both languages and phone/desktop.                                                                                                                                                                                                                                                                                                             |
+| AC-3 | PASS   | English-first when offered; tenant default fallback; language switch, `<html lang>` and `Accept-Language`; one-language config hides switch. Component, mapper and API client tests; all kiosk screens in `am` and `en`.                                                                                                                                                                                                                                                                     |
+| AC-4 | PASS   | Retail-off mapper and kiosk state tests; unavailable screen at phone and desktop.                                                                                                                                                                                                                                                                                                                                                                                                            |
+| AC-5 | PASS   | Terminal reads return 404 on player host and 401 without active terminal before upstream calls; malformed filters/ids/search and dot-only ids rejected; no `Prefer`; terminal host split; booking route included. `pnpm verify` host split confirms terminal bundles do not load player modules.                                                                                                                                                                                             |
+| AC-6 | PASS   | League navigation, terminal route and league page tests; `terminal-kiosk-league-{am,en}-{phone,desktop}`.                                                                                                                                                                                                                                                                                                                                                                                    |
+| AC-7 | PASS   | Match navigation, whole book and pre-match-only tests; `terminal-kiosk-match-{am,en}-{phone,desktop}`.                                                                                                                                                                                                                                                                                                                                                                                       |
+| AC-8 | PASS   | Search league/match, minimum/maximum length and terminal navigation tests; `terminal-kiosk-search-{am,en}-desktop`.                                                                                                                                                                                                                                                                                                                                                                          |
+| AC-9 | PASS   | Booking feature is mapped and validated; active-terminal route tests cover host, activation, no-store, malformed code and no `Prefer`. Component tests prove valid picks load, started picks produce a notice, a malformed code makes no call, feature-off hides the control, and the mobile empty slip can open. `api-client.test.ts` proves GET booking detail mirrors under `/api/terminal/`, while POST remains `/api/bookings`. E2E: `kiosk-booking-code` in both languages and widths. |
+
+## Tests proven — second user review
+
+- The terminal identity assertions failed before shop/device values were removed; restored brand-only
+  frames pass and the screenshot helper rejects the former address and PC label.
+- Startup and config-loading screen checks failed against the previous terminal-only loading message;
+  shared `BoardSkeleton` renders under the brand and grid when restored. No catalogue request occurs until
+  status and config permit the sportsbook.
+- `TerminalKiosk.test.tsx` › booking code loads through terminal reads and reports a started match: removing
+  the `bookings/` GET base-path mirror made the test fail because no `/api/terminal/bookings/` request was
+  made. Restored routing passes; write methods remain on `/api/bookings`.
+- Booking route tests fail closed for malformed code, wrong host and missing activation; they also assert
+  `no-store` and no upstream call on refusals. Feature-off and partially loadable booking tests verify the
+  notice and preserve the current slip when no selection can be loaded.
+- The English-first test exercises both the kiosk store fallback and the `<html lang>` initial value; the
+  prior tenant-default-first behavior failed it.
 
 ## Tests proven
 
@@ -264,6 +290,14 @@ With every fix restored: `TerminalKiosk.test.tsx` and `tests/unit` 1,161 passed,
 passed, and `pnpm ui --grep terminal` 64 passed.
 
 ## Review findings
+
+### Second user review (2026-10-07)
+
+The requested changes are implemented and verified: shop/address and terminal/PC identifiers are absent
+from terminal screens; startup and config loading use the shared board skeleton; English is preferred when
+offered; and the kiosk slip loads booking codes through its activated-terminal route. The booking read is
+read-only and server-repriced; it does not place a bet or calculate money in the browser. Evidence and
+negative proofs are in the AC-1/AC-3/AC-5/AC-9 rows and “Tests proven — second user review” above.
 
 ### Rework (round 2)
 
