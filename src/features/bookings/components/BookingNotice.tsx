@@ -19,7 +19,7 @@ export interface PricedAs {
  * slip is not quite the one they were sent. When nothing could be added the
  * slip is left as it was, and this says so.
  */
-export function BookingNotice({ priced }: { priced: PricedAs }) {
+export function BookingNotice({ priced }: { priced?: PricedAs }) {
   const t = useTranslation();
   const notice = useBetSlipStore((s) => s.bookingNotice);
   const dismiss = useBetSlipStore((s) => s.dismissBookingNotice);
@@ -31,7 +31,7 @@ export function BookingNotice({ priced }: { priced: PricedAs }) {
   // so whenever that is not the code's own system.
   let sizesNote: string | null = null;
   const sizes = notice.systemSizes;
-  if (sizes && notice.added > 0) {
+  if (priced && sizes && notice.added > 0) {
     const list = sizes.join(t.t("booking.sizesSeparator"));
     if (priced.mode !== "system" || priced.liveCount < 3) {
       sizesNote = t.t("booking.sizesNoteMultiple", { sizes: list });

@@ -106,8 +106,11 @@ competitions/countries,events/[id],search}`) are public
   a search is the contract's 2 to 50 characters, and under 2 asks nothing. The board, a match's book and
   search answer before-kick-off matches only. The browser reaches these routes because `apiClient`
   re-roots its `catalogue/` paths to `/api/terminal/` when `<html data-api>` is exactly that; it ignores
-  any other value and every other path, so no markup on the page can point a call elsewhere. No `Prefer`, token
-  or device header goes upstream with them, and every answer is `no-store`. A terminal host still serves
+  any other value. The booking detail read (`/api/terminal/bookings/[code]`) uses the same host and
+  activated-cookie checks, validates the code before building the upstream path, and re-prices through
+  `GET /v1/bookings/{code}`. Only `bookings/{code}` is re-rooted; `POST /api/bookings` stays on the player
+  API. No `Prefer`, token or device header goes upstream with these reads, and every answer is `no-store`.
+  A terminal host still serves
   no player route: the proxy is unchanged.
 
 ## CSRF (C18 §4.4)

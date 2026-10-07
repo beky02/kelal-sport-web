@@ -3,8 +3,9 @@
 import { SportsbookChromeProvider } from "@/features/sportsbook/chrome";
 import { useTerminalConfig } from "../../hooks/use-kiosk";
 import {
-  TerminalLoadingMessage,
+  TerminalBrandBar,
   TerminalOfflineMessage,
+  TerminalStarting,
   TerminalUnavailable,
 } from "../TerminalScreens";
 import { KIOSK_CHROME } from "./chrome";
@@ -22,6 +23,8 @@ export function Kiosk({ children }: { children: React.ReactNode }) {
   const config = useTerminalConfig();
   const view = config.data ?? null;
 
+  if (!view && !config.isError) return <TerminalStarting />;
+
   return (
     <KioskLocale config={view}>
       {view?.retail ? (
@@ -30,7 +33,7 @@ export function Kiosk({ children }: { children: React.ReactNode }) {
         </SportsbookChromeProvider>
       ) : (
         <div className="flex flex-1 flex-col">
-          <KioskBar />
+          {view ? <KioskBar /> : <TerminalBrandBar />}
           <main className="flex flex-1 flex-col items-center justify-center">
             {view ? (
               <TerminalUnavailable />
@@ -39,9 +42,7 @@ export function Kiosk({ children }: { children: React.ReactNode }) {
                 onRetry={() => void config.refetch()}
                 retrying={config.isFetching}
               />
-            ) : (
-              <TerminalLoadingMessage />
-            )}
+            ) : null}
           </main>
         </div>
       )}

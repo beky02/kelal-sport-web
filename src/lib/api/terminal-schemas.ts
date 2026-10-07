@@ -75,6 +75,7 @@ export const tokenRotationSchema = z.strictObject({
 /** `/api/terminal/config`'s answer: the kiosk's switches and languages (F8ca). */
 export const terminalConfigSchema = z.strictObject({
   retail: z.boolean(),
+  bookingCodes: z.boolean(),
   languages: z.array(z.enum(["en", "am"])).min(1),
   defaultLanguage: z.enum(["en", "am"]),
 }) satisfies z.ZodType<TerminalConfigView>;

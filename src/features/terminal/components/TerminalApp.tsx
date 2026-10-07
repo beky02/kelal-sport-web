@@ -7,9 +7,9 @@ import { Kiosk } from "./kiosk/Kiosk";
 import {
   TerminalBlocked,
   TerminalClosed,
-  TerminalLoading,
+  TerminalBrandBar,
   TerminalOffline,
-  TerminalShell,
+  TerminalStarting,
 } from "./TerminalScreens";
 
 /**
@@ -26,13 +26,16 @@ export function TerminalApp({ children }: { children: React.ReactNode }) {
   }
   if (status.isError) {
     return (
-      <TerminalOffline
-        onRetry={() => void status.refetch()}
-        retrying={status.isFetching}
-      />
+      <div className="flex flex-1 flex-col">
+        <TerminalBrandBar />
+        <TerminalOffline
+          onRetry={() => void status.refetch()}
+          retrying={status.isFetching}
+        />
+      </div>
     );
   }
-  return <TerminalLoading />;
+  return <TerminalStarting />;
 }
 
 function TerminalScreen({
@@ -46,14 +49,22 @@ function TerminalScreen({
     case "inactive":
       return <ActivationScreen lapsed={status.reason === "expired"} />;
     case "blocked":
-      return <TerminalBlocked reason={status.reason} />;
+      return (
+        <div className="flex flex-1 flex-col">
+          <TerminalBrandBar />
+          <TerminalBlocked reason={status.reason} />
+        </div>
+      );
     case "active":
       return status.terminal.shop.openNow ? (
         <Kiosk>{children}</Kiosk>
       ) : (
-        <TerminalShell terminal={status.terminal}>
-          <TerminalClosed />
-        </TerminalShell>
+        <div className="flex flex-1 flex-col">
+          <TerminalBrandBar />
+          <main className="flex flex-1 flex-col items-center justify-center">
+            <TerminalClosed />
+          </main>
+        </div>
       );
   }
 }

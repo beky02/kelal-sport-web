@@ -1,9 +1,12 @@
 "use client";
 
-import { Ban, LoaderCircle, ShieldOff, Store, WifiOff } from "lucide-react";
+import { Ban, ShieldOff, Store, WifiOff } from "lucide-react";
 import type { MessageKey } from "@/lib/i18n";
+import { translate } from "@/lib/i18n";
 import { cn } from "@/lib/utils/cn";
-import type { TerminalInfo } from "../types";
+import { BrandMark } from "@/components/layout/BrandMark";
+import { SHELL_GRID } from "@/components/layout/shell-grid";
+import { BoardSkeleton } from "@/features/sportsbook/components/BoardSkeleton";
 import { Bilingual } from "./Bilingual";
 
 /**
@@ -53,52 +56,35 @@ export function TerminalMessage({
 /** Nothing to show yet, said as such. */
 export function TerminalLoadingMessage() {
   return (
-    <p
-      role="status"
-      className="text-muted flex flex-col items-center gap-3 px-4 text-base"
-    >
-      <LoaderCircle className="size-8 animate-spin" aria-hidden />
-      <span className="flex flex-col gap-1 text-center">
-        <Bilingual k="terminal.loading" />
-      </span>
-    </p>
+    <span role="status" className="sr-only">
+      {translate("en", "terminal.loading")}
+    </span>
   );
 }
 
-/** Before the first status answer: nothing to show yet. */
-export function TerminalLoading() {
-  return (
-    <main className="flex flex-1 flex-col items-center justify-center">
-      <TerminalLoadingMessage />
-    </main>
-  );
-}
-
-/** The shop this terminal belongs to, on top of whatever it shows. */
-export function TerminalShell({
-  terminal,
-  children,
-}: {
-  terminal: TerminalInfo;
-  children: React.ReactNode;
-}) {
+/** The same board loading used by the player's home page, before status/config. */
+export function TerminalStarting() {
   return (
     <div className="flex flex-1 flex-col">
-      <header className="bg-surface border-divider flex min-h-14 items-center gap-3 border-b px-4">
-        <Store className="text-accent size-5 shrink-0" aria-hidden />
-        <span className="min-w-0 truncate text-base font-bold">
-          {terminal.shop.name}
-        </span>
-        {terminal.label && (
-          <span className="text-muted ml-auto shrink-0 text-sm">
-            {terminal.label}
-          </span>
-        )}
-      </header>
-      <main className="flex flex-1 flex-col items-center justify-center">
-        {children}
+      <TerminalBrandBar />
+      <main className={`${SHELL_GRID} flex-1`} aria-busy="true">
+        <aside className="hidden lg:block" aria-hidden />
+        <div className="flex min-w-0 flex-col gap-2.5">
+          <BoardSkeleton />
+          <TerminalLoadingMessage />
+        </div>
+        <aside className="hidden xl:block" aria-hidden />
       </main>
     </div>
+  );
+}
+
+/** Brand-only bar for terminal states that do not show the sportsbook header. */
+export function TerminalBrandBar() {
+  return (
+    <header className="bg-surface border-divider flex h-[52px] items-center border-b px-3 md:h-14 md:px-5">
+      <BrandMark href="/terminal" />
+    </header>
   );
 }
 

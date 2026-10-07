@@ -44,6 +44,23 @@ describe("the browser's API client (F8ca R2)", () => {
     expect(askedUrl(spy)).toBe("/api/config");
   });
 
+  it("routes booking detail reads to terminal's guarded mirror but leaves writes on the player API", async () => {
+    const read = stubFetch();
+    document.documentElement.dataset.api = "/api/terminal/";
+    await apiClient.get("/bookings/7KQ2M9X", ok);
+    expect(askedUrl(read)).toBe("/api/terminal/bookings/7KQ2M9X");
+    read.mockRestore();
+
+    const create = stubFetch();
+    await apiClient.post("/bookings", ok, {});
+    expect(askedUrl(create)).toBe("/api/bookings");
+    create.mockRestore();
+
+    const nestedWrite = stubFetch();
+    await apiClient.post("/bookings/7KQ2M9X", ok, {});
+    expect(askedUrl(nestedWrite)).toBe("/api/bookings/7KQ2M9X");
+  });
+
   it("takes no base it doesn't know, whatever the page says (review SEC2)", async () => {
     for (const forged of [
       "https://evil.example/",

@@ -12,6 +12,7 @@ import { terminalKeys } from "@/lib/query/keys";
 import { address } from "./navigation";
 import {
   BOARD,
+  BOOKING,
   EVENT,
   KIOSK_CONFIG,
   SEARCH,
@@ -162,8 +163,30 @@ describe("the player's board on the kiosk (F8ca AC-1)", () => {
       screen.queryByRole("button", { name: en.sidebar.pinLeague }),
     ).toBeNull();
     expect(screen.queryByText(en.sidebar.favourites)).toBeNull();
-    // The shop this PC belongs to is named in the bar.
-    expect(screen.getByText(TERMINAL.shop.name)).toBeInTheDocument();
+  });
+
+  it("names no shop and no PC anywhere on the kiosk, as it starts or once it is up (rework 2)", async () => {
+    let answer!: () => void;
+    routes({
+      config: () =>
+        new Promise((resolve) => {
+          answer = () => resolve(json(200, KIOSK_CONFIG));
+        }),
+    });
+    renderTerminal();
+    // The status is in (it names the shop); the config is still on its way.
+    await waitFor(() => expect(reads("/api/terminal/config")).toHaveLength(1));
+    const shown = () =>
+      [TERMINAL.shop.name, TERMINAL.label, TERMINAL.id, TERMINAL.shop.code]
+        .filter((value): value is string => Boolean(value))
+        .filter(
+          (text) => screen.queryAllByText(text, { exact: false }).length > 0,
+        );
+    expect(shown()).toEqual([]);
+
+    act(() => answer());
+    await homeWin();
+    expect(shown()).toEqual([]);
   });
 
   it("carries the licence, the age limit and the helpline, with no link to the player's pages (SRS RG-05, review U6)", async () => {
@@ -357,6 +380,130 @@ describe("picking prices into the kiosk's slip (F8ca AC-2)", () => {
   });
 });
 
+describe("loading booking codes in the kiosk slip (F8ca AC-9)", () => {
+  it("loads current picks through the terminal route and explains a started match", async () => {
+    const user = userEvent.setup();
+    routes();
+    renderTerminal();
+    await homeWin();
+
+    await user.click(
+      screen.getByRole("button", {
+        name: en.nav.slipAria.replace("{n}", "0"),
+      }),
+    );
+    const dialog = within(screen.getByRole("dialog"));
+    const input = dialog.getByLabelText(en.betSlip.loadCode);
+    await user.type(input, "7kq2-m9x");
+    await user.click(dialog.getByRole("button", { name: en.betSlip.load }));
+
+    await waitFor(() =>
+      expect(reads("/api/terminal/bookings/")).toHaveLength(1),
+    );
+    await waitFor(() =>
+      expect(dialog.getByTestId("booking-notice")).toBeInTheDocument(),
+    );
+    expect(dialog.getByTestId("booking-notice")).toHaveTextContent(
+      en.booking.notAddedTitle,
+    );
+    expect(dialog.getByTestId("booking-notice")).toHaveTextContent(
+      en.booking.reason.EVENT_STARTED,
+    );
+    const call = asked.find((entry) =>
+      entry.route.startsWith("/api/terminal/bookings/"),
+    );
+    expect(call?.route).toBe("/api/terminal/bookings/7KQ2M9X");
+    expect(call?.method).toBe("GET");
+    expect(call?.headers["Accept-Language"]).toBe("en");
+    expect(BOOKING.legs).toHaveLength(2);
+  });
+
+  it("does not offer a loader when booking codes are disabled", async () => {
+    routes({
+      config: () => json(200, { ...KIOSK_CONFIG, bookingCodes: false }),
+    });
+    renderTerminal();
+    await homeWin();
+    expect(screen.queryByLabelText(en.betSlip.loadCode)).toBeNull();
+  });
+
+  it("rejects a malformed code before calling the booking route", async () => {
+    const user = userEvent.setup();
+    routes();
+    renderTerminal();
+    await homeWin();
+    await user.click(
+      screen.getByRole("button", {
+        name: en.nav.slipAria.replace("{n}", "0"),
+      }),
+    );
+    const input = within(screen.getByRole("dialog")).getByLabelText(
+      en.betSlip.loadCode,
+    );
+    await user.type(input, "bad!");
+    await user.click(
+      within(screen.getByRole("dialog")).getByRole("button", {
+        name: en.betSlip.load,
+      }),
+    );
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      en.booking.invalidCode,
+    );
+    expect(asked.some((entry) => entry.route.includes("/bookings/"))).toBe(
+      false,
+    );
+  });
+});
+
+describe("the kiosk starting (F8ca AC-1, rework 2)", () => {
+  /** A route that answers only when the test says. */
+  const held = () => {
+    let release!: () => void;
+    const answer = new Promise<void>((resolve) => (release = resolve));
+    return { answer, release };
+  };
+
+  it("starts as the main page does — its bar and the board's rows to come — while the status and then the config are read, and reads nothing else", async () => {
+    const status = held();
+    const config = held();
+    routes({
+      status: async () => (await status.answer, json(200, active())),
+      config: async () => (await config.answer, json(200, KIOSK_CONFIG)),
+    });
+    renderTerminal();
+
+    const starting = async () => {
+      // The page's frame: the brand's bar and a page still loading, said to a
+      // screen reader in the page's language — no spinner, no message.
+      expect(
+        within(screen.getByRole("banner")).getByRole("link", {
+          name: /KelalSport/,
+        }),
+      ).toBeInTheDocument();
+      expect(screen.getByRole("main")).toHaveAttribute("aria-busy", "true");
+      expect(screen.getByRole("status")).toHaveTextContent(en.terminal.loading);
+      expect(screen.queryByText(am.terminal.loading)).toBeNull();
+      expect(screen.queryByRole("heading")).toBeNull();
+    };
+
+    await waitFor(() => expect(reads("/api/terminal/status")).toHaveLength(1));
+    await starting();
+
+    status.release();
+    await waitFor(() => expect(reads("/api/terminal/config")).toHaveLength(1));
+    await starting();
+    // Nothing of the catalogue until the kiosk knows it sells.
+    expect(asked.map((call) => call.route)).toEqual([
+      "/api/terminal/status",
+      "/api/terminal/config",
+    ]);
+
+    config.release();
+    await homeWin();
+    expect(screen.getByRole("main")).not.toHaveAttribute("aria-busy");
+  });
+});
+
 describe("the kiosk's language (F8ca AC-3)", () => {
   const switchTo = (lang: "en" | "am") =>
     screen.getByRole("button", { name: lang === "en" ? "EN" : "አማ" });
@@ -535,8 +682,7 @@ describe("a tenant without shop betting (F8ca AC-4)", () => {
     expect(
       asked.filter((a) => a.route.startsWith("/api/terminal/catalogue/")),
     ).toHaveLength(0);
-    // The shop is still named, as on the closed screen.
-    expect(screen.getByText(TERMINAL.shop.name)).toBeInTheDocument();
+    expect(screen.queryByText(TERMINAL.shop.name)).toBeNull();
     expect(queryClient.getQueryData(terminalKeys.config())).toMatchObject({
       retail: false,
     });

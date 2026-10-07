@@ -10,9 +10,8 @@ type Params = Record<string, string | number | boolean | undefined>;
  * (D3). They call the sportsbook API from the server, with the tenant header
  * and the session cookie the browser never sees.
  *
- * On the shop kiosk the same calls go to its own handlers, under
- * `/api/terminal/` (FD1, F8ca): its root layout says so on `<html data-api>`,
- * so the catalogue's fetchers work on both sites unchanged.
+ * On the shop kiosk its catalogue and booking detail reads go through their
+ * terminal-only mirrors, selected by `<html data-api>`.
  */
 const BASE_PATH = "/api/";
 
@@ -20,14 +19,20 @@ const BASE_PATH = "/api/";
 const TERMINAL_BASE_PATH = "/api/terminal/";
 
 /**
- * Where `path` goes: the terminal mirrors only the catalogue, so only a
- * `catalogue/` path is re-rooted, and only when the page's `<html data-api>`
+ * Where `path` goes: the terminal mirrors only catalogue and booking detail
+ * reads, so only `catalogue/` and `bookings/` paths are re-rooted, and only when `<html data-api>`
  * is exactly the terminal's — anything else a page could say is ignored, so
  * no markup can send a call to another origin (reviews SEC2, Q8). A player
  * call on a terminal host then fails as a plain 404.
  */
-function basePath(path: string): string {
-  if (typeof document === "undefined" || !path.startsWith("catalogue/")) {
+function basePath(
+  method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE",
+  path: string,
+): string {
+  const mirroredRead =
+    method === "GET" &&
+    (path.startsWith("catalogue/") || path.startsWith("bookings/"));
+  if (typeof document === "undefined" || !mirroredRead) {
     return BASE_PATH;
   }
   return document.documentElement.getAttribute("data-api") ===
@@ -46,11 +51,15 @@ const pageLanguage = (): Lang =>
     ? "am"
     : "en";
 
-function buildUrl(path: string, params?: Params): string {
+function buildUrl(
+  method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE",
+  path: string,
+  params?: Params,
+): string {
   const origin =
     typeof window === "undefined" ? "http://localhost" : window.location.origin;
   const relative = path.replace(/^\//, "");
-  const url = new URL(`${basePath(relative)}${relative}`, origin);
+  const url = new URL(`${basePath(method, relative)}${relative}`, origin);
   for (const [key, value] of Object.entries(params ?? {})) {
     if (value !== undefined) url.searchParams.set(key, String(value));
   }
@@ -77,7 +86,7 @@ async function request<T>(
 ): Promise<T> {
   let response: Response;
   try {
-    response = await fetch(buildUrl(path, options.params), {
+    response = await fetch(buildUrl(method, path, options.params), {
       method,
       signal: options.signal,
       // Same origin, so the session's HttpOnly cookie goes along by default.

@@ -84,7 +84,7 @@ describe("the terminal's status (AC-5)", () => {
 
     await tick(0);
     expect(readyHeading()).toBeInTheDocument();
-    expect(screen.getByText("Adama Kebele 04")).toBeInTheDocument();
+    expect(screen.queryByText("Adama Kebele 04")).toBeNull();
     expect(reads().map((r) => r.at)).toEqual([0]);
 
     await tick(5 * MINUTE - 1);
@@ -219,6 +219,17 @@ describe("the terminal's status (AC-5)", () => {
         name: new RegExp(en.terminal.closed.title),
       }),
     ).toBeInTheDocument();
+    // The terminal's bar names no shop and no PC (F8ca rework 2).
+    for (const identifier of [
+      TERMINAL.shop.name,
+      TERMINAL.label,
+      TERMINAL.id,
+      TERMINAL.shop.code,
+    ]) {
+      if (identifier) {
+        expect(screen.queryAllByText(identifier, { exact: false })).toEqual([]);
+      }
+    }
     await tick(5 * MINUTE);
     expect(readyHeading()).toBeInTheDocument();
   });

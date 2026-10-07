@@ -125,6 +125,7 @@ describe("the kiosk's config (F8ca)", () => {
     const view = toTerminalConfigView(config());
     expect(view).toEqual({
       retail: true,
+      bookingCodes: true,
       languages: ["am", "en"],
       defaultLanguage: "am",
     });
@@ -142,6 +143,20 @@ describe("the kiosk's config (F8ca)", () => {
         ...config(),
         features: { ...others, retail: false },
       }).retail,
+    ).toBe(false);
+  });
+
+  it("turns booking codes off only on an explicit false", () => {
+    const withoutFlag = { ...config().features };
+    delete withoutFlag.booking_codes;
+    expect(
+      toTerminalConfigView({ ...config(), features: withoutFlag }).bookingCodes,
+    ).toBe(true);
+    expect(
+      toTerminalConfigView({
+        ...config(),
+        features: { ...withoutFlag, booking_codes: false },
+      }).bookingCodes,
     ).toBe(false);
   });
 

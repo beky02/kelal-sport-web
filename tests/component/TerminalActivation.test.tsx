@@ -59,15 +59,15 @@ async function expectAlert(english: string, amharic: string) {
 }
 
 describe("activating a terminal (AC-4)", () => {
-  it("activates with the code and a new device key, then reads the status and shows the shop", async () => {
+  it("activates with the code and a new device key, then reads the status without showing shop details", async () => {
     routes();
     renderTerminal();
 
     await activateWith(" k7q2-m9xp ");
 
     expect(await kioskHeading()).toBeInTheDocument();
-    expect(screen.getByText("Adama Kebele 04")).toBeInTheDocument();
-    expect(screen.getByText("PC 3")).toBeInTheDocument();
+    expect(screen.queryByText("Adama Kebele 04")).toBeNull();
+    expect(screen.queryByText("PC 3")).toBeNull();
 
     // The code as the contract spells it, and the public half of the key the
     // browser now keeps.
@@ -276,7 +276,8 @@ describe("a terminal that may not run (AC-4)", () => {
         container.querySelectorAll(
           "button, a, input, select, textarea, [tabindex]",
         ),
-      ).toHaveLength(0);
+      ).toHaveLength(1);
+      expect(container.querySelector("a")).toHaveAttribute("href", "/terminal");
     },
   );
 });

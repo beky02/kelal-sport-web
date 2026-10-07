@@ -55,6 +55,7 @@ export function toTerminalConfigView(
   if (languages.length === 0) languages.push(config.default_language);
   return {
     retail: config.features.retail !== false,
+    bookingCodes: config.features.booking_codes !== false,
     languages,
     defaultLanguage: languages.includes(config.default_language)
       ? config.default_language

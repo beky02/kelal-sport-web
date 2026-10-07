@@ -108,6 +108,8 @@ async function shoot(
       document.documentElement.clientWidth,
   );
   expect(overflow, "horizontal scroll").toBeLessThanOrEqual(0);
+  expect(text).not.toContain("Adama Kebele 04");
+  expect(text).not.toContain("PC 3");
   expect(MESSAGE_KEYS.filter((key) => text.includes(key))).toEqual([]);
   expect(text.match(/\{[a-zA-Z]+\}/g) ?? []).toEqual([]);
   expect(errors.filter((error) => !allow?.test(error))).toEqual([]);
@@ -148,8 +150,11 @@ for (const [device, viewport] of Object.entries({
       // A status read that never answers.
       await page.route(STATUS, () => {});
       await page.reload();
-      await expect(page.getByRole("status")).toContainText(en.terminal.loading);
-      await expect(page.getByRole("status")).toContainText(am.terminal.loading);
+      await expect(page.getByRole("status")).toHaveText(en.terminal.loading);
+      await expect(page.getByRole("main")).toHaveAttribute("aria-busy", "true");
+      await expect(
+        page.getByRole("link", { name: /KelalSport/ }),
+      ).toHaveAttribute("href", "/terminal");
       await shoot(page, "loading", device, errors);
     });
 
@@ -258,7 +263,7 @@ for (const [device, viewport] of Object.entries({
       await typeCode(page, "K7Q2M9XP");
       // An active terminal of an open shop is the kiosk (F8ca).
       await expect(kiosk(page)).toBeVisible();
-      await expect(page.getByText("Adama Kebele 04")).toBeVisible();
+      await expect(page.getByText("Adama Kebele 04")).toHaveCount(0);
 
       // The browser signed the read; the route handler added the rest and
       // Prism, which requires all three device headers, answered.
@@ -325,7 +330,10 @@ for (const [device, viewport] of Object.entries({
         await expect(heading(page)).toContainText(
           am.terminal.blocked.revokedTitle,
         );
-        expect(await controls(page)).toBe(0);
+        expect(await controls(page)).toBe(1);
+        await expect(
+          page.getByRole("link", { name: /KelalSport/ }),
+        ).toHaveAttribute("href", "/terminal");
       }
       await shoot(page, "revoked", device, errors);
     });
@@ -343,7 +351,7 @@ for (const [device, viewport] of Object.entries({
       await expect(heading(page)).toContainText(
         en.terminal.blocked.deviceTitle,
       );
-      expect(await controls(page)).toBe(0);
+      expect(await controls(page)).toBe(1);
       await shoot(page, "device-not-allowed", device, errors);
     });
 
@@ -369,7 +377,7 @@ for (const [device, viewport] of Object.entries({
       });
       await page.reload();
       await expect(heading(page)).toContainText(en.terminal.closed.title);
-      await expect(page.getByText("Adama Kebele 04")).toBeVisible();
+      await expect(page.getByText("Adama Kebele 04")).toHaveCount(0);
       await shoot(page, "closed", device, errors);
     });
 
@@ -416,15 +424,15 @@ for (const [device, viewport] of Object.entries({
       await expect(kiosk(page)).toBeVisible();
     });
 
-    test("kiosk-config-loading: the shop's bar while the kiosk's config is read (F8ca)", async ({
+    test("kiosk-config-loading: the main page loading while the kiosk config is read (F8ca)", async ({
       page,
       baseURL,
     }) => {
       await activate(page, baseURL);
       await page.route(CONFIG, () => undefined);
       await page.reload();
-      await expect(page.getByRole("status")).toContainText(en.terminal.loading);
-      await expect(page.getByText("Adama Kebele 04")).toBeVisible();
+      await expect(page.getByRole("status")).toHaveText(en.terminal.loading);
+      await expect(page.getByRole("main")).toHaveAttribute("aria-busy", "true");
       await shoot(page, "kiosk-config-loading", device, errors);
     });
 
@@ -449,7 +457,6 @@ for (const [device, viewport] of Object.entries({
       await expect(heading(page)).toContainText(en.terminal.offline.title, {
         timeout: 15_000,
       });
-      await expect(page.getByText("Adama Kebele 04")).toBeVisible();
       await shoot(
         page,
         "kiosk-config-offline",
@@ -474,6 +481,7 @@ for (const [device, viewport] of Object.entries({
         route.fulfill({
           json: {
             retail: false,
+            bookingCodes: true,
             languages: ["am", "en"],
             defaultLanguage: "am",
           },
@@ -486,7 +494,6 @@ for (const [device, viewport] of Object.entries({
       await expect(heading(page)).toContainText(
         am.terminal.kiosk.unavailable.title,
       );
-      await expect(page.getByText("Adama Kebele 04")).toBeVisible();
       expect(await page.getByRole("complementary").count()).toBe(0);
       expect(await page.getByRole("navigation").count()).toBe(0);
       await shoot(page, "unavailable", device, errors);
@@ -607,6 +614,68 @@ for (const [device, viewport] of Object.entries({
           page.getByRole("button", { name: t.betSlip.clearAll }).first(),
         ).toBeVisible();
         await shoot(page, `kiosk-picks-${lang}`, device, errors);
+      });
+
+      test("kiosk-booking-code: load a code into the slip and explain a started match (AC-9)", async ({
+        page,
+        baseURL,
+      }) => {
+        await open(page, baseURL);
+        await page.route("**/api/terminal/bookings/7KQ2M9X", (route) =>
+          route.fulfill({
+            json: {
+              code: "7KQ2M9X",
+              betType: "multiple",
+              systemSizes: [],
+              stakeHint: "50.00",
+              expiresAt: "2026-10-07T13:00:00Z",
+              legs: [
+                {
+                  outcomeId: "oc_ac_1",
+                  eventId: "fx_ac_1",
+                  eventName: { en: "Arsenal v Chelsea", am: "አርሰናል ከ ቼልሲ" },
+                  marketId: "mk_ac_1x2",
+                  marketName: { en: "1X2", am: "1X2" },
+                  outcomeName: { en: "Arsenal", am: "አርሰናል" },
+                  startTime: "2026-10-07T14:00:00Z",
+                  odds: "2.10",
+                  oddsAtCode: "2.05",
+                  unavailable: null,
+                },
+                {
+                  outcomeId: "oc_sg_1",
+                  eventId: "fx_sg_1",
+                  eventName: {
+                    en: "Saint George v Fasil Kenema",
+                    am: "ቅዱስ ጊዮርጊስ ከ ፋሲል ከነማ",
+                  },
+                  marketId: "mk_sg_1x2",
+                  marketName: { en: "1X2", am: "1X2" },
+                  outcomeName: { en: "Saint George", am: "ቅዱስ ጊዮርጊስ" },
+                  startTime: "2026-10-07T12:00:00Z",
+                  odds: null,
+                  oddsAtCode: "1.80",
+                  unavailable: "EVENT_STARTED",
+                },
+              ],
+            },
+          }),
+        );
+        if (device === "phone") {
+          await page
+            .getByRole("button", { name: t.nav.slipAria.replace("{n}", "0") })
+            .click();
+        }
+        const slip = device === "phone" ? page.getByRole("dialog") : page;
+        await slip.getByLabel(t.betSlip.loadCode).fill("7kq2-m9x");
+        await slip.getByRole("button", { name: t.betSlip.load }).click();
+        await expect(slip.getByTestId("booking-notice")).toContainText(
+          t.booking.notAddedTitle,
+        );
+        await expect(slip.getByTestId("booking-notice")).toContainText(
+          t.booking.reason.EVENT_STARTED,
+        );
+        await shoot(page, `kiosk-booking-code-${lang}`, device, errors);
       });
 
       test("kiosk-league: a league's page, from the kiosk's own address (AC-6)", async ({

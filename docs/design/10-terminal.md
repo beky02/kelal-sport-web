@@ -22,8 +22,8 @@ active/closed ──401 AUTH_TOKEN_EXPIRED / token past expiry──▶ activati
    gave for this terminal (8 Crockford characters; case, spaces, hyphens, O for 0 and I/L for 1 are
    forgiven). The browser makes an ECDSA P-256 key pair with `extractable: false` and keeps it in
    IndexedDB (`kelal-terminal` / `keys` / `device`). Then `POST /api/terminal/activate` sends the code
-   and the public half (SPKI, base64). The API's 90-day terminal token goes into the terminal cookie, and
-   the screen shows the shop.
+   and the public half (SPKI, base64). The API's 90-day terminal token goes into the terminal cookie.
+   The interface does not display the shop address/name or terminal/PC label.
    Once activation succeeds the status is read afresh with the new key. If that read fails, the
    screen is "Can't reach the server" with Try again, never the form again, so a second activation
    can't replace the key the terminal is now bound to.
@@ -47,24 +47,24 @@ choice made on them would not outlast the next customer. The kiosk (next section
 a time. Text is at least 14 px and targets at least 48 px. Screenshots are
 `test-results/ui/terminal-<state>-{phone,desktop}.png`, from `tests/e2e/terminal.spec.ts`.
 
-| State                   | When                                                                                                 | Shows                                                                                       | Screenshot                     |
-| ----------------------- | ---------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- | ------------------------------ |
-| Loading                 | Before the first status answer                                                                       | "Starting the terminal…"                                                                    | `terminal-loading`             |
-| Activation              | No device key in this browser, or no terminal cookie                                                 | Code field, Activate                                                                        | `terminal-activate`            |
-| … code not 8 characters | Checked before sending (no attempt spent)                                                            | "The code has 8 letters and digits."                                                        | `terminal-activate-format`     |
-| … wrong code            | `404 NOT_FOUND`                                                                                      | "No terminal has this code. Check it and try again." The code stays to correct              | `terminal-activate-wrong-code` |
-| … expired code          | `410 RETAIL_ACTIVATION_EXPIRED`                                                                      | "This code has expired. Ask for a new one."                                                 | `terminal-activate-expired`    |
-| … too many tries        | `429 RATE_LIMITED` (5 per IP per hour)                                                               | "Too many tries. Try again in {minutes} min." from `Retry-After`, or "later" without one    | `terminal-activate-too-many`   |
-| … other failure         | Network, 5xx, anything else                                                                          | "Couldn't reach the server. Try again."                                                     | —                              |
-| … key can't be kept     | WebCrypto or IndexedDB refused                                                                       | "This browser can't keep the terminal's key. Use Chrome in kiosk mode." Nothing is sent     | —                              |
-| Activation, lapsed      | `401 AUTH_TOKEN_EXPIRED`, or the sealed expiry has passed (the cookie stays, so the reason does too) | The activation screen with "This terminal's activation has lapsed. Type a new code."        | `terminal-lapsed`              |
-| Kiosk                   | Active, shop open, shop betting on                                                                   | The sportsbook (next section)                                                               | `terminal-kiosk-*`             |
-| Unavailable             | Active, shop open, `features.retail: false` (F8ca)                                                   | Top bar; "Betting isn't available at this terminal · Ask the shop staff." No controls       | `terminal-unavailable`         |
-| Closed                  | Active, `shop.open_now: false` (C19 §14: closed or suspended)                                        | Top bar; "This shop is closed"; it comes back by itself at a later read when the shop opens | `terminal-closed`              |
-| Switched off            | `status: revoked`, or `401 AUTH_INVALID_CREDENTIALS`                                                 | "This terminal has been switched off … Ask the shop staff." **No controls**                 | `terminal-revoked`             |
-| Not allowed             | `403 RETAIL_DEVICE_NOT_ALLOWED`                                                                      | "This PC can't run the terminal … Ask the shop staff." **No controls**                      | `terminal-device-not-allowed`  |
-| Offline                 | The first read failed (network, 5xx)                                                                 | "Can't reach the server"; Try again (and the 5-minute read keeps trying)                    | `terminal-offline`             |
-| A later read fails      | After any answer                                                                                     | Nothing changes on screen; the next read tries again                                        | —                              |
+| State                   | When                                                                                                 | Shows                                                                                                 | Screenshot                     |
+| ----------------------- | ---------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- | ------------------------------ |
+| Loading                 | Before the first status answer                                                                       | The player's shared board skeleton under the brand-only header                                        | `terminal-loading`             |
+| Activation              | No device key in this browser, or no terminal cookie                                                 | Code field, Activate                                                                                  | `terminal-activate`            |
+| … code not 8 characters | Checked before sending (no attempt spent)                                                            | "The code has 8 letters and digits."                                                                  | `terminal-activate-format`     |
+| … wrong code            | `404 NOT_FOUND`                                                                                      | "No terminal has this code. Check it and try again." The code stays to correct                        | `terminal-activate-wrong-code` |
+| … expired code          | `410 RETAIL_ACTIVATION_EXPIRED`                                                                      | "This code has expired. Ask for a new one."                                                           | `terminal-activate-expired`    |
+| … too many tries        | `429 RATE_LIMITED` (5 per IP per hour)                                                               | "Too many tries. Try again in {minutes} min." from `Retry-After`, or "later" without one              | `terminal-activate-too-many`   |
+| … other failure         | Network, 5xx, anything else                                                                          | "Couldn't reach the server. Try again."                                                               | —                              |
+| … key can't be kept     | WebCrypto or IndexedDB refused                                                                       | "This browser can't keep the terminal's key. Use Chrome in kiosk mode." Nothing is sent               | —                              |
+| Activation, lapsed      | `401 AUTH_TOKEN_EXPIRED`, or the sealed expiry has passed (the cookie stays, so the reason does too) | The activation screen with "This terminal's activation has lapsed. Type a new code."                  | `terminal-lapsed`              |
+| Kiosk                   | Active, shop open, shop betting on                                                                   | The sportsbook (next section)                                                                         | `terminal-kiosk-*`             |
+| Unavailable             | Active, shop open, `features.retail: false` (F8ca)                                                   | Brand-only header; "Betting isn't available at this terminal · Ask the shop staff." No controls       | `terminal-unavailable`         |
+| Closed                  | Active, `shop.open_now: false` (C19 §14: closed or suspended)                                        | Brand-only header; "This shop is closed"; it comes back by itself at a later read when the shop opens | `terminal-closed`              |
+| Switched off            | `status: revoked`, or `401 AUTH_INVALID_CREDENTIALS`                                                 | "This terminal has been switched off … Ask the shop staff." **No controls**                           | `terminal-revoked`             |
+| Not allowed             | `403 RETAIL_DEVICE_NOT_ALLOWED`                                                                      | "This PC can't run the terminal … Ask the shop staff." **No controls**                                | `terminal-device-not-allowed`  |
+| Offline                 | The first read failed (network, 5xx)                                                                 | "Can't reach the server"; Try again (and the 5-minute read keeps trying)                              | `terminal-offline`             |
+| A later read fails      | After any answer                                                                                     | Nothing changes on screen; the next read tries again                                                  | —                              |
 
 "Disabled" in the task means the shop is closed or suspended: the contract's terminal status is only
 `active` or `revoked`, and C19 §14 says a closed shop's terminals show "closed". The tenant's
@@ -80,8 +80,13 @@ the same sizes and widths, in the kiosk's own frame. There is no Log in, Registe
 Responsible gaming or Favourites, and no player watchers (session, reality check, deposits). F8cb adds the
 stake and the figures; F8cc adds Get code.
 
+The terminal frame is brand-only; it contains no shop/address or terminal/PC labels. The kiosk prefers
+English when the tenant offers it, otherwise its configured default. While status or config loads, it uses
+the player's board skeleton and shared shell grid. Catalogue reads wait until the terminal is active and
+retail is enabled.
+
 ```
-┌ K KelalSport  Adama Kebele 04 · PC 3 ──────────── [search] [አማ|EN] ┐
+┌ K KelalSport ─────────────────────────────────── [search] [EN|አማ] ┐
 │ Top competitions │ Football  EAT  [Top][Upcoming][Today]  │ Bet slip 2 │
 │ Sports           │ [Today 6 Oct][Wed 7 Oct] …            │ pick 1.52 ×│
 │ Countries A–Z    │ England · Premier League   1 X 2 │ 1X …│ pick 1.62 ×│
@@ -116,12 +121,14 @@ stake and the figures; F8cc adds Get code.
   offline. Each hook subscribes as narrowly as before. Without a provider, `useSportsbookChrome` throws
   rather than run a page with no price lock.
 
-- **The data goes to the terminal's routes.** `apiClient` re-roots `catalogue/` paths, and only those, to
+- **The data goes to the terminal's routes.** `apiClient` re-roots `catalogue/` and `bookings/{code}` reads,
+  and only those, to
   `/api/terminal/` when the page's `<html data-api>` is exactly that (the terminal's root layout says so);
   any other value is ignored, so no markup can send a call elsewhere. So the player's fetchers, hooks and keys run unchanged on
   the kiosk against the terminal's mirror routes (below). The host split and the proxy are unchanged.
-- **The language** is the customer's tap, else the tenant's `default_language` (Amharic for `demo`,
-  FD2). It is switched with the player's `EN | አማ` control, in that order, among the tenant's `languages` (none with
+- **The language** is English when the tenant offers it; otherwise it is the tenant's
+  `default_language`. The customer's tap wins while offered. It is switched with the player's `EN | አማ`
+  control, in that order, among the tenant's `languages` (none with
   one).
   - The choice lives in `features/terminal/stores/kiosk.store.ts`. It is never persisted, so a reload and
     F8cc's idle reset both return to the default. `kioskLanguage(chosen, config)` is the one rule, and
@@ -129,7 +136,7 @@ stake and the figures; F8cc adds Get code.
   - A choice the tenant no longer offers gives way to its default.
   - `KioskLocale` sets `<html lang>`, from which the text hooks (through `LocaleProvider`) and
     `apiClient`'s `Accept-Language` both read.
-  - F8b's own calls (status, rotation) ask in Amharic, since their answers are states.
+  - Before the config is known, the terminal and its own calls (status, rotation) use English.
 - **Before kick-off only** (D8). The terminal's routes drop in-play and ended matches from the board and
   search, and an in-play match's book reads as `null` ("This match isn't available"). Prism lists none;
   only the simulated board does.
@@ -138,8 +145,11 @@ stake and the figures; F8cc adds Get code.
   board at the next read. The player polls only while realtime is off.
 - **Prices lock while the PC is offline** (`navigator.onLine`, the kiosk's `useOnline`): what is on
   screen may already be wrong, as on the player's site. There is no break lock; a kiosk has no player.
-- **One bar.** `KioskBar` (brand and shop) frames the config's loading and unreadable states; with search
-  and the language switch it is `KioskHeader`. Nothing jumps when the board arrives.
+- **Brand only.** `TerminalBrandBar` and `KioskBar` show the brand, never shop name, address, PC label or
+  terminal id. The brand link stays on `/terminal`. While status or config loads, `TerminalStarting` uses
+  the shared `BoardSkeleton` in the player's three-column `SHELL_GRID`; it performs no catalogue reads.
+  The config error and closed/blocked states keep the brand-only bar. The active kiosk bar adds search and
+  language.
 - **The footer's notices, without its links.** The licence line, 21+ and the helpline sit at the foot of
   every kiosk page, as on the player's (SRS RG-05: responsible-gambling information and a helpline on every
   page; `FooterBar` and `FooterNotices` from `AppFooter`). Terms, Privacy, Responsible gaming, Help and
@@ -150,20 +160,26 @@ stake and the figures; F8cc adds Get code.
   (`createTerminalQueryClient`), which then says what the terminal is (lapsed, switched off).
 - **The slip** is the player's slip store and parts (`BetSlipHeader`, `EmptySlip`, `BetSelectionRow`), with
   two picks of one match marked. The odds are those at the tap. From `xl` up it is the right-hand column;
-  narrower, a bar (once there is a pick) opens it in the player's `Sheet`.
+  narrower, its bar is always available, including with an empty slip, so the player-sized `Sheet` can
+  load a booking code.
+- **Load booking code.** When `features.booking_codes` is enabled, the slip reads and re-prices the code via
+  `/api/terminal/bookings/[code]`. Invalid codes stop in the browser; the route also validates before the
+  upstream call, checks the activated terminal, and returns `no-store`. The shared booking notice names
+  unavailable legs such as a match that has started.
 
-| State                         | When                                       | Shows                                                                                 | Screenshot                                     |
-| ----------------------------- | ------------------------------------------ | ------------------------------------------------------------------------------------- | ---------------------------------------------- |
-| Config loading                | Before `/api/terminal/config` answers      | The terminal's bar; "Starting the terminal…" (bilingual)                              | `terminal-kiosk-config-loading`                |
-| Config unreadable             | The config read failed (network, 5xx)      | The terminal's bar; "Can't reach the server" + Try again (bilingual)                  | `terminal-kiosk-config-offline`                |
-| Home board                    | Config read, shop betting on               | The player's home, without what needs a player                                        | `terminal-kiosk-board-{am,en}-{phone,desktop}` |
-| Picks                         | Prices tapped                              | The picks in the slip; prices pressed; rows tinted                                    | `terminal-kiosk-picks-…`                       |
-| A league                      | `/terminal/competition/[id]`               | That league's board                                                                   | `terminal-kiosk-league-…`                      |
-| A match                       | `/terminal/event/[id]`                     | Every market of the match; Back                                                       | `terminal-kiosk-match-…`                       |
-| Search                        | Something typed (`xl` up, as the player's) | Leagues and matches found, each opening on the kiosk                                  | `terminal-kiosk-search-{am,en}-desktop`        |
-| Board loading / empty / error | The player's board states                  | Skeleton; "No matches right now" + Show football; "Couldn't load matches" + Try again | `terminal-kiosk-{loading,empty,error}-…`       |
-| Sports unreadable             | The sports read failed                     | No tabs; read again every 30 s (`useSports`, both sites)                              | — (component test)                             |
-| A match in play               | The terminal's route answers `null`        | The player's "match not found"                                                        | — (component test)                             |
+| State                         | When                                            | Shows                                                                                       | Screenshot                                            |
+| ----------------------------- | ----------------------------------------------- | ------------------------------------------------------------------------------------------- | ----------------------------------------------------- |
+| Status/config loading         | Before status or `/api/terminal/config` answers | Brand-only bar; the shared board skeleton and a visually hidden English status announcement | `terminal-loading`, `terminal-kiosk-config-loading`   |
+| Config unreadable             | The config read failed (network, 5xx)           | Brand-only bar; "Can't reach the server" + Try again (bilingual)                            | `terminal-kiosk-config-offline`                       |
+| Home board                    | Config read, shop betting on                    | The player's home, without what needs a player                                              | `terminal-kiosk-board-{am,en}-{phone,desktop}`        |
+| Picks                         | Prices tapped                                   | The picks in the slip; prices pressed; rows tinted                                          | `terminal-kiosk-picks-…`                              |
+| A league                      | `/terminal/competition/[id]`                    | That league's board                                                                         | `terminal-kiosk-league-…`                             |
+| A match                       | `/terminal/event/[id]`                          | Every market of the match; Back                                                             | `terminal-kiosk-match-…`                              |
+| Search                        | Something typed (`xl` up, as the player's)      | Leagues and matches found, each opening on the kiosk                                        | `terminal-kiosk-search-{am,en}-desktop`               |
+| Load booking code             | A code entered in the slip                      | Re-priced available picks; unavailable legs explained                                       | `terminal-kiosk-booking-code-{am,en}-{phone,desktop}` |
+| Board loading / empty / error | The player's board states                       | Skeleton; "No matches right now" + Show football; "Couldn't load matches" + Try again       | `terminal-kiosk-{loading,empty,error}-…`              |
+| Sports unreadable             | The sports read failed                          | No tabs; read again every 30 s (`useSports`, both sites)                                    | — (component test)                                    |
+| A match in play               | The terminal's route answers `null`             | The player's "match not found"                                                              | — (component test)                                    |
 
 ## Signed calls (D3)
 
@@ -189,6 +205,7 @@ refuse anything else with 401 before calling anything. They forward no `Prefer`.
 | Route                                                         | API calls (anonymous)                                             | Query, checked before anything goes upstream                                                                                                                                                                                                                                |
 | ------------------------------------------------------------- | ----------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `GET /api/terminal/config`                                    | `GET /v1/config/public` (cached 60 s)                             | —                                                                                                                                                                                                                                                                           |
+| `GET /api/terminal/bookings/[code]`                           | `GET /v1/bookings/{code}` (am, en)                                | One 7-character Crockford code; malformed codes get 422 before the upstream call. Activated terminal required; no `Prefer`; `no-store`                                                                                                                                      |
 | `GET /api/terminal/catalogue/sports`                          | `GET /v1/sports`, `GET /v1/dictionary` (am, en)                   | —                                                                                                                                                                                                                                                                           |
 | `GET /api/terminal/catalogue/board`                           | `GET /v1/events` (am, en), `GET /v1/dictionary`                   | `sport` `s_` + URL-safe characters (required), `date` a real `YYYY-MM-DD`, `filter` `top\|upcoming\|today`, `competition` an opaque id; nothing else, each once (400 `VALIDATION_FAILED` naming the field, or `query` for an odd key). Answers before-kick-off matches only |
 | `GET /api/terminal/catalogue/competitions/top`, `…/countries` | `GET /v1/sports`, `GET /v1/dictionary` (am, en)                   | —                                                                                                                                                                                                                                                                           |
@@ -222,10 +239,10 @@ loads.
 
 The terminal also shares:
 
-- its own schemas (`lib/api/terminal-schemas.ts`) and the catalogue's (`lib/api/catalogue-schemas.ts`), never
-  `lib/api/schemas.ts` (F8b review Q3);
+- its own schemas (`lib/api/terminal-schemas.ts`), the catalogue's (`lib/api/catalogue-schemas.ts`) and
+  the isolated booking schemas (`lib/api/booking-schemas.ts`), never the player-wide `schemas.ts` bundle;
 - `lib/i18n` and its text hooks, through the kiosk's `LocaleProvider`;
-- `apiClient`, whose `catalogue/` calls go to `/api/terminal/` by `<html data-api>` (that value only);
+- `apiClient`, whose `catalogue/` and `bookings/{code}` reads go to `/api/terminal/` by `<html data-api>`;
 - `lib/api/errors.ts`, and the Crockford forgiveness from `features/tickets/lib/number.ts`.
 
 The terminal's own calls go through `terminalRequest` and `terminalRead`. `scripts/check-host-split.mjs`

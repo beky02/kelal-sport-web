@@ -66,6 +66,8 @@ export interface TokenRotation {
 export interface TerminalConfigView {
   /** `features.retail` (C19 §11): off only when the tenant says `false`. */
   retail: boolean;
+  /** `features.booking_codes`: whether the slip can load a shared code. */
+  bookingCodes: boolean;
   /** The tenant's languages, in its order; the kiosk switches among them. */
   languages: Lang[];
   /** The tenant's default (FD2: Amharic for `demo`); the kiosk opens in it only without English. */

@@ -6,9 +6,12 @@ import { Sheet } from "@/components/ui/Sheet";
 import { BetSelectionRow } from "@/features/bet-slip/components/BetSelectionRow";
 import { BetSlipHeader } from "@/features/bet-slip/components/BetSlipHeader";
 import { EmptySlip } from "@/features/bet-slip/components/EmptySlip";
+import { LoadBookingCode } from "@/features/bet-slip/components/BookingCode";
+import { BookingNotice } from "@/features/bookings/components/BookingNotice";
 import { calculateBetSlip } from "@/features/bet-slip/lib/calculate";
 import { useBetSlipStore } from "@/features/bet-slip/stores/bet-slip.store";
 import { useTranslation } from "@/lib/i18n/use-translation";
+import { useTerminalConfig } from "../../hooks/use-kiosk";
 
 /**
  * The kiosk's slip (F8ca), from the player's slip parts: its header with
@@ -21,6 +24,7 @@ export function KioskSlip({ onClose }: { onClose?: () => void }) {
   const selections = useBetSlipStore((s) => s.selections);
   const mode = useBetSlipStore((s) => s.mode);
   const systemK = useBetSlipStore((s) => s.systemK);
+  const bookingCodes = useTerminalConfig().data?.bookingCodes ?? false;
   // The slip's own rule for two picks of one match (`calculateBetSlip`): no
   // rule set, so no figure — only which picks clash in the slip's mode.
   const conflicts = useMemo(
@@ -43,6 +47,7 @@ export function KioskSlip({ onClose }: { onClose?: () => void }) {
     // The player's slip body (`BetSlip`), so its tiles and rows read the same.
     <div className="bg-ground flex w-full flex-col pb-3">
       <BetSlipHeader count={selections.length} onClose={onClose} />
+      <BookingNotice />
       {selections.length === 0 ? (
         <EmptySlip />
       ) : (
@@ -58,6 +63,7 @@ export function KioskSlip({ onClose }: { onClose?: () => void }) {
           ))}
         </div>
       )}
+      {bookingCodes && <LoadBookingCode />}
     </div>
   );
 }
@@ -74,25 +80,25 @@ export function KioskMobileSlip() {
 
   return (
     <>
-      {/* As the player's: shown once there is something in the slip. It stays
-          mounted under the open sheet, so closing it returns focus here. */}
-      {count > 0 && (
-        <div className="pointer-events-none fixed inset-x-0 bottom-0 z-30 flex justify-center p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] xl:hidden">
-          <button
-            ref={bar}
-            type="button"
-            onClick={() => setOpen(true)}
-            aria-label={t.t("nav.slipAria", { n: count })}
-            className="bg-accent text-on-accent font-body pointer-events-auto flex h-12 cursor-pointer items-center gap-2.5 rounded-full px-5 text-sm font-bold shadow-[0_8px_24px_rgb(0_0_0/0.35)]"
-          >
-            <Ticket size={17} strokeWidth={1.5} aria-hidden />
-            {t.t("betSlip.title")}
+      {/* Always available so a customer can load a booking code into an empty
+          slip on a phone. It stays mounted under the sheet for focus return. */}
+      <div className="pointer-events-none fixed inset-x-0 bottom-0 z-30 flex justify-center p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] xl:hidden">
+        <button
+          ref={bar}
+          type="button"
+          onClick={() => setOpen(true)}
+          aria-label={t.t("nav.slipAria", { n: count })}
+          className="bg-accent text-on-accent font-body pointer-events-auto flex h-12 cursor-pointer items-center gap-2.5 rounded-full px-5 text-sm font-bold shadow-[0_8px_24px_rgb(0_0_0/0.35)]"
+        >
+          <Ticket size={17} strokeWidth={1.5} aria-hidden />
+          {t.t("betSlip.title")}
+          {count > 0 && (
             <span className="bg-on-accent/20 grid size-[22px] place-items-center rounded-full text-xs font-extrabold">
               {count}
             </span>
-          </button>
-        </div>
-      )}
+          )}
+        </button>
+      </div>
       <Sheet
         open={open}
         onOpenChange={setOpen}

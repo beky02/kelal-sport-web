@@ -682,7 +682,7 @@ describe("the terminal cookie", () => {
 /** The kiosk's reads (F8ca), with the cookie helpers of the routes above. */
 async function loadReads() {
   const mod = await load();
-  const [config, sports, board, top, countries, event, search] =
+  const [config, sports, board, top, countries, event, search, booking] =
     await Promise.all([
       import("@/app/api/terminal/config/route"),
       import("@/app/api/terminal/catalogue/sports/route"),
@@ -691,6 +691,7 @@ async function loadReads() {
       import("@/app/api/terminal/catalogue/competitions/countries/route"),
       import("@/app/api/terminal/catalogue/events/[id]/route"),
       import("@/app/api/terminal/catalogue/search/route"),
+      import("@/app/api/terminal/bookings/[code]/route"),
     ]);
   return {
     ...mod,
@@ -700,6 +701,14 @@ async function loadReads() {
     top: top.GET,
     countries: countries.GET,
     search: search.GET,
+    booking: (request: Request) =>
+      booking.GET(request, {
+        params: Promise.resolve({
+          code: decodeURIComponent(
+            new URL(request.url).pathname.split("/").at(-1)!,
+          ),
+        }),
+      }),
     /** The match route, called as Next calls it: with its id. */
     event: (request: Request) =>
       event.GET(request, {
@@ -727,6 +736,8 @@ function catalogueAnswers() {
         return { status: 200, body: example("/v1/config/public") };
       case "/v1/search":
         return { status: 200, body: example("/v1/search") };
+      case "/v1/bookings/7KQ2M9X":
+        return { status: 200, body: example("/v1/bookings/{code}") };
       default:
         if (path(request).startsWith("/v1/events/")) {
           return { status: 200, body: example("/v1/events/{id}") };
@@ -752,6 +763,7 @@ const READS = (mod: Reads) =>
     [mod.countries, "/api/terminal/catalogue/competitions/countries"],
     [mod.event, `/api/terminal/catalogue/events/${EVENT_ID}`],
     [mod.search, "/api/terminal/catalogue/search?q=saint"],
+    [mod.booking, "/api/terminal/bookings/7KQ2M9X"],
   ] as const;
 
 /** The contract's match: the one `/v1/events/{id}`'s example describes. */
@@ -1111,9 +1123,39 @@ describe("the kiosk's reads (F8ca AC-1, AC-5)", () => {
     expect(response.status).toBe(200);
     expect(terminalConfigSchema.parse(await response.json())).toEqual({
       retail: true,
+      bookingCodes: true,
       languages: ["am", "en"],
       defaultLanguage: "am",
     });
+  });
+
+  it("loads a well-formed booking only for an activated terminal and never forwards Prefer", async () => {
+    vi.stubEnv("NODE_ENV", "development");
+    const mod = await loadReads();
+    catalogueAnswers();
+    const response = await read(
+      mod.booking,
+      "/api/terminal/bookings/7KQ2M9X",
+      withCookie(mod, terminal(), { prefer: "code=500" }),
+    );
+    expect(response.status).toBe(200);
+    expect(response.headers.get("cache-control")).toBe("no-store");
+    expect((await response.json()).code).toBe("7KQ2M9X");
+    expect(
+      sent.filter((request) => path(request).includes("/v1/bookings/")),
+    ).toHaveLength(2);
+    expect(
+      sent.every((request) => request.headers.get("prefer") === null),
+    ).toBe(true);
+
+    sent.length = 0;
+    const invalid = await read(
+      mod.booking,
+      "/api/terminal/bookings/not-a-code",
+      withCookie(mod, terminal()),
+    );
+    expect(invalid.status).toBe(422);
+    expect(sent).toHaveLength(0);
   });
 
   it("never sends Prism's Prefer upstream, not even under next dev", async () => {
