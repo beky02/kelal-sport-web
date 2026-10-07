@@ -9,6 +9,9 @@ import {
 } from "@/features/bet-slip/stores/bet-slip.store";
 import { toBooking, toBookingReceipt } from "@/lib/api/mappers/bookings";
 import type { components } from "@/lib/api/schema";
+import { formatDayMonth, formatWeekday, toEat } from "@/lib/i18n/dates";
+import { formatKickoff } from "@/lib/i18n/format";
+import en from "@/lib/i18n/messages/en.json";
 import { useUiStore } from "@/stores/ui.store";
 import { example, responseExample } from "../contract";
 import { render as renderAs } from "./render";
@@ -367,6 +370,25 @@ describe("booking the slip", () => {
       },
     });
     expect(sent[0].key).toMatch(/^[0-9a-f-]{36}$/);
+  });
+
+  it("shows the code's expiry on the clock and calendar the player chose (F8ca rework 2)", async () => {
+    // The expiry now reads the locale, not the store (shared with the kiosk):
+    // the player's preferences must still reach it.
+    useUiStore.setState({ clock: "eth", calendar: "ethiopian" });
+    api(() => [201, RECEIPT()]);
+    render(<BetSlip />);
+
+    await userEvent.click(screen.getByRole("button", { name: "Book bet" }));
+
+    const panel = await screen.findByTestId("booking-code");
+    const { date, time } = toEat(RECEIPT().expiresAt);
+    const chosen = en.booking.validUntil
+      .replace("{day}", formatWeekday(date, "en"))
+      .replace("{date}", formatDayMonth(date, "en", "ethiopian"))
+      .replace("{time}", formatKickoff(time, "en", "eth"));
+    expect(chosen).not.toBe("Valid until Sun 4 Oct, 16:00");
+    expect(panel).toHaveTextContent(chosen);
   });
 
   it("reuses the Idempotency-Key when retrying the same slip, and makes a new one when the slip changes", async () => {

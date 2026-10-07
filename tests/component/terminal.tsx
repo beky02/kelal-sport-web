@@ -3,7 +3,6 @@ import { afterEach, beforeEach, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { type QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useBetSlipStore } from "@/features/bet-slip/stores/bet-slip.store";
-import type { Booking } from "@/features/bookings/types";
 import { resetTerminalClock } from "@/features/terminal/api/client";
 import { TerminalApp } from "@/features/terminal/components/TerminalApp";
 import { deviceKeyStore } from "@/features/terminal/lib/device-key";
@@ -22,6 +21,7 @@ import {
   toSports,
   toTopCompetitions,
 } from "@/lib/api/mappers/catalogue";
+import { toBooking } from "@/lib/api/mappers/bookings";
 import { toTerminalConfigView } from "@/lib/api/mappers/config";
 import {
   toTerminalActivation,
@@ -101,43 +101,14 @@ export const SEARCH = toSearchResults(
   false,
 );
 
-/** A loaded, current booking with one started leg the slip must explain. */
-export const BOOKING: Booking = {
-  code: "7KQ2M9X",
-  betType: "multiple",
-  systemSizes: [],
-  stakeHint: "50.00",
-  expiresAt: "2026-10-07T13:00:00Z",
-  legs: [
-    {
-      outcomeId: "oc_ac_1",
-      eventId: "fx_ac_1",
-      eventName: { en: "Arsenal v Chelsea", am: "አርሰናል ከ ቼልሲ" },
-      marketId: "mk_ac_1x2",
-      marketName: { en: "1X2", am: "1X2" },
-      outcomeName: { en: "Arsenal", am: "አርሰናል" },
-      startTime: "2026-10-07T14:00:00Z",
-      odds: "2.10",
-      oddsAtCode: "2.05",
-      unavailable: null,
-    },
-    {
-      outcomeId: "oc_sg_1",
-      eventId: "fx_sg_1",
-      eventName: {
-        en: "Saint George v Fasil Kenema",
-        am: "ቅዱስ ጊዮርጊስ ከ ፋሲል ከነማ",
-      },
-      marketId: "mk_sg_1x2",
-      marketName: { en: "1X2", am: "1X2" },
-      outcomeName: { en: "Saint George", am: "ቅዱስ ጊዮርጊስ" },
-      startTime: "2026-10-07T12:00:00Z",
-      odds: null,
-      oddsAtCode: "1.80",
-      unavailable: "EVENT_STARTED",
-    },
-  ],
-};
+/**
+ * The contract's booking (`/v1/bookings/{code}`), mapped: one leg still on
+ * sale, re-priced from 2.05 to 2.10, and one whose match has started.
+ */
+export const BOOKING = toBooking({
+  en: example("/v1/bookings/{code}"),
+  am: example("/v1/bookings/{code}"),
+});
 
 /** The kiosk's board heading once it is up: the player's, named after its first sport. */
 const KIOSK_HEADING = {

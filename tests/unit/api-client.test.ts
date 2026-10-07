@@ -61,6 +61,23 @@ describe("the browser's API client (F8ca R2)", () => {
     expect(askedUrl(nestedWrite)).toBe("/api/bookings/7KQ2M9X");
   });
 
+  it("re-roots a booking read only by its code, and nothing with a dot segment (review SEC1)", async () => {
+    document.documentElement.dataset.api = "/api/terminal/";
+    for (const [path, expected] of [
+      // Not a code: the player's own booking reads, if one is ever added.
+      ["/bookings/mine", "/api/bookings/mine"],
+      ["/bookings/7KQ2M9X/legs", "/api/bookings/7KQ2M9X/legs"],
+      // A dot segment can't climb out of the mirror.
+      ["/catalogue/../me", "/api/me"],
+      ["/catalogue/./sports", "/api/catalogue/sports"],
+    ] as const) {
+      const spy = stubFetch();
+      await apiClient.get(path, ok);
+      expect(askedUrl(spy), path).toBe(expected);
+      spy.mockRestore();
+    }
+  });
+
   it("takes no base it doesn't know, whatever the page says (review SEC2)", async () => {
     for (const forged of [
       "https://evil.example/",

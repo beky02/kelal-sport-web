@@ -10,7 +10,7 @@ import { BOARD_GRID, HIDE_BELOW_XL } from "../lib/grid";
  */
 export function BoardSkeleton({ sections = 2, rows = 3 }) {
   return (
-    <div className="flex flex-col gap-2.5">
+    <div data-testid="board-skeleton" className="flex flex-col gap-2.5">
       {Array.from({ length: sections }, (_, s) => (
         <Card key={s} className="overflow-hidden">
           <div className="bg-raised flex min-h-11 items-center gap-2 px-3">

@@ -21,8 +21,18 @@ export function Bilingual({
 }) {
   return (
     <>
-      {ORDER.map((lang) => (
-        <span key={lang} lang={lang} className={cn("block", className)}>
+      {ORDER.map((lang, index) => (
+        <span
+          key={lang}
+          lang={lang}
+          // The second line a step down, so English reads first and Amharic,
+          // the larger script, doesn't outweigh it (review U2).
+          className={cn(
+            "block",
+            index > 0 && "text-muted text-[0.85em]",
+            className,
+          )}
+        >
           {translate(lang, k, values)}
         </span>
       ))}

@@ -1141,9 +1141,13 @@ describe("the kiosk's reads (F8ca AC-1, AC-5)", () => {
     expect(response.status).toBe(200);
     expect(response.headers.get("cache-control")).toBe("no-store");
     expect((await response.json()).code).toBe("7KQ2M9X");
+    // Read in both languages, for the names of each leg.
+    const reads = sent.filter((request) =>
+      path(request).includes("/v1/bookings/"),
+    );
     expect(
-      sent.filter((request) => path(request).includes("/v1/bookings/")),
-    ).toHaveLength(2);
+      reads.map((request) => request.headers.get("accept-language")).sort(),
+    ).toEqual(["am", "en"]);
     expect(
       sent.every((request) => request.headers.get("prefer") === null),
     ).toBe(true);
@@ -1155,6 +1159,8 @@ describe("the kiosk's reads (F8ca AC-1, AC-5)", () => {
       withCookie(mod, terminal()),
     );
     expect(invalid.status).toBe(422);
+    expect(invalid.headers.get("cache-control")).toBe("no-store");
+    expect((await invalid.json()).code).toBe("VALIDATION_FAILED");
     expect(sent).toHaveLength(0);
   });
 

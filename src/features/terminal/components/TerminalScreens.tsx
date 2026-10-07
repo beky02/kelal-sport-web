@@ -2,11 +2,7 @@
 
 import { Ban, ShieldOff, Store, WifiOff } from "lucide-react";
 import type { MessageKey } from "@/lib/i18n";
-import { translate } from "@/lib/i18n";
 import { cn } from "@/lib/utils/cn";
-import { BrandMark } from "@/components/layout/BrandMark";
-import { SHELL_GRID } from "@/components/layout/shell-grid";
-import { BoardSkeleton } from "@/features/sportsbook/components/BoardSkeleton";
 import { Bilingual } from "./Bilingual";
 
 /**
@@ -50,41 +46,6 @@ export function TerminalMessage({
       </p>
       {children}
     </section>
-  );
-}
-
-/** Nothing to show yet, said as such. */
-export function TerminalLoadingMessage() {
-  return (
-    <span role="status" className="sr-only">
-      {translate("en", "terminal.loading")}
-    </span>
-  );
-}
-
-/** The same board loading used by the player's home page, before status/config. */
-export function TerminalStarting() {
-  return (
-    <div className="flex flex-1 flex-col">
-      <TerminalBrandBar />
-      <main className={`${SHELL_GRID} flex-1`} aria-busy="true">
-        <aside className="hidden lg:block" aria-hidden />
-        <div className="flex min-w-0 flex-col gap-2.5">
-          <BoardSkeleton />
-          <TerminalLoadingMessage />
-        </div>
-        <aside className="hidden xl:block" aria-hidden />
-      </main>
-    </div>
-  );
-}
-
-/** Brand-only bar for terminal states that do not show the sportsbook header. */
-export function TerminalBrandBar() {
-  return (
-    <header className="bg-surface border-divider flex h-[52px] items-center border-b px-3 md:h-14 md:px-5">
-      <BrandMark href="/terminal" />
-    </header>
   );
 }
 

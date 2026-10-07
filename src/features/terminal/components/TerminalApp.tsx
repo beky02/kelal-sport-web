@@ -4,12 +4,12 @@ import { useTerminalStatus } from "../hooks/use-terminal";
 import type { TerminalStatus } from "../types";
 import { ActivationScreen } from "./ActivationScreen";
 import { Kiosk } from "./kiosk/Kiosk";
+import { KioskStarting } from "./kiosk/KioskStarting";
+import { TerminalBar } from "./TerminalBar";
 import {
   TerminalBlocked,
   TerminalClosed,
-  TerminalBrandBar,
   TerminalOffline,
-  TerminalStarting,
 } from "./TerminalScreens";
 
 /**
@@ -17,7 +17,9 @@ import {
  * 5 minutes. Once there is an answer, a failed read changes nothing on screen
  * — the next read tries again — and a background rotation never shows. An
  * active terminal of an open shop is the kiosk (F8ca), showing `children`:
- * the sportsbook page the kiosk is on.
+ * the sportsbook page the kiosk is on — which is also what shows, its reads
+ * held, until the first answer (`KioskStarting`). Every other state sits
+ * under the terminal's one bar.
  */
 export function TerminalApp({ children }: { children: React.ReactNode }) {
   const status = useTerminalStatus();
@@ -27,7 +29,7 @@ export function TerminalApp({ children }: { children: React.ReactNode }) {
   if (status.isError) {
     return (
       <div className="flex flex-1 flex-col">
-        <TerminalBrandBar />
+        <TerminalBar />
         <TerminalOffline
           onRetry={() => void status.refetch()}
           retrying={status.isFetching}
@@ -35,7 +37,7 @@ export function TerminalApp({ children }: { children: React.ReactNode }) {
       </div>
     );
   }
-  return <TerminalStarting />;
+  return <KioskStarting>{children}</KioskStarting>;
 }
 
 function TerminalScreen({
@@ -47,11 +49,16 @@ function TerminalScreen({
 }) {
   switch (status.state) {
     case "inactive":
-      return <ActivationScreen lapsed={status.reason === "expired"} />;
+      return (
+        <div className="flex flex-1 flex-col">
+          <TerminalBar />
+          <ActivationScreen lapsed={status.reason === "expired"} />
+        </div>
+      );
     case "blocked":
       return (
         <div className="flex flex-1 flex-col">
-          <TerminalBrandBar />
+          <TerminalBar />
           <TerminalBlocked reason={status.reason} />
         </div>
       );
@@ -60,7 +67,7 @@ function TerminalScreen({
         <Kiosk>{children}</Kiosk>
       ) : (
         <div className="flex flex-1 flex-col">
-          <TerminalBrandBar />
+          <TerminalBar />
           <main className="flex flex-1 flex-col items-center justify-center">
             <TerminalClosed />
           </main>

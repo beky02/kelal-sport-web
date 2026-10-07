@@ -31,9 +31,7 @@ export function useLoadBooking(onLoaded?: (booking: Booking) => void) {
     onSuccess: (booking) => {
       const slip = slipFromBooking(booking);
       if (slip.selections.length > 0) replaceSlip(slip);
-      // Even a partly loadable code needs to say which legs did not make it.
-      // With no usable legs, leave the customer's existing slip alone.
-      showBookingNotice(slip.notice);
+      else showBookingNotice(slip.notice);
       onLoaded?.(booking);
     },
   });

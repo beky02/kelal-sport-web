@@ -621,60 +621,34 @@ for (const [device, viewport] of Object.entries({
         baseURL,
       }) => {
         await open(page, baseURL);
-        await page.route("**/api/terminal/bookings/7KQ2M9X", (route) =>
-          route.fulfill({
-            json: {
-              code: "7KQ2M9X",
-              betType: "multiple",
-              systemSizes: [],
-              stakeHint: "50.00",
-              expiresAt: "2026-10-07T13:00:00Z",
-              legs: [
-                {
-                  outcomeId: "oc_ac_1",
-                  eventId: "fx_ac_1",
-                  eventName: { en: "Arsenal v Chelsea", am: "አርሰናል ከ ቼልሲ" },
-                  marketId: "mk_ac_1x2",
-                  marketName: { en: "1X2", am: "1X2" },
-                  outcomeName: { en: "Arsenal", am: "አርሰናል" },
-                  startTime: "2026-10-07T14:00:00Z",
-                  odds: "2.10",
-                  oddsAtCode: "2.05",
-                  unavailable: null,
-                },
-                {
-                  outcomeId: "oc_sg_1",
-                  eventId: "fx_sg_1",
-                  eventName: {
-                    en: "Saint George v Fasil Kenema",
-                    am: "ቅዱስ ጊዮርጊስ ከ ፋሲል ከነማ",
-                  },
-                  marketId: "mk_sg_1x2",
-                  marketName: { en: "1X2", am: "1X2" },
-                  outcomeName: { en: "Saint George", am: "ቅዱስ ጊዮርጊስ" },
-                  startTime: "2026-10-07T12:00:00Z",
-                  odds: null,
-                  oddsAtCode: "1.80",
-                  unavailable: "EVENT_STARTED",
-                },
-              ],
-            },
-          }),
+        // The real route, to Prism: the contract's booking 7KQ2M9X, one leg
+        // still on sale (2.05 then, 2.10 now) and one whose match started.
+        const answered = page.waitForResponse(
+          "**/api/terminal/bookings/7KQ2M9X",
         );
         if (device === "phone") {
           await page
             .getByRole("button", { name: t.nav.slipAria.replace("{n}", "0") })
             .click();
         }
-        const slip = device === "phone" ? page.getByRole("dialog") : page;
+        const slip =
+          device === "phone"
+            ? page.getByRole("dialog")
+            : page.locator("aside").last();
         await slip.getByLabel(t.betSlip.loadCode).fill("7kq2-m9x");
         await slip.getByRole("button", { name: t.betSlip.load }).click();
-        await expect(slip.getByTestId("booking-notice")).toContainText(
-          t.booking.notAddedTitle,
-        );
-        await expect(slip.getByTestId("booking-notice")).toContainText(
-          t.booking.reason.EVENT_STARTED,
-        );
+        expect((await answered).status()).toBe(200);
+
+        const notice = slip.getByTestId("booking-notice");
+        await expect(notice).toContainText(t.booking.reason.EVENT_STARTED);
+        // The leg on sale is in the slip at the server's price, and only it.
+        await expect(slip.getByText("Arsenal v Chelsea")).toBeVisible();
+        await expect(slip.getByText("2.10")).toBeVisible();
+        await expect(
+          slip.getByRole("button", {
+            name: new RegExp(`^${t.betSlip.remove.replace("{pick}", ".+")}$`),
+          }),
+        ).toHaveCount(1);
         await shoot(page, `kiosk-booking-code-${lang}`, device, errors);
       });
 

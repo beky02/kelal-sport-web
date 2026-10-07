@@ -16,9 +16,11 @@ import { useTerminalConfig } from "../../hooks/use-kiosk";
 /**
  * The kiosk's slip (F8ca), from the player's slip parts: its header with
  * Clear all, its empty state, and a row per pick (match, market, pick, the
- * odds when tapped; two picks of one match marked, by the slip's own rule). No stake, figure or
- * button to bet yet: F8cb prices it with the shop's rule set, F8cc turns it
- * into a code for the counter. The store is the player's slip store.
+ * odds when tapped; two picks of one match marked, by the slip's own rule),
+ * and the player's Load booking code with its notice where the tenant has
+ * codes. No stake, figure or button to bet yet: F8cb prices it with the
+ * shop's rule set, F8cc turns it into a code for the counter. The store is
+ * the player's slip store.
  */
 export function KioskSlip({ onClose }: { onClose?: () => void }) {
   const selections = useBetSlipStore((s) => s.selections);
@@ -47,7 +49,9 @@ export function KioskSlip({ onClose }: { onClose?: () => void }) {
     // The player's slip body (`BetSlip`), so its tiles and rows read the same.
     <div className="bg-ground flex w-full flex-col pb-3">
       <BetSlipHeader count={selections.length} onClose={onClose} />
-      <BookingNotice />
+      {/* No priced bet on the kiosk before F8cb, so no note about the code's
+          system sizes against it (review Q3). */}
+      <BookingNotice priced={null} />
       {selections.length === 0 ? (
         <EmptySlip />
       ) : (
