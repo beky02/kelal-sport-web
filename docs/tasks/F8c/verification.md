@@ -89,7 +89,38 @@ As of the rework and its review fixes (`d0088e3`).
 
 ## Automated gate
 
-GATE3_PENDING
+Final run, 2026-10-07, at `90577b0` (after the user's third and fourth reviews: Book bet on the kiosk, the
+code in a dialog on both sites, the slip without tax lines, and a contract sync). It ran against the
+running `next dev` (simulated board) and Prism on :4010. `pnpm verify` exit 0:
+
+```
+ Test Files  80 passed (80)
+      Tests  1610 passed (1610)
+Generated API types match contracts/openapi.yaml.
+contracts/ matches the backend.
+docs/backend/ matches the backend.
+Host split holds: 19 player routes load no module or chunk of (terminal); 3 terminal route(s) load no module of (player) nor a chunk holding one (.next/server/app, 68 manifests).
+  640 passed (5.6m)
+```
+
+None on retry. The run before it stopped at the drift check: the backend's contract had moved on
+(additive error responses and `Accept-Language`, the `bet.placed` event schema); synced in `90577b0` on the
+user's go-ahead.
+
+After the panel (round 3), at the user's request and without a further panel:
+
+- **Book bet on the kiosk** (`fe13e58`): `POST /api/terminal/bookings` (an activated terminal, this site's
+  page, one `Idempotency-Key`, a strict body, no `Prefer`, `no-store`); `apiClient` mirrors exactly
+  `POST bookings`. Tests: "books the slip as a code through the terminal…", "books a slip for an activated
+  terminal…" (each fails with its check taken out).
+- **A mock code's expiry** (`6497dae`): Prism's fixed `expires_at` had passed, so every code booked in
+  development arrived expired; from the mock only, it now gets C09's 24 h. Tests in `booking-route.test.ts`.
+- **The code in a dialog** (`2364fb2`, `7f32ccc`, `485eafa`): `BookingCodeDialog` on both sites; no Copy or
+  Telegram on the kiosk; "Booked" opens it again.
+- **No tax lines on the slip** (`485eafa`, the user's decision): `SlipSummary` shows total odds, system
+  lines and a bonus; the payout is slipcalc's, taxes included, and the placed ticket still itemises them
+  (SRS HIS-02).
+- **Codex's hook paths** (`fe13e58`): repo-relative.
 
 ## Acceptance criteria
 
