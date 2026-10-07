@@ -1801,8 +1801,14 @@ paths:
                 capped: false
                 warnings: []
                 rules_version: 7
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
         '422':
           $ref: '#/components/responses/Unprocessable'
+        '503':
+          $ref: '#/components/responses/Unavailable'
       parameters:
       - $ref: '#/components/parameters/TenantId'
       - $ref: '#/components/parameters/RequestId'
@@ -1816,6 +1822,7 @@ paths:
       - playerAuth: []
       parameters:
       - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/AcceptLanguage'
       - $ref: '#/components/parameters/TenantId'
       - $ref: '#/components/parameters/RequestId'
       requestBody:
@@ -1883,6 +1890,8 @@ paths:
                 balance:
                   cash: '919.78'
                   bonus: '50.00'
+        '400':
+          $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -1917,6 +1926,8 @@ paths:
                     errors:
                     - field: legs[0].outcome_id
                       code: EVENT_STARTED
+        '404':
+          $ref: '#/components/responses/NotFound'
         '422':
           $ref: '#/components/responses/Unprocessable'
         '503':
@@ -1940,6 +1951,7 @@ paths:
       - $ref: '#/components/parameters/To'
       - $ref: '#/components/parameters/Limit'
       - $ref: '#/components/parameters/Cursor'
+      - $ref: '#/components/parameters/AcceptLanguage'
       - $ref: '#/components/parameters/TenantId'
       - $ref: '#/components/parameters/RequestId'
       responses:
@@ -2026,8 +2038,14 @@ paths:
                   placed_at: '2026-10-03T14:05:22Z'
                   settled_at: '2026-10-04T21:02:00Z'
                 next_cursor: null
+        '400':
+          $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
   /v1/bets/{id}:
     get:
       tags:
@@ -2038,6 +2056,7 @@ paths:
       - playerAuth: []
       parameters:
       - $ref: '#/components/parameters/IdPath'
+      - $ref: '#/components/parameters/AcceptLanguage'
       - $ref: '#/components/parameters/TenantId'
       - $ref: '#/components/parameters/RequestId'
       responses:
@@ -2085,6 +2104,10 @@ paths:
                   result: win
                 placed_at: '2026-10-03T14:05:22Z'
                 settled_at: '2026-10-04T21:02:00Z'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
         '404':
           $ref: '#/components/responses/NotFound'
   /v1/bookings:
