@@ -46,7 +46,10 @@ export function OddsButtonView({
       className={cn(
         "font-body numeric relative flex w-full cursor-pointer items-center rounded-sm leading-none font-bold",
         size === "sm" ? "h-9 text-[13px]" : "h-11 text-sm",
-        label ? "justify-between gap-1.5 px-2.5" : "justify-center",
+        // A lock alone is centred, label or not (F8ca review U4).
+        label && !suspended
+          ? "justify-between gap-1.5 px-2.5"
+          : "justify-center",
 
         suspended
           ? "border-divider text-muted cursor-not-allowed border border-dashed bg-transparent opacity-55"

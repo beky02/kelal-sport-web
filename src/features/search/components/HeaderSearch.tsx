@@ -5,9 +5,9 @@ import { useRouter } from "next/navigation";
 import { Search, X } from "lucide-react";
 import { useTranslation } from "@/lib/i18n/use-translation";
 import { LiveDot } from "@/components/ui/LiveTag";
-import { routes } from "@/config/routes";
+import { useSportsbookChrome } from "@/features/sportsbook/chrome";
 import { formatKickoff } from "@/lib/i18n/format";
-import { useUiStore } from "@/stores/ui.store";
+import { useLocale } from "@/lib/i18n/locale";
 import { useSearch } from "../hooks/use-search";
 
 /**
@@ -20,7 +20,8 @@ import { useSearch } from "../hooks/use-search";
 export function HeaderSearch() {
   const t = useTranslation();
   const router = useRouter();
-  const clock = useUiStore((s) => s.clock);
+  const { clock } = useLocale();
+  const { links } = useSportsbookChrome();
 
   const [query, setQuery] = useState("");
   const { data } = useSearch(query);
@@ -96,7 +97,7 @@ export function HeaderSearch() {
                   type="button"
                   role="option"
                   aria-selected={false}
-                  onClick={() => go(routes.competition(competition.id))}
+                  onClick={() => go(links.competition(competition.id))}
                   className="font-body text-text hover:bg-raised flex min-h-10 w-full cursor-pointer items-center gap-2.5 rounded-sm bg-transparent px-2.5 text-left text-[13px] font-semibold"
                 >
                   <span className="min-w-0 flex-1 truncate">
@@ -121,7 +122,7 @@ export function HeaderSearch() {
                   type="button"
                   role="option"
                   aria-selected={false}
-                  onClick={() => go(routes.event(event.id))}
+                  onClick={() => go(links.event(event.id))}
                   className="font-body text-text hover:bg-raised flex min-h-12 w-full cursor-pointer flex-col items-start justify-center gap-0.5 rounded-sm bg-transparent px-2.5 py-1 text-left"
                 >
                   <span className="max-w-full truncate text-[13px] font-semibold">

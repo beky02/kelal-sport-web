@@ -1,13 +1,9 @@
 "use client";
 
 import { useTranslation } from "@/lib/i18n/use-translation";
-import {
-  addDays,
-  formatDayMonth,
-  formatWeekday,
-  todayEat,
-} from "@/lib/i18n/dates";
-import { useUiStore } from "@/stores/ui.store";
+import { addDays, formatDayMonth, formatWeekday } from "@/lib/i18n/dates";
+import { useLocale } from "@/lib/i18n/locale";
+import { useTodayEat } from "@/lib/i18n/use-today-eat";
 import { cn } from "@/lib/utils/cn";
 
 /** Today and the five days after it — the pre-match window worth browsing. */
@@ -27,8 +23,9 @@ export function DateStrip({
   onChange: (date: string) => void;
 }) {
   const t = useTranslation();
-  const calendar = useUiStore((s) => s.calendar);
-  const today = todayEat();
+  const { calendar } = useLocale();
+  // Moves at midnight EAT, as the board's filters do (`useTodayEat`).
+  const today = useTodayEat();
   const dates = Array.from({ length: DAYS }, (_, i) => addDays(today, i));
 
   return (

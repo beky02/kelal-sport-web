@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import {
@@ -14,12 +14,16 @@ import {
   asked,
   json,
   keys,
+  kioskHeading,
   problem,
   renderTerminal,
   routes,
   setUpTerminalTests,
   signedFor,
 } from "./terminal";
+
+// An active terminal is the kiosk, whose board filters live in the URL (F8ca).
+vi.mock("next/navigation", () => import("./navigation"));
 
 setUpTerminalTests();
 
@@ -41,28 +45,29 @@ async function activateWith(code: string) {
   return field;
 }
 
-/** What the activation screen says, in both languages, as an alert. */
+/**
+ * What the activation screen says, in both languages, as an alert. The alert
+ * region is always on screen and starts empty, so this waits for its text,
+ * not for the region.
+ */
 async function expectAlert(english: string, amharic: string) {
-  const alert = await screen.findByRole("alert");
-  expect(alert).toHaveTextContent(english);
-  expect(alert).toHaveTextContent(amharic);
+  await waitFor(() => {
+    const alert = screen.getByRole("alert");
+    expect(alert).toHaveTextContent(english);
+    expect(alert).toHaveTextContent(amharic);
+  });
 }
 
 describe("activating a terminal (AC-4)", () => {
-  it("activates with the code and a new device key, then reads the status and shows the shop", async () => {
+  it("activates with the code and a new device key, then reads the status without showing shop details", async () => {
     routes();
     renderTerminal();
 
     await activateWith(" k7q2-m9xp ");
 
-    expect(
-      await screen.findByRole("heading", {
-        level: 1,
-        name: new RegExp(en.terminal.ready.title),
-      }),
-    ).toBeInTheDocument();
-    expect(screen.getByText("Adama Kebele 04")).toBeInTheDocument();
-    expect(screen.getByText("PC 3")).toBeInTheDocument();
+    expect(await kioskHeading()).toBeInTheDocument();
+    expect(screen.queryByText("Adama Kebele 04")).toBeNull();
+    expect(screen.queryByText("PC 3")).toBeNull();
 
     // The code as the contract spells it, and the public half of the key the
     // browser now keeps.
@@ -111,12 +116,7 @@ describe("activating a terminal (AC-4)", () => {
         name: new RegExp(en.terminal.offline.retry),
       }),
     );
-    expect(
-      await screen.findByRole("heading", {
-        level: 1,
-        name: new RegExp(en.terminal.ready.title),
-      }),
-    ).toBeInTheDocument();
+    expect(await kioskHeading()).toBeInTheDocument();
     expect(activations()).toHaveLength(1);
     expect(keys.pair).toBe(key);
   });
@@ -276,7 +276,8 @@ describe("a terminal that may not run (AC-4)", () => {
         container.querySelectorAll(
           "button, a, input, select, textarea, [tabindex]",
         ),
-      ).toHaveLength(0);
+      ).toHaveLength(1);
+      expect(container.querySelector("a")).toHaveAttribute("href", "/terminal");
     },
   );
 });

@@ -26,6 +26,10 @@ export function toEat(iso: string): { date: string; time: string } {
 export const todayEat = (now: Date = new Date()): string =>
   toEat(now.toISOString()).date;
 
+/** Milliseconds from `now` to the next midnight in East Africa Time. */
+export const msToMidnightEat = (now: number = Date.now()): number =>
+  DAY_MS - ((now + EAT_OFFSET_MS) % DAY_MS);
+
 /** `2026-09-30` + 2 → `2026-10-02`. */
 export const addDays = (date: string, days: number): string =>
   new Date(Date.parse(`${date}T00:00:00Z`) + days * DAY_MS)

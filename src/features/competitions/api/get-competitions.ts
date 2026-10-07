@@ -3,7 +3,7 @@ import { apiClient } from "@/lib/api/client";
 import {
   competitionSummarySchema,
   countryWithLeaguesSchema,
-} from "@/lib/api/schemas";
+} from "@/lib/api/catalogue-schemas";
 import type { CompetitionSummary, CountryWithLeagues } from "../types";
 
 const topSchema = z.array(competitionSummarySchema);

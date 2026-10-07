@@ -1,5 +1,6 @@
 import type { components } from "@/lib/api/schema";
 import type { BettingRules, PublicConfigView } from "@/features/config/types";
+import type { TerminalConfigView } from "@/features/terminal/types";
 
 type ApiRuleSet = components["schemas"]["RuleSet"];
 type ApiPublicConfig = components["schemas"]["PublicConfig"];
@@ -37,5 +38,27 @@ export function toPublicConfigView(config: ApiPublicConfig): PublicConfigView {
       termsVersion: config.legal?.terms_version?.trim() || null,
       minAge: config.legal?.min_age ?? null,
     },
+  };
+}
+
+/**
+ * `/v1/config/public` → what the shop kiosk needs (F8ca): whether the tenant
+ * sells in shops (`features.retail`, on unless it says `false`, as for
+ * booking codes), and the languages it offers, starting in its default (FD2);
+ * a default the tenant doesn't list gives way to its first. Nothing of
+ * `betting`: D1.12 gives retail its own rule set.
+ */
+export function toTerminalConfigView(
+  config: ApiPublicConfig,
+): TerminalConfigView {
+  const languages = [...new Set(config.languages)];
+  if (languages.length === 0) languages.push(config.default_language);
+  return {
+    retail: config.features.retail !== false,
+    bookingCodes: config.features.booking_codes !== false,
+    languages,
+    defaultLanguage: languages.includes(config.default_language)
+      ? config.default_language
+      : languages[0],
   };
 }

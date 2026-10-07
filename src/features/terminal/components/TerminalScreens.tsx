@@ -1,15 +1,12 @@
 "use client";
 
-import {
-  CircleCheck,
-  LoaderCircle,
-  ShieldOff,
-  Store,
-  WifiOff,
-} from "lucide-react";
+import { Ban, ShieldOff, Store, WifiOff } from "lucide-react";
 import type { MessageKey } from "@/lib/i18n";
+import { translate } from "@/lib/i18n";
 import { cn } from "@/lib/utils/cn";
-import type { TerminalInfo } from "../types";
+import { BrandMark } from "@/components/layout/BrandMark";
+import { SHELL_GRID } from "@/components/layout/shell-grid";
+import { BoardSkeleton } from "@/features/sportsbook/components/BoardSkeleton";
 import { Bilingual } from "./Bilingual";
 
 /**
@@ -56,59 +53,51 @@ export function TerminalMessage({
   );
 }
 
-/** Before the first status answer: nothing to show yet. */
-export function TerminalLoading() {
+/** Nothing to show yet, said as such. */
+export function TerminalLoadingMessage() {
   return (
-    <main className="flex flex-1 flex-col items-center justify-center px-4">
-      <p
-        role="status"
-        className="text-muted flex flex-col items-center gap-3 text-base"
-      >
-        <LoaderCircle className="size-8 animate-spin" aria-hidden />
-        <span className="flex flex-col gap-1 text-center">
-          <Bilingual k="terminal.loading" />
-        </span>
-      </p>
-    </main>
+    <span role="status" className="sr-only">
+      {translate("en", "terminal.loading")}
+    </span>
   );
 }
 
-/** The shop this terminal belongs to, on top of whatever it shows. */
-export function TerminalShell({
-  terminal,
-  children,
-}: {
-  terminal: TerminalInfo;
-  children: React.ReactNode;
-}) {
+/** The same board loading used by the player's home page, before status/config. */
+export function TerminalStarting() {
   return (
     <div className="flex flex-1 flex-col">
-      <header className="bg-surface border-divider flex min-h-14 items-center gap-3 border-b px-4">
-        <Store className="text-accent size-5 shrink-0" aria-hidden />
-        <span className="min-w-0 truncate text-base font-bold">
-          {terminal.shop.name}
-        </span>
-        {terminal.label && (
-          <span className="text-muted ml-auto shrink-0 text-sm">
-            {terminal.label}
-          </span>
-        )}
-      </header>
-      <main className="flex flex-1 flex-col items-center justify-center">
-        {children}
+      <TerminalBrandBar />
+      <main className={`${SHELL_GRID} flex-1`} aria-busy="true">
+        <aside className="hidden lg:block" aria-hidden />
+        <div className="flex min-w-0 flex-col gap-2.5">
+          <BoardSkeleton />
+          <TerminalLoadingMessage />
+        </div>
+        <aside className="hidden xl:block" aria-hidden />
       </main>
     </div>
   );
 }
 
-/** Activated and the shop open: the sportsbook goes here (F8c). */
-export function TerminalReady() {
+/** Brand-only bar for terminal states that do not show the sportsbook header. */
+export function TerminalBrandBar() {
+  return (
+    <header className="bg-surface border-divider flex h-[52px] items-center border-b px-3 md:h-14 md:px-5">
+      <BrandMark href="/terminal" />
+    </header>
+  );
+}
+
+/**
+ * The tenant sells nothing in shops (`features.retail: false`, F8ca): no
+ * sportsbook, nothing to press, and back by itself when it is switched on.
+ */
+export function TerminalUnavailable() {
   return (
     <TerminalMessage
-      icon={<CircleCheck className="size-8" />}
-      tone="accent"
-      title="terminal.ready.title"
-      body="terminal.ready.body"
+      icon={<Ban className="size-8" />}
+      title="terminal.kiosk.unavailable.title"
+      body="terminal.kiosk.unavailable.body"
     />
   );
 }
@@ -155,11 +144,8 @@ export function TerminalBlocked({
   );
 }
 
-/**
- * No status yet and the server can't be reached. The 5-minute read keeps
- * trying by itself; the button tries now.
- */
-export function TerminalOffline({
+/** The server can't be reached: the read keeps trying, and the button tries now. */
+export function TerminalOfflineMessage({
   onRetry,
   retrying,
 }: {
@@ -167,21 +153,34 @@ export function TerminalOffline({
   retrying: boolean;
 }) {
   return (
-    <main className="flex flex-1 flex-col items-center justify-center">
-      <TerminalMessage
-        icon={<WifiOff className="size-8" />}
-        title="terminal.offline.title"
-        body="terminal.offline.body"
+    <TerminalMessage
+      icon={<WifiOff className="size-8" />}
+      title="terminal.offline.title"
+      body="terminal.offline.body"
+    >
+      <button
+        type="button"
+        onClick={onRetry}
+        disabled={retrying}
+        className="bg-raised border-divider text-text mt-3 flex min-h-12 min-w-40 cursor-pointer flex-col items-center justify-center rounded-md border px-5 py-2 text-base font-bold hover:brightness-125 disabled:cursor-wait disabled:opacity-60"
       >
-        <button
-          type="button"
-          onClick={onRetry}
-          disabled={retrying}
-          className="bg-raised border-divider text-text mt-3 flex min-h-12 min-w-40 cursor-pointer flex-col items-center justify-center rounded-md border px-5 py-2 text-base font-bold hover:brightness-125 disabled:cursor-wait disabled:opacity-60"
-        >
-          <Bilingual k="terminal.offline.retry" />
-        </button>
-      </TerminalMessage>
+        <Bilingual k="terminal.offline.retry" />
+      </button>
+    </TerminalMessage>
+  );
+}
+
+/**
+ * No status yet and the server can't be reached. The 5-minute read keeps
+ * trying by itself; the button tries now.
+ */
+export function TerminalOffline(props: {
+  onRetry: () => void;
+  retrying: boolean;
+}) {
+  return (
+    <main className="flex flex-1 flex-col items-center justify-center">
+      <TerminalOfflineMessage {...props} />
     </main>
   );
 }

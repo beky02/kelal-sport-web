@@ -43,12 +43,11 @@ function ColumnCaption({
  */
 export function MarketColumnHeaders({
   competition,
-  pinned,
-  onTogglePin,
+  pin,
 }: {
   competition: Competition;
-  pinned: boolean;
-  onTogglePin: () => void;
+  /** The competition's favourite star, where there are favourites. */
+  pin?: { pinned: boolean; toggle: () => void };
 }) {
   const t = useTranslation();
 
@@ -57,13 +56,15 @@ export function MarketColumnHeaders({
       className={`${BOARD_GRID} bg-raised text-muted min-h-11 items-center text-[11px] font-bold`}
     >
       <span className="flex min-w-0 items-center gap-1.5 py-1.5 pr-2 pl-0.5 text-xs md:py-0">
-        <StarButton
-          pinned={pinned}
-          label={t.t("sidebar.pinLeague")}
-          onClick={onTogglePin}
-          size={22}
-          iconSize={14}
-        />
+        {pin && (
+          <StarButton
+            pinned={pin.pinned}
+            label={t.t("sidebar.pinLeague")}
+            onClick={pin.toggle}
+            size={22}
+            iconSize={14}
+          />
+        )}
         <Flag src={competition.region.flag} width={18} height={12} />
         <span className="text-text truncate">
           {/* A continental cup already says where it is played — the globe

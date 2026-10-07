@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { CSRF_HEADER, CSRF_VALUE } from "@/lib/session-cookie";
-import { useUiStore } from "@/stores/ui.store";
+import type { Lang } from "@/types/common";
 import { ApiError, ContractError, problemError } from "./errors";
 
 type Params = Record<string, string | number | boolean | undefined>;
@@ -9,13 +9,57 @@ type Params = Record<string, string | number | boolean | undefined>;
  * The browser only ever talks to this app's own route handlers under `/api`
  * (D3). They call the sportsbook API from the server, with the tenant header
  * and the session cookie the browser never sees.
+ *
+ * On the shop kiosk its catalogue and booking detail reads go through their
+ * terminal-only mirrors, selected by `<html data-api>`.
  */
 const BASE_PATH = "/api/";
 
-function buildUrl(path: string, params?: Params): string {
+/** The one other base a page may name: the terminal's mirror of the catalogue. */
+const TERMINAL_BASE_PATH = "/api/terminal/";
+
+/**
+ * Where `path` goes: the terminal mirrors only catalogue and booking detail
+ * reads, so only `catalogue/` and `bookings/` paths are re-rooted, and only when `<html data-api>`
+ * is exactly the terminal's — anything else a page could say is ignored, so
+ * no markup can send a call to another origin (reviews SEC2, Q8). A player
+ * call on a terminal host then fails as a plain 404.
+ */
+function basePath(
+  method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE",
+  path: string,
+): string {
+  const mirroredRead =
+    method === "GET" &&
+    (path.startsWith("catalogue/") || path.startsWith("bookings/"));
+  if (typeof document === "undefined" || !mirroredRead) {
+    return BASE_PATH;
+  }
+  return document.documentElement.getAttribute("data-api") ===
+    TERMINAL_BASE_PATH
+    ? TERMINAL_BASE_PATH
+    : BASE_PATH;
+}
+
+/**
+ * The language the page is in, as `<html lang>` says — which each site keeps
+ * in step with what is on screen (the player's preference, the kiosk's
+ * choice) — so the API's own words come back in the script shown.
+ */
+const pageLanguage = (): Lang =>
+  typeof document !== "undefined" && document.documentElement.lang === "am"
+    ? "am"
+    : "en";
+
+function buildUrl(
+  method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE",
+  path: string,
+  params?: Params,
+): string {
   const origin =
     typeof window === "undefined" ? "http://localhost" : window.location.origin;
-  const url = new URL(`${BASE_PATH}${path.replace(/^\//, "")}`, origin);
+  const relative = path.replace(/^\//, "");
+  const url = new URL(`${basePath(method, relative)}${relative}`, origin);
   for (const [key, value] of Object.entries(params ?? {})) {
     if (value !== undefined) url.searchParams.set(key, String(value));
   }
@@ -42,7 +86,7 @@ async function request<T>(
 ): Promise<T> {
   let response: Response;
   try {
-    response = await fetch(buildUrl(path, options.params), {
+    response = await fetch(buildUrl(method, path, options.params), {
       method,
       signal: options.signal,
       // Same origin, so the session's HttpOnly cookie goes along by default.
@@ -52,7 +96,7 @@ async function request<T>(
       // the API's titles come back in the right script.
       headers: {
         Accept: "application/json",
-        "Accept-Language": useUiStore.getState().lang,
+        "Accept-Language": pageLanguage(),
         ...(options.body !== undefined
           ? { "Content-Type": "application/json" }
           : {}),

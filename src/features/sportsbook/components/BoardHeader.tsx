@@ -4,7 +4,8 @@ import { ListFilter } from "lucide-react";
 import { useTranslation } from "@/lib/i18n/use-translation";
 import { LiveDot } from "@/components/ui/LiveTag";
 import { Segmented } from "@/components/ui/Segmented";
-import { useUiStore } from "@/stores/ui.store";
+import { useLocale } from "@/lib/i18n/locale";
+import { useSportsbookChrome } from "../chrome";
 import type { BoardFilter } from "../hooks/use-board-filters";
 
 /**
@@ -25,8 +26,9 @@ export function BoardHeader({
   onFilterChange: (filter: BoardFilter) => void;
 }) {
   const t = useTranslation();
-  const clock = useUiStore((s) => s.clock);
-  const openLeagues = useUiStore((s) => s.setSidebarOpen);
+  const { clock } = useLocale();
+  const { useOpenLeagues } = useSportsbookChrome();
+  const openLeagues = useOpenLeagues();
 
   return (
     <div className="flex flex-wrap items-center justify-between gap-3 px-0.5 pt-0.5">
@@ -52,15 +54,18 @@ export function BoardHeader({
       />
 
       {/* A phone has no sidebar and no menu button, so the league list is
-          offered here, beside the filters it refines. */}
-      <button
-        type="button"
-        onClick={() => openLeagues(true)}
-        className="text-text font-body ms-auto flex h-10 cursor-pointer items-center gap-1.5 bg-transparent px-1 text-[13px] font-bold md:hidden"
-      >
-        <ListFilter size={15} strokeWidth={1.5} aria-hidden />
-        {t.t("board.leagues")}
-      </button>
+          offered here, beside the filters it refines — where the site has a
+          drawer for it. */}
+      {openLeagues && (
+        <button
+          type="button"
+          onClick={openLeagues}
+          className="text-text font-body ms-auto flex h-10 cursor-pointer items-center gap-1.5 bg-transparent px-1 text-[13px] font-bold md:hidden"
+        >
+          <ListFilter size={15} strokeWidth={1.5} aria-hidden />
+          {t.t("board.leagues")}
+        </button>
+      )}
     </div>
   );
 }

@@ -1,15 +1,22 @@
 import { z } from "zod";
 import { ApiError, ContractError, problemError } from "@/lib/api/errors";
 import { CSRF_HEADER, CSRF_VALUE } from "@/lib/session-cookie";
-import { CLOCK_SKEW, DEVICE_TIMESTAMP, type TerminalCall } from "../lib/calls";
+import {
+  CLOCK_SKEW,
+  DEVICE_TIMESTAMP,
+  type TerminalCall,
+  type TerminalRead,
+} from "../lib/calls";
 import { signRequest } from "../lib/signing";
+import type { Lang } from "@/types/common";
 
 /**
- * The terminal's language for the API's own words (Problem titles), until F8c
- * gives the kiosk a choice: Amharic, the `demo` tenant's default (FD2). The
- * screens themselves show both languages.
+ * The language the terminal's own calls (activation, status, rotation) ask
+ * in: English, the terminal's first language (F8ca rework 2). Their answers
+ * are states, shown in both languages; the kiosk's reads ask in the kiosk's
+ * language (`terminalRead`).
  */
-const TERMINAL_LANG = "am";
+const TERMINAL_LANG: Lang = "en";
 
 /**
  * How far this PC's clock is from the server's, learnt from a `CLOCK_SKEW`
@@ -75,22 +82,12 @@ export async function terminalRequest<T>(
         : {}),
     };
 
-    let response: Response;
-    try {
-      response = await fetch(call.route, {
-        method: call.method,
-        headers,
-        body: text,
-        signal,
-      });
-    } catch (cause) {
-      throw new ApiError(
-        cause instanceof Error ? cause.message : "Network request failed",
-        0,
-        "network",
-        cause,
-      );
-    }
+    const response = await send(call.route, {
+      method: call.method,
+      headers,
+      body: text,
+      signal,
+    });
 
     if (!response.ok) {
       const error = await problemError(
@@ -105,10 +102,59 @@ export async function terminalRequest<T>(
       throw error;
     }
 
-    const parsed = schema.safeParse(await response.json());
-    if (!parsed.success) {
-      throw new ContractError(call.route, z.prettifyError(parsed.error));
-    }
-    return parsed.data;
+    return parse(response, call.route, schema);
   }
+}
+
+/** `fetch`, with a failure to reach the route as an `ApiError` (status 0). */
+async function send(route: string, init: RequestInit): Promise<Response> {
+  try {
+    return await fetch(route, init);
+  } catch (cause) {
+    throw new ApiError(
+      cause instanceof Error ? cause.message : "Network request failed",
+      0,
+      "network",
+      cause,
+    );
+  }
+}
+
+/** A route's answer, checked against its schema before it reaches a hook. */
+async function parse<T>(
+  response: Response,
+  route: string,
+  schema: z.ZodType<T>,
+): Promise<T> {
+  const parsed = schema.safeParse(await response.json());
+  if (!parsed.success) {
+    throw new ContractError(route, z.prettifyError(parsed.error));
+  }
+  return parsed.data;
+}
+
+/**
+ * One of the kiosk's reads (F8ca): an unsigned GET of this app's route, with
+ * its query, asking in `lang` — the kiosk's language, for the API's own words
+ * (Problem titles); the names come back in both. Problems become `ApiError`s
+ * and every answer is checked against `schema`, as for the signed calls.
+ */
+export async function terminalRead<T>(
+  route: TerminalRead,
+  schema: z.ZodType<T>,
+  {
+    lang,
+    params,
+    signal,
+  }: { lang: Lang; params?: Record<string, string>; signal?: AbortSignal },
+): Promise<T> {
+  const query = new URLSearchParams(params).toString();
+  const url = query ? `${route}?${query}` : route;
+  const response = await send(url, {
+    method: "GET",
+    headers: { Accept: "application/json", "Accept-Language": lang },
+    signal,
+  });
+  if (!response.ok) throw await problemError(response, `GET ${route}`);
+  return parse(response, route, schema);
 }

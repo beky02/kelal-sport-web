@@ -630,3 +630,16 @@ with ከጥቂት ደቂቃዎች በኋላ.
 | `terminal.ready.title`, `body`                                              | ይህ ተርሚናል ዝግጁ ነው / ውርርድ በዚህ ስክሪን ላይ ይከፈታል።                                                                                         | New; ስክሪን from the placeholder                                                                                    |
 | `terminal.closed.title`, `body`                                             | ይህ ሱቅ ዝግ ነው / በዚህ ተርሚናል ላይ ውርርድ የሚከፈተው ሱቁ ሲከፈት ነው።                                                                                | ሱቅ from the placeholder; ዝግ (closed) new                                                                          |
 | `terminal.blocked.revokedTitle`, `revokedBody`, `deviceTitle`, `deviceBody` | ይህ ተርሚናል ተዘግቷል / ከሱቁ ተርሚናሎች ተወግዷል። የሱቁን ሠራተኞች ይጠይቁ። / ይህ ኮምፒውተር ተርሚናሉን ማስኬድ አይችልም / የሱቁ ቅንብሮች ይህን ኮምፒውተር አይፈቅዱም። የሱቁን ሠራተኞች ይጠይቁ። | ተዘግቷል as `booking.reason.MARKET_CLOSED`; ቅንብሮች (settings) as in መገለጫና ቅንብሮች; ሠራተኞች (staff), ኮምፒውተር new            |
+
+## Shop kiosk (F8ca, 2026-10-06)
+
+The kiosk is the player's sportsbook (its home, league and match pages, sidebar, search and slip), so it
+shows the player's strings, already reviewed with them, in one language at a time with the player's
+`EN | አማ` switch. Its own strings are those of the bilingual "unavailable" screen. All are composed, and all
+need review. The kiosk's first version had strings of its own for its views; they went with the views when
+the user chose the player's pages (2026-10-06): `terminal.kiosk.matches`, `days`, `emptyBody`,
+`backToToday`, `backToMatches`, `sportsFailed`, and `LANG_NAME`. So did `terminal.ready.*`.
+
+| Key                                        | Amharic                                    | Composed from                                                                             |
+| ------------------------------------------ | ------------------------------------------ | ----------------------------------------------------------------------------------------- |
+| `terminal.kiosk.unavailable.title`, `body` | በዚህ ተርሚናል ላይ ውርርድ አይገኝም / የሱቁን ሠራተኞች ይጠይቁ። | በዚህ ተርሚናል ላይ ውርርድ from `terminal.closed.body`; the body as `terminal.blocked.revokedBody` |

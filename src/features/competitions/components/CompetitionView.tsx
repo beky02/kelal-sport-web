@@ -1,15 +1,16 @@
 "use client";
 
 import { useTranslation } from "@/lib/i18n/use-translation";
-import { SportsbookShell } from "@/components/layout/SportsbookShell";
 import { Board } from "@/features/sportsbook/components/Board";
 import { BoardHeader } from "@/features/sportsbook/components/BoardHeader";
 import { useBoardFilters } from "@/features/sportsbook/hooks/use-board-filters";
 import { useSportsbookBoard } from "@/features/sportsbook/hooks/use-sportsbook-board";
+import { useSportsbookChrome } from "@/features/sportsbook/chrome";
 
 /** One competition's fixtures, on their own page. */
 export function CompetitionView({ competitionId }: { competitionId: string }) {
   const t = useTranslation();
+  const { Shell: SportsbookShell } = useSportsbookChrome();
   const { filters, set } = useBoardFilters();
   const { data } = useSportsbookBoard(false, competitionId);
 

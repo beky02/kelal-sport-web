@@ -1,4 +1,9 @@
-import { QueryCache, QueryClient } from "@tanstack/react-query";
+import {
+  hashKey,
+  QueryCache,
+  QueryClient,
+  type QueryKey,
+} from "@tanstack/react-query";
 import { ApiError } from "@/lib/api/errors";
 import { sessionKeys } from "@/lib/query/keys";
 
@@ -7,19 +12,26 @@ import { sessionKeys } from "@/lib/query/keys";
  * so every `staleTime` in this app is set deliberately at the call site from
  * STALE_TIME. Live odds are never refreshed by staleness — they arrive on the
  * realtime channel.
+ *
+ * `whoAmI` is the query that says who is calling — the player's `/api/me`, or
+ * on the shop kiosk its terminal status (F8ca) — read again when any other
+ * call is refused with a 401.
  */
-export function createQueryClient(): QueryClient {
+export function createQueryClient({
+  whoAmI = sessionKeys.me(),
+}: { whoAmI?: QueryKey } = {}): QueryClient {
   const client: QueryClient = new QueryClient({
     queryCache: new QueryCache({
       onError: (error, query) => {
-        // A player's call the API no longer honours: ask /api/me again, so
-        // every screen returns to the guest state together (AC-8).
+        // A call the API no longer honours: ask who is calling again, so
+        // every screen follows together — a player back to the guest state
+        // (AC-8), a terminal to what its status now says.
         if (
           error instanceof ApiError &&
           error.status === 401 &&
-          query.queryKey[0] !== sessionKeys.all[0]
+          query.queryHash !== hashKey(whoAmI)
         ) {
-          void client.invalidateQueries({ queryKey: sessionKeys.me() });
+          void client.invalidateQueries({ queryKey: whoAmI });
         }
       },
     }),

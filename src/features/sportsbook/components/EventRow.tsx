@@ -4,15 +4,14 @@ import { memo, useMemo } from "react";
 import Link from "next/link";
 import { useTranslation } from "@/lib/i18n/use-translation";
 import { StarButton } from "@/components/ui/StarButton";
-import { routes } from "@/config/routes";
 import { cn } from "@/lib/utils/cn";
 import { OddsButton } from "@/features/odds/components/OddsButton";
 import { OddsGroup } from "@/features/odds/components/OddsGroup";
 import { NoPrices } from "@/features/odds/components/NoPrices";
 import { useEventHasSelection } from "@/features/bet-slip/stores/bet-slip.store";
-import { useUiStore } from "@/stores/ui.store";
 import type { Competition } from "@/features/competitions/types";
 import type { BoardEvent } from "@/features/events/types";
+import { useSportsbookChrome } from "../chrome";
 import { BOARD_GRID, HIDE_BELOW_XL } from "../lib/grid";
 import { EventMeta } from "./EventMeta";
 import { SuspendedBanner } from "./SuspendedBanner";
@@ -37,8 +36,7 @@ function EventRowImpl({
   const { matchResult, doubleChance, totalGoals } = markets;
   const t = useTranslation();
 
-  const pinned = useUiStore((s) => s.favouriteEvents[event.id] === true);
-  const togglePin = useUiStore((s) => s.toggleFavouriteEvent);
+  const { favourites, links } = useSportsbookChrome();
   // Tints the whole row while anything from this match is in the slip.
   const inSlip = useEventHasSelection(event.id);
 
@@ -60,13 +58,10 @@ function EventRowImpl({
       )}
     >
       <div className="flex min-w-0 items-center gap-1.5 py-1.5 pr-2 pl-1">
-        <StarButton
-          pinned={pinned}
-          label={t.t("sidebar.addFavourite")}
-          onClick={() => togglePin(event.id)}
-        />
+        {/* Only where there are favourites (not on a shop kiosk). */}
+        {favourites && <FavouriteStar eventId={event.id} />}
         <Link
-          href={routes.event(event.id)}
+          href={links.event(event.id)}
           className="text-text flex min-w-0 flex-1 flex-col gap-[3px] no-underline"
         >
           <TeamLine
@@ -149,6 +144,24 @@ function EventRowImpl({
 
       <MoreMarketsLink eventId={event.id} marketCount={event.marketCount} />
     </div>
+  );
+}
+
+/**
+ * A match's star: pinned or not, from the site's favourites. Rendered only
+ * where the site has them (its chrome's `favourites` is fixed per site).
+ */
+function FavouriteStar({ eventId }: { eventId: string }) {
+  const t = useTranslation();
+  const { favourites } = useSportsbookChrome();
+  const { useEvent: usePinnedEvent } = favourites!;
+  const [pinned, toggle] = usePinnedEvent(eventId);
+  return (
+    <StarButton
+      pinned={pinned}
+      label={t.t("sidebar.addFavourite")}
+      onClick={toggle}
+    />
   );
 }
 

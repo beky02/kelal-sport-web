@@ -5,10 +5,8 @@ import { useTranslation } from "@/lib/i18n/use-translation";
 import { StateMessage } from "@/components/feedback/StateMessage";
 import { Card } from "@/components/ui/Card";
 import { Skeleton } from "@/components/ui/Skeleton";
-import { SportsbookShell } from "@/components/layout/SportsbookShell";
 import { MarketList } from "@/features/markets/components/MarketList";
-import { useUiStore } from "@/stores/ui.store";
-import { useRealtimeTopics } from "@/lib/websocket/RealtimeProvider";
+import { useSportsbookChrome } from "@/features/sportsbook/chrome";
 import { topics } from "@/lib/websocket/messages";
 import { useEvent } from "../hooks/use-board";
 import { EventHeader } from "./EventHeader";
@@ -16,7 +14,12 @@ import { EventHeader } from "./EventHeader";
 /** A fixture and its full book. */
 export function EventDetailView({ eventId }: { eventId: string }) {
   const t = useTranslation();
-  const dataSaver = useUiStore((s) => s.dataSaver);
+  const {
+    Shell: SportsbookShell,
+    useRealtimeTopics,
+    useDataSaver,
+  } = useSportsbookChrome();
+  const dataSaver = useDataSaver();
   const { data, isPending } = useEvent(eventId, dataSaver);
 
   // Subscribe while this fixture is open; the release drops it on leaving.

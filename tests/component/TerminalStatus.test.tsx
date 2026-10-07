@@ -13,6 +13,7 @@ import {
   asked,
   json,
   keys,
+  kioskHeadingNow,
   problem,
   renderTerminal,
   routes,
@@ -20,6 +21,9 @@ import {
   signedFor,
   terminalQueryClient,
 } from "./terminal";
+
+// An active terminal is the kiosk, whose board filters live in the URL (F8ca).
+vi.mock("next/navigation", () => import("./navigation"));
 
 setUpTerminalTests();
 
@@ -42,11 +46,8 @@ async function tick(ms: number) {
 const renderStrict = (options: TerminalRenderOptions = {}) =>
   renderTerminal({ ...options, strict: true });
 
-const readyHeading = () =>
-  screen.getByRole("heading", {
-    level: 1,
-    name: new RegExp(en.terminal.ready.title),
-  });
+/** The kiosk an active terminal of an open shop shows (F8ca): its board's heading. */
+const readyHeading = kioskHeadingNow;
 
 const offlineHeading = () =>
   screen.queryByRole("heading", {
@@ -83,7 +84,7 @@ describe("the terminal's status (AC-5)", () => {
 
     await tick(0);
     expect(readyHeading()).toBeInTheDocument();
-    expect(screen.getByText("Adama Kebele 04")).toBeInTheDocument();
+    expect(screen.queryByText("Adama Kebele 04")).toBeNull();
     expect(reads().map((r) => r.at)).toEqual([0]);
 
     await tick(5 * MINUTE - 1);
@@ -218,6 +219,17 @@ describe("the terminal's status (AC-5)", () => {
         name: new RegExp(en.terminal.closed.title),
       }),
     ).toBeInTheDocument();
+    // The terminal's bar names no shop and no PC (F8ca rework 2).
+    for (const identifier of [
+      TERMINAL.shop.name,
+      TERMINAL.label,
+      TERMINAL.id,
+      TERMINAL.shop.code,
+    ]) {
+      if (identifier) {
+        expect(screen.queryAllByText(identifier, { exact: false })).toEqual([]);
+      }
+    }
     await tick(5 * MINUTE);
     expect(readyHeading()).toBeInTheDocument();
   });

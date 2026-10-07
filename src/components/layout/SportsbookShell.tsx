@@ -16,6 +16,7 @@ import { AsidePanel } from "./AsidePanel";
 import { AppHeader } from "./AppHeader";
 import { MobileTabBar } from "./MobileTabBar";
 import { Sidebar } from "./Sidebar";
+import { SHELL_GRID } from "./shell-grid";
 import { SidebarDrawer } from "./SidebarDrawer";
 
 /**
@@ -53,18 +54,8 @@ export function SportsbookShell({
       <OfflineBanner />
       {phoneSubheader && <div className="md:hidden">{phoneSubheader}</div>}
 
-      <div
-        className={[
-          "grid flex-1 items-start gap-3 p-3",
-          // Bounded ranges, not a cascade. Tailwind emits a custom breakpoint
-          // before the built-in ones, so overlapping `lg:` / `xl:` / `wide:`
-          // rules would be decided by source order rather than by width. Making
-          // each band exclusive takes ordering out of it.
-          "lg:max-xl:grid-cols-[228px_minmax(0,1fr)]",
-          "xl:max-wide:grid-cols-[228px_minmax(0,1fr)_312px]",
-          "wide:grid-cols-[248px_minmax(0,1fr)_340px]",
-        ].join(" ")}
-      >
+      {/* Bounded bands, shared with the shop kiosk's frame (`shell-grid.ts`). */}
+      <div className={SHELL_GRID}>
         <aside className="hidden lg:block">
           <Sidebar live={live} />
         </aside>

@@ -31,6 +31,19 @@ export const TERMINAL_CALLS = {
 } as const;
 
 export type TerminalCall = (typeof TERMINAL_CALLS)[keyof typeof TERMINAL_CALLS];
+
+/**
+ * The kiosk's own reads (F8ca): unsigned GETs of this app's routes, read
+ * anonymously as the contract allows (F8ca decision 2), so there is no API
+ * call to sign; the routes still insist on an activated terminal's cookie.
+ * The catalogue's — `/api/terminal/catalogue/*` — are made by the player's
+ * fetchers (`<html data-api>`).
+ */
+export const TERMINAL_READS = {
+  config: "/api/terminal/config",
+} as const;
+
+export type TerminalRead = (typeof TERMINAL_READS)[keyof typeof TERMINAL_READS];
 export type SignedCall = Extract<TerminalCall, { signed: true }>;
 
 /** How often a terminal reads its status (`getTerminalSelf`: "on boot and every 5 minutes"). */

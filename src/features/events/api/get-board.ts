@@ -1,6 +1,9 @@
 import { z } from "zod";
 import { apiClient } from "@/lib/api/client";
-import { boardSectionSchema, eventDetailSchema } from "@/lib/api/schemas";
+import {
+  boardSectionSchema,
+  eventDetailSchema,
+} from "@/lib/api/catalogue-schemas";
 import type {
   BoardSection,
   EventDetail,

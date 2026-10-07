@@ -4,13 +4,12 @@ import { useCallback } from "react";
 import { formatShortDate, toEat } from "@/lib/i18n/dates";
 import { formatKickoff } from "@/lib/i18n/format";
 import { useTranslation } from "@/lib/i18n/use-translation";
-import { useUiStore } from "@/stores/ui.store";
+import { useLocale } from "@/lib/i18n/locale";
 
-/** A time as a board row shows a kickoff: `04/10 · 17:00`, East Africa Time, in the player's calendar and clock (D7). */
+/** A time as a board row shows a kickoff: `04/10 · 17:00`, East Africa Time, in the locale's calendar and clock (D7). */
 export function useDateTimeText(): (iso: string) => string {
   const t = useTranslation();
-  const clock = useUiStore((s) => s.clock);
-  const calendar = useUiStore((s) => s.calendar);
+  const { clock, calendar } = useLocale();
   return useCallback(
     (iso: string) => {
       const { date, time } = toEat(iso);

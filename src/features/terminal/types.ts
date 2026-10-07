@@ -1,3 +1,5 @@
+import type { Lang } from "@/types/common";
+
 /**
  * The shop terminal (C19 §4.1, F8b): a kiosk PC activated once with a one-time
  * code, holding a device key and a terminal token, with no player and no money.
@@ -54,4 +56,20 @@ export interface TerminalActivation {
 /** `POST /api/terminal/token`'s answer: the token was replaced. */
 export interface TokenRotation {
   rotated: true;
+}
+
+/**
+ * What the kiosk needs from the tenant's public config (F8ca):
+ * `/api/terminal/config`. It carries nothing of the online rule set, so the
+ * kiosk can't price a slip with it by mistake (D1.12: retail has its own).
+ */
+export interface TerminalConfigView {
+  /** `features.retail` (C19 §11): off only when the tenant says `false`. */
+  retail: boolean;
+  /** `features.booking_codes`: whether the slip can load a shared code. */
+  bookingCodes: boolean;
+  /** The tenant's languages, in its order; the kiosk switches among them. */
+  languages: Lang[];
+  /** The tenant's default (FD2: Amharic for `demo`); the kiosk opens in it only without English. */
+  defaultLanguage: Lang;
 }

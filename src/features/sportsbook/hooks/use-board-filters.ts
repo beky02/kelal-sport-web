@@ -2,7 +2,7 @@
 
 import { useCallback, useMemo } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { todayEat } from "@/lib/i18n/dates";
+import { useTodayEat } from "@/lib/i18n/use-today-eat";
 
 export type BoardFilter = "top" | "upcoming" | "today";
 
@@ -13,11 +13,14 @@ export interface BoardFilters {
 }
 
 const FILTERS: readonly BoardFilter[] = ["top", "upcoming", "today"];
-/** Today is the default day, so it is worked out per call, not once at load. */
-const defaults = (): BoardFilters => ({
+/**
+ * Today is the default day: it moves at midnight EAT (`useTodayEat`), so a
+ * board left open across it shows the new day (F8ca review Q2).
+ */
+const defaults = (today: string): BoardFilters => ({
   sport: "football",
   filter: "top",
-  date: todayEat(),
+  date: today,
 });
 
 /**
@@ -31,10 +34,11 @@ export function useBoardFilters() {
   const router = useRouter();
   const pathname = usePathname();
   const params = useSearchParams();
+  const today = useTodayEat();
 
   const filters = useMemo<BoardFilters>(() => {
     const filter = params.get("filter");
-    const fallback = defaults();
+    const fallback = defaults(today);
     return {
       sport: params.get("sport") ?? fallback.sport,
       filter: FILTERS.includes(filter as BoardFilter)
@@ -42,12 +46,12 @@ export function useBoardFilters() {
         : fallback.filter,
       date: params.get("date") ?? fallback.date,
     };
-  }, [params]);
+  }, [params, today]);
 
   const set = useCallback(
     (patch: Partial<BoardFilters>) => {
       const next = new URLSearchParams(params.toString());
-      const fallback = defaults();
+      const fallback = defaults(today);
       for (const [key, value] of Object.entries(patch)) {
         // Keep the default out of the URL so the canonical view has a clean one.
         if (value === fallback[key as keyof BoardFilters]) next.delete(key);
@@ -58,7 +62,7 @@ export function useBoardFilters() {
         scroll: false,
       });
     },
-    [params, pathname, router],
+    [params, pathname, router, today],
   );
 
   /** Back to the default view — the escape hatch from an empty board. */

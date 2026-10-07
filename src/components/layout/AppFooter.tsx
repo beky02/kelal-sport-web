@@ -25,7 +25,45 @@ export function AppFooter() {
   const t = useTranslation();
 
   return (
+    <FooterBar>
+      <FooterNotices />
+
+      <span className="flex-1" />
+
+      <nav aria-label="Footer" className="flex flex-wrap gap-x-[18px] gap-y-2">
+        {LINKS.map((link) => (
+          <Link
+            key={link.href}
+            href={link.href}
+            className="text-muted hover:text-text font-semibold no-underline"
+          >
+            {t.t(link.label)}
+          </Link>
+        ))}
+      </nav>
+    </FooterBar>
+  );
+}
+
+/** The footer's frame: the player's, and the shop kiosk's (F8ca). */
+export function FooterBar({ children }: { children: React.ReactNode }) {
+  return (
     <footer className="bg-surface border-divider text-muted flex flex-wrap items-center gap-x-5 gap-y-3 border-t px-5 py-3.5 text-xs">
+      {children}
+    </footer>
+  );
+}
+
+/**
+ * The licence, the age limit and the helpline, on every page of both sites
+ * (SRS RG-05). The kiosk shows them without the links, whose pages a terminal
+ * host doesn't serve.
+ */
+export function FooterNotices() {
+  const t = useTranslation();
+
+  return (
+    <>
       <div className="flex items-center gap-2.5">
         <div className="bg-raised text-text flex h-9 w-[50px] shrink-0 flex-col items-center justify-center rounded-lg">
           <span className="font-display text-sm leading-none">ELS</span>
@@ -44,20 +82,6 @@ export function AppFooter() {
       </span>
 
       <span>{t.t("footer.helpline")}</span>
-
-      <span className="flex-1" />
-
-      <nav aria-label="Footer" className="flex flex-wrap gap-x-[18px] gap-y-2">
-        {LINKS.map((link) => (
-          <Link
-            key={link.href}
-            href={link.href}
-            className="text-muted hover:text-text font-semibold no-underline"
-          >
-            {t.t(link.label)}
-          </Link>
-        ))}
-      </nav>
-    </footer>
+    </>
   );
 }

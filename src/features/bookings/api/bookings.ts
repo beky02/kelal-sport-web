@@ -1,5 +1,5 @@
 import { apiClient } from "@/lib/api/client";
-import { bookingReceiptSchema, bookingSchema } from "@/lib/api/schemas";
+import { bookingReceiptSchema, bookingSchema } from "@/lib/api/booking-schemas";
 import type { Booking, BookingReceipt, BookingRequest } from "../types";
 
 /** A booking by its canonical code (see `normaliseBookingCode`). */

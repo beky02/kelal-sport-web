@@ -4,7 +4,7 @@ import { useCallback } from "react";
 import { formatDayMonth, formatWeekday, toEat } from "@/lib/i18n/dates";
 import { formatKickoff } from "@/lib/i18n/format";
 import { useTranslation } from "@/lib/i18n/use-translation";
-import { useUiStore } from "@/stores/ui.store";
+import { useLocale } from "@/lib/i18n/locale";
 
 /**
  * A booking's expiry as a player reads it: "Valid until Sun 4 Oct, 16:00" —
@@ -12,8 +12,7 @@ import { useUiStore } from "@/stores/ui.store";
  */
 export function useValidUntil(): (expiresAt: string) => string {
   const t = useTranslation();
-  const clock = useUiStore((s) => s.clock);
-  const calendar = useUiStore((s) => s.calendar);
+  const { clock, calendar } = useLocale();
 
   return useCallback(
     (expiresAt: string) => {

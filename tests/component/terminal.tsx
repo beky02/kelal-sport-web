@@ -1,7 +1,9 @@
 import { StrictMode } from "react";
 import { afterEach, beforeEach, vi } from "vitest";
-import { render } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import { type QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { useBetSlipStore } from "@/features/bet-slip/stores/bet-slip.store";
+import type { Booking } from "@/features/bookings/types";
 import { resetTerminalClock } from "@/features/terminal/api/client";
 import { TerminalApp } from "@/features/terminal/components/TerminalApp";
 import { deviceKeyStore } from "@/features/terminal/lib/device-key";
@@ -9,20 +11,38 @@ import {
   EMPTY_BODY_SHA256,
   canonicalRequest,
 } from "@/features/terminal/lib/signing";
+import { useKioskStore } from "@/features/terminal/stores/kiosk.store";
 import type { TerminalStatus } from "@/features/terminal/types";
+import {
+  lookup,
+  toBoard,
+  toCountries,
+  toEventDetail,
+  toSearchResults,
+  toSports,
+  toTopCompetitions,
+} from "@/lib/api/mappers/catalogue";
+import { toTerminalConfigView } from "@/lib/api/mappers/config";
 import {
   toTerminalActivation,
   toTerminalInfo,
 } from "@/lib/api/mappers/terminal";
 import type { components } from "@/lib/api/schema";
-import { createQueryClient } from "@/lib/query/client";
+import { createTerminalQueryClient } from "@/app/(terminal)/providers";
+import { SportsbookView } from "@/features/sportsbook/components/SportsbookView";
 import { example, responseExample } from "../contract";
+import { address } from "./navigation";
 
 /**
  * The shop terminal's test harness (F8b), as `render.tsx` is the player's: an
  * in-memory device key store, a stub of the terminal's `/api/terminal/*`
  * routes that records every call, and `renderTerminal`, which renders the
  * terminal in the query client its own providers build.
+ *
+ * Since the kiosk (F8ca) keeps its board filters in the URL, a terminal test
+ * file mocks `next/navigation` with the in-memory one:
+ *
+ *   vi.mock("next/navigation", () => import("./navigation"));
  */
 
 /** The terminal the contract's `/v1/retail/terminal` example describes. */
@@ -34,6 +54,102 @@ export const active = (rotateDue = false): TerminalStatus => ({
   terminal: TERMINAL,
   rotateDue,
 });
+
+/** The kiosk's config as `/api/terminal/config` answers it: the contract's, mapped. */
+export const KIOSK_CONFIG = toTerminalConfigView(example("/v1/config/public"));
+
+const DICTIONARY = lookup({
+  en: example("/v1/dictionary"),
+  am: example("/v1/dictionary"),
+});
+
+/** The sport tabs, from the contract's `/v1/sports` (Prism answers the same in both languages). */
+export const SPORTS = toSports(DICTIONARY, example("/v1/sports").items);
+
+/** The morning of 4 October, when the contract's three matches are still to play. */
+const MORNING = new Date("2026-10-04T08:00:00Z");
+
+/** The board, from the contract's three matches on 4 October, read that morning. */
+export const BOARD = toBoard(
+  { en: example("/v1/events").items, am: example("/v1/events").items },
+  DICTIONARY,
+  MORNING,
+  false,
+);
+
+/** The sidebar's lists, from the contract's `/v1/sports` counts. */
+export const TOP_COMPETITIONS = toTopCompetitions(
+  DICTIONARY,
+  example("/v1/sports").items,
+);
+export const COUNTRIES = toCountries(DICTIONARY, example("/v1/sports").items);
+
+/** The contract's match with its whole book (`/v1/events/{id}`). */
+export const EVENT = toEventDetail(
+  { en: example("/v1/events/{id}"), am: example("/v1/events/{id}") },
+  DICTIONARY,
+  MORNING,
+  false,
+);
+
+/** What a search finds, from the contract's `/v1/search`. */
+export const SEARCH = toSearchResults(
+  { en: example("/v1/search"), am: example("/v1/search") },
+  DICTIONARY,
+  example("/v1/sports").items,
+  MORNING,
+  false,
+);
+
+/** A loaded, current booking with one started leg the slip must explain. */
+export const BOOKING: Booking = {
+  code: "7KQ2M9X",
+  betType: "multiple",
+  systemSizes: [],
+  stakeHint: "50.00",
+  expiresAt: "2026-10-07T13:00:00Z",
+  legs: [
+    {
+      outcomeId: "oc_ac_1",
+      eventId: "fx_ac_1",
+      eventName: { en: "Arsenal v Chelsea", am: "አርሰናል ከ ቼልሲ" },
+      marketId: "mk_ac_1x2",
+      marketName: { en: "1X2", am: "1X2" },
+      outcomeName: { en: "Arsenal", am: "አርሰናል" },
+      startTime: "2026-10-07T14:00:00Z",
+      odds: "2.10",
+      oddsAtCode: "2.05",
+      unavailable: null,
+    },
+    {
+      outcomeId: "oc_sg_1",
+      eventId: "fx_sg_1",
+      eventName: {
+        en: "Saint George v Fasil Kenema",
+        am: "ቅዱስ ጊዮርጊስ ከ ፋሲል ከነማ",
+      },
+      marketId: "mk_sg_1x2",
+      marketName: { en: "1X2", am: "1X2" },
+      outcomeName: { en: "Saint George", am: "ቅዱስ ጊዮርጊስ" },
+      startTime: "2026-10-07T12:00:00Z",
+      odds: null,
+      oddsAtCode: "1.80",
+      unavailable: "EVENT_STARTED",
+    },
+  ],
+};
+
+/** The kiosk's board heading once it is up: the player's, named after its first sport. */
+const KIOSK_HEADING = {
+  level: 2,
+  name: new RegExp(`^${SPORTS[0].name.en}`),
+} as const;
+
+/** The kiosk, up: waits for its board's heading. */
+export const kioskHeading = () => screen.findByRole("heading", KIOSK_HEADING);
+
+/** The kiosk's board heading, now (for fake-timer tests that tick first). */
+export const kioskHeadingNow = () => screen.getByRole("heading", KIOSK_HEADING);
 
 /** The contract's answer to an activation. */
 export const ACTIVATION = toTerminalActivation(
@@ -79,13 +195,24 @@ export function setUpTerminalTests() {
     keys.broken = false;
     asked.length = 0;
     resetTerminalClock();
+    // A kiosk starts clean: no picks, no language chosen, at its start page,
+    // and its catalogue sent to its own routes, as its root layout says
+    // (`<html data-api>`).
+    useBetSlipStore.getState().clear();
+    useKioskStore.getState().reset();
+    address.go("/");
+    document.documentElement.dataset.api = "/api/terminal/";
+    document.documentElement.lang = "en";
     vi.spyOn(deviceKeyStore, "load").mockImplementation(async () => keys.pair);
     vi.spyOn(deviceKeyStore, "save").mockImplementation(async (pair) => {
       if (keys.broken) throw new DOMException("Blocked", "UnknownError");
       keys.pair = pair;
     });
   });
-  afterEach(() => vi.restoreAllMocks());
+  afterEach(() => {
+    vi.restoreAllMocks();
+    delete document.documentElement.dataset.api;
+  });
 }
 
 export const json = (status: number, body: unknown, headers = {}) =>
@@ -106,32 +233,62 @@ export const problem = (status: number, code: string, headers = {}) =>
     headers,
   );
 
-type Answer = () => Response | Promise<Response>;
+/** A route's answer may read the call's query (the kiosk's board, F8ca). */
+type Answer = (params: URLSearchParams) => Response | Promise<Response>;
 
 /**
  * Stubs `fetch` with the terminal's routes, each answering from its function
  * — a fresh `Response` per call, which may take (fake) time by returning a
  * promise that waits on the clock. Unless told otherwise the status is the
- * active terminal and an activation the contract's; the token route answers
- * only when given, and any route without an answer throws.
+ * active terminal, an activation the contract's, and the kiosk's config and
+ * catalogue (sports, board, the sidebar's lists, a match, search) the
+ * contract's; the token route answers only when given, and any route without
+ * an answer throws. A call is matched on its path (a match's on its prefix)
+ * and logged with its query.
  */
 export function routes({
   status = () => json(200, active()),
   activate = () => json(200, ACTIVATION),
   token,
+  config = () => json(200, KIOSK_CONFIG),
+  sports = () => json(200, SPORTS),
+  board = () => json(200, BOARD),
+  top = () => json(200, TOP_COMPETITIONS),
+  countries = () => json(200, COUNTRIES),
+  event = () => json(200, EVENT),
+  search = () => json(200, SEARCH),
+  booking = () => json(200, BOOKING),
 }: {
   status?: Answer;
   activate?: Answer;
   token?: Answer;
+  config?: Answer;
+  sports?: Answer;
+  board?: Answer;
+  top?: Answer;
+  countries?: Answer;
+  /** `/api/terminal/catalogue/events/{id}`, whatever the id. */
+  event?: Answer;
+  search?: Answer;
+  booking?: Answer;
 } = {}) {
   const answers = new Map<string, Answer | undefined>([
     ["/api/terminal/status", status],
     ["/api/terminal/activate", activate],
     ["/api/terminal/token", token],
+    ["/api/terminal/config", config],
+    ["/api/terminal/catalogue/sports", sports],
+    ["/api/terminal/catalogue/board", board],
+    ["/api/terminal/catalogue/competitions/top", top],
+    ["/api/terminal/catalogue/competitions/countries", countries],
+    ["/api/terminal/catalogue/search", search],
   ]);
   const since = Date.now();
   vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
-    const route = String(input);
+    // The terminal's client asks with a path, the shared one with an absolute
+    // URL: both are logged as the path and query.
+    const asked_ = new URL(String(input), "http://terminal.localhost");
+    const route = `${asked_.pathname}${asked_.search}`;
     asked.push({
       route,
       method: init?.method ?? "GET",
@@ -139,9 +296,14 @@ export function routes({
       body: init?.body == null ? undefined : String(init.body),
       at: Date.now() - since,
     });
-    const answer = answers.get(route);
+    const url = new URL(route, "http://terminal.localhost");
+    const answer = url.pathname.startsWith("/api/terminal/catalogue/events/")
+      ? event
+      : url.pathname.startsWith("/api/terminal/bookings/")
+        ? booking
+        : answers.get(url.pathname);
     if (!answer) throw new Error(`unexpected ${route}`);
-    return answer();
+    return answer(url.searchParams);
   });
 }
 
@@ -165,15 +327,15 @@ export const signedFor = (call: RouteCall, method: string, path: string) =>
   );
 
 /**
- * The query client `TerminalProviders` builds (`createQueryClient`), with the
- * app's retry policy — two more tries on a 5xx or a network failure — unless
+ * The query client `TerminalProviders` builds (`createTerminalQueryClient`),
+ * with the app's retry policy — two more tries on a 5xx or a network failure — unless
  * `retry: false` switches query retries off, for a test that needs a failed
  * read to stay failed at once.
  */
 export function terminalQueryClient({
   retry,
 }: { retry?: false } = {}): QueryClient {
-  const queryClient = createQueryClient();
+  const queryClient = createTerminalQueryClient();
   if (retry === false) {
     const defaults = queryClient.getDefaultOptions();
     queryClient.setDefaultOptions({
@@ -191,17 +353,20 @@ export interface TerminalRenderOptions {
   queryClient?: QueryClient;
   /** Render in `StrictMode`, as `next dev` does: effects run twice on mount. */
   strict?: boolean;
+  /** The kiosk page an active terminal shows: the home unless said. */
+  page?: React.ReactNode;
 }
 
-/** Renders the terminal app in its query client, strict when asked. */
+/** Renders the terminal app on a kiosk page in its query client, strict when asked. */
 export function renderTerminal({
   retry,
   queryClient = terminalQueryClient({ retry }),
   strict = false,
+  page = <SportsbookView />,
 }: TerminalRenderOptions = {}) {
   const app = (
     <QueryClientProvider client={queryClient}>
-      <TerminalApp />
+      <TerminalApp>{page}</TerminalApp>
     </QueryClientProvider>
   );
   return {

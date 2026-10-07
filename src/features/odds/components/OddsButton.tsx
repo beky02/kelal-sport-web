@@ -8,8 +8,7 @@ import {
   useBetSlipStore,
   useIsSelected,
 } from "@/features/bet-slip/stores/bet-slip.store";
-import { useOddsLocked } from "@/features/system/hooks/use-odds-locked";
-import { useUiStore } from "@/stores/ui.store";
+import { useSportsbookChrome } from "@/features/sportsbook/chrome";
 import type { Localized } from "@/types/common";
 import { oddsAriaLabel } from "../lib/aria";
 import { OddsButtonView, type OddsButtonSize } from "./OddsButtonView";
@@ -57,7 +56,10 @@ function OddsButtonImpl({
   const selected = useIsSelected(outcome.id);
 
   const toggleSelection = useBetSlipStore((s) => s.toggleSelection);
-  const showSlipPanel = useUiStore((s) => s.setAsidePanel);
+  // The site's: on the player's, show the slip panel and lock prices when
+  // offline or on a break; on the shop kiosk, neither (`chrome.tsx`).
+  const { useAfterPick, useOddsLocked } = useSportsbookChrome();
+  const afterPick = useAfterPick();
 
   // Offline or a responsible-gaming break locks every price, for reasons that
   // have nothing to do with this market.
@@ -82,7 +84,7 @@ function OddsButtonImpl({
     // Make sure the slip is the visible panel, so the user sees what the tap
     // did. On a phone the sheet stays shut until they ask for it — the board
     // should not jump out from under a thumb mid-scroll.
-    showSlipPanel("slip");
+    afterPick();
   }, [
     suspended,
     outcome.odds,
@@ -93,7 +95,7 @@ function OddsButtonImpl({
     market.id,
     market.name,
     eventName,
-    showSlipPanel,
+    afterPick,
   ]);
 
   return (

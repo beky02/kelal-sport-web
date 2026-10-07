@@ -7,6 +7,13 @@ import {
   TERMINAL_CALLS,
 } from "@/features/terminal/lib/calls";
 import type {
+  BoardSection,
+  EventDetail,
+  EventFilters,
+  SportEvent,
+} from "@/features/events/types";
+import type { SearchResults } from "@/features/search/types";
+import type {
   ActivationForm,
   TerminalActivation,
   TerminalStatus,
@@ -17,10 +24,10 @@ import {
   toTerminalInfo,
 } from "@/lib/api/mappers/terminal";
 import pkg from "../../../package.json";
-import { isTerminalHost, requestHost } from "./config";
+import { isTerminalHost, requestHost, tenantFromHeaders } from "./config";
 import { problemResponse } from "./respond";
 import { apiNow } from "./session";
-import type { TerminalSession } from "./terminal-session";
+import { readTerminalSession, type TerminalSession } from "./terminal-session";
 import { unwrap, upstream, type RequestContext } from "./upstream";
 
 /** Rotate when fewer than this remain (`rotateTerminalToken`'s summary). */
@@ -34,7 +41,45 @@ const ROTATE_AHEAD_MS = 7 * 24 * 60 * 60 * 1000;
 export function terminalOnly(request: Request): Response | null {
   return isTerminalHost(requestHost(request.headers))
     ? null
-    : problemResponse(404, "NOT_FOUND", "Not found");
+    : problemResponse(
+        404,
+        "NOT_FOUND",
+        "Not found",
+        // Never cached: a cache keyed on the path alone must not hand one
+        // host's 404 to the other's (review SEC2).
+        new Headers({ "Cache-Control": "no-store" }),
+      );
+}
+
+/**
+ * The kiosk's reads (F8ca) answer only an activated terminal of this tenant,
+ * on a terminal host: its sealed cookie, unexpired. Not because the catalogue
+ * is secret — it is public, and read anonymously (F8ca decision 2) — but so a
+ * terminal host serves its own terminals and nothing else (C19 §12). Returns
+ * the session, or the refusal to send before anything is read or called. A
+ * 401 makes the kiosk read its status again, which says what it is now.
+ *
+ * It checks the cookie, not the terminal: a revoked terminal whose cookie has
+ * not lapsed still reads the (public) catalogue here. Revocation reaches the
+ * kiosk through its 5-minute status read (F8b), and these reads through the
+ * API once they are signed (contract request 015) — review SEC1.
+ */
+export function activeTerminal(request: Request): TerminalSession | Response {
+  const elsewhere = terminalOnly(request);
+  if (elsewhere) return elsewhere;
+  const session = readTerminalSession(
+    request,
+    tenantFromHeaders(request.headers),
+  );
+  if (!session || session.expiresAt <= Date.now()) {
+    return problemResponse(
+      401,
+      "AUTH_INVALID_CREDENTIALS",
+      "This terminal is not activated",
+      new Headers({ "Cache-Control": "no-store" }),
+    );
+  }
+  return session;
 }
 
 /** The two headers the browser signs a call with (D3); the route adds the device id. */
@@ -52,7 +97,7 @@ const TIMESTAMP = /^\d{13}$/;
 const SIGNATURE = /^[A-Za-z0-9+/]{40,120}={0,2}$/;
 
 /** A Problem in the API's own shape, with its `errors[]` (the fix, when there is one). */
-const refusal = (
+export const refusal = (
   title: string,
   errors?: { field: string; code: string; current?: string }[],
 ) =>
@@ -204,3 +249,153 @@ export async function rotateTerminalToken(
     expiresAt: apiNow(call.response) + rotated.expires_in * 1000,
   };
 }
+
+/**
+ * A sport id as the kiosk asks for one: `s_` and an opaque rest (D3: clients
+ * never parse ids), of URL-safe characters (review S4). The contract gives the
+ * parameter no pattern; this guard keeps anything else from an upstream URL.
+ */
+const SPORT = /^s_[A-Za-z0-9_.-]{1,64}$/;
+/**
+ * A competition or a match: an opaque id (D3) of URL-safe characters — and not
+ * dots alone, which a path would read as `.` or `..` (review SEC1).
+ */
+const ID = /^(?!\.+$)[A-Za-z0-9_.:-]{1,64}$/;
+/** A search, as the contract takes it: 2 to 50 characters (`GET /v1/search`, D5). */
+const SEARCH_MIN = 2;
+const SEARCH_MAX = 50;
+const DATE = /^(\d{4})-(\d{2})-(\d{2})$/;
+/** A plain parameter name, safe to name back in `errors[].field`. */
+const NAME = /^[a-z_]{1,32}$/;
+const FILTERS = [
+  "top",
+  "upcoming",
+  "today",
+] as const satisfies readonly NonNullable<EventFilters["filter"]>[];
+type BoardFilter = (typeof FILTERS)[number];
+
+/**
+ * What the kiosk may ask its board for: a sport, and optionally a day, an
+ * order and a competition (its page, F8ca review).
+ */
+const KNOWN = new Set(["sport", "date", "filter", "competition"]);
+
+/** A day that exists: `2026-02-30` has the shape and not the day (review SEC3). */
+function isDay(date: string): boolean {
+  const parts = DATE.exec(date);
+  if (!parts) return false;
+  const [year, month, day] = parts.slice(1).map(Number);
+  const at = new Date(Date.UTC(year, month - 1, day));
+  return (
+    at.getUTCFullYear() === year &&
+    at.getUTCMonth() === month - 1 &&
+    at.getUTCDate() === day
+  );
+}
+
+/**
+ * The kiosk board's query (F8ca), checked whole before anything goes
+ * upstream: a sport, a day and an order (no live board, D8; no competition,
+ * no data saver), each once. Anything else is the field it got wrong — named
+ * back only when it is a plain name, else `query`.
+ */
+export function boardQuery(
+  params: URLSearchParams,
+): EventFilters | { field: string; code: string } {
+  for (const key of params.keys()) {
+    if (!KNOWN.has(key)) {
+      return { field: NAME.test(key) ? key : "query", code: "UNKNOWN" };
+    }
+    if (params.getAll(key).length > 1) return { field: key, code: "FORMAT" };
+  }
+  const sport = params.get("sport") ?? "";
+  if (!SPORT.test(sport)) return { field: "sport", code: "FORMAT" };
+  const date = params.get("date");
+  if (date !== null && !isDay(date)) return { field: "date", code: "FORMAT" };
+  const filter = params.get("filter");
+  if (filter !== null && !FILTERS.includes(filter as BoardFilter)) {
+    return { field: "filter", code: "FORMAT" };
+  }
+  const competition = params.get("competition");
+  if (competition !== null && !ID.test(competition)) {
+    return { field: "competition", code: "FORMAT" };
+  }
+  return {
+    sportId: sport,
+    competitionId: competition ?? undefined,
+    date: date ?? undefined,
+    filter: (filter as BoardFilter | null) ?? undefined,
+  };
+}
+
+/** The first parameter that isn't one of `known`, or one given twice. */
+function strayParameter(
+  params: URLSearchParams,
+  known: ReadonlySet<string>,
+): { field: string; code: string } | null {
+  for (const key of params.keys()) {
+    if (!known.has(key)) {
+      return { field: NAME.test(key) ? key : "query", code: "UNKNOWN" };
+    }
+    if (params.getAll(key).length > 1) return { field: key, code: "FORMAT" };
+  }
+  return null;
+}
+
+/** A match's id from its route, checked before it is put in an upstream path. */
+export function eventQuery(
+  id: string,
+  params: URLSearchParams,
+): { id: string } | { field: string; code: string } {
+  return (
+    strayParameter(params, new Set()) ??
+    (ID.test(id) ? { id } : { field: "id", code: "FORMAT" })
+  );
+}
+
+/**
+ * A search, trimmed. Too long, or anything beside it, is refused; under the
+ * contract's two characters it asks nothing (`q` empty).
+ */
+export function searchQuery(
+  params: URLSearchParams,
+): { q: string } | { field: string; code: string } {
+  const stray = strayParameter(params, new Set(["q"]));
+  if (stray) return stray;
+  const q = (params.get("q") ?? "").trim();
+  if (q.length > SEARCH_MAX) return { field: "q", code: "MAX" };
+  return { q: q.length < SEARCH_MIN ? "" : q };
+}
+
+/** Before kick-off: what a shop sells (D8). */
+const beforeKickOff = (event: SportEvent) =>
+  event.status === "scheduled" || event.status === "starting_soon";
+
+/**
+ * The board a shop sells from: matches before kick-off only (D8: no in-play
+ * betting in Release 1, and the kiosk has no live board). An in-play or ended
+ * match — which only the simulated board lists today — is left off, and so is
+ * a competition left with nothing (review U3).
+ */
+export function preMatchBoard(sections: BoardSection[]): BoardSection[] {
+  return sections
+    .map((section) => {
+      const events = section.events.filter((row) => beforeKickOff(row.event));
+      return events.length === section.events.length
+        ? section
+        : { ...section, events };
+    })
+    .filter((section) => section.events.length > 0);
+}
+
+/** A match's book on the kiosk: only before kick-off; otherwise there is none to show. */
+export const preMatchEvent = (
+  detail: EventDetail | null,
+): EventDetail | null =>
+  detail && beforeKickOff(detail.event) ? detail : null;
+
+/** Search results on the kiosk: matches before kick-off only. */
+export const preMatchSearch = (results: SearchResults): SearchResults => ({
+  ...results,
+  events: results.events.filter((row) => beforeKickOff(row.event)),
+});

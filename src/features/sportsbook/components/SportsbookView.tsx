@@ -1,11 +1,10 @@
 "use client";
 
 import { useTranslation } from "@/lib/i18n/use-translation";
-import { SportsbookShell } from "@/components/layout/SportsbookShell";
 import { SportTabs } from "@/features/sports/components/SportTabs";
 import { useSports } from "@/features/sports/hooks/use-sports";
-import { useRealtimeTopics } from "@/lib/websocket/RealtimeProvider";
 import { topics } from "@/lib/websocket/messages";
+import { useSportsbookChrome } from "../chrome";
 import { Board } from "./Board";
 import { BoardHeader } from "./BoardHeader";
 import { DateStrip } from "./DateStrip";
@@ -15,10 +14,13 @@ import { useBoardFilters } from "../hooks/use-board-filters";
  * The sportsbook page.
  *
  * Composition only: the heading, the day picker, the board. Each piece fetches
- * or derives what it needs, so this file stays readable as the page grows.
+ * or derives what it needs, so this file stays readable as the page grows. The
+ * frame around it and its realtime topics are the site's (`chrome.tsx`): the
+ * player's, or the shop kiosk's (F8ca).
  */
 export function SportsbookView({ live = false }: { live?: boolean }) {
   const t = useTranslation();
+  const { Shell: SportsbookShell, useRealtimeTopics } = useSportsbookChrome();
   const { filters, set } = useBoardFilters();
   const { data: sports } = useSports();
 

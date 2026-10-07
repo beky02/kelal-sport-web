@@ -20,5 +20,6 @@ the `/contract-request` skill and applied in the backend with `/contract-change`
 | [012](012-reality-check-and-account.md)        | The reality check's figures and play session; the interval's meaning and a way to set it; a session's start; a `PATCH /v1/me` example                                                 | F7b           | proposed |
 | [013](013-platform-and-retail-chain.md)        | Brand and partner agents, every shop under an agent, one agent level; the retail admin errors; the platform console's operations                                                      | FD6           | proposed |
 | [014](014-device-signature.md)                 | The device signature's exact signing string; how a revoked terminal and a bad signature are answered; named terminal examples; 004 for terminal routes                                | F8b           | proposed |
+| [015](015-terminal-reads-and-slip-codes.md)    | What a terminal's catalogue read is (C19 §9.1's retail prices); `Idempotency-Key` and named refusals on `POST /v1/retail/slip-codes`                                                  | F8c           | proposed |
 
 Status: `proposed` → `accepted` (backend agreed) → `in-contract` (merged in the backend) → `synced` (here).

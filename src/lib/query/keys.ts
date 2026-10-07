@@ -128,10 +128,12 @@ export const paymentKeys = {
 };
 
 /**
- * The shop terminal (F8b). No player is ever signed in on one, so nothing here
- * is personal and no session watcher applies.
+ * The shop terminal (F8b) and its kiosk (F8ca). No player is ever signed in
+ * on one, so nothing here is personal and no session watcher applies. The
+ * kiosk's catalogue uses the player's keys: it is the player's fetchers.
  */
 export const terminalKeys = {
   all: ["terminal"] as const,
   status: () => [...terminalKeys.all, "status"] as const,
+  config: () => [...terminalKeys.all, "config"] as const,
 };

@@ -92,6 +92,26 @@ The shop terminal's credentials, apart from any player's (10-terminal):
 - **Activation** takes a strict 4 KiB body: the contract's 8-character code and a P-256 SPKI (fixed
   curve header, exact length). Anything else is a 422 before the API is called. The answer is the shop;
   the token never leaves the server.
+- **The kiosk's reads** (F8ca: `/api/terminal/config` and `catalogue/{sports,board,competitions/top,
+competitions/countries,events/[id],search}`) are public
+  data read anonymously (10-terminal), but answer only a terminal holding this tenant's unexpired terminal
+  cookie. They check the host first (`activeTerminal` → `terminalOnly`, whose 404 is `no-store` too),
+  then the sealed cookie's tenant and expiry, and answer 401 before anything is read or called. They
+  check the cookie, not the terminal: a revoked PC whose cookie hasn't lapsed can still read the public
+  catalogue here. Revocation reaches the kiosk through its 5-minute status read (F8b), and these reads
+  through the API once they are signed (contract request 015). The board's query is checked whole before
+  it reaches an upstream URL: an `s_` sport id of URL-safe characters, a real calendar date, an order, a
+  competition id, each once, nothing else (an unknown key is named back only when it is a plain name). A
+  match id is opaque and URL-safe (up to 64, never dots alone, so no `.`/`..` reaches the upstream path);
+  a search is the contract's 2 to 50 characters, and under 2 asks nothing. The board, a match's book and
+  search answer before-kick-off matches only. The browser reaches these routes because `apiClient`
+  re-roots its `catalogue/` paths to `/api/terminal/` when `<html data-api>` is exactly that; it ignores
+  any other value. The booking detail read (`/api/terminal/bookings/[code]`) uses the same host and
+  activated-cookie checks, validates the code before building the upstream path, and re-prices through
+  `GET /v1/bookings/{code}`. Only `bookings/{code}` is re-rooted; `POST /api/bookings` stays on the player
+  API. No `Prefer`, token or device header goes upstream with these reads, and every answer is `no-store`.
+  A terminal host still serves
+  no player route: the proxy is unchanged.
 
 ## CSRF (C18 §4.4)
 
