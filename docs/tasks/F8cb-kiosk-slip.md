@@ -25,11 +25,12 @@ rule set.
 - `docs/backend/design/components/c19-retail-network.md` §4.2, §11
 - `contracts/openapi.yaml`: `PublicConfig.retail_betting` (`RuleSet`)
 - `docs/design/04-slip-and-money.md`; `src/features/bet-slip/**`; F8ca's kiosk
-- `docs/contract-requests/015-terminal-reads-and-slip-codes.md`: the kiosk reads online prices until it is
-  answered (F8ca decision 2). If a shop's prices differ, the slip's figures would be computed on prices
-  the counter won't sell at, so this plan decides whether to wait for 015 or to say so on the slip (copy
-  about money: ask at the plan gate). It also decides where the slip's odds come from after a tap
-  (nothing on the kiosk updates them in F8ca; F8ca review M2).
+- **The user's decision (2026-10-07): no per-shop or per-agent prices or rules.** Every shop and agent
+  sells at the brand's prices and under one brand-level shop rule set, the tenant's `retail_betting`
+  (option 1: the same in every shop, and allowed to differ from the online `betting`). So the kiosk's
+  catalogue prices (read anonymously, F8ca decision 2) are the shop's prices, and nothing waits on request
+  015 part 1. This plan still decides where the slip's odds come from after a tap (nothing on the kiosk
+  updates them in F8ca; F8ca review M2).
 - F8ca's booking-code loader (rework 2; review M2 of its third round): a loaded code leaves its
   `stake_hint` in the shared slip's `stake`, its bet type in `mode` and its sizes in `systemK`
   (`replaceSlip`). This plan decides whether the shop honours a code's stake hint, where the kiosk's stake
@@ -38,9 +39,10 @@ rule set.
 
 ## Scope
 
-In: `retail_betting` in `/api/terminal/config`; the slip's modes (single, multiple, system) and figures
-(stake tax, gross, bonus, win tax, net payout, the calculation steps) from `calculateBetSlip` with the
-retail rules; the stake (a hint, optional) on an on-screen keypad, with the rule set's quick stakes when it
+In: `retail_betting` in `/api/terminal/config` (the brand's one shop rule set; no per-shop lookup); the
+slip's modes (single, multiple, system) and figures from `calculateBetSlip` with the retail rules, shown as
+the player's slip shows them since 2026-10-07 (`SlipSummary` and `PayoutSummary`: total odds, bonus, the
+payout; no tax lines or working); the stake (a hint, optional) on an on-screen keypad, with the rule set's quick stakes when it
 has any; slipcalc's stake fixes (too low, too high) offered as a tap; no balance, no login, no odds-change
 consent; a tenant without `retail_betting` shows the picks without figures rather than the online ones
 (the wording of that state is a copy-about-money question for this sub-task's plan gate).

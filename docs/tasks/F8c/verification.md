@@ -437,10 +437,9 @@ Notes, no decision needed:
 
 ## Gaps
 
-- **Online prices on the kiosk** (decision 2). The kiosk shows the anonymous catalogue's prices. If a
-  shop's prices differ (C19 §9.1), the counter's POS re-prices at sale and shows old and new odds (C19
-  §14), so no money is wrong. But F8cb's figures would be computed on prices the shop won't sell at, so
-  F8cb waits for request 015 or decides its copy at its plan gate.
+- **Online prices on the kiosk** (decision 2): settled by the user on 2026-10-07. Shops have no prices or
+  rules of their own; every shop sells at the brand's prices under the brand's `retail_betting`, so the
+  anonymous catalogue's prices are the shop's.
 - **A pick's odds are the tapped ones** (M2). Nothing on the kiosk updates the slip after a tap; F8cb
   decides where a priced slip's odds come from.
 - **One customer's picks stay for the next** until F8cc's idle reset clears the slip.

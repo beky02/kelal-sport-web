@@ -7,6 +7,12 @@ requested_by: F8c (F8ca, for F8cc too)
 
 ## Why the web app needs it
 
+**The user's decision (2026-10-07): shops have no prices or rules of their own.** Every shop and agent
+sells at the brand's prices, under the brand's one shop rule set (`retail_betting`). So for the web the
+answer to part 1 can be "a terminal's read is the anonymous read": no retail margin or market set per shop
+(C19 §9.1's "the shop's retail margin" would not apply). If the backend agrees, the contract can drop
+`terminalAuth` from the catalogue reads, or say a terminal read changes nothing; parts 2 and 3 stand.
+
 **1. A terminal's catalogue and config reads.** The shop kiosk (F8ca) shows the shop's matches and prices,
 and F8cb prices the slip with `retail_betting`. C19 §9.1 says: "Terminals read the catalogue through the
 same public endpoints as the player web (C06) with the terminal token attached, so the shop's retail
