@@ -14,7 +14,11 @@ const { POST } = await import("@/app/api/bookings/route");
 let sent: Request[] = [];
 
 /** Answers upstream calls with a contract example. */
-function upstreamAnswers(status: number, body: unknown) {
+function upstreamAnswers(
+  status: number,
+  body: unknown,
+  date = "Sat, 03 Oct 2026 09:00:00 GMT",
+) {
   vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
     const request = input instanceof Request ? input : new Request(input, init);
     sent.push(request);
@@ -24,7 +28,7 @@ function upstreamAnswers(status: number, body: unknown) {
         "Content-Type":
           status >= 400 ? "application/problem+json" : "application/json",
         // The API's clock, which a receipt's lifetime is measured from.
-        Date: "Sat, 03 Oct 2026 09:00:00 GMT",
+        Date: date,
       },
     });
   });
@@ -170,6 +174,47 @@ describe("POST /api/bookings", () => {
     expect(await sent[0].json()).toEqual(
       requestExample("/v1/bookings", "post"),
     );
+  });
+
+  it("gives the mock's code a day's life when its fixed expiry has already passed, so development shows it", async () => {
+    // Prism's example expires on 4 October; booked on the 7th, it would
+    // arrive expired and the slip would drop it at once.
+    upstreamAnswers(
+      201,
+      responseExample("/v1/bookings", "post", 201),
+      "Wed, 07 Oct 2026 17:00:00 GMT",
+    );
+    const receipt = bookingReceiptSchema.parse(
+      await (await post(request)).json(),
+    );
+    expect(receipt.issuedAt).toBe("2026-10-07T17:00:00.000Z");
+    expect(receipt.expiresAt).toBe("2026-10-08T17:00:00.000Z");
+  });
+
+  it("never re-dates the real API's expiry", async () => {
+    // Bookings can't be sent to the real API yet (request 004), so it is
+    // faked here: a fresh route whose loader believes it is the real API.
+    vi.resetModules();
+    vi.doMock("@/lib/server/config", async (original) => ({
+      ...(await original<typeof import("@/lib/server/config")>()),
+      usesRealApi: () => true,
+    }));
+    const real = (await import("@/app/api/bookings/route")).POST;
+    vi.doUnmock("@/lib/server/config");
+    upstreamAnswers(
+      201,
+      responseExample("/v1/bookings", "post", 201),
+      "Wed, 07 Oct 2026 17:00:00 GMT",
+    );
+    const response = await real(
+      new Request("http://localhost:3000/api/bookings", {
+        method: "POST",
+        headers: { host: "localhost:3000", ...SAME_SITE },
+        body: JSON.stringify(request),
+      }),
+    );
+    const receipt = bookingReceiptSchema.parse(await response.json());
+    expect(receipt.expiresAt).toBe("2026-10-04T13:00:00Z");
   });
 
   it("refuses a request without an Idempotency-Key", async () => {
