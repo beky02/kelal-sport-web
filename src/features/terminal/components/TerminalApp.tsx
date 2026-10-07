@@ -18,8 +18,8 @@ import {
  * — the next read tries again — and a background rotation never shows. An
  * active terminal of an open shop is the kiosk (F8ca), showing `children`:
  * the sportsbook page the kiosk is on — which is also what shows, its reads
- * held, until the first answer (`KioskStarting`). Every other state sits
- * under the terminal's one bar.
+ * held, until the first answer (`KioskStarting`). Every other state but
+ * activation sits under the terminal's one bar.
  */
 export function TerminalApp({ children }: { children: React.ReactNode }) {
   const status = useTerminalStatus();
@@ -49,12 +49,8 @@ function TerminalScreen({
 }) {
   switch (status.state) {
     case "inactive":
-      return (
-        <div className="flex flex-1 flex-col">
-          <TerminalBar />
-          <ActivationScreen lapsed={status.reason === "expired"} />
-        </div>
-      );
+      // No bar: a new PC shows its code form and nothing else (F8b AC-4).
+      return <ActivationScreen lapsed={status.reason === "expired"} />;
     case "blocked":
       return (
         <div className="flex flex-1 flex-col">

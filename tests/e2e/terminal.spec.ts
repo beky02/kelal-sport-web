@@ -150,11 +150,12 @@ for (const [device, viewport] of Object.entries({
       // A status read that never answers.
       await page.route(STATUS, () => {});
       await page.reload();
+      // The kiosk's page itself, its reads held and nothing on it live: the
+      // terminal's bar and the board's rows to come, no spinner.
       await expect(page.getByRole("status")).toHaveText(en.terminal.loading);
-      await expect(page.getByRole("main")).toHaveAttribute("aria-busy", "true");
-      await expect(
-        page.getByRole("link", { name: /KelalSport/ }),
-      ).toHaveAttribute("href", "/terminal");
+      await expect(page.getByTestId("board-skeleton")).toBeVisible();
+      await expect(page.locator("[inert]")).toHaveCount(1);
+      await expect(page.locator('header a[href="/"]')).toBeVisible();
       await shoot(page, "loading", device, errors);
     });
 
@@ -330,10 +331,11 @@ for (const [device, viewport] of Object.entries({
         await expect(heading(page)).toContainText(
           am.terminal.blocked.revokedTitle,
         );
+        // The terminal's bar: the brand, home, and nothing else to press.
         expect(await controls(page)).toBe(1);
         await expect(
           page.getByRole("link", { name: /KelalSport/ }),
-        ).toHaveAttribute("href", "/terminal");
+        ).toHaveAttribute("href", "/");
       }
       await shoot(page, "revoked", device, errors);
     });
@@ -424,16 +426,45 @@ for (const [device, viewport] of Object.entries({
       await expect(kiosk(page)).toBeVisible();
     });
 
-    test("kiosk-config-loading: the main page loading while the kiosk config is read (F8ca)", async ({
+    test("kiosk-config-loading: the main page's loading while the kiosk's config is read, and nothing moves when the kiosk comes up (F8ca, review U1)", async ({
       page,
       baseURL,
     }) => {
       await activate(page, baseURL);
-      await page.route(CONFIG, () => undefined);
+      let releaseConfig!: () => void;
+      const configHeld = new Promise<void>(
+        (resolve) => (releaseConfig = resolve),
+      );
+      await page.route(CONFIG, async (route) => {
+        await configHeld;
+        await route.continue();
+      });
+      // The board too, so the kiosk's own loading rows are there to compare.
+      await page.route(BOARD, () => undefined);
+      // Measured once the status is in and the config is asked: the frame
+      // shows from the first paint, but is mounted again between the two.
+      const configAsked = page.waitForRequest(CONFIG);
       await page.reload();
+      await configAsked;
+
       await expect(page.getByRole("status")).toHaveText(en.terminal.loading);
-      await expect(page.getByRole("main")).toHaveAttribute("aria-busy", "true");
+      // The one on screen: as the kiosk comes up, React mounts its page
+      // hidden before it swaps it in.
+      const skeleton = page
+        .getByTestId("board-skeleton")
+        .filter({ visible: true });
+      await expect(skeleton).toBeVisible();
+      await expect(page.locator("[inert]")).toHaveCount(1);
       await shoot(page, "kiosk-config-loading", device, errors);
+      const starting = await skeleton.boundingBox();
+
+      releaseConfig();
+      await expect(page.locator("[inert]")).toHaveCount(0);
+      await expect(skeleton).toBeVisible();
+      const up = await skeleton.boundingBox();
+      expect(up, "the board's rows where they were while starting").toEqual(
+        starting,
+      );
     });
 
     test("kiosk-config-offline: the kiosk's config can't be read; Try again (F8ca)", async ({
