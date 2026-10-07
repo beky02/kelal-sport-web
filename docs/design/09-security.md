@@ -108,8 +108,8 @@ competitions/countries,events/[id],search}`) are public
   re-roots its `catalogue/` paths to `/api/terminal/` when `<html data-api>` is exactly that; it ignores
   any other value. The booking detail read (`/api/terminal/bookings/[code]`) uses the same host and
   activated-cookie checks, validates the code before building the upstream path, and re-prices through
-  `GET /v1/bookings/{code}`. Only `bookings/{code}` is re-rooted; `POST /api/bookings` stays on the player
-  API. No `Prefer`, token or device header goes upstream with these reads, and every answer is `no-store`.
+  `GET /v1/bookings/{code}`. Only a GET of exactly `bookings/{code}` (7 Crockford characters) is re-rooted,
+  and no path with a `.` or `..` segment; `POST /api/bookings` stays on the player API (review SEC1). No `Prefer`, token or device header goes upstream with these reads, and every answer is `no-store`.
   A terminal host still serves
   no player route: the proxy is unchanged.
 
