@@ -2,7 +2,7 @@
 
 import { X } from "lucide-react";
 import { useTranslation } from "@/lib/i18n/use-translation";
-import { CountBadge } from "@/components/ui/CountBadge";
+import { cn } from "@/lib/utils/cn";
 import { useBetSlipStore } from "../stores/bet-slip.store";
 
 export function BetSlipHeader({
@@ -17,14 +17,14 @@ export function BetSlipHeader({
   const clear = useBetSlipStore((s) => s.clear);
 
   return (
-    <div className="flex min-h-[52px] items-center gap-2 py-1.5 pr-1.5 pl-4">
-      {/* A heading, not styled text: screen-reader users navigate the slip by
-          heading, and in the mobile sheet this is the first thing inside it. */}
-      <h2 className="text-lg leading-none">{t.t("betSlip.title")}</h2>
-      <CountBadge>{count}</CountBadge>
-      <span className="flex-1" />
+    <div className="flex items-center justify-end gap-2 pr-1.5 pl-4">
+      {/* No visible title or count (the user's review, 2026-10-08): the panel's
+          tab and the slip tabs already say both (the tabs announce each slip's count). Still a heading for screen
+          readers, who navigate the slip by it; in the mobile sheet it is the
+          first thing inside it. */}
+      <h2 className="sr-only">{t.t("betSlip.title")}</h2>
 
-      {count > 0 && (
+      {
         <button
           type="button"
           onClick={clear}
@@ -32,7 +32,7 @@ export function BetSlipHeader({
         >
           {t.t("betSlip.clearAll")}
         </button>
-      )}
+      }
 
       {onClose && (
         <button

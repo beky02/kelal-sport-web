@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://api.example.et/events/settlement.clawback_created.json",
+  "title": "settlement.clawback_created",
+  "description": "Reversing a settled bet took more than the player's cash: the rest is owed on PLAYER_DEBT, never negative cash (C10 §5). Published by the settlement module on NATS subject evt.settlement.clawback_created (version 1), with the reversal. Consumers: C13, C15 (a finance case). This is the `data` payload; the envelope is TD-02 §5. Ids and santim only. New fields are additive only.",
+  "type": "object",
+  "required": [
+    "bet_id",
+    "ticket_id",
+    "player_id",
+    "settlement_version",
+    "debt_santim",
+    "reversal_txn_ids"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "bet_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "ticket_id": {
+      "type": "string",
+      "pattern": "^[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]$"
+    },
+    "player_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "settlement_version": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "The settlement that was reversed"
+    },
+    "debt_santim": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Debited to the player's PLAYER_DEBT because their cash couldn't cover the reversal (C03 §4)"
+    },
+    "reversal_txn_ids": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "minItems": 1
+    }
+  }
+}

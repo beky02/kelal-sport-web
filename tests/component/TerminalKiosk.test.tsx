@@ -770,7 +770,7 @@ describe("the kiosk's slip, priced with the shop's rules (F8cb)", () => {
         screen.getByRole("button", { name: priceName(row, outcome) }),
       );
     }
-    await user.click(slip().getByRole("button", { name: en.betSlip.multiple }));
+    // Every slip is a multiple (F3c): no tab to choose.
     await press(user, "100");
 
     expect(payout()).toHaveTextContent(money(shop.netPayout, "en"));
@@ -903,6 +903,77 @@ describe("the kiosk's slip, priced with the shop's rules (F8cb)", () => {
       (entry) => entry.route === "/api/terminal/bookings",
     );
     expect(JSON.parse(call!.body!)).toMatchObject({ stake: null });
+  });
+});
+
+describe("multiple only, and three slips on the kiosk (F3c)", () => {
+  const DRAW = FIRST.markets.matchResult!.outcomes[1];
+  const SECOND = BOARD[1].events[0];
+  const SECOND_HOME = SECOND.markets.matchResult!.outcomes[0];
+  const price = (row: Row, outcome: typeof DRAW) =>
+    screen.getByRole("button", { name: priceName(row, outcome) });
+  const tab = (n: number) =>
+    slip().getByRole("button", { name: new RegExp(`^Slip ${n}`) });
+
+  it("offers no Single or System (AC-1)", async () => {
+    const user = userEvent.setup();
+    routes();
+    renderTerminal();
+    await user.click(await homeWin());
+    for (const name of [
+      en.betSlip.single,
+      en.betSlip.multiple,
+      en.betSlip.system,
+    ]) {
+      expect(slip().queryByRole("button", { name })).toBeNull();
+    }
+  });
+
+  it("replaces a match's pick with another price of it (AC-2)", async () => {
+    const user = userEvent.setup();
+    routes();
+    renderTerminal();
+    await user.click(await homeWin());
+    await user.click(price(FIRST, DRAW));
+
+    expect(price(FIRST, DRAW)).toHaveAttribute("aria-pressed", "true");
+    expect(price(FIRST, HOME_WIN)).toHaveAttribute("aria-pressed", "false");
+    expect(tab(1)).toHaveAccessibleName("Slip 1, 1 selections");
+    expect(slip().queryByRole("alert")).toBeNull();
+  });
+
+  it("keeps three slips: taps go into the one on screen, and only its prices show as picked (AC-3)", async () => {
+    const user = userEvent.setup();
+    routes();
+    renderTerminal();
+    await user.click(await homeWin());
+    await user.clear(
+      slip().getByRole("textbox", { name: en.betSlip.totalStake }),
+    );
+    await user.type(
+      slip().getByRole("textbox", { name: en.betSlip.totalStake }),
+      "50",
+    );
+
+    await user.click(tab(2));
+    expect(tab(2)).toHaveAttribute("aria-pressed", "true");
+    expect(price(FIRST, HOME_WIN)).toHaveAttribute("aria-pressed", "false");
+    await user.click(price(SECOND, SECOND_HOME));
+    // A new slip starts at the shop's minimum, not Slip 1's stake.
+    expect(
+      slip().getByRole("textbox", { name: en.betSlip.totalStake }),
+    ).toHaveValue("10");
+    expect(tab(1)).toHaveAccessibleName("Slip 1, 1 selections");
+    expect(tab(2)).toHaveAccessibleName("Slip 2, 1 selections");
+
+    await user.click(tab(1));
+    expect(price(FIRST, HOME_WIN)).toHaveAttribute("aria-pressed", "true");
+    expect(price(SECOND, SECOND_HOME)).toHaveAttribute("aria-pressed", "false");
+    expect(slip().getByText(matchName(FIRST))).toBeInTheDocument();
+    expect(slip().queryByText(matchName(SECOND))).toBeNull();
+    expect(
+      slip().getByRole("textbox", { name: en.betSlip.totalStake }),
+    ).toHaveValue("50");
   });
 });
 

@@ -724,6 +724,29 @@ for (const [device, viewport] of Object.entries({
         await shoot(page, `kiosk-slip-${lang}`, device, errors);
       });
 
+      test("kiosk-slip-tabs: Slip 1 built, Slip 2 opened from its tab (F3c AC-3)", async ({
+        page,
+        baseURL,
+      }) => {
+        await open(page, baseURL);
+        await price(page, 0).click();
+        const slip = await openSlip(page, 1);
+        await slip
+          .getByRole("button", {
+            name: new RegExp(`^${t.betSlip.slipN.replace("{n}", "2")}`),
+          })
+          .click();
+        await expect(slip.getByText(t.betSlip.emptyTitle)).toBeVisible();
+        await expect(
+          slip.getByRole("button", {
+            name: t.betSlip.slipNAria
+              .replace("{n}", "1")
+              .replace("{count}", "1"),
+          }),
+        ).toBeVisible();
+        await shoot(page, `kiosk-slip-tabs-${lang}`, device, errors);
+      });
+
       test("kiosk-slip-too-low: a stake under the shop's minimum — a red field, the minimum below it, Book bet off (F8cb AC-3)", async ({
         page,
         baseURL,

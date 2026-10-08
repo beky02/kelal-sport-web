@@ -12,7 +12,7 @@ import {
   warningAlerts,
   type SlipAlert,
 } from "@/features/bet-slip/components/AlertList";
-import { BetModeTabs } from "@/features/bet-slip/components/BetModeTabs";
+import { SlipTabs } from "@/features/bet-slip/components/SlipTabs";
 import { BetSelectionRow } from "@/features/bet-slip/components/BetSelectionRow";
 import { BetSlipHeader } from "@/features/bet-slip/components/BetSlipHeader";
 import { EmptySlip } from "@/features/bet-slip/components/EmptySlip";
@@ -90,14 +90,7 @@ export function KioskSlip({ onClose }: { onClose?: () => void }) {
     // The player's slip body (`BetSlip`), so its tiles and rows read the same.
     <div className="bg-ground flex w-full flex-col pb-3">
       <BetSlipHeader count={totals.count} onClose={onClose} />
-      {totals.count > 0 && (
-        <BetModeTabs
-          mode={totals.mode}
-          systemAvailable={totals.systemAvailable}
-          systemK={totals.systemK}
-          liveCount={totals.liveCount}
-        />
-      )}
+      <SlipTabs />
       <KioskSlipAlerts
         totals={totals}
         rules={rules?.calc ?? null}
@@ -194,7 +187,7 @@ function KioskSlipAlerts({
 
   const alerts: SlipAlert[] = [];
   if (totals.hasConflict) {
-    alerts.push(conflictAlert(t, () => setMode("single")));
+    alerts.push(conflictAlert(t));
   }
   const suspended = totals.suspendedSelection;
   if (suspended) {

@@ -656,3 +656,19 @@ the user's review.)
 | `terminal.kiosk.noRules` | ይህ ትኬት ምን ያህል እንደሚከፍል የሱቁን ሠራተኞች ይጠይቁ። | ይህ ትኬት (`betSlip.errors.stakeTooLowBody`); የሱቁን ሠራተኞች ይጠይቁ (`terminal.kiosk.unavailable.body`); ምን ያህል እንደሚከፍል (how much it pays) new                               |
 | `betSlip.minStake`       | ዝቅተኛው የውርርድ መጠን {amount}               | As `betSlip.errors.stakeTooLowBody` (ዝቅተኛው የውርርድ መጠን); shown under the stake field on both sites (the user's decision, 2026-10-08)                                  |
 | `betSlip.potentialWin`   | ሊያሸንፉ የሚችሉት                            | New: what you could win (ሊያሸንፉ, as "win"); replaces `betSlip.totalReturn`, `maxReturn` and `youStake`, removed with the payout card (the user's review, 2026-10-08) |
+
+## Multiple only, three slips (F3c, 2026-10-08)
+
+The tab label is the user's choice ("ትኬት {n}", the slip's own word). All composed; all need review.
+Removed: `betSlip.alerts.useSingle` (no Single to switch to), `booking.sizesNote` (the slip never prices
+a system). For the reviewer (F3c review U3): ትኬት now names the tabs ("ትኬት 1"), the placed ticket and
+the slip itself ("ትኬት አስቀምጥ", "per ticket"); on the placed screen "ትኬት 1" sits above the ticket's own
+"ትኬት". The user chose it; confirm it reads clearly or suggest a word for the tabs.
+
+| Key                           | Amharic                                        | Composed from                                                          |
+| ----------------------------- | ---------------------------------------------- | ---------------------------------------------------------------------- |
+| `betSlip.slipN`, `slipsAria`  | ትኬት {n} / ትኬቶች                                 | ትኬት (`betSlip.title`)                                                  |
+| `betSlip.slipNAria`           | ትኬት {n}፣ {count} ምርጫዎች                         | As `nav.slipAria`                                                      |
+| `betSlip.alerts.conflictBody` | ሁለት ምርጫዎች ከአንድ ጨዋታ ናቸው። አንዱን ያስወግዱ።            | The old body without "ወይም ነጠላ ይምረጡ"                                    |
+| `booking.sizesNoteMultiple`   | ይህ ኮድ የ{sizes} ሲስተም ነው፤ ትኬቱ እንደ አንድ ጥምር ያሰላዋል። | The old opening; ጥምር (multiple, the old tab's word); ያሰላዋል (prices it) |
+| `booking.singlesNote`         | ይህ ኮድ በነጠላ ተቀምጧል፤ ትኬቱ እንደ አንድ ጥምር ያሰላዋል።       | ነጠላ (single, the old tab's word); ተቀምጧል (was saved) new                |

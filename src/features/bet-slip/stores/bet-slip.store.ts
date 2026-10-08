@@ -1,6 +1,7 @@
 "use client";
 
 import { create } from "zustand";
+import { useShallow } from "zustand/react/shallow";
 import { sanitiseAmount } from "@/lib/money";
 import type { OutcomeRef } from "@/features/markets/types";
 import type {
@@ -94,29 +95,38 @@ export const ownPlacement = (
 ): Placement =>
   playerId !== null && placement.owner === playerId ? placement : NO_PLACEMENT;
 
-interface BetSlipState {
+/**
+ * One slip: its picks, its stake and what booking or placing it has done.
+ * There are three (F3c, the user's decision of 2026-10-08), tabs a customer
+ * switches between; the one on screen lives in the store's own fields, so
+ * everything that reads the slip reads it, and the other two are parked in
+ * `slips`.
+ */
+export interface SlipState {
   selections: BetSelection[];
   /**
-   * outcomeId → true. Kept alongside the array so an odds button's "am I in the
-   * slip?" check is O(1) and does not walk the list on every render.
+   * Always `multiple` (F3c: Ethiopia bets accumulators); one live pick is
+   * priced as a single, since a multiple needs two.
    */
-  index: Record<string, true>;
-
   mode: BetSlipMode;
   /**
    * The **total** stake for the slip, as typed (`"100"`, `"12.5"`, or `""`).
    * slipcalc splits it across lines (D1.3); quick stakes set it (D7).
    */
   stake: string;
+  /**
+   * The stake has been set — to the rule set's minimum when the slip first
+   * showed, by the customer, or by a loaded code — so the minimum is never
+   * put back over it (`startStake`).
+   */
+  stakeStarted: boolean;
   systemK: number;
-
   /**
    * The player's answer to "when odds change" (`none` / `higher` / `any`), or
    * null for the tenant's `default_odds_policy`. Sent with the bet, and decides
    * which moves the slip asks about first.
    */
   oddsPolicy: OddsPolicy | null;
-
   /** What loading a booking code did, until the player dismisses it. */
   bookingNotice: BookingNotice | null;
   /**
@@ -124,14 +134,64 @@ interface BetSlipState {
    * sheet closing and the page changing: the same slip is never booked twice.
    */
   bookingIntent: BookingIntent | null;
-  setBookingIntent: (intent: BookingIntent | null) => void;
+  placement: Placement;
+}
 
+/** How many slips there are (F3c). */
+export const SLIP_COUNT = 3;
+
+const EMPTY_SLIP: SlipState = {
+  selections: [],
+  mode: "multiple",
+  // None until the rules arrive; then the rule set's minimum (`startStake`).
+  stake: "",
+  stakeStarted: false,
+  systemK: 2,
+  oddsPolicy: null,
+  bookingNotice: null,
+  bookingIntent: null,
+  placement: NO_PLACEMENT,
+};
+
+interface BetSlipState extends SlipState {
+  /**
+   * The slip on screen's outcomeId → true. Kept alongside the array so an odds
+   * button's "am I in the slip?" check is O(1); the slip on screen's only, so
+   * a price shows as picked for that slip alone.
+   */
+  index: Record<string, true>;
+  /** Which slip is on screen: 0, 1 or 2. */
+  active: number;
+  /** Every slip; the one at `active` is stale — the store's fields are it. */
+  slips: SlipState[];
+  /**
+   * The rule set's minimum, once the rules have arrived: each slip starts at
+   * it the first time it is on screen (`startStake`, `switchSlip`,
+   * `resetAll`).
+   */
+  minStake: string | null;
+
+  /** Puts slip `n` on screen and parks the one that was. */
+  switchSlip: (n: number) => void;
+  /** Every slip empty and Slip 1 on screen (F8cc's idle reset; tests). */
+  resetAll: () => void;
+
+  setBookingIntent: (intent: BookingIntent | null) => void;
+  /** The server issued a code: to the slip whose booking has this key. */
+  bookingReceived: (key: string, receipt: BookingReceipt) => void;
+
+  /**
+   * Adds a pick, or takes it out when it is in the slip already. A pick from
+   * a match the slip holds replaces that match's pick, in its place: a
+   * multiple can't hold two (the user's decision, 2026-10-08).
+   */
   toggleSelection: (selection: BetSelection) => void;
   removeSelection: (outcomeId: string) => void;
+  /** Empties the slip on screen. */
   clear: () => void;
   /**
-   * Replaces the slip with a loaded booking: a booking is a whole slip — its
-   * picks, bet type and stake — so it is not merged into what was there.
+   * Replaces the slip with a loaded booking: its picks and stake, priced as a
+   * multiple whatever type it was saved as (the notice says so).
    */
   replaceSlip: (slip: SlipFromBooking) => void;
   dismissBookingNotice: () => void;
@@ -141,6 +201,12 @@ interface BetSlipState {
   setMode: (mode: BetSlipMode) => void;
   /** From the keyboard: keeps digits and up to two decimals. */
   setStake: (raw: string) => void;
+  /**
+   * The rules arrived with this minimum: remembered for every slip, and the
+   * slip on screen starts at it unless its stake was set (`"10.00"` reads
+   * `"10"`).
+   */
+  startStake: (minStake: string) => void;
   setSystemK: (k: number) => void;
 
   /** The player agrees to this pick's price as it is now. */
@@ -149,15 +215,16 @@ interface BetSlipState {
   acceptAllPending: () => void;
   setOddsPolicy: (policy: OddsPolicy | null) => void;
 
-  placement: Placement;
   /**
-   * This request is on its way with this key, for this player. An
-   * unconfirmed bet stays while it goes, even when this is a different bet.
+   * This request is on its way with this key, for this player, from the slip
+   * on screen. An unconfirmed bet stays while it goes, even when this is a
+   * different bet.
    */
   placementSent: (attempt: PlaceAttempt, owner: string) => void;
   /**
    * The bet on its way (`key`) had no answer that settles it: it is the
-   * unconfirmed one now (the slip tracks one, the latest).
+   * unconfirmed one now (each slip tracks one, the latest). Every answer
+   * below goes to the slip that sent `key`, on screen or not.
    */
   placementUnanswered: (key: string) => void;
   /**
@@ -181,12 +248,21 @@ interface BetSlipState {
   placementPlaced: (key: string, receipt: BetReceipt) => void;
   /** Back from the ticket to the same picks (Keep selections). */
   dismissReceipt: () => void;
-  /** Another player is signed in: nothing of the last one's placing stays. */
+  /**
+   * Nothing of anyone's placing stays, in any slip: a full reset (tests). A
+   * player change uses `forgetOtherPlayers`, which keeps the player's own.
+   */
   forgetPlacement: () => void;
+  /**
+   * `playerId` is signed in: every slip's placing that was someone else's
+   * goes; this player's own — a bet on its way, an unconfirmed one, a ticket
+   * — stays wherever it is (review Q1/M1).
+   */
+  forgetOtherPlayers: (playerId: string) => void;
 
-  /** Realtime: a price moved. Updates in place, keeping `initialOdds`. */
+  /** Realtime: a price moved. Updates every slip in place, keeping `initialOdds`. */
   applyOddsUpdate: (ref: OutcomeRef, odds: string | null) => void;
-  /** Realtime: an event's markets were suspended or reopened. */
+  /** Realtime: an event's markets were suspended or reopened, in every slip. */
   applyEventSuspension: (eventId: string, suspended: boolean) => void;
 }
 
@@ -207,34 +283,131 @@ const sameRef = (s: BetSelection, ref: OutcomeRef) =>
   s.line === ref.line &&
   s.outcomeCode === ref.outcomeCode;
 
+/** The slip on screen, from the store's own fields. */
+const onScreen = (s: BetSlipState): SlipState => ({
+  selections: s.selections,
+  mode: s.mode,
+  stake: s.stake,
+  stakeStarted: s.stakeStarted,
+  systemK: s.systemK,
+  oddsPolicy: s.oddsPolicy,
+  bookingNotice: s.bookingNotice,
+  bookingIntent: s.bookingIntent,
+  placement: s.placement,
+});
+
 /**
- * The bet slip.
+ * Changes the slip that matches — the one on screen first, then the parked
+ * ones — and returns the store's next fields; nothing when none matches.
+ */
+function inSlipWhere(
+  state: BetSlipState,
+  matches: (slip: SlipState) => boolean,
+  update: (slip: SlipState) => Partial<SlipState>,
+): Partial<BetSlipState> | null {
+  const shown = onScreen(state);
+  if (matches(shown)) {
+    const next = update(shown);
+    return next.selections
+      ? { ...next, index: reindex(next.selections) }
+      : next;
+  }
+  const i = state.slips.findIndex(
+    (slip, n) => n !== state.active && matches(slip),
+  );
+  if (i < 0) return null;
+  const slips = [...state.slips];
+  slips[i] = { ...slips[i], ...update(slips[i]) };
+  return { slips };
+}
+
+/** The same change to every slip, on screen and parked. */
+function inEverySlip(
+  state: BetSlipState,
+  update: (slip: SlipState) => Partial<SlipState> | null,
+): Partial<BetSlipState> {
+  const next: Partial<BetSlipState> = {};
+  const shown = update(onScreen(state));
+  if (shown) {
+    Object.assign(next, shown);
+    if (shown.selections) next.index = reindex(shown.selections);
+  }
+  let moved = false;
+  const slips = state.slips.map((slip, n) => {
+    if (n === state.active) return slip;
+    const change = update(slip);
+    if (!change) return slip;
+    moved = true;
+    return { ...slip, ...change };
+  });
+  if (moved) next.slips = slips;
+  return next;
+}
+
+/** A slip's starting stake: the minimum, once, unless it has one. */
+const started = (
+  slip: SlipState,
+  minStake: string | null,
+): Partial<SlipState> =>
+  minStake && !slip.stakeStarted && slip.stake === ""
+    ? { stake: minStake.replace(/\.00$/, ""), stakeStarted: true }
+    : {};
+
+/** Only a real change notifies: an update for no slip changes nothing. */
+const changes = (next: object) => Object.keys(next).length > 0;
+
+const sending = (key: string) => (slip: SlipState) =>
+  slip.placement.sending?.key === key;
+
+/**
+ * The bet slips.
  *
  * Its own store rather than a slice of UI state, because a betting selection is
- * a domain object with rules — same-match conflicts, suspension, accepting a
+ * a domain object with rules — same-match picks, suspension, accepting a
  * price move — not a piece of chrome.
  *
- * It holds no money maths: `lib/calculate.ts` derives every total from this
- * state, and the backend is authoritative when the bet is actually placed.
+ * It holds no money maths: `lib/calculate.ts` derives every total from the slip
+ * on screen, and the backend is authoritative when the bet is actually placed.
  */
 export const useBetSlipStore = create<BetSlipState>()((set, get) => ({
-  selections: [],
+  ...EMPTY_SLIP,
   index: {},
-  mode: "multiple",
-  // None until the rules arrive; then the rule set's minimum
-  // (`useStartingStake`, the user's decision of 2026-10-08).
-  stake: "",
-  systemK: 2,
-  oddsPolicy: null,
-  bookingNotice: null,
-  bookingIntent: null,
-  placement: NO_PLACEMENT,
+  active: 0,
+  slips: Array.from({ length: SLIP_COUNT }, () => EMPTY_SLIP),
+  minStake: null,
+
+  switchSlip: (n) => {
+    const state = get();
+    if (n === state.active || n < 0 || n >= SLIP_COUNT) return;
+    const slips = [...state.slips];
+    slips[state.active] = onScreen(state);
+    const next = { ...slips[n], ...started(slips[n], state.minStake) };
+    set({ ...next, index: reindex(next.selections), active: n, slips });
+  },
+
+  resetAll: () =>
+    set((state) => ({
+      ...EMPTY_SLIP,
+      ...started(EMPTY_SLIP, state.minStake),
+      index: {},
+      active: 0,
+      slips: Array.from({ length: SLIP_COUNT }, () => EMPTY_SLIP),
+    })),
 
   toggleSelection: (selection) => {
     const { selections, placement } = get();
-    const next = selections.some((s) => s.outcomeId === selection.outcomeId)
-      ? selections.filter((s) => s.outcomeId !== selection.outcomeId)
-      : [...selections, selection];
+    let next: BetSelection[];
+    if (selections.some((s) => s.outcomeId === selection.outcomeId)) {
+      next = selections.filter((s) => s.outcomeId !== selection.outcomeId);
+    } else {
+      const sameMatch = selections.findIndex(
+        (s) => s.eventId === selection.eventId,
+      );
+      next =
+        sameMatch < 0
+          ? [...selections, selection]
+          : selections.map((s, i) => (i === sameMatch ? selection : s));
+    }
     // Once the player changes a loaded slip it is theirs: the notice about
     // what the booking brought no longer describes it.
     set({
@@ -267,13 +440,14 @@ export const useBetSlipStore = create<BetSlipState>()((set, get) => ({
       placement: { ...state.placement, refused: null, receipt: null },
     })),
 
-  replaceSlip: ({ selections, mode, systemK, stake, notice }) =>
+  replaceSlip: ({ selections, stake, notice }) =>
     set((state) => ({
       selections,
       index: reindex(selections),
-      mode,
-      systemK: systemK ?? state.systemK,
+      // Priced as a multiple, whatever it was saved as (F3c).
+      mode: "multiple",
       stake: stake ?? state.stake,
+      stakeStarted: state.stakeStarted || stake !== null,
       // A loaded slip starts on the tenant's own policy, never on a standing
       // "accept any" from the slip it replaced.
       oddsPolicy: null,
@@ -284,10 +458,30 @@ export const useBetSlipStore = create<BetSlipState>()((set, get) => ({
   dismissBookingNotice: () => set({ bookingNotice: null }),
   showBookingNotice: (bookingNotice) => set({ bookingNotice }),
   setBookingIntent: (bookingIntent) => set({ bookingIntent }),
+  bookingReceived: (key, receipt) => {
+    const next = inSlipWhere(
+      get(),
+      (slip) => slip.bookingIntent?.key === key,
+      (slip) => ({
+        bookingIntent: {
+          ...slip.bookingIntent!,
+          receipt,
+          receivedAt: Date.now(),
+        },
+      }),
+    );
+    if (next) set(next);
+  },
 
   setMode: (mode) => set({ mode, placement: changed(get().placement) }),
   setStake: (raw) =>
-    set({ stake: sanitiseAmount(raw), placement: changed(get().placement) }),
+    set({
+      stake: sanitiseAmount(raw),
+      stakeStarted: true,
+      placement: changed(get().placement),
+    }),
+  startStake: (minStake) =>
+    set((state) => ({ minStake, ...started(onScreen(state), minStake) })),
   setSystemK: (systemK) =>
     set({ systemK, placement: changed(get().placement) }),
 
@@ -327,62 +521,70 @@ export const useBetSlipStore = create<BetSlipState>()((set, get) => ({
       };
     }),
 
-  // An answer lands only on the bet that asked: one for an attempt no longer
-  // on its way (forgotten when another player signed in) changes nothing.
+  // An answer lands only on the bet that asked, in the slip that sent it: one
+  // for an attempt no longer on its way (forgotten when another player signed
+  // in) changes nothing.
   placementUnanswered: (key) => {
-    const { placement } = get();
-    if (placement.sending?.key !== key) return;
-    const again = placement.unconfirmed?.key === key;
-    set({
-      placement: {
-        ...placement,
-        sending: null,
-        unconfirmed: placement.sending,
-        stale: again && placement.stale,
-      },
+    const next = inSlipWhere(get(), sending(key), ({ placement }) => {
+      const again = placement.unconfirmed?.key === key;
+      return {
+        placement: {
+          ...placement,
+          sending: null,
+          unconfirmed: placement.sending,
+          stale: again && placement.stale,
+        },
+      };
     });
+    if (next) set(next);
   },
 
   placementRefused: (key, refusal, updates) => {
-    const { placement, selections } = get();
-    if (placement.sending?.key !== key) return;
-    const retried = placement.unconfirmed?.key === key;
-    const odds = new Map(updates?.odds.map((u) => [u.outcomeId, u]));
-    const closed = new Set(updates?.closed);
-    set({
-      selections:
-        odds.size + closed.size === 0
-          ? selections
-          : selections.map((s) => {
-              const update = odds.get(s.outcomeId);
-              if (update) {
-                return {
-                  ...s,
-                  initialOdds: update.sent,
-                  currentOdds: update.current,
-                };
-              }
-              return closed.has(s.outcomeId) ? { ...s, suspended: true } : s;
-            }),
-      placement: {
-        ...placement,
-        sending: null,
-        stale: placement.stale || (retried && refusesPicks(refusal)),
-        refused: { key, problem: refusal },
+    const next = inSlipWhere(
+      get(),
+      sending(key),
+      ({ placement, selections }) => {
+        const retried = placement.unconfirmed?.key === key;
+        const odds = new Map(updates?.odds.map((u) => [u.outcomeId, u]));
+        const closed = new Set(updates?.closed);
+        return {
+          selections:
+            odds.size + closed.size === 0
+              ? selections
+              : selections.map((s) => {
+                  const update = odds.get(s.outcomeId);
+                  if (update) {
+                    return {
+                      ...s,
+                      initialOdds: update.sent,
+                      currentOdds: update.current,
+                    };
+                  }
+                  return closed.has(s.outcomeId)
+                    ? { ...s, suspended: true }
+                    : s;
+                }),
+          placement: {
+            ...placement,
+            sending: null,
+            stale: placement.stale || (retried && refusesPicks(refusal)),
+            refused: { key, problem: refusal },
+          },
+        };
       },
-    });
+    );
+    if (next) set(next);
   },
 
   placementSessionEnded: (key) => {
-    const { placement } = get();
-    if (placement.sending?.key !== key) return;
-    set({ placement: { ...placement, sending: null } });
+    const next = inSlipWhere(get(), sending(key), ({ placement }) => ({
+      placement: { ...placement, sending: null },
+    }));
+    if (next) set(next);
   },
 
   placementPlaced: (key, receipt) => {
-    const { placement } = get();
-    if (placement.sending?.key !== key) return;
-    set({
+    const next = inSlipWhere(get(), sending(key), ({ placement }) => ({
       placement: {
         ...placement,
         sending: null,
@@ -391,41 +593,72 @@ export const useBetSlipStore = create<BetSlipState>()((set, get) => ({
         refused: null,
         receipt,
       },
-    });
+    }));
+    if (next) set(next);
   },
 
   dismissReceipt: () =>
     set({ placement: { ...get().placement, receipt: null } }),
 
-  forgetPlacement: () => set({ placement: NO_PLACEMENT }),
+  forgetPlacement: () =>
+    set(inEverySlip(get(), () => ({ placement: NO_PLACEMENT }))),
+
+  forgetOtherPlayers: (playerId) => {
+    const next = inEverySlip(get(), ({ placement }) =>
+      placement.owner !== null && placement.owner !== playerId
+        ? { placement: NO_PLACEMENT }
+        : null,
+    );
+    if (changes(next)) set(next);
+  },
 
   applyOddsUpdate: (ref, odds) => {
-    if (!get().selections.some((s) => sameRef(s, ref))) return;
-
-    set({
-      selections: get().selections.map((s) =>
-        sameRef(s, ref)
-          ? {
-              ...s,
-              // A closed price suspends the leg rather than pricing it at zero.
-              suspended: odds === null,
-              currentOdds: odds ?? s.currentOdds,
-            }
-          : s,
-      ),
-    });
+    const next = inEverySlip(get(), (slip) =>
+      slip.selections.some((s) => sameRef(s, ref))
+        ? {
+            selections: slip.selections.map((s) =>
+              sameRef(s, ref)
+                ? {
+                    ...s,
+                    // A closed price suspends the leg rather than pricing it at zero.
+                    suspended: odds === null,
+                    currentOdds: odds ?? s.currentOdds,
+                  }
+                : s,
+            ),
+          }
+        : null,
+    );
+    if (changes(next)) set(next);
   },
 
   applyEventSuspension: (eventId, suspended) => {
-    const { selections } = get();
-    if (!selections.some((s) => s.eventId === eventId)) return;
-    set({
-      selections: selections.map((s) =>
-        s.eventId === eventId ? { ...s, suspended } : s,
-      ),
-    });
+    const next = inEverySlip(get(), (slip) =>
+      slip.selections.some((s) => s.eventId === eventId)
+        ? {
+            selections: slip.selections.map((s) =>
+              s.eventId === eventId ? { ...s, suspended } : s,
+            ),
+          }
+        : null,
+    );
+    if (changes(next)) set(next);
   },
 }));
+
+/** How many picks each slip holds, for its tab. */
+export const slipCounts = (state: {
+  active: number;
+  selections: BetSelection[];
+  slips: SlipState[];
+}): number[] =>
+  state.slips.map((slip, n) =>
+    n === state.active ? state.selections.length : slip.selections.length,
+  );
+
+/** Each slip's count, re-rendering only when one changes. */
+export const useSlipCounts = (): number[] =>
+  useBetSlipStore(useShallow(slipCounts));
 
 /** Narrow selector so one odds button re-renders when its own state flips. */
 export const useIsSelected = (outcomeId: string): boolean =>

@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useShallow } from "zustand/react/shallow";
 import { Check, Loader2 } from "lucide-react";
 import { useTranslation } from "@/lib/i18n/use-translation";
 import { routes } from "@/config/routes";
@@ -13,7 +14,7 @@ import { usePlaceBet } from "../hooks/use-place-bet";
 import type { CtaAction } from "../lib/calculate";
 import { placeRequestFrom, samePrices, slipIsThatBet } from "../lib/placement";
 import { ownPlacement, useBetSlipStore } from "../stores/bet-slip.store";
-import { BetModeTabs } from "./BetModeTabs";
+import { SlipTabs } from "./SlipTabs";
 import { BetPlacedConfirmation } from "./BetPlacedConfirmation";
 import { BetSelectionRow } from "./BetSelectionRow";
 import { BetSlipHeader } from "./BetSlipHeader";
@@ -73,15 +74,24 @@ export function BetSlip({ onClose }: { onClose?: () => void }) {
 
   const playerId = useSession().player?.id ?? null;
   const stored = useBetSlipStore((s) => s.placement);
-  const forgetPlacement = useBetSlipStore((s) => s.forgetPlacement);
+  const forgetOtherPlayers = useBetSlipStore((s) => s.forgetOtherPlayers);
+  // Whose placing each slip holds, on screen or parked (F3c).
+  const owners = useBetSlipStore(
+    useShallow((s) =>
+      s.slips.map((slip, n) =>
+        n === s.active ? s.placement.owner : slip.placement.owner,
+      ),
+    ),
+  );
   const dismissReceipt = useBetSlipStore((s) => s.dismissReceipt);
   // Another player signed in on this device: nothing of the last one's
-  // ticket, refusal or unconfirmed bet stays (docs/design/09).
+  // ticket, refusal or unconfirmed bet stays, in any slip, and nothing of
+  // this player's own goes (docs/design/09; F3c review Q1/M1).
   useEffect(() => {
-    if (playerId && stored.owner && stored.owner !== playerId) {
-      forgetPlacement();
+    if (playerId && owners.some((owner) => owner && owner !== playerId)) {
+      forgetOtherPlayers(playerId);
     }
-  }, [playerId, stored.owner, forgetPlacement]);
+  }, [playerId, owners, forgetOtherPlayers]);
   const placement = ownPlacement(stored, playerId);
   const { place, retry, placeAsNew } = usePlaceBet(playerId);
   const placing = placement.sending !== null;
@@ -167,6 +177,8 @@ export function BetSlip({ onClose }: { onClose?: () => void }) {
     return (
       <div className="bg-ground flex w-full flex-col">
         <BetSlipHeader count={totals.count} onClose={onClose} />
+        {/* The other slips stay in reach while this one shows its ticket. */}
+        <SlipTabs />
         <BetPlacedConfirmation
           receipt={placement.receipt}
           onKeepSelections={dismissReceipt}
@@ -183,14 +195,7 @@ export function BetSlip({ onClose }: { onClose?: () => void }) {
     <div className="bg-ground flex w-full flex-col">
       <BetSlipHeader count={totals.count} onClose={onClose} />
 
-      {totals.count > 0 && (
-        <BetModeTabs
-          mode={totals.mode}
-          systemAvailable={totals.systemAvailable}
-          systemK={totals.systemK}
-          liveCount={totals.liveCount}
-        />
-      )}
+      <SlipTabs />
 
       <SlipAlerts
         totals={totals}

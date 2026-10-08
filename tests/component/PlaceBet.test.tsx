@@ -184,8 +184,7 @@ beforeEach(() => {
   meReads = 0;
   meHangs = false;
   push.mockClear();
-  slip().clear();
-  slip().forgetPlacement();
+  slip().resetAll();
   useBetSlipStore.setState({ mode: "multiple", stake: "100", systemK: 2 });
   useUiStore.setState({ lang: "en", clock: "eat", calendar: "gregorian" });
   useAuthStore.getState().close();
@@ -195,6 +194,91 @@ beforeEach(() => {
 afterEach(() => vi.restoreAllMocks());
 
 describe("placing the slip", () => {
+  it("keeps an Idempotency-Key per slip: Slip 2 places with its own, and Slip 1's Try again resends Slip 1's (F3c AC-4, review S2)", async () => {
+    bets("drop", [201, TICKET()], [201, TICKET()]);
+    render(<BetSlip />);
+    await placeAndLoseTheAnswer();
+
+    await userEvent.click(screen.getByRole("button", { name: /^Slip 2/ }));
+    act(() => slip().toggleSelection(pick("m8", "1", "2.20", "Ajax")));
+    await placeBet();
+    await screen.findByTestId("ticket-code");
+    expect(sent).toHaveLength(2);
+    expect(sent[1].key).not.toBe(sent[0].key);
+
+    await userEvent.click(screen.getByRole("button", { name: /^Slip 1/ }));
+    await userEvent.click(alertTryAgain());
+    await waitFor(() => expect(sent).toHaveLength(3));
+    expect(sent[2].key).toBe(sent[0].key);
+  });
+
+  it("puts a ticket that arrives while another slip is on screen into the slip that asked (F3c AC-4, review Q2)", async () => {
+    let release!: (answer: [number, unknown]) => void;
+    bets(new Promise<[number, unknown]>((resolve) => (release = resolve)));
+    render(<BetSlip />);
+    await placeBet();
+
+    await userEvent.click(screen.getByRole("button", { name: /^Slip 2/ }));
+    await act(async () => release([201, TICKET()]));
+    expect(screen.queryByTestId("ticket-code")).not.toBeInTheDocument();
+    expect(screen.getByText("Your bet slip is empty")).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: /^Slip 1/ }));
+    expect(await screen.findByTestId("ticket-code")).toBeInTheDocument();
+  });
+
+  it("keeps this player's ticket when they open a slip holding another player's unanswered bet (review Q1/M1)", async () => {
+    // Another player's bet, never answered, parked in Slip 2.
+    act(() => {
+      slip().switchSlip(1);
+      slip().toggleSelection(pick("m8", "1", "2.20", "Ajax"));
+      slip().placementSent(
+        {
+          key: "someone-elses",
+          totalStake: "100.00",
+          lines: 1,
+          request: {
+            betType: "single",
+            systemSizes: [],
+            legs: [{ outcomeId: "oc_m8_1", odds: "2.20" }],
+            stake: "100.00",
+            oddsPolicy: "higher",
+          },
+        },
+        "someone-else",
+      );
+      slip().placementUnanswered("someone-elses");
+      slip().switchSlip(0);
+    });
+    bets([201, TICKET()]);
+    render(<BetSlip />);
+    await placeBet();
+    await screen.findByTestId("ticket-code");
+
+    // The other player's bet is gone, and this player's ticket stays.
+    await userEvent.click(screen.getByRole("button", { name: /^Slip 2/ }));
+    expect(screen.queryByText("We couldn’t confirm your bet")).toBeNull();
+    // Gone from the store, not only hidden from this player.
+    expect(slip().placement.owner).toBeNull();
+    await userEvent.click(screen.getByRole("button", { name: /^Slip 1/ }));
+    expect(screen.getByTestId("ticket-code")).toBeInTheDocument();
+  });
+
+  it("places the slip on screen, and keeps its ticket with it when another slip is opened (F3c AC-4)", async () => {
+    bets([201, TICKET()]);
+    render(<BetSlip />);
+    await placeBet();
+    await screen.findByTestId("ticket-code");
+
+    await userEvent.click(screen.getByRole("button", { name: /^Slip 2/ }));
+    expect(screen.queryByTestId("ticket-code")).not.toBeInTheDocument();
+    expect(screen.getByText("Your bet slip is empty")).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: /^Slip 1/ }));
+    expect(screen.getByTestId("ticket-code")).toBeInTheDocument();
+    expect(sent).toHaveLength(1);
+  });
+
   it("shows the API's ticket and figures, not the preview's (AC-3)", async () => {
     // The engine's figures differ from the slip's preview on every line: its
     // stake tax, its bonus, its payout.

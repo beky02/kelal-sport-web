@@ -32,21 +32,17 @@ export function BookingNotice({
 
   const name = (value: Localized | null) => (value ? t.pick(value) : "");
 
-  // The slip prices one system size, and falls back when legs drop out; say
-  // so whenever that is not the code's own system.
+  // The slip prices every code as one multiple (F3c): say so when the code
+  // was saved as a system, or as singles of more than one pick.
   let sizesNote: string | null = null;
   const sizes = notice.systemSizes;
-  if (priced && sizes && notice.added > 0) {
-    const list = sizes.join(t.t("booking.sizesSeparator"));
-    if (priced.mode !== "system" || priced.liveCount < 3) {
-      sizesNote = t.t("booking.sizesNoteMultiple", { sizes: list });
-    } else if (sizes.length !== 1 || sizes[0] !== priced.systemK) {
-      sizesNote = t.t("booking.sizesNote", {
-        sizes: list,
-        k: priced.systemK,
-        n: priced.liveCount,
-      });
-    }
+  // One pick left is priced as a single: nothing to say about a multiple.
+  if (priced && sizes && notice.added > 1) {
+    sizesNote = t.t("booking.sizesNoteMultiple", {
+      sizes: sizes.join(t.t("booking.sizesSeparator")),
+    });
+  } else if (priced && notice.savedAs === "single" && notice.added > 1) {
+    sizesNote = t.t("booking.singlesNote");
   }
 
   return (

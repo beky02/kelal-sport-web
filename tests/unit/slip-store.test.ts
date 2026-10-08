@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import {
   selectionFrom,
+  slipCounts,
   useBetSlipStore,
 } from "@/features/bet-slip/stores/bet-slip.store";
 import type { OutcomeRef } from "@/features/markets/types";
@@ -29,12 +30,23 @@ const pick = (eventId: string, odds: string) =>
   });
 
 const slip = () => useBetSlipStore.getState();
+/** Another price of the same match: the draw. */
+const draw = (eventId: string, odds: string) =>
+  selectionFrom({
+    outcomeId: `oc_${eventId}_x`,
+    ref: { ...ref(eventId), outcomeCode: "X" },
+    marketId: `${eventId}:1x2:`,
+    eventName: { en: eventId, am: eventId },
+    marketName: { en: "1X2", am: "1X2" },
+    outcomeName: { en: "X", am: "X" },
+    odds,
+  });
+const ids = () => slip().selections.map((s) => s.outcomeId);
 const selection = (outcomeId: string) =>
   slip().selections.find((s) => s.outcomeId === outcomeId)!;
 
 beforeEach(() => {
-  slip().clear();
-  slip().forgetPlacement();
+  slip().resetAll();
   slip().toggleSelection(pick("m1", "2.10"));
   slip().toggleSelection(pick("m2", "1.80"));
 });
@@ -94,7 +106,13 @@ describe("the slip store: the odds policy (AC-6)", () => {
       mode: "single",
       systemK: null,
       stake: null,
-      notice: { code: "7KQ2M9X", added: 1, notAdded: [], systemSizes: null },
+      notice: {
+        code: "7KQ2M9X",
+        added: 1,
+        notAdded: [],
+        systemSizes: null,
+        savedAs: "single",
+      },
     });
     expect(slip().oddsPolicy).toBeNull();
   });
@@ -281,5 +299,182 @@ describe("the slip store: a refusal", () => {
     expect(placement().receipt).toBe(RECEIPT);
     slip().dismissReceipt();
     expect(placement().receipt).toBeNull();
+  });
+});
+
+describe("the slip store: three slips, multiple only (F3c)", () => {
+  it("replaces the slip's pick from the same match, in its place (AC-2)", () => {
+    slip().toggleSelection(draw("m1", "3.20"));
+    expect(ids()).toEqual(["oc_m1_x", "oc_m2"]);
+    expect(slip().index).toEqual({ oc_m1_x: true, oc_m2: true });
+    // A second tap on the same price still takes it out.
+    slip().toggleSelection(draw("m1", "3.20"));
+    expect(ids()).toEqual(["oc_m2"]);
+  });
+
+  it("switches slips: each keeps its picks, stake and booking; prices are picked only for the slip on screen (AC-3)", () => {
+    slip().setStake("50");
+    slip().setBookingIntent({
+      signature: "s1",
+      key: "b1",
+      receipt: null,
+      receivedAt: null,
+    });
+
+    slip().switchSlip(1);
+    expect(slip().active).toBe(1);
+    expect(slip().selections).toEqual([]);
+    expect(slip().stake).toBe("");
+    expect(slip().bookingIntent).toBeNull();
+    expect(slip().index).toEqual({});
+    slip().toggleSelection(pick("m3", "3.00"));
+    slip().setStake("20");
+    expect(slipCounts(slip())).toEqual([2, 1, 0]);
+
+    slip().switchSlip(0);
+    expect(ids()).toEqual(["oc_m1", "oc_m2"]);
+    expect(slip().stake).toBe("50");
+    expect(slip().bookingIntent?.key).toBe("b1");
+    expect(slip().index).toEqual({ oc_m1: true, oc_m2: true });
+
+    // Clear empties the slip on screen only.
+    slip().clear();
+    expect(slipCounts(slip())).toEqual([0, 1, 0]);
+  });
+
+  it("prices every slip as one bet: a loaded code keeps its picks and hint, not its type (AC-1)", () => {
+    slip().replaceSlip({
+      selections: [pick("m5", "1.50"), pick("m6", "2.00")],
+      mode: "system",
+      systemK: 2,
+      stake: "50.00",
+      notice: {
+        code: "7KQ2M9X",
+        added: 2,
+        notAdded: [],
+        systemSizes: [2],
+        savedAs: "system",
+      },
+    });
+    expect(slip().mode).toBe("multiple");
+    expect(slip().stake).toBe("50.00");
+  });
+
+  it("sends a ticket, a refusal or no answer to the slip that asked, after a switch (AC-4)", () => {
+    slip().placementSent(ATTEMPT("k1"), "p1");
+    slip().switchSlip(2);
+    // The slip on screen holds the same pick: the refusal's price isn't its.
+    slip().toggleSelection(pick("m2", "1.80"));
+    slip().placementRefused("k1", REFUSAL, {
+      odds: [{ outcomeId: "oc_m2", sent: "1.80", current: "1.55" }],
+      closed: [],
+    });
+    // Nothing reached the slip on screen.
+    expect(slip().placement.refused).toBeNull();
+    expect(selection("oc_m2").currentOdds).toBe("1.80");
+
+    slip().switchSlip(0);
+    expect(slip().placement.refused?.key).toBe("k1");
+    expect(selection("oc_m2").currentOdds).toBe("1.55");
+
+    slip().placementSent(ATTEMPT("k2"), "p1");
+    slip().switchSlip(1);
+    slip().placementPlaced("k2", RECEIPT);
+    expect(slip().placement.receipt).toBeNull();
+    slip().switchSlip(0);
+    expect(slip().placement.receipt).toBe(RECEIPT);
+  });
+
+  it("sends a booked code to the slip that asked, after a switch (AC-4)", () => {
+    slip().setBookingIntent({
+      signature: "s1",
+      key: "b1",
+      receipt: null,
+      receivedAt: null,
+    });
+    slip().switchSlip(1);
+    const receipt = {
+      code: "7KQ2M9X",
+      expiresAt: "2026-10-04T13:00:00Z",
+      shareUrl: "https://example.et/b/7KQ2M9X",
+      issuedAt: "2026-10-04T12:00:00Z",
+    };
+    slip().bookingReceived("b1", receipt);
+    expect(slip().bookingIntent).toBeNull();
+    slip().switchSlip(0);
+    expect(slip().bookingIntent?.receipt).toEqual(receipt);
+  });
+
+  it("forgets every slip's placing when another player signs in", () => {
+    slip().placementSent(ATTEMPT("k1"), "p1");
+    slip().switchSlip(1);
+    slip().forgetPlacement();
+    slip().switchSlip(0);
+    expect(slip().placement.sending).toBeNull();
+  });
+
+  it("moves or suspends a pick in every slip that holds it (AC-5)", () => {
+    slip().switchSlip(1);
+    slip().toggleSelection(pick("m1", "2.10"));
+    // Slip 2, on screen, and Slip 1, parked, both hold m1.
+    slip().applyOddsUpdate(ref("m1"), "2.40");
+    slip().applyEventSuspension("m2", true);
+    expect(selection("oc_m1").currentOdds).toBe("2.40");
+    slip().switchSlip(0);
+    expect(selection("oc_m1").currentOdds).toBe("2.40");
+    expect(selection("oc_m2").suspended).toBe(true);
+    slip().switchSlip(1);
+    expect(selection("oc_m1").currentOdds).toBe("2.40");
+  });
+
+  it("starts each slip's stake at the minimum once, and leaves one cleared alone", () => {
+    slip().startStake("10.00");
+    expect(slip().stake).toBe("10");
+    slip().setStake("");
+    slip().startStake("10.00");
+    expect(slip().stake).toBe("");
+
+    slip().switchSlip(1);
+    slip().startStake("10.00");
+    expect(slip().stake).toBe("10");
+    slip().switchSlip(0);
+    expect(slip().stake).toBe("");
+  });
+
+  it("forgets only another player's placing, in any slip, and keeps this player's own (review Q1/M1)", () => {
+    // A's bet, unanswered, parked in Slip 1; B signs in and places in Slip 2.
+    slip().placementSent(ATTEMPT("kA"), "A");
+    slip().placementUnanswered("kA");
+    slip().switchSlip(1);
+    slip().placementSent(ATTEMPT("kB"), "B");
+
+    slip().forgetOtherPlayers("B");
+    expect(slip().placement.sending?.key).toBe("kB");
+    slip().placementUnanswered("kB");
+    expect(slip().placement.unconfirmed?.key).toBe("kB");
+    slip().switchSlip(0);
+    expect(slip().placement).toMatchObject({
+      owner: null,
+      sending: null,
+      unconfirmed: null,
+    });
+  });
+
+  it("starts Slip 1 at the minimum again after a reset (review M2)", () => {
+    slip().startStake("10.00");
+    slip().setStake("50");
+    slip().resetAll();
+    expect(slip().active).toBe(0);
+    expect(slip().stake).toBe("10");
+    slip().switchSlip(2);
+    expect(slip().stake).toBe("10");
+  });
+
+  it("changes nothing for a price or match no slip holds (review Q4)", () => {
+    const before = slip();
+    slip().applyOddsUpdate(ref("m9"), "5.00");
+    slip().applyEventSuspension("m9", true);
+    slip().forgetOtherPlayers("p1");
+    expect(slip()).toBe(before);
   });
 });

@@ -18,6 +18,7 @@ Engineering Decisions say differently. The order follows the Build Plan's fronte
 | [F3](F3-slip-calculator.md)                   | Slip on slipcalc (D1), rules from config, bookings and `/b/[code]`                                     | F0                 | B3            | done        |
 | [F3a](F3a-slip-calculator.md)                 | Split from F3: slip on slipcalc (D1), rules from config, money as strings                              | F0                 | B3            | done        |
 | [F3b](F3b-bookings.md)                        | Split from F3: booking codes and `/b/[code]`                                                           | F3a                | B3            | done        |
+| [F3c](F3c-multiple-three-slips.md)            | Multiple only, and three slips to organise bets in                                                     | F8cb               | —             | done        |
 | [F4](F4-auth-session.md)                      | Auth through route handlers and an httpOnly session cookie; KYC                                        | F0                 | B5, B12       | done        |
 | [F4a](F4a-session-login.md)                   | Split from F4: session cookie, login with the new-device OTP, logout, `/api/me`, trusted proxy         | F0                 | B5            | done        |
 | [F4b](F4b-register-kyc.md)                    | Split from F4: register with the SMS code, reset the password, verify with Fayda                       | F4a                | B5, B12       | done        |
