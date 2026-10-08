@@ -657,7 +657,7 @@ describe("the kiosk's slip, priced with the shop's rules (F8cb)", () => {
     expect(payout()).toHaveTextContent("—");
   });
 
-  it("starts the stake at the shop's minimum, and works without one once it is cleared (F8cb AC-b1, the user's decision)", async () => {
+  it("starts the stake at the shop's minimum, and books nothing under it — cleared or zero (F8cb AC-b1, the user's decisions)", async () => {
     const user = userEvent.setup();
     routes();
     renderTerminal();
@@ -667,21 +667,20 @@ describe("the kiosk's slip, priced with the shop's rules (F8cb)", () => {
     expect(stakeField()).toHaveValue("10");
     expect(payout()).toHaveTextContent("ETB 16.57");
 
-    await user.click(
-      slip().getByRole("button", { name: en.betSlip.clearStake }),
-    );
-    expect(payout()).toHaveTextContent("—");
-    expect(slip().queryByRole("alert")).toBeNull();
-
-    await user.click(slip().getByRole("button", { name: en.betSlip.bookBet }));
-    await screen.findByRole("dialog", { name: en.betSlip.bookingCode });
-    const call = asked.find(
-      (entry) => entry.route === "/api/terminal/bookings",
-    );
-    expect(JSON.parse(call!.body!)).toMatchObject({ stake: null });
+    const book = () => slip().getByRole("button", { name: en.betSlip.bookBet });
+    for (const stake of ["", "0"]) {
+      await user.clear(stakeField());
+      if (stake) await user.type(stakeField(), stake);
+      expect(payout()).toHaveTextContent("—");
+      expect(book()).toHaveAttribute("aria-disabled", "true");
+      await user.click(book());
+    }
+    expect(
+      asked.some((entry) => entry.route === "/api/terminal/bookings"),
+    ).toBe(false);
   });
 
-  it("refuses a stake under the shop's minimum — 10.00, not the online 5.00 — and offers it as a tap (F8cb AC-3)", async () => {
+  it("says the shop's minimum at the stake field — 10.00, not the online 5.00 — and books nothing under it (F8cb AC-3, the user's decision)", async () => {
     // Online, 5.00 would be priced.
     expect(() => quote(single(HOME_WIN.odds!, "5"), ONLINE.calc)).not.toThrow();
     const user = userEvent.setup();
@@ -690,32 +689,22 @@ describe("the kiosk's slip, priced with the shop's rules (F8cb)", () => {
     await user.click(await homeWin());
 
     await press(user, "5");
-    const alert = within(slip().getByRole("alert"));
-    expect(
-      alert.getByText(en.betSlip.errors.stakeTooLowTitle),
-    ).toBeInTheDocument();
-    expect(
-      alert.getByText(
-        en.betSlip.errors.stakeTooLowBody.replace(
-          "{amount}",
-          money("10.00", "en"),
-        ),
-      ),
-    ).toBeInTheDocument();
-    expect(payout()).toHaveTextContent("—");
-
-    await user.click(
-      alert.getByRole("button", {
-        name: en.betSlip.setMax.replace("{amount}", "10.00"),
-      }),
+    // A red border and the minimum below the field; no alert (the user's
+    // decision, 2026-10-08).
+    expect(stakeField()).toHaveAttribute("aria-invalid", "true");
+    expect(stakeField()).toHaveAccessibleDescription(
+      /^Minimum stake ETB\s10\.00$/,
     );
-    expect(stakeField()).toHaveValue("10.00");
     expect(slip().queryByRole("alert")).toBeNull();
+    expect(payout()).toHaveTextContent("—");
+    expect(
+      slip().getByRole("button", { name: en.betSlip.bookBet }),
+    ).toHaveAttribute("aria-disabled", "true");
+
+    await press(user, "10");
+    expect(stakeField()).not.toHaveAttribute("aria-invalid");
     expect(payout()).toHaveTextContent(
-      money(
-        quote(single(HOME_WIN.odds!, "10.00"), RETAIL.calc).netPayout,
-        "en",
-      ),
+      money(quote(single(HOME_WIN.odds!, "10"), RETAIL.calc).netPayout, "en"),
     );
     // Worked by hand (review M1): tax 1.50, net 8.50 × 1.95 = 16.57.
     expect(payout()).toHaveTextContent("ETB 16.57");

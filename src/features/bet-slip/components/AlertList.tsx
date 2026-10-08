@@ -38,31 +38,26 @@ export interface SlipAlert {
   below?: boolean;
 }
 
-/** A refusal from slipcalc, with the change that would make it go through. */
+/**
+ * A refusal from slipcalc, with the change that would make it go through. A
+ * stake under the minimum has none here: the stake field itself says so
+ * (`StakeInput`, the user's decision of 2026-10-08).
+ */
 export function problemAlert(
   problem: SlipProblem,
   t: Translator,
   fix: { setStake: (s: string) => void; useMultiple: () => void },
-): SlipAlert {
+): SlipAlert | null {
   switch (problem.code) {
     case "BET_STAKE_TOO_LOW":
+      return null;
     case "BET_STAKE_TOO_HIGH": {
-      const low = problem.code === "BET_STAKE_TOO_LOW";
       const amount = t.money(problem.stake);
       return {
         id: problem.code,
         tone: "error",
-        title: t.t(
-          low
-            ? "betSlip.errors.stakeTooLowTitle"
-            : "betSlip.errors.stakeTooHighTitle",
-        ),
-        body: t.t(
-          low
-            ? "betSlip.errors.stakeTooLowBody"
-            : "betSlip.errors.stakeTooHighBody",
-          { amount },
-        ),
+        title: t.t("betSlip.errors.stakeTooHighTitle"),
+        body: t.t("betSlip.errors.stakeTooHighBody", { amount }),
         action: {
           label: t.t("betSlip.setMax", { amount: t.number(problem.stake) }),
           onClick: () => fix.setStake(problem.stake),

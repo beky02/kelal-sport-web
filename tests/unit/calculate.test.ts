@@ -78,9 +78,12 @@ describe("calculateBetSlip — what slipcalc is asked", () => {
     expect(t.problem).toBeNull();
   });
 
-  it("asks nothing while the stake is empty or zero", () => {
-    expect(run(designDefault, { stake: "" }).quote).toBeNull();
-    expect(run(designDefault, { stake: "0" }).problem).toBeNull();
+  it("prices nothing for an empty or zero stake, which is under the minimum (the user's decision, 2026-10-08)", () => {
+    for (const stake of ["", "0", "0.00"]) {
+      const t = run(designDefault, { stake });
+      expect(t.quote).toBeNull();
+      expect(t.problem).toEqual({ code: "BET_STAKE_TOO_LOW", stake: "5.00" });
+    }
   });
 
   it("prices a stake being typed (`12.`) as 12", () => {

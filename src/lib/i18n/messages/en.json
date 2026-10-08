@@ -210,7 +210,8 @@
       "closed": "A selection in that bet is no longer available."
     },
     "taxRateStakeOver": "{tax} · {rate} of the whole stake once it’s over {amount}",
-    "paused": "Betting paused"
+    "paused": "Betting paused",
+    "minStake": "Minimum stake {amount}"
   },
   "clock": {
     "eat": "EAT · UTC+3",

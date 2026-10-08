@@ -250,14 +250,13 @@ export function SlipAlerts({
     );
   }
 
-  if (totals.problem) {
-    alerts.push(
-      problemAlert(totals.problem, t, {
-        setStake,
-        useMultiple: () => setMode("multiple"),
-      }),
-    );
-  }
+  const problem =
+    totals.problem &&
+    problemAlert(totals.problem, t, {
+      setStake,
+      useMultiple: () => setMode("multiple"),
+    });
+  if (problem) alerts.push(problem);
 
   if (totals.pendingOddsChanges.length > 0) {
     // The engine's refusal says the bet wasn't placed: announced at once.

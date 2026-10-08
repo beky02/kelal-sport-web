@@ -654,3 +654,4 @@ the user's review.)
 | Key                      | Amharic                                | Composed from                                                                                                                         |
 | ------------------------ | -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
 | `terminal.kiosk.noRules` | ይህ ትኬት ምን ያህል እንደሚከፍል የሱቁን ሠራተኞች ይጠይቁ። | ይህ ትኬት (`betSlip.errors.stakeTooLowBody`); የሱቁን ሠራተኞች ይጠይቁ (`terminal.kiosk.unavailable.body`); ምን ያህል እንደሚከፍል (how much it pays) new |
+| `betSlip.minStake`       | ዝቅተኛው የውርርድ መጠን {amount}               | As `betSlip.errors.stakeTooLowBody` (ዝቅተኛው የውርርድ መጠን); shown under the stake field on both sites (the user's decision, 2026-10-08)    |

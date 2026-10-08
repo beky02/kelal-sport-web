@@ -1,5 +1,19 @@
 # F8cb — verification
 
+## Rework 3 — nothing booked under the minimum; said at the field (2026-10-08)
+
+- **Built** (both sites): an empty or zero stake is `BET_STAKE_TOO_LOW`, so nothing is priced or booked
+  under the minimum; the stake field is red with "Minimum stake {amount}" below it; slipcalc's too-low
+  alert is gone (the engine's 422 keeps its alert).
+- **Tests proven:** with an empty stake no longer under the minimum, › "prices nothing for an empty or zero
+  stake…", › "can't book under the minimum…" and the kiosk's › "starts the stake at the shop's minimum, and
+  books nothing under it…" fail; with too low an alert again, the player's › "says the minimum at the stake
+  field…" and the kiosk's › "says the shop's minimum at the stake field…" fail. A guard first added to
+  `bookingRequestFrom` changed no test when removed: the existing "any problem stops the booking" already
+  covered it, so it went.
+- **Gate (fast):** `pnpm check` 1,622 pass; `pnpm ui --grep "home-slip|booking|kiosk-slip|kiosk-picks|kiosk-booking"`
+  93 pass, none on retry (1.5 min). Looked at `terminal-kiosk-slip-too-low-en-desktop` and `-am-phone`.
+
 ## Rework 2 — min and max, the starting stake (2026-10-08)
 
 - **The user decided** (asked, being rules about money): the same limits on both sites by configuring

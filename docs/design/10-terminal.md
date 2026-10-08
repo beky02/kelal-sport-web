@@ -176,7 +176,8 @@ retail is enabled.
   is one (the contract's shop set has none), the stake and the payout, with "Max win" and the tax note; no
   tax lines. Above the picks are the slip's own alerts, shared with the player's slip (`AlertList`): two
   picks of one match (Use singles), a pick that can't be priced (Remove it), slipcalc's refusals with
-  their fix as a tap (the shop's minimum, 10.00 in the contract, where online it is 5.00), and D1's
+  their fix as a tap (over the maximum; under the minimum is said at the stake field, 10.00 in the contract,
+  where online it is 5.00), and D1's
   warnings. There is no balance, no login, no Place and no odds-change consent: nothing is placed here.
   The payout and Book bet are a footer pinned to the foot of the column or the sheet, so the picks and the
   stake scroll beneath them and they are always in reach (review U1).
@@ -185,7 +186,8 @@ retail is enabled.
   code at sale and shows old and new (C19 §4.3, §14).
 - **The stake** is optional, a hint the counter sees on the code (C19 §4.2). It starts at the shop's
   minimum (`retail_betting.min_stake`), as the player's starts at the online one (the user's decision,
-  2026-10-08); cleared, the figures show "—" and a code goes without one. The brand sets the shop's
+  2026-10-08). Under the minimum — cleared, zero or too low — the field is red with the minimum below it,
+  the figures show "—" and Book bet is off (the user's decision). The brand sets the shop's
   minimum and maximum equal to the online ones, so both sites ask the same. It is typed in the player's stake field (`StakeInput`, no balance),
   with the PC's keyboard; the user removed the on-screen keypad (2026-10-08). Then the "N bets × X" line
   and the rule set's quick stakes, when it has any. A loaded code's stake hint becomes the stake, under the
@@ -206,7 +208,7 @@ retail is enabled.
 | Home board                    | Config read, shop betting on                    | The player's home, without what needs a player                                                                                 | `terminal-kiosk-board-{am,en}-{phone,desktop}`        |
 | Picks                         | Prices tapped                                   | The picks in the slip; prices pressed; rows tinted                                                                             | `terminal-kiosk-picks-…`                              |
 | Slip priced                   | Picks and a stake typed                         | The bet's modes, the stake, total odds and the payout on the shop's rules; Book bet                                            | `terminal-kiosk-slip-{am,en}-{phone,desktop}`         |
-| Stake too low                 | A stake under the shop's minimum                | "Stake too low" with the minimum as a tap; figures "—"                                                                         | `terminal-kiosk-slip-too-low-…`                       |
+| Stake too low                 | A stake under the shop's minimum                | The field red, the minimum below it; figures "—"; Book bet off                                                                 | `terminal-kiosk-slip-too-low-…`                       |
 | No shop rule set              | The config has no `retail_betting`              | The picks; "Ask the shop staff what this slip pays."; no stake or figure                                                       | `terminal-kiosk-slip-no-rules-…`                      |
 | A league                      | `/terminal/competition/[id]`                    | That league's board                                                                                                            | `terminal-kiosk-league-…`                             |
 | A match                       | `/terminal/event/[id]`                          | Every market of the match; Back                                                                                                | `terminal-kiosk-match-…`                              |

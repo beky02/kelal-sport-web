@@ -9,6 +9,27 @@ Mode: interactive. Before planning, `pnpm contract:sync --check` found the contr
 behind the backend (additive error responses on bookings and the ticket check); synced on the user's
 go-ahead as this branch's first commit (`aa30414`). `pnpm check` passed on main (1,610 tests).
 
+## Rework 3 (the user's review, 2026-10-08)
+
+The user's words: **"with 0 birr it allow me to book a bet, it should disable the book button when the price
+is less than the min. it would be easy to show the box in red border and show the min price text below the
+price box instead of stake to low tooltip"**. On both sites (the stake field and alerts are shared, and the
+user wants the two to match):
+
+- **Under the minimum — no stake, zero or too low — nothing is priced or booked.** `calculateBetSlip` calls
+  an empty or zero stake `BET_STAKE_TOO_LOW` with the slip's minimum; `bookingRequestFrom` books nothing on
+  it (Book bet off on both sites; Place was already off). AC-b1's "the slip works without a stake" is
+  replaced by "Book bet needs at least the minimum". Over the maximum is unchanged (its alert, Set max, and
+  a booking without the stake).
+- **Said at the field, not in an alert:** a red border on the stake field (`aria-invalid`) and "Minimum
+  stake {amount}" below it (`betSlip.minStake`, its description), the slip's own minimum (5.01 on three
+  singles). slipcalc's too-low alert and its tap go; the engine's 422 after placing keeps its alert.
+
+Tests: `calculate.test.ts`, `booking-slip.test.ts`, `BetSlip.test.tsx` (› "says the minimum at the stake
+field when the stake is too low…", › "says the slip's own minimum on singles…"), `TerminalKiosk.test.tsx`
+(› "starts the stake at the shop's minimum, and books nothing under it…", › "says the shop's minimum at the
+stake field…"), `terminal.spec.ts` (`kiosk-slip-too-low`).
+
 ## Rework 2 (the user's review, 2026-10-08)
 
 The user's words: **"the min and max stake should be the same in the kiosk or normal user pages. let put

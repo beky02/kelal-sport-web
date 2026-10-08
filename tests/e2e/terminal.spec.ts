@@ -724,7 +724,7 @@ for (const [device, viewport] of Object.entries({
         await shoot(page, `kiosk-slip-${lang}`, device, errors);
       });
 
-      test("kiosk-slip-too-low: a stake under the shop's minimum, and the fix (F8cb AC-3)", async ({
+      test("kiosk-slip-too-low: a stake under the shop's minimum — a red field, the minimum below it, Book bet off (F8cb AC-3)", async ({
         page,
         baseURL,
       }) => {
@@ -732,16 +732,13 @@ for (const [device, viewport] of Object.entries({
         await price(page, 0).click();
         const slip = await openSlip(page, 1);
         await press(slip, "5");
-        const alert = slip.getByRole("alert");
-        await expect(alert).toContainText(t.betSlip.errors.stakeTooLowTitle);
-        await expect(
-          alert.getByRole("button", {
-            name: t.betSlip.setMax.replace("{amount}", "10.00"),
-          }),
-        ).toBeVisible();
-        await expect(
-          slip.getByRole("button", { name: t.betSlip.bookBet }),
-        ).toBeInViewport({ ratio: 1 });
+        const field = slip.getByRole("textbox", { name: t.betSlip.totalStake });
+        await expect(field).toHaveAttribute("aria-invalid", "true");
+        await expect(slip.getByText(/10\.00/).first()).toBeVisible();
+        await expect(slip.getByRole("alert")).toHaveCount(0);
+        const book = slip.getByRole("button", { name: t.betSlip.bookBet });
+        await expect(book).toHaveAttribute("aria-disabled", "true");
+        await expect(book).toBeInViewport({ ratio: 1 });
         await shoot(page, `kiosk-slip-too-low-${lang}`, device, errors);
       });
 

@@ -159,9 +159,14 @@ describe("bookingRequestFrom", () => {
     ).toEqual(["a"]);
   });
 
-  it("saves the picks without a stake when the stake is empty or refused", () => {
-    expect(requestFor([pick("a", "m1")], { stake: "" })?.stake).toBeNull();
-    expect(requestFor([pick("a", "m1")], { stake: "2" })?.stake).toBeNull();
+  it("can't book under the minimum — no stake, zero or too low (the user's decision, 2026-10-08)", () => {
+    for (const stake of ["", "0", "2"]) {
+      expect(requestFor([pick("a", "m1")], { stake })).toBeNull();
+    }
+  });
+
+  it("saves the picks without a stake over the maximum", () => {
+    expect(requestFor([pick("a", "m1")], { stake: "60000" })?.stake).toBeNull();
   });
 
   it("can't book an empty slip or two picks from one match", () => {

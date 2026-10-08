@@ -1,6 +1,8 @@
 "use client";
 
+import { useId } from "react";
 import { useTranslation } from "@/lib/i18n/use-translation";
+import { cn } from "@/lib/utils/cn";
 import { useBetSlipStore } from "../stores/bet-slip.store";
 import type { BetSlipTotals } from "../lib/calculate";
 
@@ -28,6 +30,12 @@ export function StakeInput({
   const stake = useBetSlipStore((s) => s.stake);
   const setStake = useBetSlipStore((s) => s.setStake);
   const { quote } = totals;
+  // Under the minimum (none, zero or too low), said at the field itself: a
+  // red border and the slip's minimum below it (the user's decision,
+  // 2026-10-08). The slip's own minimum: on three singles 5.00 is 5.01.
+  const min =
+    totals.problem?.code === "BET_STAKE_TOO_LOW" ? totals.problem.stake : null;
+  const minId = useId();
 
   return (
     <div className="flex flex-col gap-2 px-4 pt-3">
@@ -40,7 +48,12 @@ export function StakeInput({
         )}
       </div>
 
-      <div className="bg-raised flex h-[46px] items-stretch overflow-hidden rounded-md">
+      <div
+        className={cn(
+          "bg-raised flex h-[46px] items-stretch overflow-hidden rounded-md border",
+          min ? "border-loss" : "border-transparent",
+        )}
+      >
         <span className="text-muted flex items-center px-3 font-bold">
           {t.t("header.currency")}
         </span>
@@ -49,6 +62,8 @@ export function StakeInput({
           aria-label={t.t("betSlip.totalStake")}
           value={stake}
           onChange={(event) => setStake(event.target.value)}
+          aria-invalid={min !== null || undefined}
+          aria-describedby={min ? minId : undefined}
           className="font-body numeric text-text min-w-0 flex-1 border-0 bg-transparent px-1 text-[17px] font-bold outline-none"
         />
         <button
@@ -60,6 +75,12 @@ export function StakeInput({
           C
         </button>
       </div>
+
+      {min && (
+        <p id={minId} className="text-loss text-xs font-bold">
+          {t.t("betSlip.minStake", { amount: t.money(min) })}
+        </p>
+      )}
 
       {quote && quote.lines > 1 && (
         <div className="text-muted numeric text-[11px]">

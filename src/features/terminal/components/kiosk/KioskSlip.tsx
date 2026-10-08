@@ -198,14 +198,13 @@ function KioskSlipAlerts({
   if (suspended) {
     alerts.push(suspendedAlert(t, () => removeSelection(suspended.outcomeId)));
   }
-  if (totals.problem) {
-    alerts.push(
-      problemAlert(totals.problem, t, {
-        setStake,
-        useMultiple: () => setMode("multiple"),
-      }),
-    );
-  }
+  const problem =
+    totals.problem &&
+    problemAlert(totals.problem, t, {
+      setStake,
+      useMultiple: () => setMode("multiple"),
+    });
+  if (problem) alerts.push(problem);
   if (totals.quote && rules) {
     alerts.push(...warningAlerts(totals.quote, rules, stake, t));
   }

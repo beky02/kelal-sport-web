@@ -57,8 +57,10 @@ Out: slip codes, the idle reset, the rate limit (F8cc).
       below the retail minimum (10.00, online 5.00) is refused with its fix, and a multiple shows no
       accumulator bonus (the retail table is empty); figures match slipcalc on the retail rules.
 - [x] **AC-b1** The stake is typed in the player's stake field, with the same rules (two decimals at
-      most); the slip works without a stake. (The user's review, 2026-10-08: no on-screen keypad; this
-      replaces "on an on-screen keypad (digits, decimal point, delete, clear)".)
+      most), and starts at the rule set's minimum; under the minimum (none, zero or too low) the field is
+      red with the minimum below it, and Book bet is off. (The user's reviews, 2026-10-08: no on-screen
+      keypad; the stake starts at the minimum; nothing booked under it. This replaces "on an on-screen
+      keypad…" and "the slip works without a stake".)
 - [x] **AC-b2** The kiosk's slip shows no balance, no login and no place button; a tenant whose config has
       no `retail_betting` shows the picks without any figure (as the player's slip does before its rules
       load), never the online rule set's.
@@ -84,3 +86,5 @@ Out: slip codes, the idle reset, the rate limit (F8cc).
 - 2026-10-08, the user's review: the min and max stake are the same on the kiosk and the player site — by
   configuring `retail_betting`'s limits equal to `betting`'s, no code change — and the stake starts at the
   rule set's minimum on both sites (plan, "Rework 2").
+- 2026-10-08, the user's review: nothing is booked under the minimum (0 birr was), and too low is said at
+  the stake field (red border, the minimum below) instead of an alert, on both sites (plan, "Rework 3").

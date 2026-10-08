@@ -194,6 +194,13 @@ export function calculateBetSlip(input: BetSlipInput): BetSlipTotals {
     );
     if (priced.ok) quoteResult = priced.quote;
     else problem = problemFor(priced.code, rules, lineCount);
+  } else if (rules && liveCount > 0) {
+    // No stake, or zero, is under the minimum (the user's decision,
+    // 2026-10-08): nothing to price, and nothing to book.
+    problem = {
+      code: "BET_STAKE_TOO_LOW",
+      stake: smallestStake(rules.min_stake, lineCount),
+    };
   }
 
   const seen = new Map<string, number>();
