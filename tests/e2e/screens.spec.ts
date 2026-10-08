@@ -40,6 +40,23 @@ async function openSlipWithPicks(page: Page, device: Device, lang: Lang) {
   }
 }
 
+/** Slip 1 built, then Slip 2 opened from its tab (F3c): the tabs and their counts. */
+async function openSecondSlip(page: Page, device: Device, lang: Lang) {
+  await openSlipWithPicks(page, device, lang);
+  const t = MESSAGES[lang];
+  const second = new RegExp(`^${escape(t.betSlip.slipN.replace("{n}", "2"))}`);
+  await page
+    .getByRole("button", { name: second })
+    .locator("visible=true")
+    .first()
+    .click();
+  await page
+    .getByText(t.betSlip.emptyTitle)
+    .locator("visible=true")
+    .first()
+    .waitFor();
+}
+
 /**
  * A guest's slip after Book bet: the server's code, its expiry and the share
  * buttons. Logging out from Profile is how a session becomes a guest.
@@ -1072,6 +1089,7 @@ const SCREENS: Array<{
 }> = [
   { name: "home", path: "/" },
   { name: "home-slip", path: "/", prepare: openSlipWithPicks },
+  { name: "home-slip-tabs", path: "/", prepare: openSecondSlip },
   {
     name: "home-slip-booked",
     path: "/profile",
