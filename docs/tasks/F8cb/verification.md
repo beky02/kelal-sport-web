@@ -15,29 +15,33 @@
 
 ## Automated gate
 
-Final run, 2026-10-08, at `20281f6`, against the running `next dev` (simulated board) and Prism on :4010.
-`pnpm verify` exit 0:
+Final run, 2026-10-08, at `b766e01` (after the review fixes), against the running `next dev` (simulated
+board) and Prism on :4010. `pnpm verify` exit 0:
 
 ```
  Test Files  80 passed (80)
-      Tests  1619 passed (1619)
+      Tests  1621 passed (1621)
 Generated API types match contracts/openapi.yaml.
 contracts/ matches the backend.
 docs/backend/ matches the backend.
 Host split holds: 19 player routes load no module or chunk of (terminal); 3 terminal route(s) load no module of (player) nor a chunk holding one (.next/server/app, 68 manifests).
-  652 passed (7.0m)
+  2 flaky
+  650 passed (8.6m)
 ```
+
+Two passed only on retry, both the player's login flows, not this task's screens (under Gaps). The run
+before the review fixes, at `20281f6`, passed all 652 with none on retry.
 
 | Check                                   | Result | Command                                      |
 | --------------------------------------- | ------ | -------------------------------------------- |
-| Typecheck, lint, format, unit/component | PASS   | `pnpm check` (1,619 tests)                   |
+| Typecheck, lint, format, unit/component | PASS   | `pnpm check` (1,621 tests)                   |
 | Generated types                         | PASS   | `pnpm api:check`                             |
 | Contract drift                          | PASS   | `node scripts/contract-sync.mjs --check`     |
 | Build, host split                       | PASS   | `pnpm build`, `scripts/check-host-split.mjs` |
-| Screens                                 | PASS   | `pnpm ui` (652, none on retry)               |
+| Screens                                 | PASS   | `pnpm ui` (652; 2 flaky, Gaps)               |
 | Golden rows                             | PASS   | `tests/unit/golden.test.ts`, unchanged       |
 
-The two runs before it:
+The runs before `20281f6`:
 
 1. `ticket-check-failed` (F5b's screen) failed in all four: the contract synced in `aa30414` gives
    `checkTicket` a 503, and the screen allowed only the 404 an older Prism answered. Two Prisms answer
@@ -153,3 +157,7 @@ Notes, no decision needed:
 Test ended`), then passed on retry; not this task's screen.
 - **The dev server's board was the simulated one** for the kiosk screenshots; the component tests use the
   contract's examples.
+- **Flaky (final gate run), both passed on retry:** `auth.spec.ts` › "logs in through the dialog and
+  leaves no token in the browser (AC-3)" — `getByRole('link', { name: /balance/i })` not found; and ›
+  "logging in on another device takes the language saved on the account (F7b AC-8)" — `<html lang>` was
+  "en", expected "am". Player login flows on a slow run (8.6 min against 7.0), untouched by this branch.

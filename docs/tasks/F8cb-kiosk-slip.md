@@ -1,7 +1,7 @@
 ---
 id: F8cb
 title: Split from F8c — the kiosk's slip priced with the retail rule set, stake on a keypad
-status: verifying
+status: done
 depends_on: [F8ca]
 contract_tags: [Config]
 touches_money: true
@@ -51,12 +51,12 @@ Out: slip codes, the idle reset, the rate limit (F8cc).
 
 ## Acceptance criteria
 
-- [ ] **AC-3** (F8c) The retail rule set is used for slip figures: with the contract's example, a stake
+- [x] **AC-3** (F8c) The retail rule set is used for slip figures: with the contract's example, a stake
       below the retail minimum (10.00, online 5.00) is refused with its fix, and a multiple shows no
       accumulator bonus (the retail table is empty); figures match slipcalc on the retail rules.
-- [ ] **AC-b1** The stake is typed on an on-screen keypad (digits, decimal point, delete, clear), the same
+- [x] **AC-b1** The stake is typed on an on-screen keypad (digits, decimal point, delete, clear), the same
       rules as the player's stake field (two decimals at most); the slip works without a stake.
-- [ ] **AC-b2** The kiosk's slip shows no balance, no login and no place button; a tenant whose config has
+- [x] **AC-b2** The kiosk's slip shows no balance, no login and no place button; a tenant whose config has
       no `retail_betting` shows the picks without any figure (as the player's slip does before its rules
       load), never the online rule set's.
 
@@ -68,3 +68,11 @@ Out: slip codes, the idle reset, the rate limit (F8cc).
 ## Notes
 
 - 2026-10-06: split from F8c while planning.
+- 2026-10-08: planned and built. The user's answers at the plan gate: a tenant without `retail_betting`
+  says "Ask the shop staff what this slip pays."; the kiosk's stake starts empty; a loaded code's stake
+  hint becomes the stake, under the shop's limits. Two contract syncs on the branch (additive error
+  responses; `placeBet`'s 429).
+- 2026-10-08: verified (`docs/tasks/F8cb/verification.md`): `pnpm verify` passes (1,621 tests, 652
+  screens). The panel's one MAJOR (Book bet below the fold at 1440 × 900) is fixed with a pinned footer.
+  Follow-ups: a named "start the kiosk's slip" action in F8cc (M2/Q3); a shared booking refusal with the
+  player's slip (Q2); one pick under "Multiple" (U5, shared); the player's 11 px stake label (U3).
