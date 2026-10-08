@@ -56,7 +56,7 @@ Each broken in the store and seen to fail, then restored:
 ## Review findings
 
 Panel (round 1): spec FAIL (2 MAJOR), quality FAIL (1 BLOCKER), money FAIL (1 MAJOR, the same bug), UI
-PASS. Fixed in `51c6655` and the review-fix commit below; the quality reviewer re-checked Q1 alone.
+PASS. Fixed in `51c6655` and the review-fix commit below; the quality reviewer re-checked Q1 alone: RESOLVED (its two MINOR notes: the Slip 2 assertion now checks the store; `forgetPlacement` documented as the full reset).
 
 | ID     | Reviewer                    | Severity | Summary                                                                                                                                                                        | Decision                                                                                                                                                                                                                                                                                                                                   |
 | ------ | --------------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |

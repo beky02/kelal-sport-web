@@ -248,7 +248,10 @@ interface BetSlipState extends SlipState {
   placementPlaced: (key: string, receipt: BetReceipt) => void;
   /** Back from the ticket to the same picks (Keep selections). */
   dismissReceipt: () => void;
-  /** Nothing of anyone's placing stays, in any slip. */
+  /**
+   * Nothing of anyone's placing stays, in any slip: a full reset (tests). A
+   * player change uses `forgetOtherPlayers`, which keeps the player's own.
+   */
   forgetPlacement: () => void;
   /**
    * `playerId` is signed in: every slip's placing that was someone else's

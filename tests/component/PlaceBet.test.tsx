@@ -258,6 +258,8 @@ describe("placing the slip", () => {
     // The other player's bet is gone, and this player's ticket stays.
     await userEvent.click(screen.getByRole("button", { name: /^Slip 2/ }));
     expect(screen.queryByText("We couldn’t confirm your bet")).toBeNull();
+    // Gone from the store, not only hidden from this player.
+    expect(slip().placement.owner).toBeNull();
     await userEvent.click(screen.getByRole("button", { name: /^Slip 1/ }));
     expect(screen.getByTestId("ticket-code")).toBeInTheDocument();
   });
