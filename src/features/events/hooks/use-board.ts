@@ -8,12 +8,12 @@ import type { EventFilters } from "@/features/events/types";
 import { getBoard, getEvent } from "../api/get-board";
 
 /**
- * The board. Its prices are read again as the site says (`pricePollMs`): on
- * the player's, unless the realtime channel delivers them; on the shop kiosk,
- * always (F8ca review M1).
+ * The board. Its prices are read again as the site says (`usePricePollMs`):
+ * on the player's, unless the realtime channel delivers them; on the shop
+ * kiosk, unless it is idle (F8ca review M1, F8cc).
  */
 export function useBoard(filters: EventFilters, dataSaver: boolean) {
-  const refetchInterval = useSportsbookChrome().pricePollMs;
+  const refetchInterval = useSportsbookChrome().usePricePollMs();
   return useQuery({
     queryKey: eventKeys.board(filters, dataSaver),
     queryFn: ({ signal }) => getBoard(filters, dataSaver, signal),
@@ -24,7 +24,7 @@ export function useBoard(filters: EventFilters, dataSaver: boolean) {
 
 /** One request carries the fixture and its whole book. */
 export function useEvent(id: string, dataSaver: boolean) {
-  const refetchInterval = useSportsbookChrome().pricePollMs;
+  const refetchInterval = useSportsbookChrome().usePricePollMs();
   return useQuery({
     queryKey: eventKeys.detail(id, dataSaver),
     queryFn: ({ signal }) => getEvent(id, dataSaver, signal),

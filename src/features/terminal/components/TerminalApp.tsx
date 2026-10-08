@@ -60,7 +60,7 @@ function TerminalScreen({
       );
     case "active":
       return status.terminal.shop.openNow ? (
-        <Kiosk>{children}</Kiosk>
+        <Kiosk terminal={status.terminal}>{children}</Kiosk>
       ) : (
         <div className="flex flex-1 flex-col">
           <TerminalBar />

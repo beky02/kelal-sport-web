@@ -150,6 +150,5 @@ export const pausedUntil = (
 ): number | null =>
   retryAfter !== null && retryAfter > 0 ? now + retryAfter * 1000 : null;
 
-/** The wait left, in whole minutes rounded up ("back in 4 min"). */
-export const minutesLeft = (until: number, now: number) =>
-  Math.ceil((until - now) / 60_000);
+/** The wait left, `seconds`, in whole minutes rounded up ("back in 4 min"). */
+export const minutesLeft = (seconds: number) => Math.ceil(seconds / 60);

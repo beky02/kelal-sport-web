@@ -44,20 +44,20 @@ describe("the browser's API client (F8ca R2)", () => {
     expect(askedUrl(spy)).toBe("/api/config");
   });
 
-  it("routes booking detail reads to terminal's guarded mirror but leaves writes on the player API", async () => {
+  it("routes booking detail reads to terminal's guarded mirror but leaves every write on the player API (F8cc: no Book bet on the kiosk)", async () => {
     const read = stubFetch();
     document.documentElement.dataset.api = "/api/terminal/";
     await apiClient.get("/bookings/7KQ2M9X", ok);
     expect(askedUrl(read)).toBe("/api/terminal/bookings/7KQ2M9X");
     read.mockRestore();
 
-    // Book bet is mirrored too (the user's third review)…
+    // Book bet is no longer mirrored: Get code replaced it (F8cc).
     const create = stubFetch();
     await apiClient.post("/bookings", ok, {});
-    expect(askedUrl(create)).toBe("/api/terminal/bookings");
+    expect(askedUrl(create)).toBe("/api/bookings");
     create.mockRestore();
 
-    // …but no other write.
+    // Nor any other write.
     const nestedWrite = stubFetch();
     await apiClient.post("/bookings/7KQ2M9X", ok, {});
     expect(askedUrl(nestedWrite)).toBe("/api/bookings/7KQ2M9X");

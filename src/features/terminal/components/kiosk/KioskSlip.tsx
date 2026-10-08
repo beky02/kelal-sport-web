@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useRef, useState } from "react";
-import { Check, Loader2, Ticket } from "lucide-react";
+import { Ticket } from "lucide-react";
 import type { RuleSetJson } from "@golden/slipcalc";
 import { Sheet } from "@/components/ui/Sheet";
 import {
@@ -16,20 +16,10 @@ import { SlipTabs } from "@/features/bet-slip/components/SlipTabs";
 import { BetSelectionRow } from "@/features/bet-slip/components/BetSelectionRow";
 import { BetSlipHeader } from "@/features/bet-slip/components/BetSlipHeader";
 import { EmptySlip } from "@/features/bet-slip/components/EmptySlip";
-import {
-  BookingAlert,
-  LoadBookingCode,
-} from "@/features/bet-slip/components/BookingCode";
-import { BookingCodeDialog } from "@/features/bet-slip/components/BookingCodeDialog";
+import { LoadBookingCode } from "@/features/bet-slip/components/BookingCode";
 import { PayoutSummary } from "@/features/bet-slip/components/PayoutSummary";
 import { SlipSummary } from "@/features/bet-slip/components/SlipSummary";
 import { StakeInput } from "@/features/bet-slip/components/StakeInput";
-import {
-  signatureOf,
-  useCreateBooking,
-} from "@/features/bookings/hooks/use-bookings";
-import { bookingErrorMessage } from "@/features/bookings/lib/errors";
-import { bookingRequestFrom } from "@/features/bookings/lib/request";
 import { BookingNotice } from "@/features/bookings/components/BookingNotice";
 import {
   calculateBetSlip,
@@ -38,11 +28,15 @@ import {
 import { useBetSlipStore } from "@/features/bet-slip/stores/bet-slip.store";
 import { useTranslation } from "@/lib/i18n/use-translation";
 import { useTerminalConfig } from "../../hooks/use-kiosk";
+import { useGetCode } from "../../hooks/use-slip-code";
+import { slipCodeRequestFrom } from "../../lib/slip-code";
+import { GetCode } from "./GetCode";
 
 /**
  * The kiosk's slip (F8ca, priced in F8cb), from the player's slip parts: its
- * header with Clear all, the bet's modes, a row per pick, Book bet and Load
- * booking code where the tenant has codes. Its figures are slipcalc's on the
+ * header with Clear all, the slips' tabs, a row per pick, Get code (F8cc, in
+ * Book bet's place: the user's answer at the gate), and Load booking code
+ * where the tenant has codes. Its figures are slipcalc's on the
  * shop's rule set (`retail_betting`, D1.12) and nothing else: the player's
  * `SlipSummary` and `PayoutSummary`, with slipcalc's refusals and their fixes
  * above. The stake is optional, typed in the player's stake field (the
@@ -50,8 +44,8 @@ import { useTerminalConfig } from "../../hooks/use-kiosk";
  *
  * A pick is priced at its odds when tapped, or a loaded code's current odds;
  * nothing asks to accept a move, since nothing is placed here — the counter
- * re-prices the code at sale (C19 §4.3, §14). There is no balance, login or
- * Place. A tenant without a shop rule set gets the picks and no figure:
+ * re-prices the slip code at sale (C19 §4.3, §14). There is no balance, login
+ * or Place. A tenant without a shop rule set gets the picks and no figure:
  * never the online rule set's. The store is the player's slip store.
  */
 export function KioskSlip({ onClose }: { onClose?: () => void }) {
@@ -84,7 +78,11 @@ export function KioskSlip({ onClose }: { onClose?: () => void }) {
     () => new Set(totals.conflictEventIds),
     [totals.conflictEventIds],
   );
-  const book = useBookBet(totals, stake);
+  const request = useMemo(
+    () => slipCodeRequestFrom({ selections, totals, stake }),
+    [selections, totals, stake],
+  );
+  const code = useGetCode();
 
   return (
     // The player's slip body (`BetSlip`), so its tiles and rows read the same.
@@ -149,12 +147,10 @@ export function KioskSlip({ onClose }: { onClose?: () => void }) {
           {/* What the customer came for, always in reach: the picks and the
               stake scroll beneath it, in the column and in the sheet
               (review U1). */}
-          {(rules || bookingCodes) && (
-            <div className="bg-ground sticky bottom-0 z-10 pb-1 shadow-[0_-12px_12px_-12px_rgb(0_0_0/0.5)]">
-              {rules && <PayoutSummary totals={totals} rules={rules.calc} />}
-              {bookingCodes && <BookBet {...book} />}
-            </div>
-          )}
+          <div className="bg-ground sticky bottom-0 z-10 pb-1 shadow-[0_-12px_12px_-12px_rgb(0_0_0/0.5)]">
+            {rules && <PayoutSummary totals={totals} rules={rules.calc} />}
+            <GetCode request={request} code={code} />
+          </div>
         </>
       )}
       {/* A code replaces the slip: offered only while it is empty (the user's
@@ -204,104 +200,6 @@ function KioskSlipAlerts({
     alerts.push(...warningAlerts(totals.quote, rules, stake, t));
   }
   return <AlertList alerts={alerts} />;
-}
-
-/**
- * Book bet, as the player's guest slip has it (the user's third review): the
- * picks saved as a code the customer takes to the counter, shown in a dialog
- * (`BookedCode`), with the stake typed as its hint when slipcalc accepts it
- * (`bookingRequestFrom`; F8cb). One `Idempotency-Key` per slip, reused on a
- * retry (`useCreateBooking`); the code belongs to the slip it was asked for,
- * and goes once the slip changes.
- */
-function useBookBet(totals: BetSlipTotals, stake: string) {
-  const selections = useBetSlipStore((s) => s.selections);
-  const booking = useCreateBooking();
-  const request = useMemo(
-    () => bookingRequestFrom({ selections, totals, stake }),
-    [selections, totals, stake],
-  );
-  const signature = request ? signatureOf(request) : null;
-  const receipt = signature ? booking.receiptFor(signature) : null;
-  const error = signature ? booking.errorFor(signature) : null;
-  return {
-    receipt,
-    failure: error ? bookingErrorMessage(error, "") : null,
-    pending: booking.isPending,
-    onBook: request && !receipt ? () => booking.book(request) : null,
-  };
-}
-
-function BookBet({
-  receipt,
-  failure,
-  pending,
-  onBook,
-}: ReturnType<typeof useBookBet>) {
-  const t = useTranslation();
-  const setStake = useBetSlipStore((s) => s.setStake);
-  // A stake the server refused comes with the one it would take: offered as
-  // a tap, as on the player's slip.
-  const fixStake = failure?.fixStake ?? null;
-  // Asked for by this slip's button: the slip is mounted twice below `xl`
-  // (its hidden column and the sheet), and only the one tapped opens the
-  // code — once it has arrived, and until Done.
-  const [asked, setAsked] = useState(false);
-  const showing = asked && receipt !== null;
-  const off = pending || (!onBook && !receipt);
-
-  return (
-    <>
-      <div className="px-4 pt-3">
-        <button
-          type="button"
-          onClick={() => {
-            if (off) return;
-            setAsked(true);
-            if (!receipt) onBook?.();
-          }}
-          aria-disabled={off}
-          aria-busy={pending}
-          className="bg-accent text-on-accent font-body flex h-12 w-full cursor-pointer items-center justify-center gap-2 rounded-md text-sm font-bold aria-disabled:cursor-not-allowed aria-disabled:opacity-45"
-        >
-          {pending && (
-            <Loader2 size={16} className="animate-spin" aria-hidden />
-          )}
-          {receipt && <Check size={16} aria-hidden />}
-          {t.t(receipt ? "booking.booked" : "betSlip.bookBet")}
-        </button>
-      </div>
-      {failure && (
-        <div className="px-4 pt-2">
-          <BookingAlert
-            action={
-              fixStake
-                ? {
-                    label: t.t("betSlip.setMax", {
-                      amount: t.number(fixStake),
-                    }),
-                    onClick: () => setStake(fixStake),
-                  }
-                : undefined
-            }
-          >
-            {t.t(
-              failure.key,
-              fixStake ? { amount: t.money(fixStake) } : failure.values,
-            )}
-          </BookingAlert>
-        </div>
-      )}
-      {/* No Copy or Share: a shop PC is no one's to copy to or share from. */}
-      {receipt && (
-        <BookingCodeDialog
-          receipt={receipt}
-          open={showing}
-          onClose={() => setAsked(false)}
-        />
-      )}
-    </>
-  );
 }
 
 /**

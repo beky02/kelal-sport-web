@@ -38,9 +38,10 @@ export interface SportsbookChrome {
   useRealtimeTopics: (topics: string[]) => void;
   /**
    * How often the board and a match's book read their prices again, or
-   * `false` where the realtime channel delivers them (D5).
+   * `false` where the realtime channel delivers them (D5) — or where no one is
+   * looking: an idle shop kiosk (F8cc, C18 §5).
    */
-  pricePollMs: number | false;
+  usePricePollMs: () => number | false;
   /** Data saver: no crests or flags. */
   useDataSaver: () => boolean;
   /** Prices locked for a reason outside the market (offline, a break). */
@@ -96,7 +97,7 @@ export const POLL_UNLESS_REALTIME: number | false =
 export const BARE_CHROME: SportsbookChrome = {
   Shell: Bare,
   useRealtimeTopics: noop,
-  pricePollMs: POLL_UNLESS_REALTIME,
+  usePricePollMs: () => POLL_UNLESS_REALTIME,
   useDataSaver: () => false,
   useOddsLocked: () => false,
   useAfterPick: () => noop,

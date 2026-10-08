@@ -10,6 +10,7 @@ import {
   TERMINAL,
   type TerminalRenderOptions,
   active,
+  UNHURRIED,
   asked,
   json,
   keys,
@@ -39,6 +40,21 @@ async function tick(ms: number) {
   for (let i = 0; i < 10; i += 1) {
     await act(() => vi.advanceTimersByTimeAsync(0));
   }
+}
+
+/**
+ * Waits, without moving the clock, until `find` finds something: real work —
+ * WebCrypto signing, on Node's threadpool — lands between macrotasks, which
+ * the fake clock's ticks alone don't yield to.
+ */
+async function until<T>(find: () => T | undefined): Promise<T> {
+  for (let i = 0; i < 50; i += 1) {
+    const found = find();
+    if (found) return found;
+    await new Promise((resolve) => setImmediate(resolve));
+    await tick(0);
+  }
+  throw new Error("never appeared");
 }
 
 // Strict, as `next dev` renders: effects run twice on mount, so a rotation
@@ -154,7 +170,7 @@ describe("the terminal's status (AC-5)", () => {
       json(200, { rotated: true }),
     ];
     routes({
-      status: () => json(200, active(true)),
+      status: () => json(200, active(true, UNHURRIED)),
       token: () => answers.shift()!,
     });
     renderStrict();
@@ -171,8 +187,13 @@ describe("the terminal's status (AC-5)", () => {
   });
 
   it("keeps the screen when a read fails after the terminal is up", async () => {
-    const answers = [json(200, active()), problem(503, "SERVICE_UNAVAILABLE")];
-    routes({ status: () => answers.shift() ?? json(200, active()) });
+    const answers = [
+      json(200, active(false, UNHURRIED)),
+      problem(503, "SERVICE_UNAVAILABLE"),
+    ];
+    routes({
+      status: () => answers.shift() ?? json(200, active(false, UNHURRIED)),
+    });
     // The read fails for good at once; how the client retries it is the
     // retry policy's test, below.
     renderStrict({ retry: false });
@@ -298,9 +319,8 @@ describe("signing the terminal's calls (AC-2)", () => {
   it("signs the status read for the API's path, not its own route", async () => {
     routes();
     renderStrict();
-    await tick(0);
 
-    const [read] = reads();
+    const read = await until(() => reads()[0]);
     expect(read.method).toBe("GET");
     expect(read.headers["X-Device-Timestamp"]).toBe(String(NOW));
     expect(await signedFor(read, "GET", "/v1/retail/terminal")).toBe(true);

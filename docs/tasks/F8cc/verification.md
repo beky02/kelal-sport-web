@@ -23,3 +23,19 @@ Each new acceptance test, green, then failed once against the behaviour it guard
 - `slip-code.test.ts` › "offers the server's stake from the contract's example (field stake) and from request
   015's (field stake_hint)" — `stake_hint` not read.
 - `slip-code.test.ts` › "counts the wait in whole minutes, rounded up" — rounded down.
+- `KioskCode.test.tsx` › "shows 4829 1735 with its QR … then starts over after the terminal's display time" —
+  the code screen's timer 5 s late.
+- `KioskCode.test.tsx` › "starts over after 90 s without a touch: the slips, the filters, the language, the
+  search and an open sheet" — no navigation home; then, separately, the page not re-keyed by `round`.
+- `KioskCode.test.tsx` › "puts the reset back by the whole idle time at every touch" — a touch not noted.
+- `KioskCode.test.tsx` › "stops reading prices while idle, reads them again at the first touch, and keeps
+  reading the status" — prices polled while idle; then, separately, no read on waking.
+- `KioskCode.test.tsx` › "says when the terminal can make the next code after a 429, and Get code waits until
+  then" — no wait stored; then, separately, both guards against a tap during the wait removed.
+- `KioskCode.test.tsx` › "keeps the wait through an idle reset" — `startOver` clearing the wait.
+- `KioskCode.test.tsx` › "sends one Idempotency-Key per Get code — the same on a retry, a new one for a
+  changed slip" — a new key on every tap.
+- `KioskCode.test.tsx` › "marks a started match from legs[i] …" — the refused pick not marked.
+- `KioskCode.test.tsx` › "lets the status decide on a 401 …" — the status not read again.
+- `KioskCode.test.tsx` › "keeps the other slips when one becomes a code …" — always starting over.
+- `KioskCode.test.tsx` › "signs the API call over the exact body it sends" — signed over no body.

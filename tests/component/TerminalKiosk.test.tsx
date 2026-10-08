@@ -17,11 +17,11 @@ import { address } from "./navigation";
 import {
   BOARD,
   boardOf,
-  BOOKED,
   BOOKING,
   EVENT,
   KIOSK_CONFIG,
   SEARCH,
+  SLIP_CODE,
   SPORTS,
   TERMINAL,
   TOP_COMPETITIONS,
@@ -521,63 +521,6 @@ describe("loading booking codes in the kiosk slip (F8ca AC-9)", () => {
     expect(slip().getByLabelText(en.betSlip.loadCode)).toBeInTheDocument();
   });
 
-  it("books the slip as a code through the terminal once there is a pick, with one key per slip (the user's third review)", async () => {
-    const user = userEvent.setup();
-    routes();
-    renderTerminal();
-    await homeWin();
-    // Nothing to book in an empty slip.
-    expect(
-      slip().queryByRole("button", { name: en.betSlip.bookBet }),
-    ).toBeNull();
-
-    await user.click(await homeWin());
-    await user.click(slip().getByRole("button", { name: en.betSlip.bookBet }));
-
-    // The code in a dialog over the slip: code, barcode, no Copy or Share.
-    const box = await screen.findByRole("dialog", {
-      name: en.betSlip.bookingCode,
-    });
-    const dialog = within(box);
-    expect(box).toHaveAttribute("data-testid", "booking-code");
-    expect(box).toHaveTextContent(BOOKED.code);
-    expect(
-      dialog.getByRole("img", {
-        name: `${en.betSlip.bookingCode}: ${BOOKED.code}`,
-      }),
-    ).toBeInTheDocument();
-    expect(
-      dialog.queryByRole("button", { name: en.betSlip.copyCode }),
-    ).toBeNull();
-    expect(dialog.queryByRole("link", { name: /Telegram/ })).toBeNull();
-    expect(screen.queryByText(en.betSlip.shareTelegram)).toBeNull();
-    const calls = asked.filter(
-      (call) => call.route === "/api/terminal/bookings",
-    );
-    expect(calls).toHaveLength(1);
-    expect(calls[0].method).toBe("POST");
-    expect(calls[0].headers["Idempotency-Key"]).toMatch(/^[0-9a-f-]{36}$/);
-    // The picks, and the stake the slip starts at: the shop's minimum.
-    expect(JSON.parse(calls[0].body!)).toEqual({
-      betType: "single",
-      systemSizes: [],
-      outcomeIds: [HOME_WIN.id],
-      stake: "10.00",
-    });
-    // Done closes it; "Booked" opens it again, and books nothing more.
-    await user.click(dialog.getByRole("button", { name: en.betSlip.done }));
-    expect(
-      screen.queryByRole("dialog", { name: en.betSlip.bookingCode }),
-    ).toBeNull();
-    await user.click(slip().getByRole("button", { name: en.booking.booked }));
-    expect(
-      await screen.findByRole("dialog", { name: en.betSlip.bookingCode }),
-    ).toBeInTheDocument();
-    expect(
-      asked.filter((call) => call.route === "/api/terminal/bookings"),
-    ).toHaveLength(1);
-  });
-
   it("does not offer a loader when booking codes are disabled", async () => {
     routes({
       config: () => json(200, { ...KIOSK_CONFIG, bookingCodes: false }),
@@ -680,16 +623,17 @@ describe("the kiosk's slip, priced with the shop's rules (F8cb)", () => {
     expect(stakeField()).toHaveValue("10");
     expect(payout()).toHaveTextContent("ETB 16.57");
 
-    const book = () => slip().getByRole("button", { name: en.betSlip.bookBet });
+    const getCode = () =>
+      slip().getByRole("button", { name: en.terminal.code.get });
     for (const stake of ["", "0"]) {
       await user.clear(stakeField());
       if (stake) await user.type(stakeField(), stake);
       expect(payout()).toHaveTextContent("—");
-      expect(book()).toHaveAttribute("aria-disabled", "true");
-      await user.click(book());
+      expect(getCode()).toHaveAttribute("aria-disabled", "true");
+      await user.click(getCode());
     }
     expect(
-      asked.some((entry) => entry.route === "/api/terminal/bookings"),
+      asked.some((entry) => entry.route === "/api/terminal/slip-codes"),
     ).toBe(false);
   });
 
@@ -711,7 +655,7 @@ describe("the kiosk's slip, priced with the shop's rules (F8cb)", () => {
     expect(slip().queryByRole("alert")).toBeNull();
     expect(payout()).toHaveTextContent("—");
     expect(
-      slip().getByRole("button", { name: en.betSlip.bookBet }),
+      slip().getByRole("button", { name: en.terminal.code.get }),
     ).toHaveAttribute("aria-disabled", "true");
 
     await press(user, "10");
@@ -797,7 +741,7 @@ describe("the kiosk's slip, priced with the shop's rules (F8cb)", () => {
     expect(slip().queryByRole("button", { name: "500" })).toBeNull();
   });
 
-  it("books the stake typed as the code's hint, and offers the server's stake when it refuses it (F8cb AC-b1)", async () => {
+  it("gets a code with the stake typed as its hint, and offers the server's stake when it refuses it (F8cb AC-b1, F8cc)", async () => {
     const answers = [
       () =>
         json(422, {
@@ -807,15 +751,17 @@ describe("the kiosk's slip, priced with the shop's rules (F8cb)", () => {
           code: "BET_STAKE_TOO_HIGH",
           errors: [{ field: "stake", code: "MAX", limit: "40.00" }],
         }),
-      () => json(201, BOOKED),
+      () => json(201, SLIP_CODE),
     ];
     const user = userEvent.setup();
-    routes({ bookBet: () => answers.shift()!() });
+    routes({ slipCodes: () => answers.shift()!() });
     renderTerminal();
     await user.click(await homeWin());
     await press(user, "50");
 
-    await user.click(slip().getByRole("button", { name: en.betSlip.bookBet }));
+    await user.click(
+      slip().getByRole("button", { name: en.terminal.code.get }),
+    );
     const alert = within(await slip().findByRole("alert"));
     expect(
       alert.getByText(
@@ -832,15 +778,17 @@ describe("the kiosk's slip, priced with the shop's rules (F8cb)", () => {
     );
     expect(stakeField()).toHaveValue("40.00");
 
-    await user.click(slip().getByRole("button", { name: en.betSlip.bookBet }));
-    await screen.findByRole("dialog", { name: en.betSlip.bookingCode });
+    await user.click(
+      slip().getByRole("button", { name: en.terminal.code.get }),
+    );
+    await screen.findByRole("dialog", { name: en.terminal.code.title });
     const bodies = asked
-      .filter((entry) => entry.route === "/api/terminal/bookings")
+      .filter((entry) => entry.route === "/api/terminal/slip-codes")
       .map((entry) => JSON.parse(entry.body!));
-    expect(bodies.map((body) => body.stake)).toEqual(["50.00", "40.00"]);
+    expect(bodies.map((body) => body.stake_hint)).toEqual(["50.00", "40.00"]);
   });
 
-  it("shows no balance, no log in and no place button — only Book bet (F8cb AC-b2)", async () => {
+  it("shows no balance, no log in, no place and no Book bet — only Get code (F8cb AC-b2, F8cc)", async () => {
     const user = userEvent.setup();
     routes();
     renderTerminal();
@@ -849,11 +797,15 @@ describe("the kiosk's slip, priced with the shop's rules (F8cb)", () => {
     expect(payout()).not.toHaveTextContent("—");
 
     expect(slip().queryByText(en.betSlip.balance, { exact: false })).toBeNull();
-    for (const name of [en.betSlip.loginToBet, en.betSlip.placeBet]) {
+    for (const name of [
+      en.betSlip.loginToBet,
+      en.betSlip.placeBet,
+      en.betSlip.bookBet,
+    ]) {
       expect(screen.queryByRole("button", { name })).toBeNull();
     }
     expect(
-      slip().getByRole("button", { name: en.betSlip.bookBet }),
+      slip().getByRole("button", { name: en.terminal.code.get }),
     ).toBeInTheDocument();
     // Nothing but the terminal's own routes: no session, wallet or online config.
     expect(
@@ -863,7 +815,10 @@ describe("the kiosk's slip, priced with the shop's rules (F8cb)", () => {
 
   it("shows the picks without any figure when the tenant has no shop rule set, never the online one's (F8cb AC-b2)", async () => {
     const user = userEvent.setup();
-    routes({ config: () => json(200, { ...KIOSK_CONFIG, rules: null }) });
+    routes({
+      config: () => json(200, { ...KIOSK_CONFIG, rules: null }),
+      slipCodes: () => json(201, SLIP_CODE),
+    });
     renderTerminal();
     await user.click(await homeWin());
 
@@ -897,12 +852,12 @@ describe("the kiosk's slip, priced with the shop's rules (F8cb)", () => {
     await sheet.findByTestId("booking-notice");
     expect(useBetSlipStore.getState().stake).toBe("50.00");
     expect(sheet.queryByText(/ETB|ብር|50\.00/)).toBeNull();
-    await user.click(sheet.getByRole("button", { name: en.betSlip.bookBet }));
-    await screen.findByRole("dialog", { name: en.betSlip.bookingCode });
+    await user.click(sheet.getByRole("button", { name: en.terminal.code.get }));
+    await screen.findByRole("dialog", { name: en.terminal.code.title });
     const call = asked.find(
-      (entry) => entry.route === "/api/terminal/bookings",
+      (entry) => entry.route === "/api/terminal/slip-codes",
     );
-    expect(JSON.parse(call!.body!)).toMatchObject({ stake: null });
+    expect(JSON.parse(call!.body!)).not.toHaveProperty("stake_hint");
   });
 });
 

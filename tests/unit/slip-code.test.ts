@@ -284,9 +284,10 @@ describe("the kiosk's timings (F8cc AC-1, AC-6)", () => {
   });
 
   it("counts the wait in whole minutes, rounded up", () => {
-    expect(minutesLeft(241_000, 1_000)).toBe(4);
-    expect(minutesLeft(241_000, 1_001)).toBe(4);
-    expect(minutesLeft(241_000, 181_000)).toBe(1);
-    expect(minutesLeft(241_000, 240_999)).toBe(1);
+    expect(minutesLeft(240)).toBe(4);
+    expect(minutesLeft(239)).toBe(4);
+    expect(minutesLeft(61)).toBe(2);
+    expect(minutesLeft(60)).toBe(1);
+    expect(minutesLeft(1)).toBe(1);
   });
 });
