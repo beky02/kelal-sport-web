@@ -645,6 +645,14 @@ for (const [device, viewport] of Object.entries({
         await expect(
           page.getByRole("button", { name: t.betSlip.clearAll }).first(),
         ).toBeVisible();
+        // Book bet in reach without scrolling the slip (F8cb, review U1).
+        const slip =
+          device === "phone"
+            ? page.getByRole("dialog")
+            : page.locator("aside").last();
+        await expect(
+          slip.getByRole("button", { name: t.betSlip.bookBet }),
+        ).toBeInViewport({ ratio: 1 });
         await shoot(page, `kiosk-picks-${lang}`, device, errors);
       });
 
@@ -705,10 +713,14 @@ for (const [device, viewport] of Object.entries({
         await expect(
           page.getByRole("button", { name: t.betSlip.placeBet }),
         ).toHaveCount(0);
-        // The figures and Book bet in view: the column and the sheet scroll.
-        await slip
-          .getByRole("button", { name: t.betSlip.bookBet })
-          .scrollIntoViewIfNeeded();
+        // The payout and Book bet stay in view while the picks and the keypad
+        // scroll beneath them (review U1).
+        await expect(slip.getByTestId("net-payout")).toBeInViewport({
+          ratio: 1,
+        });
+        await expect(
+          slip.getByRole("button", { name: t.betSlip.bookBet }),
+        ).toBeInViewport({ ratio: 1 });
         await shoot(page, `kiosk-slip-${lang}`, device, errors);
       });
 
@@ -727,6 +739,9 @@ for (const [device, viewport] of Object.entries({
             name: t.betSlip.setMax.replace("{amount}", "10.00"),
           }),
         ).toBeVisible();
+        await expect(
+          slip.getByRole("button", { name: t.betSlip.bookBet }),
+        ).toBeInViewport({ ratio: 1 });
         await shoot(page, `kiosk-slip-too-low-${lang}`, device, errors);
       });
 

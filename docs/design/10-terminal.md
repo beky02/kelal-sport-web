@@ -168,8 +168,7 @@ retail is enabled.
   (`createTerminalQueryClient`), which then says what the terminal is (lapsed, switched off).
 - **The slip** is the player's slip store and parts (`BetSlipHeader`, `BetModeTabs`, `EmptySlip`,
   `BetSelectionRow`, `SlipSummary`, `PayoutSummary`), with two picks of one match marked. From `xl` up it
-  is the right-hand column, which scrolls on its own so Book bet stays in reach; narrower, its bar is
-  always available, including with an empty slip, so the player-sized `Sheet` can load a booking code.
+  is the right-hand column, which scrolls on its own; narrower, its bar is always available, including with an empty slip, so the player-sized `Sheet` can load a booking code.
 - **Priced with the shop's rules (F8cb).** The kiosk's config carries the tenant's `retail_betting`
   (`TerminalConfigView.rules`, D1.12): one brand-level shop rule set, the same in every shop (the user's
   decision, 2026-10-07). The view has no `betting`, so the online rule set can't reach the kiosk. Every
@@ -179,6 +178,8 @@ retail is enabled.
   picks of one match (Use singles), a pick that can't be priced (Remove it), slipcalc's refusals with
   their fix as a tap (the shop's minimum, 10.00 in the contract, where online it is 5.00), and D1's
   warnings. There is no balance, no login, no Place and no odds-change consent: nothing is placed here.
+  The payout and Book bet are a footer pinned to the foot of the column or the sheet, so the picks and the
+  keypad scroll beneath them and they are always in reach (review U1).
 - **The odds are those at the tap**, or a loaded code's current odds, as on the player's slip in Release 1
   (realtime off). A code's moved leg shows old → new, priced at the new one. The counter re-prices the
   code at sale and shows old and new (C19 §4.3, §14).
@@ -186,13 +187,15 @@ retail is enabled.
   kiosk comes up (the user's answer, F8cb), so no preset goes out on a code the customer didn't type; the
   figures show "—" until there is one. It is typed on an on-screen keypad (`KioskStake`): the amount is
   shown, not a text box (which on a touch PC would open the system keyboard), with 1–9, `.`, 0, delete and
-  the row's C, under the player's rules (digits, one point, two decimals). Then the "N bets × X" line and
+  the row's C, under the player's rules (digits, one point, two decimals). An amount set from outside the
+  keypad — a fix, a code's hint — shows and edits as a typed one: 50.00 reads 50, and the next key adds to
+  it. Then the "N bets × X" line and
   the rule set's quick stakes, when it has any. A loaded code's stake hint becomes the stake, under the
   shop's limits (the user's answer). Book bet sends the stake typed as the code's hint when slipcalc
   accepts it, and a refusal of it offers the server's amount as a tap.
 - **No shop rule set.** A tenant whose config has no `retail_betting` shows the picks, the bet's modes,
-  Book bet and Load code, and "Ask the shop staff what this slip pays." (the user's wording): no stake, no
-  figure, never the online one's; a loaded code's hint is neither shown nor sent.
+  Book bet and Load code, and a notice, "Ask the shop staff what this slip pays." (the user's wording): no
+  stake, no figure, never the online one's; a loaded code's hint is neither shown nor sent.
 - **Load booking code.** When `features.booking_codes` is enabled, the slip reads and re-prices the code via
   `/api/terminal/bookings/[code]`. Invalid codes stop in the browser; the route also validates before the
   upstream call, checks the activated terminal, and returns `no-store`. The shared booking notice names

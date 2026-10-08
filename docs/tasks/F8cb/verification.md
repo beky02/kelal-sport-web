@@ -48,6 +48,17 @@ The two runs before it:
 2. The drift check: the backend had added `429` to `placeBet` since. Synced (`20281f6`), on the user's
    standing answer at Phase 0 ("sync on the task branch").
 
+## Acceptance criteria
+
+Every test named here passes in the final `pnpm verify`.
+
+| AC    | Status | Evidence                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| ----- | ------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| AC-3  | PASS   | `terminal-mappers.test.ts` › "takes the kiosk's rules from retail_betting, never the online betting (F8cb AC-3)"; `terminal-route.test.ts` › "reads the kiosk's config for a terminal: retail, the languages, the default, the shop's rules (AC-3, AC-4)"; `TerminalKiosk.test.tsx` › "refuses a stake under the shop's minimum — 10.00, not the online 5.00 — and offers it as a tap (F8cb AC-3)"; › "prices a multiple with the shop's rules: no accumulator bonus, and slipcalc's payout to the santim (F8cb AC-3)" (three legs at 1.95, 2.10, 2.45: the payout is slipcalc's on `retail_betting`, which differs from the online one by its 3 % bonus). Screens: `terminal-kiosk-slip-{am,en}-{phone,desktop}` (104.65 for 50 on 1.52 × 1.62), `terminal-kiosk-slip-too-low-…` |
+| AC-b1 | PASS   | › "types the stake on the keypad: digits, one point, two decimals at most, delete and clear, with no text box (F8cb AC-b1)"; › "starts with no stake and works without one: the figures wait, and Book bet saves the picks alone (F8cb AC-b1)"; › "books the stake typed as the code's hint, and offers the server's stake when it refuses it (F8cb AC-b1)"; F8ca's › "loads a code's picks into the slip through the terminal…" (the hint 50.00 as the stake, priced). Screens: `terminal-kiosk-slip-…`                                                                                                                                                                                                                                                                          |
+| AC-b2 | PASS   | › "shows no balance, no log in and no place button — only Book bet (F8cb AC-b2)" (every call is to `/api/terminal/`); › "shows the picks without any figure when the tenant has no shop rule set, never the online one's (F8cb AC-b2)"; `terminal-mappers.test.ts` › "has no rules without retail_betting, even with betting (F8cb AC-b2)". Screens: `terminal-kiosk-slip-no-rules-{am,en}-{phone,desktop}`                                                                                                                                                                                                                                                                                                                                                                       |
+| —     | PASS   | The player's slip after the split: `BetSlip.test.tsx`, `PlaceBet.test.tsx`, `BookingFlow.test.tsx`, `ResponsibleGaming.test.tsx` unchanged (143 tests), and the player's screens                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+
 ## Self-review
 
 - **Money moves:** none. Book bet creates a booking (no balance, history or bets to invalidate), as in
@@ -93,3 +104,22 @@ break was undone.
   (F8cb AC-b2)" — the typed stake (a loaded code's hint) priced and sent without rules: fails.
 - › "loads a code's picks into the slip through the terminal, at the server's prices, and says what
   couldn't come" (F8ca's, updated for the hint) — the kiosk never pricing the stake: fails.
+
+## Gaps
+
+- **A pick's odds are those at the tap** (plan decision 2), as on the player's Release 1 slip; a pick
+  whose match has started stays until removed. The counter re-prices the code at sale (C19 §4.3, §14).
+- **Book bet goes to the player's `POST /v1/bookings`** until F8cc's slip codes; its stake hint may be
+  checked by the server against the online limits, which in the contract are no stricter than the shop's.
+- **Two Prisms on :4010** here (the backend's Docker one, loaded before the backend's latest contract, and
+  this repo's `pnpm mock`); `localhost` reaches either. Only `ticket-check-failed` asked for something
+  they answer differently. Stopping one of them would make runs repeatable.
+- **One unit run failed once and wasn't captured**: the first `pnpm check` after the `placeBet` sync
+  (`20281f6`) had one failing test; 13 runs after it (10 `pnpm test`, 3 `pnpm check`) and the final
+  `pnpm verify` passed. Most likely a cold transform cache after `schema.d.ts` was regenerated; the test
+  isn't known.
+- **Flaky (first gate run):** `auth.spec.ts` › "refuses a cross-origin POST, and one without the CSRF
+  header (AC-4)" — "Test timeout of 60000ms exceeded while running "afterEach" hook" (`browser.newContext:
+Test ended`), then passed on retry; not this task's screen.
+- **The dev server's board was the simulated one** for the kiosk screenshots; the component tests use the
+  contract's examples.

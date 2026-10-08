@@ -35,7 +35,9 @@ export function KioskShell({
         <main className="flex min-w-0 flex-col gap-2.5">{children}</main>
 
         {/* Scrolls on its own: priced, with its keypad (F8cb), the slip can be
-            taller than the screen, and Book bet must stay in reach. */}
+            taller than the screen, and its footer (payout, Book bet) must stay
+            in reach. 84 px = the 68 px it sticks at under the bar, and a 16 px
+            gap below; change them together (review Q5). */}
         <aside className="bg-surface border-border sticky top-[68px] hidden max-h-[calc(100dvh-84px)] overflow-y-auto overscroll-contain rounded-lg border xl:block">
           <KioskSlip />
         </aside>

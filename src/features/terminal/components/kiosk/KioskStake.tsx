@@ -27,6 +27,12 @@ const KEYS = [
 ] as const;
 
 /**
+ * `"50.00"` → `"50"`: a stake set from outside the keypad — a code's hint,
+ * a fix — reads, and edits, as a typed one (review U4); the same amount.
+ */
+const plain = (amount: string) => amount.replace(/\.00$/, "");
+
+/**
  * The kiosk's stake (F8cb): the total, typed on an on-screen keypad rather
  * than a text field, which on a touch PC would open the system's keyboard
  * over the slip. It is the player's stake field otherwise: the same row, its
@@ -46,14 +52,16 @@ export function KioskStake({
   // The slip is mounted twice below `xl` (the hidden column and the sheet),
   // so the label's id is per mount.
   const label = useId();
-  const stake = useBetSlipStore((s) => s.stake);
+  const stake = plain(useBetSlipStore((s) => s.stake));
   const setStake = useBetSlipStore((s) => s.setStake);
+  // Each key edits the amount shown.
   const press = (key: (typeof KEYS)[number]) =>
     setStake(key === "delete" ? stake.slice(0, -1) : stake + key);
 
   return (
     <div className="flex flex-col gap-2 px-4 pt-3">
-      <div id={label} className="text-muted text-[11px]">
+      {/* 12 px: the floor for an Amharic label (review U3). */}
+      <div id={label} className="text-muted text-xs">
         {t.t("betSlip.totalStake")}
       </div>
 
@@ -72,7 +80,8 @@ export function KioskStake({
           type="button"
           aria-label={t.t("betSlip.clearStake")}
           onClick={() => setStake("")}
-          className="text-muted hover:text-text font-body w-11 cursor-pointer bg-transparent font-bold"
+          // A key, set off from the amount, as the keypad's are (review U2).
+          className="border-divider text-text hover:bg-ground font-body w-12 cursor-pointer border-l bg-transparent text-[17px] font-bold"
         >
           C
         </button>
@@ -101,6 +110,11 @@ export function KioskStake({
           >
             {key === "delete" ? (
               <Delete size={18} strokeWidth={1.75} aria-hidden />
+            ) : key === "." ? (
+              // The point, large enough to read as a key (review U2).
+              <span aria-hidden className="text-[28px] leading-none">
+                .
+              </span>
             ) : (
               key
             )}

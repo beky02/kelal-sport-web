@@ -454,9 +454,10 @@ describe("loading booking codes in the kiosk slip (F8ca AC-9)", () => {
     // The code's stake hint is the stake now (F8cb, the user's answer at the
     // plan gate), priced with the shop's rules.
     expect(BOOKING.stakeHint).toBe("50.00");
+    // Shown as a typed amount is (review U4): 50, not 50.00.
     expect(
       slip.getByRole("status", { name: en.betSlip.totalStake }),
-    ).toHaveTextContent(/^50\.00$/);
+    ).toHaveTextContent(/^50$/);
     expect(slip.getByTestId("net-payout")).toHaveTextContent(
       money(
         quote(
@@ -470,6 +471,8 @@ describe("loading booking codes in the kiosk slip (F8ca AC-9)", () => {
         "en",
       ),
     );
+    // Worked by hand (review M1): tax 7.50, net 42.50 × 2.10 = 89.25.
+    expect(slip.getByTestId("net-payout")).toHaveTextContent("ETB 89.25");
 
     const call = asked.find((entry) =>
       entry.route.startsWith("/api/terminal/bookings/"),
@@ -651,6 +654,8 @@ describe("the kiosk's slip, priced with the shop's rules (F8cb)", () => {
     expect(payout()).toHaveTextContent(
       money(quote(single(HOME_WIN.odds!, "12.5"), RETAIL.calc).netPayout, "en"),
     );
+    // Worked by hand (review M1): tax 1.87, net 10.63 × 1.95 = 20.72.
+    expect(payout()).toHaveTextContent("ETB 20.72");
 
     await user.click(
       slip().getByRole("button", { name: en.betSlip.clearStake }),
@@ -707,7 +712,7 @@ describe("the kiosk's slip, priced with the shop's rules (F8cb)", () => {
         name: en.betSlip.setMax.replace("{amount}", "10.00"),
       }),
     );
-    expect(stakeShown()).toHaveTextContent(/^10\.00$/);
+    expect(stakeShown()).toHaveTextContent(/^10$/);
     expect(slip().queryByRole("alert")).toBeNull();
     expect(payout()).toHaveTextContent(
       money(
@@ -715,6 +720,8 @@ describe("the kiosk's slip, priced with the shop's rules (F8cb)", () => {
         "en",
       ),
     );
+    // Worked by hand (review M1): tax 1.50, net 8.50 × 1.95 = 16.57.
+    expect(payout()).toHaveTextContent("ETB 16.57");
   });
 
   it("prices a multiple with the shop's rules: no accumulator bonus, and slipcalc's payout to the santim (F8cb AC-3)", async () => {
@@ -751,6 +758,9 @@ describe("the kiosk's slip, priced with the shop's rules (F8cb)", () => {
     expect(online.accaBonus).not.toBe("0.00");
     expect(shop.accaBonus).toBe("0.00");
     expect(shop.netPayout).not.toBe(online.netPayout);
+    // Worked by hand (review M1): net 85.00 × 10.03275 = 852.78; online adds
+    // 3 % of the profit, 23.03.
+    expect([shop.netPayout, online.netPayout]).toEqual(["852.78", "875.81"]);
 
     const user = userEvent.setup();
     routes({ board: () => json(200, board) });
@@ -765,11 +775,45 @@ describe("the kiosk's slip, priced with the shop's rules (F8cb)", () => {
     await press(user, "100");
 
     expect(payout()).toHaveTextContent(money(shop.netPayout, "en"));
+    expect(payout()).toHaveTextContent("ETB 852.78");
     expect(
       slip().getByText(formatOdds(shop.totalOdds!), { exact: false }),
     ).toBeInTheDocument();
     expect(slip().queryByText(en.betSlip.accaBonus)).toBeNull();
     expect(slip().queryByText(money(online.netPayout, "en"))).toBeNull();
+  });
+
+  it("edits a stake it didn't type as one it did: a fix of 10.00 shows as 10, and the next key adds to it (review U4)", async () => {
+    const user = userEvent.setup();
+    routes();
+    renderTerminal();
+    await user.click(await homeWin());
+    await press(user, "5");
+    await user.click(
+      within(slip().getByRole("alert")).getByRole("button", {
+        name: en.betSlip.setMax.replace("{amount}", "10.00"),
+      }),
+    );
+    expect(stakeShown()).toHaveTextContent(/^10$/);
+    await press(user, "0");
+    expect(stakeShown()).toHaveTextContent(/^100$/);
+    await press(user, "<");
+    expect(stakeShown()).toHaveTextContent(/^10$/);
+  });
+
+  it("offers the shop's quick stakes when its rule set has them, each setting the total (F8cb, review S2)", async () => {
+    const user = userEvent.setup();
+    const rules = { ...RETAIL, quickStakes: ["20.00", "50.00"] };
+    routes({ config: () => json(200, { ...KIOSK_CONFIG, rules }) });
+    renderTerminal();
+    await user.click(await homeWin());
+
+    await user.click(slip().getByRole("button", { name: "50" }));
+    expect(stakeShown()).toHaveTextContent(/^50$/);
+    await user.click(slip().getByRole("button", { name: "20" }));
+    expect(stakeShown()).toHaveTextContent(/^20$/);
+    // The online set's quick stakes (100, 500) are not offered.
+    expect(slip().queryByRole("button", { name: "500" })).toBeNull();
   });
 
   it("books the stake typed as the code's hint, and offers the server's stake when it refuses it (F8cb AC-b1)", async () => {
@@ -805,7 +849,7 @@ describe("the kiosk's slip, priced with the shop's rules (F8cb)", () => {
         name: en.betSlip.setMax.replace("{amount}", "40.00"),
       }),
     );
-    expect(stakeShown()).toHaveTextContent(/^40\.00$/);
+    expect(stakeShown()).toHaveTextContent(/^40$/);
 
     await user.click(slip().getByRole("button", { name: en.betSlip.bookBet }));
     await screen.findByRole("dialog", { name: en.betSlip.bookingCode });
@@ -843,7 +887,10 @@ describe("the kiosk's slip, priced with the shop's rules (F8cb)", () => {
     await user.click(await homeWin());
 
     expect(slip().getByText(matchName(FIRST))).toBeInTheDocument();
-    expect(slip().getByText(en.terminal.kiosk.noRules)).toBeInTheDocument();
+    // A notice, as the slip's others are (review U6).
+    expect(
+      slip().getByText(en.terminal.kiosk.noRules).closest('[role="status"]'),
+    ).not.toBeNull();
     expect(
       slip().queryByRole("group", { name: en.terminal.kiosk.keypad }),
     ).toBeNull();

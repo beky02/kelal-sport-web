@@ -97,7 +97,11 @@ export function KioskSlip({ onClose }: { onClose?: () => void }) {
           liveCount={totals.liveCount}
         />
       )}
-      <KioskSlipAlerts totals={totals} rules={rules?.calc ?? null} />
+      <KioskSlipAlerts
+        totals={totals}
+        rules={rules?.calc ?? null}
+        stake={stake}
+      />
       <BookingNotice
         priced={
           rules
@@ -128,17 +132,33 @@ export function KioskSlip({ onClose }: { onClose?: () => void }) {
             <>
               <KioskStake totals={totals} quickStakes={rules.quickStakes} />
               <SlipSummary totals={totals} />
-              <PayoutSummary totals={totals} rules={rules.calc} />
             </>
           ) : (
-            // The user's wording (F8cb plan gate): no figure, and where to ask.
-            <p className="text-muted mx-4 mt-3 text-xs leading-[1.45] text-pretty">
-              {t.t("terminal.kiosk.noRules")}
-            </p>
+            // The user's wording (F8cb plan gate): no figure, and where to ask
+            // — a notice, as the slip's others are (review U6).
+            <div className="mt-3">
+              <AlertList
+                alerts={[
+                  {
+                    id: "no-rules",
+                    tone: "info",
+                    title: t.t("terminal.kiosk.noRules"),
+                  },
+                ]}
+              />
+            </div>
+          )}
+          {/* What the customer came for, always in reach: the picks and the
+              keypad scroll beneath it, in the column and in the sheet
+              (review U1). */}
+          {(rules || bookingCodes) && (
+            <div className="bg-ground sticky bottom-0 z-10 pb-1 shadow-[0_-12px_12px_-12px_rgb(0_0_0/0.5)]">
+              {rules && <PayoutSummary totals={totals} rules={rules.calc} />}
+              {bookingCodes && <BookBet {...book} />}
+            </div>
           )}
         </>
       )}
-      {bookingCodes && totals.count > 0 && <BookBet {...book} />}
       {bookingCodes && <LoadBookingCode />}
     </div>
   );
@@ -153,12 +173,14 @@ export function KioskSlip({ onClose }: { onClose?: () => void }) {
 function KioskSlipAlerts({
   totals,
   rules,
+  stake,
 }: {
   totals: BetSlipTotals;
   rules: RuleSetJson | null;
+  /** The stake the slip priced: none without the shop's rules (review Q1). */
+  stake: string;
 }) {
   const t = useTranslation();
-  const stake = useBetSlipStore((s) => s.stake);
   const setStake = useBetSlipStore((s) => s.setStake);
   const setMode = useBetSlipStore((s) => s.setMode);
   const removeSelection = useBetSlipStore((s) => s.removeSelection);
