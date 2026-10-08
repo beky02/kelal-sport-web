@@ -1,7 +1,7 @@
 ---
 id: F8cb
 title: Split from F8c — the kiosk's slip priced with the retail rule set, stake on a keypad
-status: todo
+status: planned
 depends_on: [F8ca]
 contract_tags: [Config]
 touches_money: true
