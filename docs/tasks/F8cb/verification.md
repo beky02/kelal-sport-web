@@ -1,5 +1,20 @@
 # F8cb — verification
 
+## Rework 2 — min and max, the starting stake (2026-10-08)
+
+- **The user decided** (asked, being rules about money): the same limits on both sites by configuring
+  `retail_betting` like `betting` (no code); the stake starts at the rule set's minimum on both sites.
+- **Built:** `useStartingStake` (sets the minimum when the rules arrive, only on an untouched stake), on the
+  player's slip (`useBetSlip`) and the kiosk (`Kiosk`); the store starts with no stake; `BETTING.defaultStake`
+  removed.
+- **Tests proven:** `BetSlip.test.tsx` › "starts the stake at the tenant's minimum once the rules arrive,
+  and keeps a stake already there…" and `TerminalKiosk.test.tsx` › "starts the stake at the shop's minimum,
+  and works without one once it is cleared…" both fail with the hook never setting the minimum; the
+  first also fails (with "offers the minimum when the stake is too low") with the hook overwriting a stake
+  already there.
+- **Screens:** `pnpm ui --grep terminal`: 80 pass (2 only on retry; then 3 runs of the slip and offline
+  screens with no retries, 16/16 each). `terminal-kiosk-picks-am-desktop`: 10 ብር, 14.34 ብር.
+
 ## Rework — the user's review (2026-10-08)
 
 - **What the user asked:** "lets remove this i think it is too much" (the on-screen keypad). The stake is

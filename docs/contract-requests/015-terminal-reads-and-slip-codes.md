@@ -13,6 +13,11 @@ answer to part 1 can be "a terminal's read is the anonymous read": no retail mar
 (C19 §9.1's "the shop's retail margin" would not apply). If the backend agrees, the contract can drop
 `terminalAuth` from the catalogue reads, or say a terminal read changes nothing; parts 2 and 3 stand.
 
+**The user's decision (2026-10-08): the same minimum and maximum stake on the kiosk and online.** For the
+web this is configuration, not a contract change: the brand's `retail_betting.min_stake` and `max_stake`
+equal `betting`'s (the kiosk prices with `retail_betting`, D1.12, so it and the counter agree). Both slips
+start their stake at that minimum.
+
 **1. A terminal's catalogue and config reads.** The shop kiosk (F8ca) shows the shop's matches and prices,
 and F8cb prices the slip with `retail_betting`. C19 §9.1 says: "Terminals read the catalogue through the
 same public endpoints as the player web (C06) with the terminal token attached, so the shop's retail

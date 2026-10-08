@@ -9,6 +9,22 @@ Mode: interactive. Before planning, `pnpm contract:sync --check` found the contr
 behind the backend (additive error responses on bookings and the ticket check); synced on the user's
 go-ahead as this branch's first commit (`aa30414`). `pnpm check` passed on main (1,610 tests).
 
+## Rework 2 (the user's review, 2026-10-08)
+
+The user's words: **"the min and max stake should be the same in the kiosk or normal user pages. let put
+the min value on the text field"**. Asked (copy and rules about money), they chose:
+
+| #     | Question                                      | Decision and why                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| ----- | --------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| RW2-1 | The kiosk's limits against the player site's. | **The same values, in config:** the kiosk still reads `retail_betting` (D1.12, so the kiosk and the counter agree), and the brand sets its `min_stake` and `max_stake` equal to `betting`'s. No code change; noted for the backend in request 015. The contract's example (10.00 against 5.00) stays the tests' fixture.                                                                                                                                                          |
+| RW2-2 | "The min value on the text field".            | **The stake starts at the rule set's minimum, on both sites**: the player's at `betting.min_stake` (5 in the contract), the kiosk's at `retail_betting.min_stake` (10). It replaces decision 4 (the kiosk's empty start) and the player's preset 100 (`BETTING.defaultStake`, removed). One hook, `useStartingStake`, sets it when the rules arrive, and only while the stake is untouched: a stake typed, tapped or loaded from a code is kept. The slip store starts with none. |
+
+**Files (rework 2).** New `bet-slip/hooks/use-starting-stake.ts`; changed `use-bet-slip.ts`, `bet-slip.store.ts`,
+`config/constants.ts`, `kiosk/Kiosk.tsx`; tests `BetSlip.test.tsx` (› "starts the stake at the tenant's
+minimum once the rules arrive, and keeps a stake already there…"), `TerminalKiosk.test.tsx` (› "starts the
+stake at the shop's minimum, and works without one once it is cleared…"), `terminal.tsx`, `terminal.spec.ts`;
+docs 04, 10, request 015.
+
 ## Rework (the user's review, 2026-10-08)
 
 After F8cb was verified, the user looked at the keypad and asked, in their words: **"lets remove this i

@@ -81,3 +81,6 @@ Out: slip codes, the idle reset, the rate limit (F8cc).
   player's slip (Q2); one pick under "Multiple" (U5, shared); the stake field's 11 px label, on both sites since the rework (U3).
 - 2026-10-08, the user's review: "lets remove this i think it is too much" — the on-screen keypad is gone;
   the kiosk's stake is the player's stake field (plan, "Rework"). AC-b1 reworded. Verified again.
+- 2026-10-08, the user's review: the min and max stake are the same on the kiosk and the player site — by
+  configuring `retail_betting`'s limits equal to `betting`'s, no code change — and the stake starts at the
+  rule set's minimum on both sites (plan, "Rework 2").

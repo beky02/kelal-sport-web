@@ -64,6 +64,23 @@ describe("BetSlip", () => {
 
   afterEach(() => vi.restoreAllMocks());
 
+  it("starts the stake at the tenant's minimum once the rules arrive, and keeps a stake already there (the user's decision, 2026-10-08)", () => {
+    useBetSlipStore.setState({ stake: "" });
+    seedReferenceSlip();
+    const { unmount } = render(<BetSlip />);
+    // The contract's online minimum, 5.00.
+    expect(screen.getByRole("textbox", { name: "Total stake" })).toHaveValue(
+      "5",
+    );
+    unmount();
+
+    useBetSlipStore.setState({ stake: "50.00" });
+    render(<BetSlip />);
+    expect(screen.getByRole("textbox", { name: "Total stake" })).toHaveValue(
+      "50.00",
+    );
+  });
+
   it("invites a first selection when empty", () => {
     render(<BetSlip />);
     expect(screen.getByText("Your bet slip is empty")).toBeInTheDocument();

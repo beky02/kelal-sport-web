@@ -183,9 +183,10 @@ retail is enabled.
 - **The odds are those at the tap**, or a loaded code's current odds, as on the player's slip in Release 1
   (realtime off). A code's moved leg shows old → new, priced at the new one. The counter re-prices the
   code at sale and shows old and new (C19 §4.3, §14).
-- **The stake** is optional, a hint the counter sees on the code (C19 §4.2). It starts empty when the
-  kiosk comes up (the user's answer, F8cb), so no preset goes out on a code the customer didn't type; the
-  figures show "—" until there is one. It is typed in the player's stake field (`StakeInput`, no balance),
+- **The stake** is optional, a hint the counter sees on the code (C19 §4.2). It starts at the shop's
+  minimum (`retail_betting.min_stake`), as the player's starts at the online one (the user's decision,
+  2026-10-08); cleared, the figures show "—" and a code goes without one. The brand sets the shop's
+  minimum and maximum equal to the online ones, so both sites ask the same. It is typed in the player's stake field (`StakeInput`, no balance),
   with the PC's keyboard; the user removed the on-screen keypad (2026-10-08). Then the "N bets × X" line
   and the rule set's quick stakes, when it has any. A loaded code's stake hint becomes the stake, under the
   shop's limits (the user's answer). Book bet sends the stake typed as the code's hint when slipcalc

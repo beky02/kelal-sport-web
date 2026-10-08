@@ -181,6 +181,7 @@ export function setUpTerminalTests() {
     // and its catalogue sent to its own routes, as its root layout says
     // (`<html data-api>`).
     useBetSlipStore.getState().clear();
+    useBetSlipStore.setState({ stake: "" }); // a fresh page: no stake yet
     useKioskStore.getState().reset();
     address.go("/");
     document.documentElement.dataset.api = "/api/terminal/";

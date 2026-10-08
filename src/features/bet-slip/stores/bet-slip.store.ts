@@ -1,7 +1,6 @@
 "use client";
 
 import { create } from "zustand";
-import { BETTING } from "@/config/constants";
 import { sanitiseAmount } from "@/lib/money";
 import type { OutcomeRef } from "@/features/markets/types";
 import type {
@@ -222,7 +221,9 @@ export const useBetSlipStore = create<BetSlipState>()((set, get) => ({
   selections: [],
   index: {},
   mode: "multiple",
-  stake: BETTING.defaultStake,
+  // None until the rules arrive; then the rule set's minimum
+  // (`useStartingStake`, the user's decision of 2026-10-08).
+  stake: "",
   systemK: 2,
   oddsPolicy: null,
   bookingNotice: null,

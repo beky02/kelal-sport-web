@@ -352,7 +352,14 @@ describe("picking prices into the kiosk's slip (F8ca AC-2)", () => {
     expect(price).toHaveAttribute("aria-pressed", "true");
     expect(slip().getByText(matchName(FIRST))).toBeInTheDocument();
     expect(slip().getByText(HOME_WIN.label.en)).toBeInTheDocument();
-    expect(slip().getByText(formatOdds(HOME_WIN.odds!))).toBeInTheDocument();
+    // In the pick's own row: the slip's total odds say it too, priced from
+    // the start at the shop's minimum stake.
+    const row = within(
+      slip().getByRole("button", {
+        name: en.betSlip.remove.replace("{pick}", HOME_WIN.label.en),
+      }).parentElement!,
+    );
+    expect(row.getByText(formatOdds(HOME_WIN.odds!))).toBeInTheDocument();
     expect(
       screen.getByRole("button", {
         name: en.nav.slipAria.replace("{n}", "1"),
@@ -537,12 +544,12 @@ describe("loading booking codes in the kiosk slip (F8ca AC-9)", () => {
     expect(calls).toHaveLength(1);
     expect(calls[0].method).toBe("POST");
     expect(calls[0].headers["Idempotency-Key"]).toMatch(/^[0-9a-f-]{36}$/);
-    // The picks only: the kiosk prices nothing, so it sends no stake.
+    // The picks, and the stake the slip starts at: the shop's minimum.
     expect(JSON.parse(calls[0].body!)).toEqual({
       betType: "single",
       systemSizes: [],
       outcomeIds: [HOME_WIN.id],
-      stake: null,
+      stake: "10.00",
     });
     // Done closes it; "Booked" opens it again, and books nothing more.
     await user.click(dialog.getByRole("button", { name: en.betSlip.done }));
@@ -603,9 +610,14 @@ describe("the kiosk's slip, priced with the shop's rules (F8cb)", () => {
   /** The player's stake field, in the slip's column (the user's review: no keypad). */
   const stakeField = () =>
     slip().getByRole("textbox", { name: en.betSlip.totalStake });
-  /** Types into the stake field, after what is there. */
-  const press = (user: ReturnType<typeof userEvent.setup>, keys: string) =>
-    user.type(stakeField(), keys);
+  /** Types a stake in place of the one there (the shop's minimum at first). */
+  const press = async (
+    user: ReturnType<typeof userEvent.setup>,
+    keys: string,
+  ) => {
+    await user.clear(stakeField());
+    await user.type(stakeField(), keys);
+  };
   const payout = () => slip().getByTestId("net-payout");
   const single = (odds: string, stake: string): Slip => ({
     betType: "single",
@@ -619,7 +631,7 @@ describe("the kiosk's slip, priced with the shop's rules (F8cb)", () => {
     renderTerminal();
     await user.click(await homeWin());
 
-    expect(stakeField()).toHaveValue("");
+    expect(stakeField()).toHaveValue("10");
     // No on-screen keypad (the user's review, 2026-10-08).
     for (const key of ["1", "7", "0"]) {
       expect(slip().queryByRole("button", { name: key })).toBeNull();
@@ -630,7 +642,7 @@ describe("the kiosk's slip, priced with the shop's rules (F8cb)", () => {
     expect(stakeField()).toHaveValue("12.34");
     await user.keyboard("{Backspace}{Backspace}");
     expect(stakeField()).toHaveValue("12.");
-    await press(user, "5");
+    await user.type(stakeField(), "5");
     expect(stakeField()).toHaveValue("12.5");
     expect(payout()).toHaveTextContent(
       money(quote(single(HOME_WIN.odds!, "12.5"), RETAIL.calc).netPayout, "en"),
@@ -645,15 +657,19 @@ describe("the kiosk's slip, priced with the shop's rules (F8cb)", () => {
     expect(payout()).toHaveTextContent("—");
   });
 
-  it("starts with no stake and works without one: the figures wait, and Book bet saves the picks alone (F8cb AC-b1)", async () => {
-    // Whatever the shared slip held (the player's 100), the kiosk starts empty.
-    useBetSlipStore.getState().setStake("100");
+  it("starts the stake at the shop's minimum, and works without one once it is cleared (F8cb AC-b1, the user's decision)", async () => {
     const user = userEvent.setup();
     routes();
     renderTerminal();
     await user.click(await homeWin());
 
-    expect(stakeField()).toHaveValue("");
+    // The shop's 10.00, not the online 5.00 (the user's decision, 2026-10-08).
+    expect(stakeField()).toHaveValue("10");
+    expect(payout()).toHaveTextContent("ETB 16.57");
+
+    await user.click(
+      slip().getByRole("button", { name: en.betSlip.clearStake }),
+    );
     expect(payout()).toHaveTextContent("—");
     expect(slip().queryByRole("alert")).toBeNull();
 

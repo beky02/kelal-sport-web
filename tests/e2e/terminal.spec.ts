@@ -685,11 +685,14 @@ for (const [device, viewport] of Object.entries({
         );
       }
 
-      /** Types the stake in the player's stake field (the user's review: no keypad). */
+      /**
+       * Types a stake in the player's stake field (the user's review: no keypad),
+       * in place of the shop's minimum it starts at.
+       */
       async function press(slip: ReturnType<Page["locator"]>, keys: string) {
-        await slip
-          .getByRole("textbox", { name: t.betSlip.totalStake })
-          .pressSequentially(keys);
+        const field = slip.getByRole("textbox", { name: t.betSlip.totalStake });
+        await field.clear();
+        await field.pressSequentially(keys);
       }
 
       test("kiosk-slip: two picks priced with the shop's rules, the stake in the player's field (F8cb AC-3, AC-b1)", async ({

@@ -8,8 +8,6 @@ import { env } from "./env";
 export const BETTING = {
   /** System bets need at least this many live selections (2/3 is the smallest). */
   minSystemSelections: 3,
-  /** The total stake a fresh slip starts with. */
-  defaultStake: "100",
 } as const;
 
 /**

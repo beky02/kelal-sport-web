@@ -13,6 +13,7 @@ import {
   type CtaAction,
 } from "../lib/calculate";
 import { useBetSlipStore } from "../stores/bet-slip.store";
+import { useStartingStake } from "./use-starting-stake";
 import type { OddsPolicy } from "../types";
 
 export interface BetSlipView {
@@ -65,6 +66,8 @@ export function useBetSlip(): BetSlipView {
   // Cash, as the API sends it: bets are paid from cash, and bonus money never
   // counts here (`use_bonus` is false, F5a).
   const balance = isGuest ? null : (wallet.data?.cash ?? null);
+
+  useStartingStake(rules?.calc.min_stake ?? null);
 
   const totals = useMemo(
     () =>
