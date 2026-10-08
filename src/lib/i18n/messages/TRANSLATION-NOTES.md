@@ -675,17 +675,12 @@ the slip itself ("ትኬት አስቀምጥ", "per ticket"); on the placed scree
 
 ## Slip codes on the kiosk (F8cc, 2026-10-08)
 
-Get code and its screen, the wait after the terminal's 30 codes per 10 minutes, and its refusals. The
-English is the user's (plan gate). All composed; all need review. For the reviewer: ካውንተር (the shop's
-counter, where the cashier sells the code) is a loanword; ገንዘብ ተቀባይ (cashier) would also do.
+The kiosk's Book bet makes a slip code, shown in the player's booking-code dialog (the user's review), so
+it needs only the wait after the terminal's 30 codes per 10 minutes and the refusals. All composed; all
+need review.
 
-| Key                                   | Amharic                                                                             | Composed from                                                                           |
-| ------------------------------------- | ----------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
-| `terminal.code.get`                   | ኮድ ያግኙ                                                                              | ኮድ (`betSlip.bookingCode`); ያግኙ (get) new                                               |
-| `terminal.code.title`                 | የእርስዎ ኮድ                                                                            | የእርስዎ (your) new                                                                        |
-| `terminal.code.take`                  | ይህን ኮድ ወደ ካውንተሩ ይውሰዱ።                                                               | ይውሰዱ (take) new; ካውንተር loanword                                                         |
-| `terminal.code.clears`                | ይህ ገጽ በ{seconds} ሰከንድ ውስጥ ይጸዳል።                                                     | ገጽ (page/screen); ሰከንድ (seconds); ይጸዳል (clears) new                                     |
-| `terminal.code.qr`                    | የ{code} QR ኮድ                                                                       | "QR" kept in Latin, as on phones                                                        |
-| `terminal.code.paused`, `pausedLater` | ይህ ተርሚናል በጣም ብዙ ኮዶች ሠርቷል። ኮድ ማግኘት ከ{minutes} ደቂቃ በኋላ ይመለሳል። / … ቆየት ብለው እንደገና ይሞክሩ። | `terminal.activate.tooMany` / `tooManyLater` (ብዙ…, ከ{minutes} ደቂቃ በኋላ); ሠርቷል (has made) |
-| `terminal.code.failed`                | ኮድ ማግኘት አልተቻለም። እንደገና ይሞክሩ።                                                         | As `booking.errors.failed` (… አልተቻለም። እንደገና ይሞክሩ።)                                      |
-| `terminal.code.cannot`                | ይህ ትኬት እንዳለ ኮድ ሊሆን አይችልም።                                                           | As `booking.errors.cannotBook` (ይህ ትኬት እንዳለ … አይችልም)                                    |
+| Key                                   | Amharic                                                                               | Composed from                                                                                                                              |
+| ------------------------------------- | ------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| `terminal.code.paused`, `pausedLater` | ይህ ተርሚናል በጣም ብዙ ኮዶች ሠርቷል። ትኬት ማስቀመጥ ከ{minutes} ደቂቃ በኋላ ይመለሳል። / … ቆየት ብለው እንደገና ይሞክሩ። | `terminal.activate.tooMany` / `tooManyLater` (ብዙ…, ከ{minutes} ደቂቃ በኋላ); ሠርቷል (has made); ትኬት ማስቀመጥ (Book bet, `betSlip.bookBet` ትኬት አስቀምጥ) |
+| `terminal.code.failed`                | ኮድ ማግኘት አልተቻለም። እንደገና ይሞክሩ።                                                           | As `booking.errors.failed` (… አልተቻለም። እንደገና ይሞክሩ።)                                                                                         |
+| `terminal.code.cannot`                | ይህ ትኬት እንዳለ ኮድ ሊሆን አይችልም።                                                             | As `booking.errors.cannotBook` (ይህ ትኬት እንዳለ … አይችልም)                                                                                       |

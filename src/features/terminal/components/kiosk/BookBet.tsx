@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Check, Loader2 } from "lucide-react";
 import {
   AlertList,
@@ -55,6 +55,11 @@ function BookBetButton({
   const setStake = useBetSlipStore((s) => s.setStake);
   const { remaining, elapsed } = useCountdown(until);
   const waiting = until !== null && !elapsed;
+  // A wait that is over is dropped, so no countdown ticks on for the rest of
+  // the kiosk's day (review Q2).
+  useEffect(() => {
+    if (until !== null && elapsed) useKioskStore.getState().pauseCodes(null);
+  }, [until, elapsed]);
   const receipt = booking.receiptFor(request);
   // Asked for by this slip's button: the slip is mounted twice below `xl`
   // (its hidden column and the sheet), and only the one tapped opens the

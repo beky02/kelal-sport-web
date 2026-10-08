@@ -38,8 +38,10 @@ Out: the POS that sells the code (F9, `kelalsport-ops`).
 
 ## Acceptance criteria
 
-- [ ] **AC-1** (F8c) The code screen shows `4829 1735` with a QR code, then resets after the display time
-      and after the idle timeout (fake timers; `pnpm ui`).
+- [ ] **AC-1** (F8c; changed in the user's review, 2026-10-09) Book bet on the kiosk shows slip code
+      `4829 1735` in the player's booking-code dialog (its barcode, no QR). The dialog stays until it is
+      closed (Done or a tap outside), with no display timer, and the screen resets after the idle timeout
+      (fake timers; `pnpm ui`).
 - [ ] **AC-6** (F8c) A 429 from `POST /v1/retail/slip-codes` says when the terminal can make the next code
       (`Retry-After`), and Get code waits until then.
 - [ ] **AC-c1** The slip code request is signed over its exact body and carries one `Idempotency-Key` per
@@ -56,7 +58,7 @@ Out: the POS that sells the code (F9, `kelalsport-ops`).
 ## Verification
 
 - `pnpm verify` passes
-- `curl -H 'Prefer: code=429' …` through the dev server; `pnpm ui --grep terminal-code`
+- `Prefer: code=429` through the dev server (`kiosk-code-prism-429`); `pnpm ui --grep kiosk-code`
 
 ## Notes
 
@@ -70,3 +72,5 @@ Out: the POS that sells the code (F9, `kelalsport-ops`).
   empty, Slip 1 on screen) along with the language.
 - 2026-10-08 (plan gate): Get code replaces the kiosk's Book bet; after a code the kiosk starts over
   unless another slip has picks; the QR is drawn from `qrcode`'s matrix. See [F8cc/plan.md](F8cc/plan.md).
+- 2026-10-09 (the user's review): no QR — the player's Book bet dialog is enough; the button says Book bet
+  again; no timer on the code — it closes on Done or a tap outside. See the plan's "Rework" section.

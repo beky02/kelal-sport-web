@@ -5,24 +5,25 @@
 - **Route** — `POST /api/terminal/slip-codes` (`src/app/api/terminal/slip-codes/route.ts`,
   `lib/server/terminal.ts` `createSlipCode`, `lib/server/body.ts` `readText`, `lib/api/terminal-schemas.ts`,
   `lib/api/mappers/terminal.ts`). It checks host → origin → cookie → `Idempotency-Key` → signature → body
-  (16 KiB, strict UTF-8, strict ASCII `SlipCodeCreate`), then forwards the text read, byte for byte, with
-  `X-Device-Id` from the cookie. There is a mock-only expiry fix.
+  (16 KiB, strict UTF-8, strict ASCII `SlipCodeCreate`, `JSON.stringify`'s own spelling), then forwards the
+  text read, byte for byte, with `X-Device-Id` from the cookie. There is a mock-only expiry fix.
 - **Browser** — the contract body is built and signed in `features/terminal/api/slip-codes.ts`, with
   `terminalRequest` taking a key. The rules are in `lib/slip-code.ts`: the request (Book bet's rule plus
-  the odds shown), refusals by `code`, timings. One key per intent is in `hooks/use-slip-code.ts` (kiosk
-  store).
-- **Kiosk** — Get code replaces Book bet (`GetCode.tsx`, `KioskSlip.tsx`). The code screen
-  (`SlipCodeScreen.tsx`, `components/ui/QrCode.tsx`, `lib/qr.ts` on `qrcode`'s matrix). Starting over
-  (`use-start-over.ts`) is on idle (`use-idle.ts`) and after a code; the page is re-keyed by `round`
-  (`Kiosk.tsx`). The chrome's `pricePollMs` → `usePricePollMs()`, off while idle.
-- **Removed** — `POST /api/terminal/bookings` and `apiClient`'s POST mirror.
-- **Risk** — the signed bytes, and the new route's checks (security). The stake hint and its refusal fix
-  (money, display only). The idle reset re-making the page, and fake-timer tests. The new dependency
-  `qrcode` (+ `jsqr`, dev).
-- **The user's decisions (gate)** — Get code replaces Book bet; after a code, start over unless another
-  slip has picks; `qrcode`; the copy as proposed. Docs synced on main first.
+  the odds shown), refusals by `code`, the idle time. Each slip's key and code are kept in
+  `hooks/use-slip-code.ts` (the kiosk store's `codes`).
+- **Kiosk** — Book bet makes the slip code (`BookBet.tsx`, `KioskSlip.tsx`). The code shows in the player's
+  `BookingCodeDialog`, with no QR and no timer (the user's review). The idle reset (`use-idle.ts`,
+  `use-start-over.ts`) re-keys the page by `round` (`Kiosk.tsx`). The chrome's `pricePollMs` →
+  `usePricePollMs()`, off while idle.
+- **Removed** — `POST /api/terminal/bookings` and `apiClient`'s POST mirror. The QR, `qrcode` and `jsqr`
+  were added, then removed in the rework.
+- **Risk** — the signed bytes and the route's checks (security). The stake hint and its refusal fix (money,
+  display only). The idle reset re-making the page, and the fake-timer tests.
+- **The user's decisions** — at the gate: Book bet's place, `qrcode`, the copy (decisions 1–3, 15). In
+  their review: Book bet's text, the old dialog, no QR, no timer (plan "Rework", RW-1 to RW-4). Docs synced
+  on main first.
 - **Not done** — the POS (F9); signed catalogue reads (015 part 1); keeping the wait across a reload;
-  checking the signature here (the API's job); a hardware scanner.
+  checking the signature here (the API's job).
 
 ## Automated gate
 
@@ -35,7 +36,8 @@
 | Host split                                | PASS                                                              | `node scripts/check-host-split.mjs`  |
 | Screens                                   | PASS (3 flaky, Gaps)                                              | `pnpm ui` (673 passed)               |
 
-`pnpm verify` (first run, before review): exit 0.
+`pnpm verify` (first run, before review and the user's rework): exit 0. It runs once more before the task
+is finished, after the user's comments on the rework.
 
 ```
   3 flaky
@@ -48,12 +50,12 @@
 ## Tests proven
 
 Each new acceptance test, green, then failed once against the behaviour it guards broken, then restored.
+Tests removed in the user's rework are struck through; the rework's own come after them.
 
-- `qr.test.ts` › "draws a QR that decodes to the code's qr" — each run drawn one module short: jsqr reads
-  nothing. (A transposed drawing still decodes, since scanners read mirrored symbols; the next test
-  catches that.)
-- `qr.test.ts` › "draws exactly the dark modules, inside a quiet zone of four" — rows and columns swapped
-  in `qrPath`.
+- ~~`qr.test.ts` › "draws a QR that decodes to the code's qr" — each run drawn one module short: jsqr reads
+  nothing~~ (removed with the QR).
+- ~~`qr.test.ts` › "draws exactly the dark modules, inside a quiet zone of four" — rows and columns swapped
+  in `qrPath`~~ (removed with the QR).
 - `terminal-mappers.test.ts` › "never shows other digits than the code's" — `display` always taken as sent.
 - `terminal-route.test.ts` › "forwards the body byte for byte …" — `bodySerializer` dropped, so
   openapi-fetch re-serialised the checked body.
@@ -68,8 +70,8 @@ Each new acceptance test, green, then failed once against the behaviour it guard
 - `slip-code.test.ts` › "offers the server's stake from the contract's example (field stake) and from request
   015's (field stake_hint)" — `stake_hint` not read.
 - `slip-code.test.ts` › "counts the wait in whole minutes, rounded up" — rounded down.
-- `KioskCode.test.tsx` › "shows 4829 1735 with its QR … then starts over after the terminal's display time" —
-  the code screen's timer 5 s late.
+- ~~`KioskCode.test.tsx` › "shows 4829 1735 with its QR … then starts over after the terminal's display time" —
+  the code screen's timer 5 s late~~ (no timer since the rework).
 - `KioskCode.test.tsx` › "starts over after 90 s without a touch: the slips, the filters, the language, the
   search and an open sheet" — no navigation home; then, separately, the page not re-keyed by `round`.
 - `KioskCode.test.tsx` › "puts the reset back by the whole idle time at every touch" — a touch not noted.
@@ -83,8 +85,24 @@ Each new acceptance test, green, then failed once against the behaviour it guard
   changed slip" — a new key on every tap.
 - `KioskCode.test.tsx` › "marks a started match from legs[i] …" — the refused pick not marked.
 - `KioskCode.test.tsx` › "lets the status decide on a 401 …" — the status not read again.
-- `KioskCode.test.tsx` › "keeps the other slips when one becomes a code …" — always starting over.
+- ~~`KioskCode.test.tsx` › "keeps the other slips when one becomes a code …" — always starting over~~ (nothing starts over on a code since the rework).
 - `KioskCode.test.tsx` › "signs the API call over the exact body it sends" — signed over no body.
+- `KioskCode.test.tsx` › "shows 4829 1735 with its barcode and when it expires, and keeps it until it is
+  closed — no timer" — a 60 s timer closing the dialog.
+- `KioskCode.test.tsx` › "closes on Done and on a tap outside, leaves the slip as it is, and Booked opens the
+  same code again" — closing starting the slip over; then, separately, both guards against booking a booked
+  slip again removed (one alone is not enough: the button and the hook each guard).
+- `KioskCode.test.tsx` › "closes a code left open, and takes it away, after the idle time" — `startOver`
+  keeping the codes.
+- `KioskCode.test.tsx` › "books a changed slip anew" — any slip's code taken as this slip's.
+- `slip-code.test.ts` › "offers a refused minimum that clears every line …" (M1) — the limit offered as is.
+- `slip-code.test.ts` › "offers no stake that isn't an amount, or that is a leg's limit" (M2 rows) — the
+  above-zero check removed.
+- `terminal-route.test.ts` › "refuses another host, … before calling the API" (SEC1 rows) — the
+  `JSON.stringify` check removed: a duplicated key got 201.
+- `KioskCode.test.tsx` › U1 (board read again), Q2 (wait dropped once over), Q4 (refusal in the sheet) —
+  each written before its fix and seen failing for its reason: no board read, `codesPausedUntil` still set,
+  "Set 20.00" not found in the sheet.
 
 ## Self-review
 
@@ -122,20 +140,51 @@ Each new acceptance test, green, then failed once against the behaviour it guard
   - `TRANSLATION-NOTES.md` has an F8cc section;
   - the README status is `verifying`.
 
+## Review findings
+
+The panel reviewed commit `193c306`, before the user's rework. Findings about the QR and the code screen
+went with them.
+
+| ID   | Reviewer     | Severity | Summary                                                                                                                                                                              | Decision                                                                                                                    |
+| ---- | ------------ | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------- |
+| M1   | money        | BLOCKER  | A refused minimum was offered as the server's limit; on a slip of several lines it must clear every line (D1.3), as the player's slip offers it                                      | Fixed in `12c1d3b`: `smallestStake(limit, lines)`; test with 3 lines → 5.01 (the kiosk is multiple only, so one line today) |
+| S1   | spec (UI U2) | MAJOR    | A started match shows the slip's "Selection suspended" alert, while plan decision 10 says "Match started"; the shared "started" body says "Your bet wasn't placed", wrong on a kiosk | **Asked of the user** (copy is theirs): keep "Selection suspended", or approve new words for a started match                |
+| M2   | money        | MINOR    | A zero or negative limit could be offered                                                                                                                                            | Fixed in `12c1d3b`                                                                                                          |
+| M3   | money        | MINOR    | No test of "over the maximum, the picks go without a hint" through `slipCodeRequestFrom`                                                                                             | Fixed in `12c1d3b` (test)                                                                                                   |
+| SEC1 | security     | MINOR    | A duplicated JSON key's first copy went upstream unchecked                                                                                                                           | Fixed in `12c1d3b`: only `JSON.stringify`'s own text is forwarded                                                           |
+| S2   | spec         | MINOR    | The plan's AC → test names didn't match                                                                                                                                              | Fixed: the table is rewritten with the current names                                                                        |
+| S3   | spec         | MINOR    | The route's caps (64-character ids, 30 system sizes, 32-character `display`) are not the contract's                                                                                  | Recorded in the plan's Rework section as this app's guards                                                                  |
+| U1   | ui           | MINOR    | After a refused pick, the board still showed it open beside the slip that marked it                                                                                                  | Fixed: the board reads its prices again                                                                                     |
+| Q1   | quality      | MINOR    | `until`/`settle` bounded by turns, not time; "sent nothing" could prove nothing                                                                                                      | Fixed: `until` has a 5 s real-time limit; the negative checks also assert nothing started (`aria-busy`)                     |
+| Q2   | quality      | MINOR    | A wait never cleared kept a countdown ticking all day                                                                                                                                | Fixed: dropped once over                                                                                                    |
+| Q3   | quality      | MINOR    | Starting over re-keys the page before the address is home, so the old page reads once more                                                                                           | Follow-up: at most one read per idle reset; navigating first and re-keying after needs the router's completion              |
+| Q4   | quality      | MINOR    | A refusal lived in one mount's observer, so the phone's sheet lost it                                                                                                                | Fixed: read from the shared mutation cache                                                                                  |
+| Q5   | quality      | MINOR    | The code screen didn't announce the code                                                                                                                                             | Gone with the code screen; the player's dialog is unchanged                                                                 |
+| Q6   | quality      | MINOR    | `refused: "started" \| "suspended"` worked out but unused                                                                                                                            | Kept until S1 is answered: it is what "Match started" would read                                                            |
+| Q7   | quality      | MINOR    | `reset()` unused                                                                                                                                                                     | Fixed: removed                                                                                                              |
+| Q8   | quality      | MINOR    | No component test of the 90 s fallback                                                                                                                                               | Fixed: a test with no idle time (the display-time test went in the rework)                                                  |
+| Q9   | quality      | MINOR    | The "revoked" control count was taken once                                                                                                                                           | Fixed: `expect.poll`                                                                                                        |
+
+Notes: the security reviewer suggests request 015 say whether a key reused after a 429 replays the 429, and
+tie `qr` to `code` (moot without the QR). The money reviewer notes the player's Book bet on main offers a
+refused minimum without the line rule (`bookings/lib/errors.ts`), outside this task.
+
 ## Gaps
 
 - **Flaky in the gate run (passed on retry).** Three F8b screens, which activate against Prism on desktop,
   ran concurrently. First error, the same for each: the kiosk's heading was not visible 5 s after
   activation. They took 13–17 s, retries 12–17 s; the phone runs took 4 s. Run alone, they pass in about
-  3 s.
+  3 s. The same happened to the first three tests of a later screen run right after source edits: the dev
+  server compiling on first request, not the kiosk.
 - **Flaky alone, once.** `terminal.spec.ts` › "revoked …" (desktop) failed twice in a row in a lone rerun:
   `expect(await controls(page)).toBe(1)` got 17, with the "switched off" heading already shown; the
   snapshot taken right after shows 1 control. It then passed 10 out of 10 (`--repeat-each=5`, both widths).
-  It is not reproduced, so the cause is unknown; the kiosk's controls under a blocked heading would be a
-  bug, so it is flagged for the reviewers.
+  It is not reproduced. The quality reviewer's reading: after a reload `next dev` shows the kiosk
+  starting (17 controls) until the status answers, and a full reload can land between the heading check
+  and the count. The count now retries (Q9).
 - **Prism can't make a real wait** (`Retry-After: 0`), a named 422 or a closed shop's refusal. Those
   screens and tests answer the kiosk's own route with request 015's shapes. Prism's real 429 is asserted
   through the dev server.
-- **No scanner** has read the QR. `jsqr` decodes the drawn path back to `qr` in a unit test.
+- **No scanner** has read the slip code's Code 128 barcode (as for F5's).
 - **Signing interoperability** with the real API stays a gap until B9 and request 014: Prism checks only
   that the headers are present.

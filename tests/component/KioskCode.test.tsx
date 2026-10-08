@@ -77,7 +77,10 @@ async function tick(ms: number) {
  * the fake clock's ticks alone don't yield to.
  */
 async function until<T>(find: () => T | null | undefined): Promise<T> {
-  for (let i = 0; i < 50; i += 1) {
+  // Bounded by the real clock (`performance` isn't faked), not by turns, so a
+  // busy machine waits longer instead of failing (review Q1).
+  const deadline = performance.now() + 5_000;
+  while (performance.now() < deadline) {
     const found = find();
     if (found) return found;
     await new Promise((resolve) => setImmediate(resolve));
@@ -191,6 +194,10 @@ describe("Book bet on the kiosk makes a slip code (F8cc, the user's review)", ()
     type(stake, "");
     expect(bookButton()).toHaveAttribute("aria-disabled", "true");
     tap(bookButton());
+    // Nothing started (it would be busy at once, before any signing)…
+    await tick(0);
+    expect(bookButton()).not.toHaveAttribute("aria-busy", "true");
+    // …and nothing arrived later either.
     await settle();
     expect(codeCalls()).toHaveLength(0);
   });
@@ -437,6 +444,15 @@ describe("starting over for the next customer (F8cc AC-1)", () => {
     await tick(1_000);
     expect(picksIn(0)).toBe(0);
   });
+
+  it("falls back to C19's 90 s when the terminal says no idle time (review Q8)", async () => {
+    routes({ status: timed(null) });
+    await withPicks(FIRST);
+    await tick(89_000);
+    expect(picksIn(0)).toBe(1);
+    await tick(1_000);
+    expect(picksIn(0)).toBe(0);
+  });
 });
 
 describe("no price polling while idle (F8cc AC-c2)", () => {
@@ -487,8 +503,10 @@ describe("the terminal's 30 codes per 10 minutes (F8cc AC-6)", () => {
     expect(said.closest("[role=status]")).not.toBeNull();
     expect(bookButton()).toHaveAttribute("aria-disabled", "true");
 
-    // A tap while it waits sends nothing.
+    // A tap while it waits starts nothing, and sends nothing.
     tap(bookButton());
+    await tick(0);
+    expect(bookButton()).not.toHaveAttribute("aria-busy", "true");
     await settle();
     expect(codeCalls()).toHaveLength(1);
 
@@ -498,6 +516,8 @@ describe("the terminal's 30 codes per 10 minutes (F8cc AC-6)", () => {
 
     await tick(60_000);
     expect(slip().queryByText(/too many codes/)).toBeNull();
+    // Over, the wait is gone: no countdown left ticking (review Q2).
+    expect(useKioskStore.getState().codesPausedUntil).toBeNull();
     expect(bookButton()).not.toHaveAttribute("aria-disabled", "true");
     tap(bookButton());
     await until(() => codeDialog());
@@ -574,6 +594,32 @@ describe("what a refused Book bet offers (F8cc AC-c3)", () => {
     expect(sentBody(codeCalls()[1]).stake_hint).toBe("20.00");
   });
 
+  it("keeps a refusal and its fix when the slip is shown again — the phone's sheet (review Q4)", async () => {
+    routes({
+      slipCodes: () =>
+        json(422, {
+          type: "about:blank",
+          title: "Stake is below the minimum",
+          status: 422,
+          code: "BET_STAKE_TOO_LOW",
+          errors: [{ field: "stake_hint", code: "MIN", limit: "20.00" }],
+        }),
+    });
+    await withPicks(FIRST);
+    tap(bookButton());
+    const fix = en.betSlip.setMax.replace("{amount}", "20.00");
+    await until(() => slip().queryByRole("button", { name: fix }));
+    // The same slip in the sheet, mounted now: it says so too.
+    tap(
+      screen.getByRole("button", {
+        name: en.nav.slipAria.replace("{n}", "1"),
+      }),
+    );
+    expect(
+      within(screen.getByRole("dialog")).getByRole("button", { name: fix }),
+    ).toBeInTheDocument();
+  });
+
   it("offers the stake from the contract's own example too (field stake)", async () => {
     const example = responseExample(
       "/v1/retail/slip-codes",
@@ -609,7 +655,11 @@ describe("what a refused Book bet offers (F8cc AC-c3)", () => {
     });
     await withPicks(FIRST, SECOND);
     tap(bookButton());
+    const boardBefore = boardReads().length;
     await until(() => slip().queryByText(en.betSlip.alerts.suspendedTitle));
+    // The board reads its prices again, so it doesn't offer the refused pick
+    // as open beside the slip that marks it (review U1).
+    await until(() => (boardReads().length > boardBefore ? true : null));
     expect(slip().queryByText(/wasn’t placed/)).toBeNull();
     expect(
       slipStore().selections.find((s) => s.outcomeId === homeWinOf(SECOND).id)

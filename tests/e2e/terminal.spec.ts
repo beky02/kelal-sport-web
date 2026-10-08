@@ -332,7 +332,9 @@ for (const [device, viewport] of Object.entries({
           am.terminal.blocked.revokedTitle,
         );
         // The terminal's bar: the brand, home, and nothing else to press.
-        expect(await controls(page)).toBe(1);
+        // Retried: a reload under `next dev` can show the kiosk starting for a
+        // moment (review Q9).
+        await expect.poll(() => controls(page)).toBe(1);
         await expect(
           page.getByRole("link", { name: /KelalSport/ }),
         ).toHaveAttribute("href", "/");
@@ -353,7 +355,7 @@ for (const [device, viewport] of Object.entries({
       await expect(heading(page)).toContainText(
         en.terminal.blocked.deviceTitle,
       );
-      expect(await controls(page)).toBe(1);
+      await expect.poll(() => controls(page)).toBe(1);
       await shoot(page, "device-not-allowed", device, errors);
     });
 

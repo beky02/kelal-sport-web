@@ -4,10 +4,12 @@ import { useCallback } from "react";
 import {
   useIsMutating,
   useMutation,
+  useMutationState,
   useQueryClient,
+  type MutationState,
 } from "@tanstack/react-query";
 import { useBetSlipStore } from "@/features/bet-slip/stores/bet-slip.store";
-import { terminalKeys } from "@/lib/query/keys";
+import { eventKeys, terminalKeys } from "@/lib/query/keys";
 import { createSlipCode } from "../api/slip-codes";
 import { pausedUntil, slipCodeRefusal } from "../lib/slip-code";
 import { useKioskStore } from "../stores/kiosk.store";
@@ -15,6 +17,8 @@ import type { SlipCodeReceipt, SlipCodeRequest } from "../types";
 
 /** Every Book bet, wherever the slip is mounted: one at a time. */
 const BOOK = [...terminalKeys.all, "slip-code"] as const;
+
+type Booking = { request: SlipCodeRequest; key: string };
 
 /** One Book bet intent: the slip's request. */
 const signatureOf = (request: SlipCodeRequest) => JSON.stringify(request);
@@ -42,8 +46,7 @@ export function useBookSlip() {
   const codes = useKioskStore((s) => s.codes);
   const mutation = useMutation({
     mutationKey: BOOK,
-    mutationFn: ({ request, key }: { request: SlipCodeRequest; key: string }) =>
-      createSlipCode(request, key),
+    mutationFn: ({ request, key }: Booking) => createSlipCode(request, key),
     onSuccess: (receipt, { key }) =>
       useKioskStore.getState().codeReceived(key, receipt),
     onError: (error, { request }) => {
@@ -58,6 +61,9 @@ export function useBookSlip() {
           const pick = slips.selections.find((s) => s.outcomeId === outcomeId);
           if (pick) slips.applyEventSuspension(pick.eventId, true);
         }
+        // The board reads its prices again, so it shows what the API said
+        // rather than the refused pick still open (review U1).
+        void queryClient.invalidateQueries({ queryKey: eventKeys.all });
       } else if (refusal.kind === "status") {
         void queryClient.invalidateQueries({
           queryKey: terminalKeys.status(),
@@ -67,6 +73,13 @@ export function useBookSlip() {
   });
   const { mutate } = mutation;
   const sending = useIsMutating({ mutationKey: BOOK }) > 0;
+  // The latest Book bet from the shared cache, not this mount's observer: the
+  // slip is mounted twice below `xl`, and a sheet opened after a refusal must
+  // say it too (review Q4).
+  const latest = useMutationState({
+    filters: { mutationKey: BOOK },
+    select: (m) => m.state as MutationState<SlipCodeReceipt, Error, Booking>,
+  }).at(-1);
 
   const book = useCallback(
     (request: SlipCodeRequest) => {
@@ -89,8 +102,9 @@ export function useBookSlip() {
     [mutate, queryClient],
   );
 
-  const failedFor = mutation.variables
-    ? signatureOf(mutation.variables.request)
+  const failed = latest?.status === "error" ? latest : null;
+  const failedFor = failed?.variables
+    ? signatureOf(failed.variables.request)
     : null;
 
   return {
@@ -104,11 +118,8 @@ export function useBookSlip() {
      * shows nothing.
      */
     refusalFor: (request: SlipCodeRequest | null, lines: number) =>
-      mutation.isError &&
-      mutation.variables &&
-      request &&
-      failedFor === signatureOf(request)
-        ? slipCodeRefusal(mutation.error, mutation.variables.request, lines)
+      failed?.variables && request && failedFor === signatureOf(request)
+        ? slipCodeRefusal(failed.error, failed.variables.request, lines)
         : null,
   };
 }

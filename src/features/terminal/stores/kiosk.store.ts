@@ -33,8 +33,6 @@ interface KioskState {
   /** What the customer tapped, or null for the kiosk's first language. */
   chosen: Lang | null;
   choose: (lang: Lang) => void;
-  /** Back to the kiosk's first language. */
-  reset: () => void;
 
   idle: boolean;
   setIdle: (idle: boolean) => void;
@@ -61,7 +59,6 @@ interface KioskState {
 export const useKioskStore = create<KioskState>()((set) => ({
   chosen: null,
   choose: (chosen) => set({ chosen }),
-  reset: () => set({ chosen: null }),
 
   idle: false,
   setIdle: (idle) => set({ idle }),
