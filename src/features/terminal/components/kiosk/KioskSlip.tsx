@@ -28,15 +28,15 @@ import {
 import { useBetSlipStore } from "@/features/bet-slip/stores/bet-slip.store";
 import { useTranslation } from "@/lib/i18n/use-translation";
 import { useTerminalConfig } from "../../hooks/use-kiosk";
-import { useGetCode } from "../../hooks/use-slip-code";
+import { useBookSlip } from "../../hooks/use-slip-code";
 import { slipCodeRequestFrom } from "../../lib/slip-code";
-import { GetCode } from "./GetCode";
+import { BookBet } from "./BookBet";
 
 /**
  * The kiosk's slip (F8ca, priced in F8cb), from the player's slip parts: its
- * header with Clear all, the slips' tabs, a row per pick, Get code (F8cc, in
- * Book bet's place: the user's answer at the gate), and Load booking code
- * where the tenant has codes. Its figures are slipcalc's on the
+ * header with Clear all, the slips' tabs, a row per pick, Book bet — which
+ * makes the 8-digit slip code the counter sells from (F8cc) — and Load
+ * booking code where the tenant has codes. Its figures are slipcalc's on the
  * shop's rule set (`retail_betting`, D1.12) and nothing else: the player's
  * `SlipSummary` and `PayoutSummary`, with slipcalc's refusals and their fixes
  * above. The stake is optional, typed in the player's stake field (the
@@ -82,7 +82,7 @@ export function KioskSlip({ onClose }: { onClose?: () => void }) {
     () => slipCodeRequestFrom({ selections, totals, stake }),
     [selections, totals, stake],
   );
-  const code = useGetCode();
+  const booking = useBookSlip();
 
   return (
     // The player's slip body (`BetSlip`), so its tiles and rows read the same.
@@ -149,7 +149,7 @@ export function KioskSlip({ onClose }: { onClose?: () => void }) {
               (review U1). */}
           <div className="bg-ground sticky bottom-0 z-10 pb-1 shadow-[0_-12px_12px_-12px_rgb(0_0_0/0.5)]">
             {rules && <PayoutSummary totals={totals} rules={rules.calc} />}
-            <GetCode request={request} code={code} />
+            <BookBet request={request} booking={booking} />
           </div>
         </>
       )}

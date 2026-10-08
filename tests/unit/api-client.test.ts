@@ -51,7 +51,7 @@ describe("the browser's API client (F8ca R2)", () => {
     expect(askedUrl(read)).toBe("/api/terminal/bookings/7KQ2M9X");
     read.mockRestore();
 
-    // Book bet is no longer mirrored: Get code replaced it (F8cc).
+    // Book bet is no longer mirrored: the kiosk's makes a signed slip code (F8cc).
     const create = stubFetch();
     await apiClient.post("/bookings", ok, {});
     expect(askedUrl(create)).toBe("/api/bookings");

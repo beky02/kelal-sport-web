@@ -4,7 +4,6 @@ import { calculateBetSlip } from "@/features/bet-slip/lib/calculate";
 import type { BetSelection } from "@/features/bet-slip/types";
 import { toBettingRules } from "@/lib/api/mappers/config";
 import {
-  CODE_DISPLAY_SECONDS,
   IDLE_RESET_SECONDS,
   kioskTimings,
   minutesLeft,
@@ -127,7 +126,7 @@ const problem = (
   retryAfter: number | null = null,
 ) => new ApiError("Refused", status, code, null, errors, retryAfter);
 
-describe("what a refused Get code says and offers (F8cc AC-6, AC-c3)", () => {
+describe("what a refused Book bet says and offers (F8cc AC-6, AC-c3)", () => {
   it("waits out a 429 for its Retry-After", () => {
     expect(
       slipCodeRefusal(problem(429, "RATE_LIMITED", [], 240), REQUEST),
@@ -257,17 +256,12 @@ const TERMINAL: TerminalInfo = {
 };
 
 describe("the kiosk's timings (F8cc AC-1, AC-6)", () => {
-  it("uses the terminal's idle and display times, and C19's 90 s and 60 s without them", () => {
-    expect(kioskTimings(TERMINAL)).toEqual({ idleMs: 30_000, codeMs: 45_000 });
-    expect(
-      kioskTimings({
-        ...TERMINAL,
-        idleResetSeconds: null,
-        codeDisplaySeconds: 0,
-      }),
-    ).toEqual({ idleMs: 90_000, codeMs: 60_000 });
+  it("uses the terminal's idle time, and C19's 90 s without one; never its display time (the user's review)", () => {
+    expect(kioskTimings(TERMINAL)).toEqual({ idleMs: 30_000 });
+    expect(kioskTimings({ ...TERMINAL, idleResetSeconds: null })).toEqual({
+      idleMs: 90_000,
+    });
     expect(IDLE_RESET_SECONDS).toBe(90);
-    expect(CODE_DISPLAY_SECONDS).toBe(60);
     expect(kioskTimings({ ...TERMINAL, idleResetSeconds: -5 }).idleMs).toBe(
       90_000,
     );
@@ -277,7 +271,7 @@ describe("the kiosk's timings (F8cc AC-1, AC-6)", () => {
     ).toBe(2 ** 31 - 1);
   });
 
-  it("pauses Get code for the Retry-After, and not without one", () => {
+  it("pauses Book bet for the Retry-After, and not without one", () => {
     expect(pausedUntil(240, 1_000)).toBe(241_000);
     expect(pausedUntil(0, 1_000)).toBeNull();
     expect(pausedUntil(null, 1_000)).toBeNull();

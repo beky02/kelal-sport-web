@@ -1,8 +1,12 @@
-// The QR encoder, loaded once here, so the code screen's own `import()` of it
-// resolves at once under the fake clock.
-import "qrcode";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { act, fireEvent, screen, within } from "@testing-library/react";
+import {
+  act,
+  fireEvent,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { notifyManager } from "@tanstack/react-query";
 import { useBetSlipStore } from "@/features/bet-slip/stores/bet-slip.store";
 import { createDeviceKey } from "@/features/terminal/lib/device-key";
@@ -10,7 +14,6 @@ import { sha256Hex, canonicalRequest } from "@/features/terminal/lib/signing";
 import { useKioskStore } from "@/features/terminal/stores/kiosk.store";
 import type { TerminalStatus } from "@/features/terminal/types";
 import { formatMoney, formatOdds } from "@/lib/i18n/format";
-import am from "@/lib/i18n/messages/am.json";
 import en from "@/lib/i18n/messages/en.json";
 import { responseExample } from "../contract";
 import { address } from "./navigation";
@@ -37,7 +40,7 @@ setUpTerminalTests();
 const NOW = "2026-10-04T08:00:00Z";
 const TOMORROW = "2026-10-05";
 
-/** The contract's answer to Get code, as the route maps it. */
+/** The contract's slip code (Book bet on the kiosk), as the route maps it. */
 const CODE = SLIP_CODE;
 
 beforeEach(async () => {
@@ -130,9 +133,9 @@ const slip = () =>
       .getAllByRole("heading", { level: 2, name: en.betSlip.title })[0]
       .closest("aside")!,
   );
-const getCodeButton = (name = en.terminal.code.get) =>
+const bookButton = (name = en.betSlip.bookBet) =>
   slip().getByRole("button", { name });
-const codeScreen = (name = en.terminal.code.title) =>
+const codeDialog = (name = en.betSlip.bookingCode) =>
   screen.queryByRole("dialog", { name });
 const codeCalls = () =>
   asked.filter((call) => call.route === "/api/terminal/slip-codes");
@@ -149,15 +152,13 @@ const sentBody = (call: RouteCall) =>
     stake_hint?: string;
   };
 
-/** The terminal with its own idle and display times. */
-const timed =
-  (idleResetSeconds: number | null, codeDisplaySeconds: number | null) =>
-  (): Response =>
-    json(200, {
-      state: "active",
-      terminal: { ...TERMINAL, idleResetSeconds, codeDisplaySeconds },
-      rotateDue: false,
-    } satisfies TerminalStatus);
+/** The terminal with its own idle time. */
+const timed = (idleResetSeconds: number | null) => (): Response =>
+  json(200, {
+    state: "active",
+    terminal: { ...TERMINAL, idleResetSeconds },
+    rotateDue: false,
+  } satisfies TerminalStatus);
 
 /** The kiosk up, with a pick of `rows`' home wins in the slip on screen. */
 async function withPicks(...rows: Row[]) {
@@ -171,140 +172,125 @@ const picksIn = (n: number) => {
   return n === s.active ? s.selections.length : s.slips[n].selections.length;
 };
 
-describe("Get code in the kiosk's slip (F8cc, decision 1)", () => {
-  it("offers Get code in Book bet's place, and only for a slip that can be a code", async () => {
+describe("Book bet on the kiosk makes a slip code (F8cc, the user's review)", () => {
+  it("offers Book bet only for a slip that can be a code", async () => {
     routes({ slipCodes: () => json(201, CODE) });
     renderTerminal();
     await price(FIRST);
-    // An empty slip has no Get code, and no Book bet anywhere.
+    // An empty slip has no Book bet.
     expect(
-      slip().queryByRole("button", { name: en.terminal.code.get }),
-    ).toBeNull();
-    expect(
-      screen.queryByRole("button", { name: en.betSlip.bookBet }),
+      slip().queryByRole("button", { name: en.betSlip.bookBet }),
     ).toBeNull();
 
     tap(await price(FIRST));
-    expect(getCodeButton()).not.toHaveAttribute("aria-disabled", "true");
-    expect(
-      screen.queryByRole("button", { name: en.betSlip.bookBet }),
-    ).toBeNull();
+    expect(bookButton()).not.toHaveAttribute("aria-disabled", "true");
 
-    // Under the shop's minimum there is no code (Book bet's rule, the user's
-    // decision of 2026-10-08): off, and a tap sends nothing.
+    // Under the shop's minimum there is no code (the user's decision of
+    // 2026-10-08): off, and a tap sends nothing.
     const stake = slip().getByRole("textbox", { name: en.betSlip.totalStake });
     type(stake, "");
-    expect(getCodeButton()).toHaveAttribute("aria-disabled", "true");
-    tap(getCodeButton());
+    expect(bookButton()).toHaveAttribute("aria-disabled", "true");
+    tap(bookButton());
     await settle();
     expect(codeCalls()).toHaveLength(0);
   });
 });
 
-describe("the code screen (F8cc AC-1)", () => {
-  it("shows 4829 1735 with its QR and when it expires, then starts over after the terminal's display time", async () => {
-    address.go(`/?date=${TOMORROW}`);
+describe("the code in the booking-code dialog (F8cc AC-1, the user's review)", () => {
+  it("shows 4829 1735 with its barcode and when it expires, and keeps it until it is closed — no timer", async () => {
     routes({ slipCodes: () => json(201, CODE) });
     await withPicks(FIRST, SECOND);
-    tap(getCodeButton());
+    tap(bookButton());
 
-    const box = await until(() => codeScreen());
+    const box = await until(() => codeDialog());
     const dialog = within(box);
     expect(box).toHaveTextContent("4829 1735");
     expect(
       dialog.getByRole("img", {
-        name: en.terminal.code.qr.replace("{code}", "4829 1735"),
+        name: `${en.betSlip.bookingCode}: 4829 1735`,
       }),
     ).toBeInTheDocument();
-    await until(() => dialog.queryByTestId("qr-symbol"));
-    expect(box).toHaveTextContent(en.terminal.code.take);
     // 13:00 UTC is 16:00 in Addis Ababa (D7).
     expect(box).toHaveTextContent("Valid until Sun 4 Oct, 16:00");
-    expect(box).toHaveTextContent(
-      en.terminal.code.clears.replace("{seconds}", "60"),
-    );
-    expect(dialog.getByRole("button", { name: en.betSlip.done })).toHaveFocus();
+    // No QR, no Copy or Share on a shop PC.
+    expect(dialog.queryByRole("img", { name: /QR/ })).toBeNull();
+    expect(
+      dialog.queryByRole("button", { name: en.betSlip.copyCode }),
+    ).toBeNull();
 
-    // On screen for the terminal's 60 s (the contract's example), no less…
-    await tick(59_000);
-    expect(codeScreen()).not.toBeNull();
-    expect(codeScreen()).toHaveTextContent(
-      en.terminal.code.clears.replace("{seconds}", "1"),
-    );
-    // …then a clean screen for the next customer.
-    await tick(1_000);
-    expect(codeScreen()).toBeNull();
-    expect(slipStore().active).toBe(0);
-    expect([0, 1, 2].map(picksIn)).toEqual([0, 0, 0]);
-    expect(slipStore().stake).toBe("10");
-    expect(address.href).toBe("/");
-    expect(document.documentElement.lang).toBe("en");
+    // Long past any display time, it is still there: the customer closes it.
+    // (A touch every minute, as someone still at the kiosk.)
+    for (let minute = 0; minute < 5; minute += 1) {
+      fireEvent.pointerDown(box);
+      await tick(60_000);
+    }
+    expect(codeDialog()).not.toBeNull();
   });
 
-  it("starts over at once on Done", async () => {
+  it("closes on Done and on a tap outside, leaves the slip as it is, and Booked opens the same code again", async () => {
+    // Nothing here is timed: real timers, and real pointer sequences.
+    vi.useRealTimers();
+    notifyManager.setScheduler((cb) => setTimeout(cb, 0));
+    const user = userEvent.setup();
     address.go(`/?date=${TOMORROW}`);
     routes({ slipCodes: () => json(201, CODE) });
-    await withPicks(FIRST);
-    tap(getCodeButton());
-    const box = await until(() => codeScreen());
-    tap(within(box).getByRole("button", { name: en.betSlip.done }));
-    expect(codeScreen()).toBeNull();
-    expect(picksIn(0)).toBe(0);
-    expect(address.href).toBe("/");
+    renderTerminal();
+    await user.click(
+      await screen.findByRole("button", { name: priceName(FIRST) }),
+    );
+    await user.click(bookButton());
+    const box = await screen.findByRole("dialog", {
+      name: en.betSlip.bookingCode,
+    });
+
+    await user.click(
+      within(box).getByRole("button", { name: en.betSlip.done }),
+    );
+    expect(codeDialog()).toBeNull();
+    // Nothing starts over: the slip, the page and the language stay.
+    expect(picksIn(0)).toBe(1);
+    expect(address.href).toBe(`/?date=${TOMORROW}`);
+
+    // Booked opens it again, and books nothing more…
+    await user.click(bookButton(en.booking.booked));
+    const again = await screen.findByRole("dialog", {
+      name: en.betSlip.bookingCode,
+    });
+    expect(again).toHaveTextContent("4829 1735");
+    // …and a tap outside the dialog — on its overlay, the page beneath
+    // taking no pointer while it is open — closes it too.
+    const overlay = again.previousElementSibling!;
+    expect(overlay.contains(again)).toBe(false);
+    await user.click(overlay);
+    await waitFor(() => expect(codeDialog()).toBeNull());
+    expect(codeCalls()).toHaveLength(1);
   });
 
-  it("keeps the other slips when one becomes a code: the next comes up, in the customer's language and page (the user's answer at the gate)", async () => {
-    address.go(`/?date=${TOMORROW}`);
+  it("books a changed slip anew", async () => {
     routes({ slipCodes: () => json(201, CODE) });
     await withPicks(FIRST);
-    // Slip 2 gets a pick of its own; back to Slip 1 for its code.
+    tap(bookButton());
     tap(
-      slip().getByRole("button", {
-        name: en.betSlip.slipNAria.replace("{n}", "2").replace("{count}", "0"),
+      within(await until(() => codeDialog())).getByRole("button", {
+        name: en.betSlip.done,
       }),
     );
     tap(await price(SECOND));
-    tap(
-      slip().getByRole("button", {
-        name: en.betSlip.slipNAria.replace("{n}", "1").replace("{count}", "1"),
-      }),
+    tap(bookButton());
+    await until(() => codeDialog());
+    expect(codeCalls()).toHaveLength(2);
+    expect(codeCalls()[1].headers["Idempotency-Key"]).not.toBe(
+      codeCalls()[0].headers["Idempotency-Key"],
     );
-    tap(getCodeButton());
-    await until(() => codeScreen());
-    act(() => useKioskStore.getState().choose("am"));
-
-    tap(
-      within(codeScreen(am.terminal.code.title)!).getByRole("button", {
-        name: am.betSlip.done,
-      }),
-    );
-    expect(codeScreen(am.terminal.code.title)).toBeNull();
-    // Slip 1 became the code; Slip 2 is on screen with its pick.
-    expect(slipStore().active).toBe(1);
-    expect([0, 1].map(picksIn)).toEqual([0, 1]);
-    expect(slipStore().selections[0].outcomeId).toBe(homeWinOf(SECOND).id);
-    expect(useKioskStore.getState().chosen).toBe("am");
-    expect(address.href).toBe(`/?date=${TOMORROW}`);
-  });
-
-  it("uses the terminal's own display time, and C19's 60 s without one", async () => {
-    routes({ status: timed(null, 30), slipCodes: () => json(201, CODE) });
-    await withPicks(FIRST);
-    tap(getCodeButton());
-    await until(() => codeScreen());
-    await tick(29_000);
-    expect(codeScreen()).not.toBeNull();
-    await tick(1_000);
-    expect(codeScreen()).toBeNull();
   });
 });
 
-describe("Get code, signed (F8cc AC-c1)", () => {
+describe("Book bet on the kiosk, signed (F8cc AC-c1)", () => {
   it("signs the API call over the exact body it sends", async () => {
     routes({ slipCodes: () => json(201, CODE) });
     await withPicks(FIRST);
-    tap(getCodeButton());
-    await until(() => codeScreen());
+    tap(bookButton());
+    await until(() => codeDialog());
 
     const [call] = codeCalls();
     expect(call.method).toBe("POST");
@@ -345,7 +331,7 @@ describe("Get code, signed (F8cc AC-c1)", () => {
     expect(call.headers["X-Device-Id"]).toBeUndefined();
   });
 
-  it("sends one Idempotency-Key per Get code — the same on a retry, a new one for a changed slip", async () => {
+  it("sends one Idempotency-Key per Book bet — the same on a retry, a new one for a changed slip", async () => {
     let n = 0;
     routes({
       slipCodes: () => {
@@ -357,9 +343,9 @@ describe("Get code, signed (F8cc AC-c1)", () => {
     });
     await withPicks(FIRST);
 
-    tap(getCodeButton());
+    tap(bookButton());
     await until(() => slip().queryByText(en.terminal.code.failed));
-    tap(getCodeButton());
+    tap(bookButton());
     await until(() => (codeCalls().length === 2 ? true : null));
     await tick(0);
     expect(slip().getByText(en.terminal.code.failed)).toBeInTheDocument();
@@ -373,8 +359,8 @@ describe("Get code, signed (F8cc AC-c1)", () => {
     const stake = slip().getByRole("textbox", { name: en.betSlip.totalStake });
     type(stake, "20");
     expect(slip().queryByText(en.terminal.code.failed)).toBeNull();
-    tap(getCodeButton());
-    await until(() => codeScreen());
+    tap(bookButton());
+    await until(() => codeDialog());
     const third = codeCalls()[2];
     expect(sentBody(third).stake_hint).toBe("20.00");
     expect(third.headers["Idempotency-Key"]).not.toBe(
@@ -421,6 +407,17 @@ describe("starting over for the next customer (F8cc AC-1)", () => {
     expect(screen.queryByRole("dialog")).toBeNull();
   });
 
+  it("closes a code left open, and takes it away, after the idle time", async () => {
+    routes({ slipCodes: () => json(201, CODE) });
+    await withPicks(FIRST);
+    tap(bookButton());
+    await until(() => codeDialog());
+    await tick(90_000);
+    expect(codeDialog()).toBeNull();
+    expect(picksIn(0)).toBe(0);
+    expect(useKioskStore.getState().codes).toEqual({});
+  });
+
   it("puts the reset back by the whole idle time at every touch", async () => {
     routes();
     await withPicks(FIRST);
@@ -433,7 +430,7 @@ describe("starting over for the next customer (F8cc AC-1)", () => {
   });
 
   it("uses the terminal's own idle time, and C19's 90 s without one", async () => {
-    routes({ status: timed(45, null) });
+    routes({ status: timed(45) });
     await withPicks(FIRST);
     await tick(44_000);
     expect(picksIn(0)).toBe(1);
@@ -474,37 +471,37 @@ describe("the terminal's 30 codes per 10 minutes (F8cc AC-6)", () => {
   const MESSAGE = (minutes: number) =>
     en.terminal.code.paused.replace("{minutes}", String(minutes));
 
-  it("says when the terminal can make the next code after a 429, and Get code waits until then", async () => {
+  it("says when the terminal can make the next code after a 429, and Book bet waits until then", async () => {
     let n = 0;
     routes({
       // An hour's idle time, so the wait is the only clock that runs.
-      status: timed(3600, null),
+      status: timed(3600),
       slipCodes: () =>
         (n += 1) === 1
           ? problem(429, "RATE_LIMITED", { "Retry-After": "240" })
           : json(201, CODE),
     });
     await withPicks(FIRST);
-    tap(getCodeButton());
+    tap(bookButton());
     const said = await until(() => slip().queryByText(MESSAGE(4)));
     expect(said.closest("[role=status]")).not.toBeNull();
-    expect(getCodeButton()).toHaveAttribute("aria-disabled", "true");
+    expect(bookButton()).toHaveAttribute("aria-disabled", "true");
 
     // A tap while it waits sends nothing.
-    tap(getCodeButton());
+    tap(bookButton());
     await settle();
     expect(codeCalls()).toHaveLength(1);
 
     await tick(180_000);
     expect(slip().getByText(MESSAGE(1))).toBeInTheDocument();
-    expect(getCodeButton()).toHaveAttribute("aria-disabled", "true");
+    expect(bookButton()).toHaveAttribute("aria-disabled", "true");
 
     await tick(60_000);
     expect(slip().queryByText(/too many codes/)).toBeNull();
-    expect(getCodeButton()).not.toHaveAttribute("aria-disabled", "true");
-    tap(getCodeButton());
-    await until(() => codeScreen());
-    // The same Get code, waited out: the same key.
+    expect(bookButton()).not.toHaveAttribute("aria-disabled", "true");
+    tap(bookButton());
+    await until(() => codeDialog());
+    // The same Book bet, waited out: the same key.
     expect(codeCalls()[1].headers["Idempotency-Key"]).toBe(
       codeCalls()[0].headers["Idempotency-Key"],
     );
@@ -515,7 +512,7 @@ describe("the terminal's 30 codes per 10 minutes (F8cc AC-6)", () => {
       slipCodes: () => problem(429, "RATE_LIMITED", { "Retry-After": "240" }),
     });
     await withPicks(FIRST);
-    tap(getCodeButton());
+    tap(bookButton());
     await until(() => slip().queryByText(MESSAGE(4)));
 
     await tick(90_000);
@@ -523,26 +520,26 @@ describe("the terminal's 30 codes per 10 minutes (F8cc AC-6)", () => {
     tap(await price(FIRST));
     // 150 s left.
     expect(slip().getByText(MESSAGE(3))).toBeInTheDocument();
-    expect(getCodeButton()).toHaveAttribute("aria-disabled", "true");
+    expect(bookButton()).toHaveAttribute("aria-disabled", "true");
   });
 
-  it("says try again later after a 429 without Retry-After, and doesn't hold Get code", async () => {
+  it("says try again later after a 429 without Retry-After, and doesn't hold Book bet", async () => {
     routes({ slipCodes: () => problem(429, "RATE_LIMITED") });
     await withPicks(FIRST);
-    tap(getCodeButton());
+    tap(bookButton());
     await until(() => slip().queryByText(en.terminal.code.pausedLater));
-    expect(getCodeButton()).not.toHaveAttribute("aria-disabled", "true");
-    tap(getCodeButton());
+    expect(bookButton()).not.toHaveAttribute("aria-disabled", "true");
+    tap(bookButton());
     await until(() => (codeCalls().length === 2 ? true : null));
   });
 });
 
-describe("what a refused Get code offers (F8cc AC-c3)", () => {
+describe("what a refused Book bet offers (F8cc AC-c3)", () => {
   /** An amount as the screen reads it (its no-break space as a space). */
   const money = (amount: string) =>
     formatMoney(amount, "en").replace(/\s/g, " ");
 
-  it("offers the server's stake when it refuses the hint, and sends it on the next Get code", async () => {
+  it("offers the server's stake when it refuses the hint, and sends it on the next Book bet", async () => {
     let n = 0;
     routes({
       slipCodes: () =>
@@ -558,7 +555,7 @@ describe("what a refused Get code offers (F8cc AC-c3)", () => {
           : json(201, CODE),
     });
     await withPicks(FIRST);
-    tap(getCodeButton());
+    tap(bookButton());
     await until(() =>
       slip().queryByText(
         en.betSlip.errors.stakeTooLowBody.replace("{amount}", money("20.00")),
@@ -572,8 +569,8 @@ describe("what a refused Get code offers (F8cc AC-c3)", () => {
     expect(
       slip().getByRole("textbox", { name: en.betSlip.totalStake }),
     ).toHaveValue("20.00");
-    tap(getCodeButton());
-    await until(() => codeScreen());
+    tap(bookButton());
+    await until(() => codeDialog());
     expect(sentBody(codeCalls()[1]).stake_hint).toBe("20.00");
   });
 
@@ -586,7 +583,7 @@ describe("what a refused Get code offers (F8cc AC-c3)", () => {
     );
     routes({ slipCodes: () => json(422, example) });
     await withPicks(FIRST);
-    tap(getCodeButton());
+    tap(bookButton());
     await until(() =>
       slip().queryByRole("button", {
         name: en.betSlip.setMax.replace("{amount}", "5.00"),
@@ -611,7 +608,7 @@ describe("what a refused Get code offers (F8cc AC-c3)", () => {
           : json(201, CODE),
     });
     await withPicks(FIRST, SECOND);
-    tap(getCodeButton());
+    tap(bookButton());
     await until(() => slip().queryByText(en.betSlip.alerts.suspendedTitle));
     expect(slip().queryByText(/wasn’t placed/)).toBeNull();
     expect(
@@ -622,8 +619,8 @@ describe("what a refused Get code offers (F8cc AC-c3)", () => {
       slip().getByRole("button", { name: en.betSlip.alerts.removeIt }),
     ).toBeInTheDocument();
 
-    tap(getCodeButton());
-    await until(() => codeScreen());
+    tap(bookButton());
+    await until(() => codeDialog());
     expect(sentBody(codeCalls()[1]).legs).toEqual([
       { outcome_id: homeWinOf(FIRST).id, odds: homeWinOf(FIRST).odds },
     ]);
@@ -639,7 +636,7 @@ describe("what a refused Get code offers (F8cc AC-c3)", () => {
       slipCodes: () => problem(401, "AUTH_TOKEN_EXPIRED"),
     });
     await withPicks(FIRST);
-    tap(getCodeButton());
+    tap(bookButton());
     await until(() => screen.queryByText(en.terminal.activate.lapsed));
     expect(statusReads()).toHaveLength(2);
   });
@@ -658,7 +655,7 @@ describe("what a refused Get code offers (F8cc AC-c3)", () => {
       slipCodes: () => problem(403, "RETAIL_SHOP_CLOSED"),
     });
     await withPicks(FIRST);
-    tap(getCodeButton());
+    tap(bookButton());
     await until(() =>
       screen.queryByRole("heading", {
         name: new RegExp(en.terminal.closed.title),

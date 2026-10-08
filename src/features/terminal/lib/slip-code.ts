@@ -7,8 +7,9 @@ import type { MessageKey } from "@/lib/i18n";
 import type { SlipCodeRequest, TerminalInfo } from "../types";
 
 /**
- * Get code on the shop kiosk (F8cc, C19 §4.2), as pure rules: what the slip
- * sends, what a refusal says and offers, and how long things last.
+ * Book bet on the shop kiosk (F8cc, C19 §4.2) — a slip code for the counter —
+ * as pure rules: what the slip sends, what a refusal says and offers, and how
+ * long things last.
  */
 
 /**
@@ -40,7 +41,7 @@ export function slipCodeRequestFrom(slip: {
   };
 }
 
-/** What a refused Get code does, by the Problem's `code` — never its title. */
+/** What a refused Book bet does, by the Problem's `code` — never its title. */
 export type SlipCodeRefusal =
   /** The terminal's 30 codes per 10 minutes are spent: wait `retryAfter` seconds. */
   | { kind: "paused"; retryAfter: number | null }
@@ -60,7 +61,7 @@ const FAILED = { kind: "message", key: "terminal.code.failed" } as const;
 const CANNOT = { kind: "message", key: "terminal.code.cannot" } as const;
 
 /**
- * What to tell the customer when Get code fails, and the fix where there is
+ * What to tell the customer when Book bet fails, and the fix where there is
  * one (F8cc decision 10). A stake limit is offered only when it is the
  * stake's (`stake_hint`, as request 015 proposes, or `stake`, as the shared
  * example has it) and an amount. A started or suspended leg is named by its
@@ -122,8 +123,6 @@ export function slipCodeRefusal(
 
 /** C19 §4.2 and §11: 90 s without a touch resets the screen. */
 export const IDLE_RESET_SECONDS = 90;
-/** C19 §4.2: the code stays on screen for 60 s. */
-export const CODE_DISPLAY_SECONDS = 60;
 /** The longest a timer can wait; past it, `setTimeout` fires at once. */
 const MAX_TIMER_MS = 2 ** 31 - 1;
 
@@ -133,14 +132,16 @@ const ms = (seconds: number | null, fallback: number) =>
     MAX_TIMER_MS,
   );
 
-/** The terminal's idle and display times, or C19's without them. */
+/**
+ * The terminal's idle time, or C19's without one. (Its `code_display_seconds`
+ * is not used: a code stays until the customer closes it — the user's review.)
+ */
 export const kioskTimings = (terminal: TerminalInfo | null) => ({
   idleMs: ms(terminal?.idleResetSeconds ?? null, IDLE_RESET_SECONDS),
-  codeMs: ms(terminal?.codeDisplaySeconds ?? null, CODE_DISPLAY_SECONDS),
 });
 
 /**
- * When Get code may go again after a 429: `Retry-After` seconds from `now` on
+ * When Book bet may go again after a 429: `Retry-After` seconds from `now` on
  * this PC's clock, as a duration — so a PC whose clock is wrong waits just as
  * long. No wait without one, or with none left.
  */

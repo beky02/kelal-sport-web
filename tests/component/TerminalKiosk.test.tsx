@@ -623,14 +623,13 @@ describe("the kiosk's slip, priced with the shop's rules (F8cb)", () => {
     expect(stakeField()).toHaveValue("10");
     expect(payout()).toHaveTextContent("ETB 16.57");
 
-    const getCode = () =>
-      slip().getByRole("button", { name: en.terminal.code.get });
+    const book = () => slip().getByRole("button", { name: en.betSlip.bookBet });
     for (const stake of ["", "0"]) {
       await user.clear(stakeField());
       if (stake) await user.type(stakeField(), stake);
       expect(payout()).toHaveTextContent("—");
-      expect(getCode()).toHaveAttribute("aria-disabled", "true");
-      await user.click(getCode());
+      expect(book()).toHaveAttribute("aria-disabled", "true");
+      await user.click(book());
     }
     expect(
       asked.some((entry) => entry.route === "/api/terminal/slip-codes"),
@@ -655,7 +654,7 @@ describe("the kiosk's slip, priced with the shop's rules (F8cb)", () => {
     expect(slip().queryByRole("alert")).toBeNull();
     expect(payout()).toHaveTextContent("—");
     expect(
-      slip().getByRole("button", { name: en.terminal.code.get }),
+      slip().getByRole("button", { name: en.betSlip.bookBet }),
     ).toHaveAttribute("aria-disabled", "true");
 
     await press(user, "10");
@@ -741,7 +740,7 @@ describe("the kiosk's slip, priced with the shop's rules (F8cb)", () => {
     expect(slip().queryByRole("button", { name: "500" })).toBeNull();
   });
 
-  it("gets a code with the stake typed as its hint, and offers the server's stake when it refuses it (F8cb AC-b1, F8cc)", async () => {
+  it("books the stake typed as the slip code's hint, and offers the server's stake when it refuses it (F8cb AC-b1, F8cc)", async () => {
     const answers = [
       () =>
         json(422, {
@@ -759,9 +758,7 @@ describe("the kiosk's slip, priced with the shop's rules (F8cb)", () => {
     await user.click(await homeWin());
     await press(user, "50");
 
-    await user.click(
-      slip().getByRole("button", { name: en.terminal.code.get }),
-    );
+    await user.click(slip().getByRole("button", { name: en.betSlip.bookBet }));
     const alert = within(await slip().findByRole("alert"));
     expect(
       alert.getByText(
@@ -778,17 +775,15 @@ describe("the kiosk's slip, priced with the shop's rules (F8cb)", () => {
     );
     expect(stakeField()).toHaveValue("40.00");
 
-    await user.click(
-      slip().getByRole("button", { name: en.terminal.code.get }),
-    );
-    await screen.findByRole("dialog", { name: en.terminal.code.title });
+    await user.click(slip().getByRole("button", { name: en.betSlip.bookBet }));
+    await screen.findByRole("dialog", { name: en.betSlip.bookingCode });
     const bodies = asked
       .filter((entry) => entry.route === "/api/terminal/slip-codes")
       .map((entry) => JSON.parse(entry.body!));
     expect(bodies.map((body) => body.stake_hint)).toEqual(["50.00", "40.00"]);
   });
 
-  it("shows no balance, no log in, no place and no Book bet — only Get code (F8cb AC-b2, F8cc)", async () => {
+  it("shows no balance, no log in and no place button — only Book bet (F8cb AC-b2)", async () => {
     const user = userEvent.setup();
     routes();
     renderTerminal();
@@ -797,15 +792,11 @@ describe("the kiosk's slip, priced with the shop's rules (F8cb)", () => {
     expect(payout()).not.toHaveTextContent("—");
 
     expect(slip().queryByText(en.betSlip.balance, { exact: false })).toBeNull();
-    for (const name of [
-      en.betSlip.loginToBet,
-      en.betSlip.placeBet,
-      en.betSlip.bookBet,
-    ]) {
+    for (const name of [en.betSlip.loginToBet, en.betSlip.placeBet]) {
       expect(screen.queryByRole("button", { name })).toBeNull();
     }
     expect(
-      slip().getByRole("button", { name: en.terminal.code.get }),
+      slip().getByRole("button", { name: en.betSlip.bookBet }),
     ).toBeInTheDocument();
     // Nothing but the terminal's own routes: no session, wallet or online config.
     expect(
@@ -852,8 +843,8 @@ describe("the kiosk's slip, priced with the shop's rules (F8cb)", () => {
     await sheet.findByTestId("booking-notice");
     expect(useBetSlipStore.getState().stake).toBe("50.00");
     expect(sheet.queryByText(/ETB|ብር|50\.00/)).toBeNull();
-    await user.click(sheet.getByRole("button", { name: en.terminal.code.get }));
-    await screen.findByRole("dialog", { name: en.terminal.code.title });
+    await user.click(sheet.getByRole("button", { name: en.betSlip.bookBet }));
+    await screen.findByRole("dialog", { name: en.betSlip.bookingCode });
     const call = asked.find(
       (entry) => entry.route === "/api/terminal/slip-codes",
     );

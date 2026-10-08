@@ -24,9 +24,9 @@ const TERMINAL_BASE_PATH = "/api/terminal/";
 /**
  * What the terminal mirrors (F8ca): catalogue reads and a booking read by its
  * code — exactly `bookings/{code}` (review SEC1). Reads only: the kiosk's one
- * write, Get code, is its own signed call (F8cc), so no write of the player's
- * is ever re-rooted. No `.` or `..` segment, so nothing re-rooted can resolve
- * outside the mirror.
+ * write, Book bet, is its own signed call for a slip code (F8cc), so no write
+ * of the player's is ever re-rooted. No `.` or `..` segment, so nothing
+ * re-rooted can resolve outside the mirror.
  */
 function mirrored(method: Method, path: string): boolean {
   if (method !== "GET") return false;

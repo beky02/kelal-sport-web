@@ -113,7 +113,7 @@ export const SEARCH = toSearchResults(
   false,
 );
 
-/** The contract's answer to Get code (`POST /v1/retail/slip-codes`, F8cc), mapped. */
+/** The contract's slip code (`POST /v1/retail/slip-codes`, F8cc: the kiosk's Book bet), mapped. */
 export const SLIP_CODE = toSlipCodeReceipt(
   responseExample(
     "/v1/retail/slip-codes",
@@ -142,6 +142,10 @@ export const kioskHeading = () => screen.findByRole("heading", KIOSK_HEADING);
 
 /** The kiosk's board heading, now (for fake-timer tests that tick first). */
 export const kioskHeadingNow = () => screen.getByRole("heading", KIOSK_HEADING);
+
+/** The kiosk's board heading if it is up, or null (to wait on under a fake clock). */
+export const kioskHeadingQuery = () =>
+  screen.queryByRole("heading", KIOSK_HEADING);
 
 /** The contract's answer to an activation. */
 export const ACTIVATION = toTerminalActivation(
@@ -192,7 +196,7 @@ export function setUpTerminalTests() {
     // (`<html data-api>`).
     // A fresh page: three empty slips, Slip 1 on screen, no stake yet.
     useBetSlipStore.getState().resetAll();
-    // Every kiosk field: language, idle, round, Get code's intent, code and wait.
+    // Every kiosk field: language, idle, round, each slip's code and the wait.
     useKioskStore.setState(useKioskStore.getInitialState(), true);
     address.go("/");
     document.documentElement.dataset.api = "/api/terminal/";
@@ -266,7 +270,7 @@ export function routes({
   event?: Answer;
   search?: Answer;
   booking?: Answer;
-  /** `POST /api/terminal/slip-codes`: Get code (F8cc); answers only when given. */
+  /** `POST /api/terminal/slip-codes`: the kiosk's Book bet (F8cc); answers only when given. */
   slipCodes?: Answer;
 } = {}) {
   const answers = new Map<string, Answer | undefined>([

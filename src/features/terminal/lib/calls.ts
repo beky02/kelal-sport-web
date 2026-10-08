@@ -29,7 +29,7 @@ export const TERMINAL_CALLS = {
     signed: true,
   },
   /**
-   * `createSlipCode` (F8cc): Get code, signed over the exact body, which the
+   * `createSlipCode` (F8cc): the kiosk's Book bet, signed over the exact body, which the
    * route forwards byte for byte; 30 per terminal per 10 minutes.
    */
   slipCodes: {

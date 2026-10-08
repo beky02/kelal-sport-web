@@ -4,13 +4,13 @@ import { create } from "zustand";
 import type { Lang } from "@/types/common";
 import type { SlipCodeReceipt, TerminalConfigView } from "../types";
 
-/** A slip code on screen (F8cc): what the API made, from which slip, and when it arrived. */
-export interface ShownCode {
-  receipt: SlipCodeReceipt;
-  /** The slip it was made from: 0, 1 or 2. */
-  slip: number;
-  /** This PC's clock when it arrived: the screen is timed from then. */
-  at: number;
+/**
+ * A slip asked to be a code (F8cc): its `Idempotency-Key`, made the first time
+ * and sent again on every retry, and — once the API answers — its code.
+ */
+export interface SlipCodeIntent {
+  key: string;
+  receipt: SlipCodeReceipt | null;
 }
 
 /**
@@ -23,9 +23,10 @@ export interface ShownCode {
  *   aren't polled (C18 §5);
  * - the page's `round`: a new one re-makes every part of the page, so
  *   nothing a customer typed or opened outlasts them (`startOver`);
- * - Get code's intent — the request and its `Idempotency-Key`, reused on a
- *   retry of the same slip — and the code on screen;
- * - when Get code may go again after the terminal's limit (a 429): the
+ * - each slip's Book bet, by the slip's request: its `Idempotency-Key`,
+ *   reused on a retry of the same slip, and its code once made — so Booked
+ *   opens the same code again, as the player's Book bet does;
+ * - when Book bet may go again after the terminal's limit (a 429): the
  *   terminal's, so it outlasts a start over.
  */
 interface KioskState {
@@ -39,19 +40,20 @@ interface KioskState {
   setIdle: (idle: boolean) => void;
   round: number;
 
-  codeIntent: { signature: string; key: string } | null;
-  setCodeIntent: (intent: { signature: string; key: string } | null) => void;
-  shownCode: ShownCode | null;
-  showCode: (shown: ShownCode) => void;
-  closeCode: () => void;
-  /** This PC's clock when Get code may go again, or null. */
+  /** Each slip's Book bet, by its request's signature. */
+  codes: Record<string, SlipCodeIntent>;
+  /** A new Book bet of the slip with this signature, with its key. */
+  askCode: (signature: string, key: string) => void;
+  /** The API made a code: to the slip whose Book bet had this key. */
+  codeReceived: (key: string, receipt: SlipCodeReceipt) => void;
+  /** This PC's clock when Book bet may go again, or null. */
   codesPausedUntil: number | null;
   pauseCodes: (until: number | null) => void;
 
   /**
    * The kiosk's part of starting over for the next customer: its first
-   * language, no intent and no code on screen, a new round of the page, and
-   * `idle` as said. The wait after a 429 stays: it is the terminal's.
+   * language, no slip's code, a new round of the page, and `idle` as said.
+   * The wait after a 429 stays: it is the terminal's.
    */
   startOver: (idle: boolean) => void;
 }
@@ -65,11 +67,20 @@ export const useKioskStore = create<KioskState>()((set) => ({
   setIdle: (idle) => set({ idle }),
   round: 0,
 
-  codeIntent: null,
-  setCodeIntent: (codeIntent) => set({ codeIntent }),
-  shownCode: null,
-  showCode: (shownCode) => set({ shownCode }),
-  closeCode: () => set({ shownCode: null }),
+  codes: {},
+  askCode: (signature, key) =>
+    set((state) => ({
+      codes: { ...state.codes, [signature]: { key, receipt: null } },
+    })),
+  codeReceived: (key, receipt) =>
+    set((state) => {
+      const signature = Object.keys(state.codes).find(
+        (s) => state.codes[s].key === key,
+      );
+      return signature
+        ? { codes: { ...state.codes, [signature]: { key, receipt } } }
+        : {};
+    }),
   codesPausedUntil: null,
   pauseCodes: (codesPausedUntil) => set({ codesPausedUntil }),
 
@@ -78,8 +89,7 @@ export const useKioskStore = create<KioskState>()((set) => ({
       chosen: null,
       idle,
       round: state.round + 1,
-      codeIntent: null,
-      shownCode: null,
+      codes: {},
     })),
 }));
 

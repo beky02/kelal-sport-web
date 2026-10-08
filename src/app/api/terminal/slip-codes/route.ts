@@ -20,11 +20,11 @@ const noStore = (response: Response) => {
 };
 
 /**
- * Get code (F8cc, C19 §4.2): the kiosk's slip turned into an 8-digit slip
+ * Book bet on the kiosk (F8cc, C19 §4.2): the slip turned into an 8-digit slip
  * code, by an activated terminal of this tenant only. Everything is checked
  * before the API is called, in this order — a terminal host; this site's own
  * page (origin, the CSRF header, JSON); the terminal's cookie, unexpired; one
- * `Idempotency-Key` per Get code (a UUID, the browser's, never made here);
+ * `Idempotency-Key` per Book bet (a UUID, the browser's, never made here);
  * the device signature's shape and clock (D3); and the body — at most 16 KiB
  * of UTF-8, the contract's `SlipCodeCreate` and nothing more.
  *

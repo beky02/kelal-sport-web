@@ -6,7 +6,7 @@ import type { SlipCodeReceipt, SlipCodeRequest } from "../types";
 import { terminalRequest } from "./client";
 
 /**
- * Get code (F8cc): the slip as the contract's `SlipCodeCreate`, made here
+ * Book bet on the kiosk (F8cc): the slip as the contract's `SlipCodeCreate`, made here
  * because the device key signs the exact text the API will receive (D3; F8b
  * decision 2), sent to `/api/terminal/slip-codes` with the intent's
  * `Idempotency-Key`. Without a key in this browser nothing is sent: the

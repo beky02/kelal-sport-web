@@ -15,6 +15,7 @@ import {
   json,
   keys,
   kioskHeadingNow,
+  kioskHeadingQuery,
   problem,
   renderTerminal,
   routes,
@@ -98,8 +99,8 @@ describe("the terminal's status (AC-5)", () => {
     routes();
     renderStrict();
 
-    await tick(0);
-    expect(readyHeading()).toBeInTheDocument();
+    // The read is signed with WebCrypto, which lands between macrotasks.
+    await until(kioskHeadingQuery);
     expect(screen.queryByText("Adama Kebele 04")).toBeNull();
     expect(reads().map((r) => r.at)).toEqual([0]);
 
@@ -124,8 +125,8 @@ describe("the terminal's status (AC-5)", () => {
     });
     renderStrict();
 
-    await tick(0);
-    const heading = readyHeading();
+    await until(() => rotations()[0]);
+    const heading = await until(kioskHeadingQuery);
     expect(rotations()).toHaveLength(1);
     expect(rotations()[0].method).toBe("POST");
     expect(rotations()[0].headers[CSRF_HEADER]).toBe(CSRF_VALUE);
@@ -175,9 +176,9 @@ describe("the terminal's status (AC-5)", () => {
     });
     renderStrict();
 
-    await tick(0);
+    await until(() => rotations()[0]);
     expect(rotations()).toHaveLength(1);
-    const heading = readyHeading();
+    const heading = await until(kioskHeadingQuery);
 
     await tick(5 * MINUTE - 1);
     expect(rotations()).toHaveLength(1);
@@ -198,8 +199,7 @@ describe("the terminal's status (AC-5)", () => {
     // retry policy's test, below.
     renderStrict({ retry: false });
 
-    await tick(0);
-    const heading = readyHeading();
+    const heading = await until(kioskHeadingQuery);
     await tick(5 * MINUTE);
     expect(reads()).toHaveLength(2);
     expect(readyHeading()).toBe(heading);
@@ -268,8 +268,7 @@ describe("the terminal's status (AC-5)", () => {
         name: new RegExp(en.terminal.offline.retry),
       }),
     );
-    await tick(0);
-    expect(readyHeading()).toBeInTheDocument();
+    await until(kioskHeadingQuery);
     expect(reads()).toHaveLength(2);
   });
 

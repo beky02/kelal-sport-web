@@ -11,43 +11,41 @@ import { terminalKeys } from "@/lib/query/keys";
 import { createSlipCode } from "../api/slip-codes";
 import { pausedUntil, slipCodeRefusal } from "../lib/slip-code";
 import { useKioskStore } from "../stores/kiosk.store";
-import type { SlipCodeRequest } from "../types";
+import type { SlipCodeReceipt, SlipCodeRequest } from "../types";
 
-/** Every Get code, wherever the slip is mounted: one at a time. */
-const GET_CODE = [...terminalKeys.all, "slip-code"] as const;
+/** Every Book bet, wherever the slip is mounted: one at a time. */
+const BOOK = [...terminalKeys.all, "slip-code"] as const;
 
-/** One Get code intent: the slip's request. */
+/** One Book bet intent: the slip's request. */
 const signatureOf = (request: SlipCodeRequest) => JSON.stringify(request);
 
 /**
- * Get code (F8cc): the slip on screen turned into a slip code.
+ * Book bet on the shop kiosk (F8cc): the slip on screen turned into a slip
+ * code for the counter.
  *
- * The `Idempotency-Key` is made the first time a given slip is asked for and
- * sent again on every retry of that same slip — after a dropped answer, a 5xx
- * or a 429 waited out — and a changed slip gets a new one (decision 5). It
- * lives in the kiosk store, so it outlives the sheet closing; starting over
- * drops it. Nothing moves money here, so nothing is invalidated on success.
+ * The `Idempotency-Key` is made the first time a given slip is booked and sent
+ * again on every retry of that same slip — after a dropped answer, a 5xx or a
+ * 429 waited out — and a changed slip gets a new one (decision 5). The key and
+ * the code live in the kiosk store by the slip's request, so both outlive the
+ * sheet closing, and the same slip is never booked twice: Booked opens its
+ * code again. Starting over drops them. Nothing moves money here, so nothing
+ * is invalidated on success.
  *
- * What happens next is the mutation's own, so it lands even if the slip that
- * asked has closed (the phone sheet): a code goes on screen (the kiosk's
- * root shows it); a 429 holds Get code for its `Retry-After`; picks the API
- * says can't be sold are marked, and drop out of the next code; a refusal of
- * the terminal itself has its status read again, which decides.
+ * What a refusal does is the mutation's own, so it lands even if the slip
+ * that asked has closed (the phone sheet): a 429 holds Book bet for its
+ * `Retry-After`; picks the API says can't be sold are marked, and drop out of
+ * the next request; a refusal of the terminal itself has its status read
+ * again, which decides.
  */
-export function useGetCode() {
+export function useBookSlip() {
   const queryClient = useQueryClient();
+  const codes = useKioskStore((s) => s.codes);
   const mutation = useMutation({
-    mutationKey: GET_CODE,
-    mutationFn: ({
-      request,
-      key,
-    }: {
-      request: SlipCodeRequest;
-      key: string;
-      slip: number;
-    }) => createSlipCode(request, key),
-    onSuccess: (receipt, { slip }) =>
-      useKioskStore.getState().showCode({ receipt, slip, at: Date.now() }),
+    mutationKey: BOOK,
+    mutationFn: ({ request, key }: { request: SlipCodeRequest; key: string }) =>
+      createSlipCode(request, key),
+    onSuccess: (receipt, { key }) =>
+      useKioskStore.getState().codeReceived(key, receipt),
     onError: (error, { request }) => {
       const refusal = slipCodeRefusal(error, request);
       if (refusal.kind === "paused") {
@@ -68,27 +66,25 @@ export function useGetCode() {
     },
   });
   const { mutate } = mutation;
-  const sending = useIsMutating({ mutationKey: GET_CODE }) > 0;
+  const sending = useIsMutating({ mutationKey: BOOK }) > 0;
 
-  const getCode = useCallback(
+  const book = useCallback(
     (request: SlipCodeRequest) => {
       const kiosk = useKioskStore.getState();
-      // Get code waits out the terminal's limit, whatever the screen shows.
+      // Book bet waits out the terminal's limit, whatever the screen shows.
       if (
         kiosk.codesPausedUntil !== null &&
         Date.now() < kiosk.codesPausedUntil
       ) {
         return;
       }
-      if (queryClient.isMutating({ mutationKey: GET_CODE }) > 0) return;
+      if (queryClient.isMutating({ mutationKey: BOOK }) > 0) return;
       const signature = signatureOf(request);
-      const intent = kiosk.codeIntent;
-      const key =
-        intent?.signature === signature ? intent.key : crypto.randomUUID();
-      if (intent?.signature !== signature) {
-        kiosk.setCodeIntent({ signature, key });
-      }
-      mutate({ request, key, slip: useBetSlipStore.getState().active });
+      const intent = kiosk.codes[signature];
+      if (intent?.receipt) return;
+      const key = intent?.key ?? crypto.randomUUID();
+      if (!intent) kiosk.askCode(signature, key);
+      mutate({ request, key });
     },
     [mutate, queryClient],
   );
@@ -98,9 +94,12 @@ export function useGetCode() {
     : null;
 
   return {
-    getCode,
+    book,
     sending,
-    /** Why getting a code for this slip last failed; a changed slip shows nothing. */
+    /** The code made for this slip, if it has one. */
+    receiptFor: (request: SlipCodeRequest | null): SlipCodeReceipt | null =>
+      request ? (codes[signatureOf(request)]?.receipt ?? null) : null,
+    /** Why booking this slip last failed; a changed slip shows nothing. */
     refusalFor: (request: SlipCodeRequest | null) =>
       mutation.isError &&
       mutation.variables &&
