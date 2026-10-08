@@ -1,46 +1,25 @@
 "use client";
 
-import { CircleAlert } from "lucide-react";
 import type { RuleSetJson } from "@golden/slipcalc";
 import { useBreak } from "@/features/responsible-gaming/hooks/use-responsible-gaming";
 import { useLongDateTimeText } from "@/lib/i18n/use-long-date-time-text";
 import { useTranslation, type Translator } from "@/lib/i18n/use-translation";
-import { normaliseMoney } from "@/lib/money";
-import { cn } from "@/lib/utils/cn";
 import { useBetSlipStore, type Placement } from "../stores/bet-slip.store";
-import type { BetSlipTotals, SlipProblem } from "../lib/calculate";
+import type { BetSlipTotals } from "../lib/calculate";
 import type { PlaceAttempt } from "../types";
 import {
   refusalNotice,
   type RefusalNotice,
   type RefusalText,
 } from "../lib/refusals";
-
-type Tone = "error" | "warn" | "info";
-
-interface Alert {
-  id: string;
-  tone: Tone;
-  title: string;
-  body?: string;
-  /** A further line: the API's own `detail`, or what changed since. */
-  detail?: string | null;
-  /**
-   * Announce it at once (`role="alert"`) whatever its tone — a refusal of the
-   * bet, even when it only needs an Accept.
-   */
-  urgent?: boolean;
-  action?: {
-    label: string;
-    onClick: () => void;
-    /** Its own request is on its way: announced as busy, and off meanwhile. */
-    busy?: boolean;
-    /** Off while another request is on its way, still focusable. */
-    off?: boolean;
-  };
-  /** The action goes under the text, full width: its label carries an amount. */
-  below?: boolean;
-}
+import {
+  AlertList,
+  conflictAlert,
+  problemAlert,
+  suspendedAlert,
+  warningAlerts,
+  type SlipAlert,
+} from "./AlertList";
 
 /** What the slip can do about the engine's answer. */
 export interface PlacementFixes {
@@ -89,7 +68,7 @@ function refusalAlert(
   notice: RefusalNotice,
   t: Translator,
   fixes: PlacementFixes & { setStake: (stake: string) => void },
-): Alert {
+): SlipAlert {
   const { fix } = notice;
   return {
     id: "refused",
@@ -113,66 +92,6 @@ function refusalAlert(
                 onClick: fixes.viewLimits,
               },
   };
-}
-
-/** A refusal from slipcalc, with the change that would make it go through. */
-function problemAlert(
-  problem: SlipProblem,
-  t: Translator,
-  fix: { setStake: (s: string) => void; useMultiple: () => void },
-): Alert {
-  switch (problem.code) {
-    case "BET_STAKE_TOO_LOW":
-    case "BET_STAKE_TOO_HIGH": {
-      const low = problem.code === "BET_STAKE_TOO_LOW";
-      const amount = t.money(problem.stake);
-      return {
-        id: problem.code,
-        tone: "error",
-        title: t.t(
-          low
-            ? "betSlip.errors.stakeTooLowTitle"
-            : "betSlip.errors.stakeTooHighTitle",
-        ),
-        body: t.t(
-          low
-            ? "betSlip.errors.stakeTooLowBody"
-            : "betSlip.errors.stakeTooHighBody",
-          { amount },
-        ),
-        action: {
-          label: t.t("betSlip.setMax", { amount: t.number(problem.stake) }),
-          onClick: () => fix.setStake(problem.stake),
-        },
-      };
-    }
-    case "BET_TOO_MANY_LEGS":
-      // Which picks to drop is the player's call, so there is no button.
-      return {
-        id: problem.code,
-        tone: "error",
-        title: t.t("betSlip.errors.tooManyLegsTitle"),
-        body: t.t("betSlip.errors.tooManyLegsBody", { n: problem.limit }),
-      };
-    case "BET_TOO_MANY_LINES":
-      return {
-        id: problem.code,
-        tone: "error",
-        title: t.t("betSlip.errors.tooManyLinesTitle"),
-        body: t.t("betSlip.errors.tooManyLinesBody", { n: problem.limit }),
-        action: {
-          label: t.t("betSlip.errors.useMultiple"),
-          onClick: fix.useMultiple,
-        },
-      };
-    case "VALIDATION_FAILED":
-      return {
-        id: problem.code,
-        tone: "error",
-        title: t.t("betSlip.errors.cannotPriceTitle"),
-        body: t.t("betSlip.errors.cannotPriceBody"),
-      };
-  }
 }
 
 /**
@@ -225,7 +144,7 @@ export function SlipAlerts({
   const removeSelection = useBetSlipStore((s) => s.removeSelection);
   const acceptAllPending = useBetSlipStore((s) => s.acceptAllPending);
 
-  const alerts: Alert[] = [];
+  const alerts: SlipAlert[] = [];
 
   if (totals.count > 0 && rulesState === "error") {
     alerts.push({
@@ -314,16 +233,7 @@ export function SlipAlerts({
   }
 
   if (totals.hasConflict) {
-    alerts.push({
-      id: "conflict",
-      tone: "error",
-      title: t.t("betSlip.alerts.conflictTitle"),
-      body: t.t("betSlip.alerts.conflictBody"),
-      action: {
-        label: t.t("betSlip.alerts.useSingle"),
-        onClick: () => setMode("single"),
-      },
-    });
+    alerts.push(conflictAlert(t, () => setMode("single")));
   }
 
   if (totals.suspendedSelection) {
@@ -331,26 +241,13 @@ export function SlipAlerts({
     // After the engine refused the bet for it, say so — and which it was.
     const started = firstTry && refused.problem.code === "BET_EVENT_STARTED";
     const paused = firstTry && refused.problem.code === "BET_MARKET_SUSPENDED";
-    alerts.push({
-      id: "suspended",
-      tone: "error",
-      title: t.t(
-        started
-          ? "betSlip.refused.startedTitle"
-          : "betSlip.alerts.suspendedTitle",
+    alerts.push(
+      suspendedAlert(
+        t,
+        () => removeSelection(id),
+        started ? "started" : paused ? "suspended" : null,
       ),
-      body: t.t(
-        started
-          ? "betSlip.refused.started"
-          : paused
-            ? "betSlip.refused.suspended"
-            : "betSlip.alerts.suspendedBody",
-      ),
-      action: {
-        label: t.t("betSlip.alerts.removeIt"),
-        onClick: () => removeSelection(id),
-      },
-    });
+    );
   }
 
   if (totals.problem) {
@@ -394,138 +291,7 @@ export function SlipAlerts({
   }
 
   const { quote } = totals;
-  if (quote && rules) {
-    for (const warning of quote.warnings) {
-      switch (warning) {
-        case "STAKE_REMAINDER_NOT_CHARGED":
-          alerts.push({
-            id: warning,
-            tone: "info",
-            title: t.t("betSlip.warnings.remainder", {
-              amount: t.money(normaliseMoney(stake.replace(/\.$/, ""))),
-              lines: quote.lines,
-              charged: t.money(quote.totalStake),
-            }),
-          });
-          break;
-        case "ACCA_BONUS_CAPPED":
-          alerts.push({
-            id: warning,
-            tone: "info",
-            title: t.t("betSlip.warnings.bonusCapped", {
-              amount: t.money(rules.acca_bonus_max),
-            }),
-          });
-          break;
-        case "MAX_PAYOUT_REACHED":
-          alerts.push({
-            id: warning,
-            tone: "info",
-            title: t.t("betSlip.warnings.maxPayout", {
-              amount: t.money(rules.max_payout),
-            }),
-          });
-          break;
-      }
-    }
-  }
+  if (quote && rules) alerts.push(...warningAlerts(quote, rules, stake, t));
 
-  if (alerts.length === 0) return null;
-
-  return (
-    <>
-      {alerts.map((alert) => (
-        <div
-          key={alert.id}
-          role={alert.tone === "error" || alert.urgent ? "alert" : "status"}
-          className={cn(
-            "mx-3 mb-2.5 flex flex-wrap items-center gap-2.5 rounded-md py-2.5 pr-2 pl-3",
-            alert.tone === "error"
-              ? "bg-loss-bg"
-              : alert.tone === "warn"
-                ? "bg-warn-bg"
-                : "bg-surface",
-          )}
-        >
-          <CircleAlert
-            size={17}
-            strokeWidth={1.5}
-            aria-hidden
-            className={cn(
-              "shrink-0",
-              alert.tone === "error"
-                ? "text-loss"
-                : alert.tone === "warn"
-                  ? "text-warn"
-                  : "text-muted",
-            )}
-          />
-          <div className="min-w-0 flex-1">
-            <div
-              className={cn(alert.tone === "info" ? "text-xs" : "font-bold")}
-            >
-              {alert.title}
-            </div>
-            {/* On a tinted alert, muted text would fall under AA in the light
-                theme: the body and detail carry the instructions. */}
-            {alert.body && (
-              <div
-                className={cn(
-                  "text-xs",
-                  alert.tone === "info" ? "text-muted" : "text-text/80",
-                )}
-              >
-                {alert.body}
-              </div>
-            )}
-            {alert.detail && (
-              <div
-                className={cn(
-                  "text-xs",
-                  alert.tone === "info" ? "text-muted" : "text-text/80",
-                )}
-              >
-                {alert.detail}
-              </div>
-            )}
-          </div>
-          {alert.action && !alert.below && (
-            <AlertButton action={alert.action} className="shrink-0" />
-          )}
-          {/* An amount makes a long label: under the text, so it doesn't
-              squeeze it in the narrow aside. */}
-          {alert.action && alert.below && (
-            <div className="w-full pl-[27px]">
-              <AlertButton action={alert.action} className="w-full" />
-            </div>
-          )}
-        </div>
-      ))}
-    </>
-  );
-}
-
-function AlertButton({
-  action,
-  className,
-}: {
-  action: NonNullable<Alert["action"]>;
-  className: string;
-}) {
-  // Off by aria-disabled, not disabled: the player keeps their focus here.
-  const off = action.busy || action.off;
-  return (
-    <button
-      type="button"
-      onClick={off ? undefined : action.onClick}
-      aria-disabled={off || undefined}
-      aria-busy={action.busy || undefined}
-      className={cn(
-        "bg-raised text-text font-body min-h-11 cursor-pointer rounded-lg px-3 text-xs font-bold aria-disabled:cursor-not-allowed aria-disabled:opacity-60",
-        className,
-      )}
-    >
-      {action.label}
-    </button>
-  );
+  return <AlertList alerts={alerts} />;
 }
