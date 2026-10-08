@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useCallback } from "react";
+import { useCallback } from "react";
 import { useStartingStake } from "@/features/bet-slip/hooks/use-starting-stake";
 import { SportsbookChromeProvider } from "@/features/sportsbook/chrome";
 import { useIdle } from "../../hooks/use-idle";
@@ -75,7 +75,9 @@ export function Kiosk({
  * the kiosk starts over (a new `round`), so nothing one customer typed or
  * opened is the next one's; the idle timer, which starts over after the
  * terminal's idle time without a touch and stops while a code is on screen;
- * and the code screen, shown once here whichever slip asked for it.
+ * and the code screen, shown once here whichever slip asked for it. Under the
+ * code the page is hidden, not unmounted: it is the whole screen, and the
+ * page comes back as it was when another slip still has picks.
  */
 function KioskSession({
   terminal,
@@ -97,7 +99,10 @@ function KioskSession({
 
   return (
     <>
-      <Fragment key={round}>{children}</Fragment>
+      {/* `contents`: no box of its own, so the page lays out as before. */}
+      <div key={round} hidden={shown !== null} className="contents">
+        {children}
+      </div>
       {shown && (
         <SlipCodeScreen
           key={shown.at}
