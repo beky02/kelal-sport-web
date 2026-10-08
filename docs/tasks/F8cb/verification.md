@@ -14,6 +14,11 @@
   already there.
 - **Screens:** `pnpm ui --grep terminal`: 80 pass (2 only on retry; then 3 runs of the slip and offline
   screens with no retries, 16/16 each). `terminal-kiosk-picks-am-desktop`: 10 ብር, 14.34 ብር.
+- **Gate (fast, at the user's request "the test should be fast"):** `pnpm check` 1,621 pass (33 s); the
+  contract drift check passes; `pnpm ui --grep "home-slip|booking|kiosk-slip|kiosk-picks|kiosk-booking"`:
+  93 pass, none on retry (1.5 min). `home-slip-en-phone`: ETB 5, ETB 15.49. The full `pnpm verify` (652
+  screens, 7–13 min) was not re-run after this rework; its last full pass was at `b766e01`, and the run
+  after the first rework stopped only on wallet screens that then passed on their own (156/156).
 
 ## Rework — the user's review (2026-10-08)
 
