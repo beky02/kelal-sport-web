@@ -34,7 +34,9 @@ export function KioskShell({
 
         <main className="flex min-w-0 flex-col gap-2.5">{children}</main>
 
-        <aside className="bg-surface border-border sticky top-[68px] hidden overflow-hidden rounded-lg border xl:block">
+        {/* Scrolls on its own: priced, with its keypad (F8cb), the slip can be
+            taller than the screen, and Book bet must stay in reach. */}
+        <aside className="bg-surface border-border sticky top-[68px] hidden max-h-[calc(100dvh-84px)] overflow-y-auto overscroll-contain rounded-lg border xl:block">
           <KioskSlip />
         </aside>
       </div>

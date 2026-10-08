@@ -515,6 +515,7 @@ for (const [device, viewport] of Object.entries({
             bookingCodes: true,
             languages: ["am", "en"],
             defaultLanguage: "am",
+            rules: null,
           },
         }),
       );
@@ -647,6 +648,115 @@ for (const [device, viewport] of Object.entries({
         await shoot(page, `kiosk-picks-${lang}`, device, errors);
       });
 
+      /** The slip: its column from `xl`, its sheet (opened from the bar with `n` picks) below. */
+      async function openSlip(page: Page, n: number) {
+        if (device === "phone") {
+          await page
+            .getByRole("button", {
+              name: t.nav.slipAria.replace("{n}", String(n)),
+            })
+            .click();
+          return page.getByRole("dialog");
+        }
+        return page.locator("aside").last();
+      }
+
+      /** The first open price of a match other than the first price's. */
+      async function otherMatchPrice(page: Page) {
+        const match = (name: string | null) => name?.split(": ")[0];
+        const first = match(await price(page, 0).getAttribute("aria-label"));
+        const names = await page
+          .locator("main")
+          .getByRole("button", { name: PRICE, disabled: false })
+          .evaluateAll((buttons) =>
+            buttons.map((b) => b.getAttribute("aria-label")),
+          );
+        return price(
+          page,
+          names.findIndex((name) => match(name) !== first),
+        );
+      }
+
+      /** Types on the slip's keypad. */
+      async function press(slip: ReturnType<Page["locator"]>, keys: string) {
+        const keypad = slip.getByRole("group", {
+          name: t.terminal.kiosk.keypad,
+        });
+        for (const key of keys) {
+          await keypad.getByRole("button", { name: key, exact: true }).click();
+        }
+      }
+
+      test("kiosk-slip: two picks priced with the shop's rules, the stake on the keypad (F8cb AC-3, AC-b1)", async ({
+        page,
+        baseURL,
+      }) => {
+        await open(page, baseURL);
+        await price(page, 0).click();
+        await (await otherMatchPrice(page)).click();
+        const slip = await openSlip(page, 2);
+        await press(slip, "50");
+        await expect(slip.getByRole("alert")).toHaveCount(0);
+        await expect(
+          slip.getByRole("status", { name: t.betSlip.totalStake }),
+        ).toHaveText("50");
+        // slipcalc's figure on the shop's rules, not the dash of an unpriced slip.
+        await expect(slip.getByTestId("net-payout")).not.toHaveText("—");
+        await expect(
+          page.getByRole("button", { name: t.betSlip.placeBet }),
+        ).toHaveCount(0);
+        // The figures and Book bet in view: the column and the sheet scroll.
+        await slip
+          .getByRole("button", { name: t.betSlip.bookBet })
+          .scrollIntoViewIfNeeded();
+        await shoot(page, `kiosk-slip-${lang}`, device, errors);
+      });
+
+      test("kiosk-slip-too-low: a stake under the shop's minimum, and the fix (F8cb AC-3)", async ({
+        page,
+        baseURL,
+      }) => {
+        await open(page, baseURL);
+        await price(page, 0).click();
+        const slip = await openSlip(page, 1);
+        await press(slip, "5");
+        const alert = slip.getByRole("alert");
+        await expect(alert).toContainText(t.betSlip.errors.stakeTooLowTitle);
+        await expect(
+          alert.getByRole("button", {
+            name: t.betSlip.setMax.replace("{amount}", "10.00"),
+          }),
+        ).toBeVisible();
+        await shoot(page, `kiosk-slip-too-low-${lang}`, device, errors);
+      });
+
+      test("kiosk-slip-no-rules: a tenant without a shop rule set shows the picks and no figure (F8cb AC-b2)", async ({
+        page,
+        baseURL,
+      }) => {
+        // The contract's tenant, without the shop's rules.
+        await page.route(CONFIG, (route) =>
+          route.fulfill({
+            json: {
+              retail: true,
+              bookingCodes: true,
+              languages: ["am", "en"],
+              defaultLanguage: "am",
+              rules: null,
+            },
+          }),
+        );
+        await open(page, baseURL);
+        await price(page, 0).click();
+        const slip = await openSlip(page, 1);
+        await expect(slip.getByText(t.terminal.kiosk.noRules)).toBeVisible();
+        await expect(
+          slip.getByRole("group", { name: t.terminal.kiosk.keypad }),
+        ).toHaveCount(0);
+        await expect(slip.getByTestId("net-payout")).toHaveCount(0);
+        await shoot(page, `kiosk-slip-no-rules-${lang}`, device, errors);
+      });
+
       test("kiosk-booking-code: load a code into the slip and explain a started match (AC-9)", async ({
         page,
         baseURL,
@@ -674,12 +784,14 @@ for (const [device, viewport] of Object.entries({
         await expect(notice).toContainText(t.booking.reason.EVENT_STARTED);
         // The leg on sale is in the slip at the server's price, and only it.
         await expect(slip.getByText("Arsenal v Chelsea")).toBeVisible();
-        await expect(slip.getByText("2.10")).toBeVisible();
+        const remove = slip.getByRole("button", {
+          name: new RegExp(`^${t.betSlip.remove.replace("{pick}", ".+")}$`),
+        });
+        await expect(remove).toHaveCount(1);
+        // In the pick's own row: the priced slip's total odds say 2.10 too (F8cb).
         await expect(
-          slip.getByRole("button", {
-            name: new RegExp(`^${t.betSlip.remove.replace("{pick}", ".+")}$`),
-          }),
-        ).toHaveCount(1);
+          remove.locator("xpath=..").getByText(/2\.10/),
+        ).toBeVisible();
         await shoot(page, `kiosk-booking-code-${lang}`, device, errors);
       });
 

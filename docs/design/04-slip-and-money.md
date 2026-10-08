@@ -24,7 +24,9 @@ money and odds fields outside those two places and the display formatters.
 "How is this calculated?" expands every step in D1's order with the tax names and rates from the rule
 set (`betSlip.taxRate` "{tax} · {rate}"). The rule set is the tenant's `betting` section of
 `/v1/config/public`, with `rules_version`; while it has not loaded the slip shows "Can't price this
-slip" and a retry rather than a number from a guessed rule set.
+slip" and a retry rather than a number from a guessed rule set. The shop kiosk prices with
+`retail_betting` instead (D1.12, F8cb), and a tenant without it shows no figure there, never the online
+set's (10-terminal).
 
 Copy about money — tax names, thresholds, what is refunded — is never invented here: it names the
 rule set's own codes and amounts, and D9's open questions (whole-win tax, cap before tax, stake tax taken
