@@ -45,8 +45,9 @@ export function toPublicConfigView(config: ApiPublicConfig): PublicConfigView {
  * `/v1/config/public` → what the shop kiosk needs (F8ca): whether the tenant
  * sells in shops (`features.retail`, on unless it says `false`, as for
  * booking codes), and the languages it offers, starting in its default (FD2);
- * a default the tenant doesn't list gives way to its first. Nothing of
- * `betting`: D1.12 gives retail its own rule set.
+ * a default the tenant doesn't list gives way to its first. The slip's rules
+ * are the shop's, `retail_betting` (F8cb), or none; never `betting`: D1.12
+ * gives retail its own rule set.
  */
 export function toTerminalConfigView(
   config: ApiPublicConfig,
@@ -60,5 +61,6 @@ export function toTerminalConfigView(
     defaultLanguage: languages.includes(config.default_language)
       ? config.default_language
       : languages[0],
+    rules: config.retail_betting ? toBettingRules(config.retail_betting) : null,
   };
 }

@@ -11,6 +11,7 @@ const tenant = (
   bookingCodes: true,
   languages,
   defaultLanguage,
+  rules: null,
 });
 
 describe("the kiosk's language (F8ca AC-3, the user's second review)", () => {

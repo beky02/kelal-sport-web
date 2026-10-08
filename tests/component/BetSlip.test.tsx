@@ -64,6 +64,23 @@ describe("BetSlip", () => {
 
   afterEach(() => vi.restoreAllMocks());
 
+  it("starts the stake at the tenant's minimum once the rules arrive, and keeps a stake already there (the user's decision, 2026-10-08)", () => {
+    useBetSlipStore.setState({ stake: "" });
+    seedReferenceSlip();
+    const { unmount } = render(<BetSlip />);
+    // The contract's online minimum, 5.00.
+    expect(screen.getByRole("textbox", { name: "Total stake" })).toHaveValue(
+      "5",
+    );
+    unmount();
+
+    useBetSlipStore.setState({ stake: "50.00" });
+    render(<BetSlip />);
+    expect(screen.getByRole("textbox", { name: "Total stake" })).toHaveValue(
+      "50.00",
+    );
+  });
+
   it("invites a first selection when empty", () => {
     render(<BetSlip />);
     expect(screen.getByText("Your bet slip is empty")).toBeInTheDocument();
@@ -172,41 +189,36 @@ describe("BetSlip", () => {
     });
   });
 
-  it("offers the minimum when the stake is too low", async () => {
+  it("says the minimum at the stake field when the stake is too low — a red border and the amount, no alert — and places nothing (the user's decision, 2026-10-08)", async () => {
     seedReferenceSlip();
     useBetSlipStore.setState({ stake: "2" });
     render(<BetSlip />);
 
-    const alert = screen.getByRole("alert");
-    expect(alert).toHaveTextContent("Stake too low");
-    expect(alert).toHaveTextContent(
-      "The smallest stake this slip accepts is ETB 5.00.",
-    );
+    const field = screen.getByRole("textbox", { name: "Total stake" });
+    expect(field).toHaveAttribute("aria-invalid", "true");
+    expect(field).toHaveAccessibleDescription(/^Minimum stake ETB\s5\.00$/);
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Place bet/ })).toBeDisabled();
 
-    await userEvent.click(
-      within(alert).getByRole("button", { name: "Set 5.00" }),
-    );
-    expect(useBetSlipStore.getState().stake).toBe("5.00");
-    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    await userEvent.clear(field);
+    await userEvent.type(field, "5");
+    expect(field).not.toHaveAttribute("aria-invalid");
+    expect(
+      screen.queryByText("Minimum stake ETB 5.00"),
+    ).not.toBeInTheDocument();
   });
 
-  it("offers a minimum on singles that clears the alert when tapped", async () => {
+  it("says the slip's own minimum on singles, split across the lines: 5.01 on three", async () => {
     seedReferenceSlip();
     useBetSlipStore.setState({ mode: "single", stake: "2" });
     render(<BetSlip />);
 
-    const alert = screen.getByRole("alert");
-    expect(alert).toHaveTextContent(
-      "The smallest stake this slip accepts is ETB 5.01.",
-    );
-    await userEvent.click(
-      within(alert).getByRole("button", { name: "Set 5.01" }),
-    );
-    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Place bet/ })).toHaveTextContent(
-      "ETB 5.01",
-    );
+    expect(screen.getByText("Minimum stake ETB 5.01")).toBeInTheDocument();
+    useBetSlipStore.setState({ stake: "5.01" });
+    expect(
+      await screen.findByRole("button", { name: /Place bet/ }),
+    ).toHaveTextContent("ETB 5.01");
+    expect(screen.queryByText(/Minimum stake/)).not.toBeInTheDocument();
   });
 
   it("offers the maximum when the stake is too high", async () => {

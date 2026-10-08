@@ -1,3 +1,4 @@
+import type { BettingRules } from "@/features/config/types";
 import type { Lang } from "@/types/common";
 
 /**
@@ -60,8 +61,9 @@ export interface TokenRotation {
 
 /**
  * What the kiosk needs from the tenant's public config (F8ca):
- * `/api/terminal/config`. It carries nothing of the online rule set, so the
- * kiosk can't price a slip with it by mistake (D1.12: retail has its own).
+ * `/api/terminal/config`. It carries the shop's rule set and nothing of the
+ * online one, so the kiosk can't price a slip with it by mistake (D1.12:
+ * retail has its own).
  */
 export interface TerminalConfigView {
   /** `features.retail` (C19 §11): off only when the tenant says `false`. */
@@ -72,4 +74,11 @@ export interface TerminalConfigView {
   languages: Lang[];
   /** The tenant's default (FD2: Amharic for `demo`); the kiosk opens in it only without English. */
   defaultLanguage: Lang;
+  /**
+   * The shop's rule set (`retail_betting`, D1.12; one per brand, the user's
+   * decision of 2026-10-07): what the kiosk's slip is priced with (F8cb).
+   * Null when the tenant has none: the slip then shows no figure, never one
+   * from the online `betting`.
+   */
+  rules: BettingRules | null;
 }

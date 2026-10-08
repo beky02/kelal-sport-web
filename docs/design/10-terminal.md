@@ -2,7 +2,7 @@
 
 The self-service PC in a shop (C19, C18 §5). It runs this app's `(terminal)` route group on its own host,
 `terminal.{brand}` (FD1, F8a), in Chrome kiosk mode. No player signs in, and no money is shown or
-handled. F8b builds what the terminal runs on: activation, the device key, signed calls, its status, and
+handled beyond the slip's preview. F8b builds what the terminal runs on: activation, the device key, signed calls, its status, and
 the token's rotation. F8c builds the kiosk on top: browsing and picks (F8ca), the slip's figures with the
 retail rule set (F8cb), slip codes and the idle reset (F8cc).
 
@@ -77,8 +77,8 @@ every minute while it is off, so the kiosk comes back by itself.
 An active terminal of an open shop is **the player's sportsbook without what needs a player** (the user's
 direction, 2026-10-06). It has the same home board, league page, match page, sidebar, search and slip, at
 the same sizes and widths, in the kiosk's own frame. There is no Log in, Register, My bets, Wallet,
-Responsible gaming or Favourites, and no player watchers (session, reality check, deposits). F8cb adds the
-stake and the figures; F8cc adds Get code.
+Responsible gaming or Favourites, and no player watchers (session, reality check, deposits). F8cb priced
+the slip with the shop's rules and the player's stake field; F8cc adds Get code.
 
 The terminal frame is brand-only; it contains no shop/address or terminal/PC labels. The kiosk prefers
 English when the tenant offers it, otherwise its configured default. While status or config loads, it uses
@@ -166,10 +166,36 @@ retail is enabled.
   `lg` the kiosk has the sport tabs and the board, and below `xl` no search, as the player's.
 - **A 401 on any read** makes the terminal's query client read its status again
   (`createTerminalQueryClient`), which then says what the terminal is (lapsed, switched off).
-- **The slip** is the player's slip store and parts (`BetSlipHeader`, `EmptySlip`, `BetSelectionRow`), with
-  two picks of one match marked. The odds are those at the tap. From `xl` up it is the right-hand column;
-  narrower, its bar is always available, including with an empty slip, so the player-sized `Sheet` can
-  load a booking code.
+- **The slip** is the player's slip store and parts (`BetSlipHeader`, `BetModeTabs`, `EmptySlip`,
+  `BetSelectionRow`, `SlipSummary`, `PayoutSummary`), with two picks of one match marked. From `xl` up it
+  is the right-hand column, which scrolls on its own; narrower, its bar is always available, including with an empty slip, so the player-sized `Sheet` can load a booking code.
+- **Priced with the shop's rules (F8cb).** The kiosk's config carries the tenant's `retail_betting`
+  (`TerminalConfigView.rules`, D1.12): one brand-level shop rule set, the same in every shop (the user's
+  decision, 2026-10-07). The view has no `betting`, so the online rule set can't reach the kiosk. Every
+  figure is slipcalc's on those rules, as the player's slip shows them: total odds, the bonus where there
+  is one (the contract's shop set has none), the stake and the payout, with "Max win" and the tax note; no
+  tax lines. Above the picks are the slip's own alerts, shared with the player's slip (`AlertList`): two
+  picks of one match (Use singles), a pick that can't be priced (Remove it), slipcalc's refusals with
+  their fix as a tap (over the maximum; under the minimum is said at the stake field, 10.00 in the contract,
+  where online it is 5.00), and D1's
+  warnings. There is no balance, no login, no Place and no odds-change consent: nothing is placed here.
+  The payout and Book bet are a footer pinned to the foot of the column or the sheet, so the picks and the
+  stake scroll beneath them and they are always in reach (review U1).
+- **The odds are those at the tap**, or a loaded code's current odds, as on the player's slip in Release 1
+  (realtime off). A code's moved leg shows old → new, priced at the new one. The counter re-prices the
+  code at sale and shows old and new (C19 §4.3, §14).
+- **The stake** is optional, a hint the counter sees on the code (C19 §4.2). It starts at the shop's
+  minimum (`retail_betting.min_stake`), as the player's starts at the online one (the user's decision,
+  2026-10-08). Under the minimum — cleared, zero or too low — the field is red with the minimum below it,
+  the figures show "—" and Book bet is off (the user's decision). The brand sets the shop's
+  minimum and maximum equal to the online ones, so both sites ask the same. It is typed in the player's stake field (`StakeInput`, no balance),
+  with the PC's keyboard; the user removed the on-screen keypad (2026-10-08). Then the "N bets × X" line
+  and the rule set's quick stakes, when it has any. A loaded code's stake hint becomes the stake, under the
+  shop's limits (the user's answer). Book bet sends the stake typed as the code's hint when slipcalc
+  accepts it, and a refusal of it offers the server's amount as a tap.
+- **No shop rule set.** A tenant whose config has no `retail_betting` shows the picks, the bet's modes,
+  Book bet and Load code, and a notice, "Ask the shop staff what this slip pays." (the user's wording): no
+  stake, no figure, never the online one's; a loaded code's hint is neither shown nor sent.
 - **Load booking code.** When `features.booking_codes` is enabled, the slip reads and re-prices the code via
   `/api/terminal/bookings/[code]`. Invalid codes stop in the browser; the route also validates before the
   upstream call, checks the activated terminal, and returns `no-store`. The shared booking notice names
@@ -181,6 +207,9 @@ retail is enabled.
 | Config unreadable             | The config read failed (network, 5xx)           | Brand-only bar; "Can't reach the server" + Try again (bilingual)                                                               | `terminal-kiosk-config-offline`                       |
 | Home board                    | Config read, shop betting on                    | The player's home, without what needs a player                                                                                 | `terminal-kiosk-board-{am,en}-{phone,desktop}`        |
 | Picks                         | Prices tapped                                   | The picks in the slip; prices pressed; rows tinted                                                                             | `terminal-kiosk-picks-…`                              |
+| Slip priced                   | Picks and a stake typed                         | The bet's modes, the stake, total odds and the payout on the shop's rules; Book bet                                            | `terminal-kiosk-slip-{am,en}-{phone,desktop}`         |
+| Stake too low                 | A stake under the shop's minimum                | The field red, the minimum below it; figures "—"; Book bet off                                                                 | `terminal-kiosk-slip-too-low-…`                       |
+| No shop rule set              | The config has no `retail_betting`              | The picks; "Ask the shop staff what this slip pays."; no stake or figure                                                       | `terminal-kiosk-slip-no-rules-…`                      |
 | A league                      | `/terminal/competition/[id]`                    | That league's board                                                                                                            | `terminal-kiosk-league-…`                             |
 | A match                       | `/terminal/event/[id]`                          | Every market of the match; Back                                                                                                | `terminal-kiosk-match-…`                              |
 | Search                        | Something typed (`xl` up, as the player's)      | Leagues and matches found, each opening on the kiosk                                                                           | `terminal-kiosk-search-{am,en}-desktop`               |

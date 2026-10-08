@@ -55,3 +55,7 @@ Out: the POS that sells the code (F9, `kelalsport-ops`).
 
 - 2026-10-06: split from F8c while planning. Needs a QR encoder (C18 §5 names `qrcode`): a new
   dependency, decided in this sub-task's plan.
+- 2026-10-08 (from F8cb's review, M2/Q3): the kiosk's stake starts empty through a mount effect in
+  `Kiosk.tsx`. The idle reset here should own one named action that puts the slip back to the kiosk's
+  start (no picks, an empty stake, the language), called both at start and on idle, rather than an effect
+  whose order against children's effects matters.

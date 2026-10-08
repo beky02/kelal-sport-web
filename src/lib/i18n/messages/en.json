@@ -210,7 +210,8 @@
       "closed": "A selection in that bet is no longer available."
     },
     "taxRateStakeOver": "{tax} · {rate} of the whole stake once it’s over {amount}",
-    "paused": "Betting paused"
+    "paused": "Betting paused",
+    "minStake": "Minimum stake {amount}"
   },
   "clock": {
     "eat": "EAT · UTC+3",
@@ -955,7 +956,8 @@
       "unavailable": {
         "title": "Betting isn't available at this terminal",
         "body": "Ask the shop staff."
-      }
+      },
+      "noRules": "Ask the shop staff what this slip pays."
     }
   }
 }

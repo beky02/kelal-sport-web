@@ -1,5 +1,6 @@
 "use client";
 
+import { useStartingStake } from "@/features/bet-slip/hooks/use-starting-stake";
 import { SportsbookChromeProvider } from "@/features/sportsbook/chrome";
 import { useTerminalConfig } from "../../hooks/use-kiosk";
 import { TerminalBar } from "../TerminalBar";
@@ -22,6 +23,9 @@ import { KioskStarting } from "./KioskStarting";
 export function Kiosk({ children }: { children: React.ReactNode }) {
   const config = useTerminalConfig();
   const view = config.data ?? null;
+  // The stake starts at the shop's minimum, as the player's does at the
+  // online one (the user's decision, 2026-10-08).
+  useStartingStake(view?.rules?.calc.min_stake ?? null);
 
   if (!view && !config.isError) {
     return <KioskStarting>{children}</KioskStarting>;

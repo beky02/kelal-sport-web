@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { components } from "@/lib/api/schema";
 import { z } from "zod";
 import { boardSectionSchema, sportSchema } from "@/lib/api/catalogue-schemas";
+import { toBettingRules } from "@/lib/api/mappers/config";
 import {
   terminalActivationSchema,
   terminalConfigSchema,
@@ -1114,7 +1115,7 @@ describe("the kiosk's reads (F8ca AC-1, AC-5)", () => {
     expect(sent.filter((r) => path(r) === "/v1/search")).toHaveLength(0);
   });
 
-  it("reads the kiosk's config for a terminal: retail, the languages, the default (AC-3, AC-4)", async () => {
+  it("reads the kiosk's config for a terminal: retail, the languages, the default, the shop's rules (AC-3, AC-4)", async () => {
     const mod = await loadReads();
     catalogueAnswers();
     const response = await read(
@@ -1128,6 +1129,8 @@ describe("the kiosk's reads (F8ca AC-1, AC-5)", () => {
       bookingCodes: true,
       languages: ["am", "en"],
       defaultLanguage: "am",
+      // The shop's rule set (F8cb AC-3), never the online one.
+      rules: toBettingRules(example("/v1/config/public").retail_betting!),
     });
   });
 

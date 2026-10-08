@@ -1316,11 +1316,13 @@ const SCREENS: Array<{
   {
     name: "ticket-check-failed",
     path: "/t/K7Q2-M9XP-M",
-    // Prism has no 503 for this operation and answers a 404 with no code —
-    // which the page calls a failure, as it should. `next dev` replays the
-    // server's log of that failure in the browser's console.
+    // The contract lists a 503 for this operation since the sync of
+    // 2026-10-08 (F8cb), so a Prism on the synced contract answers the one
+    // asked for; one started before it has no 503 there and answers a 404
+    // with no code. The page calls either a failure, as it should. `next dev`
+    // replays the server's log of that failure in the browser's console.
     headers: { prefer: "code=503" },
-    allowConsole: /Server\s+UpstreamError: Upstream responded 404/,
+    allowConsole: /Server\s+UpstreamError: Upstream responded (503|404)/,
   },
   { name: "transactions", path: "/transactions", before: loginViaApi },
   { name: "transactions-more", path: "/transactions", before: historyMore },

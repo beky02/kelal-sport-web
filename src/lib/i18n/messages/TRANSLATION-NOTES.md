@@ -643,3 +643,15 @@ the user chose the player's pages (2026-10-06): `terminal.kiosk.matches`, `days`
 | Key                                        | Amharic                                    | Composed from                                                                             |
 | ------------------------------------------ | ------------------------------------------ | ----------------------------------------------------------------------------------------- |
 | `terminal.kiosk.unavailable.title`, `body` | በዚህ ተርሚናል ላይ ውርርድ አይገኝም / የሱቁን ሠራተኞች ይጠይቁ። | በዚህ ተርሚናል ላይ ውርርድ from `terminal.closed.body`; the body as `terminal.blocked.revokedBody` |
+
+## The kiosk's slip (F8cb, 2026-10-08)
+
+The kiosk prices its slip with the player's slip strings (modes, stake, alerts, figures), already
+reviewed. Its own is the line a tenant without a shop rule set shows, whose English the user chose at the
+plan gate. It is composed and needs review. (The on-screen keypad's three names went with the keypad, on
+the user's review.)
+
+| Key                      | Amharic                                | Composed from                                                                                                                         |
+| ------------------------ | -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| `terminal.kiosk.noRules` | ይህ ትኬት ምን ያህል እንደሚከፍል የሱቁን ሠራተኞች ይጠይቁ። | ይህ ትኬት (`betSlip.errors.stakeTooLowBody`); የሱቁን ሠራተኞች ይጠይቁ (`terminal.kiosk.unavailable.body`); ምን ያህል እንደሚከፍል (how much it pays) new |
+| `betSlip.minStake`       | ዝቅተኛው የውርርድ መጠን {amount}               | As `betSlip.errors.stakeTooLowBody` (ዝቅተኛው የውርርድ መጠን); shown under the stake field on both sites (the user's decision, 2026-10-08)    |

@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://api.example.et/events/risk.alert_raised.json",
+  "title": "risk.alert_raised",
+  "description": "An alert for the traders (BO-09; C08 §9). Published by the betting module on NATS subject evt.risk.alert_raised (version 1), written to the outbox in the transaction of the bet that raised it. kind large_bet: a bet whose stake is at or above the tenant's risk.large_bet_alert. Consumers: C15 (the large-bet feed, B10), C14 later. Amounts in santim; ids only, no personal data. This is the `data` payload; the envelope (event_id, type, version, tenant_id, occurred_at, trace_id) is TD-02 §5. New fields and kinds are additive only.",
+  "type": "object",
+  "required": [
+    "kind", "bet_id", "ticket_id", "player_id", "channel", "bet_type", "stake_santim", "potential_payout_santim",
+    "threshold_santim", "placed_at", "legs"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "kind": { "type": "string", "enum": ["large_bet"] },
+    "bet_id": { "type": "string", "format": "uuid" },
+    "ticket_id": { "type": "string", "pattern": "^[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]$" },
+    "player_id": { "type": "string", "format": "uuid" },
+    "channel": { "type": "string", "enum": ["online"] },
+    "bet_type": { "type": "string", "enum": ["single", "multiple", "system"] },
+    "stake_santim": { "type": "integer", "minimum": 1, "description": "The stake charged: at or above threshold_santim" },
+    "potential_payout_santim": { "type": "integer", "minimum": 0 },
+    "threshold_santim": { "type": "integer", "minimum": 1, "description": "The tenant's risk.large_bet_alert when the bet was placed" },
+    "placed_at": { "type": "string", "format": "date-time" },
+    "legs": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 30,
+      "items": {
+        "type": "object",
+        "required": ["leg_no", "outcome_id", "market_id", "fixture_id"],
+        "additionalProperties": false,
+        "properties": {
+          "leg_no": { "type": "integer", "minimum": 0 },
+          "outcome_id": { "type": "string", "pattern": "^oc_[a-z0-9_]{1,64}$" },
+          "market_id": { "type": "string", "pattern": "^mk_[a-z0-9_]{1,64}$" },
+          "fixture_id": { "type": "string", "pattern": "^fx_[a-z0-9_]{1,64}$" }
+        }
+      }
+    }
+  }
+}

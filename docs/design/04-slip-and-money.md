@@ -9,22 +9,24 @@ money and odds fields outside those two places and the display formatters.
 
 ## What the slip shows, in player terms (D1)
 
-| Line on the slip   | Meaning                                                                                                                                                 | Rule        |
-| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------- |
-| Mode               | Single (one line per pick), Multiple (one line, all picks, at least 2), System k/n (every combination of k among n; at least 3 picks)                   | D1.2        |
-| Stake              | The **total** the player types or taps (quick stakes set the total, D7). Lines: `floor(stake / lines)` each; a remainder is not charged and is said so  | D1.3        |
-| Stake tax          | Per line, floored, from the tenant's `taxes` with `base: stake`; net stake is what is at risk                                                           | D1.4        |
-| Gross return       | Each line: floor(net line stake × product of odds), summed. Open picks count as wins in the preview                                                     | D1.5, D1.10 |
-| Accumulator bonus  | Multiples only; qualifying picks are those at or above `acca_bonus_min_leg_odds`; the highest tier whose `min_legs` fits; a share of the profit, capped | D1.6        |
-| Max payout reached | Gross + bonus is cut to `max_payout` — bonus first — before tax; the slip says so                                                                       | D1.7        |
-| Win tax            | Each payout tax with its base (gross win, net win, profit) applies on the **whole** base once it is strictly above its threshold                        | D1.8, D9    |
-| Net payout         | What the player would receive                                                                                                                           |             |
-| Total odds         | Display only: product floored to two decimals, single-line bets only                                                                                    | D1.11       |
+| Line on the slip   | Meaning                                                                                                                                                                                                                                                                                                                                                 | Rule        |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------- |
+| Mode               | Single (one line per pick), Multiple (one line, all picks, at least 2), System k/n (every combination of k among n; at least 3 picks)                                                                                                                                                                                                                   | D1.2        |
+| Stake              | The **total** the player types or taps (quick stakes set the total, D7); it starts at the rule set's `min_stake`; under it (none, zero or too low) the field is red with the slip's minimum below it, and nothing is placed or booked (the user's decisions, 2026-10-08). Lines: `floor(stake / lines)` each; a remainder is not charged and is said so | D1.3        |
+| Stake tax          | Per line, floored, from the tenant's `taxes` with `base: stake`; net stake is what is at risk                                                                                                                                                                                                                                                           | D1.4        |
+| Gross return       | Each line: floor(net line stake × product of odds), summed. Open picks count as wins in the preview                                                                                                                                                                                                                                                     | D1.5, D1.10 |
+| Accumulator bonus  | Multiples only; qualifying picks are those at or above `acca_bonus_min_leg_odds`; the highest tier whose `min_legs` fits; a share of the profit, capped                                                                                                                                                                                                 | D1.6        |
+| Max payout reached | Gross + bonus is cut to `max_payout` — bonus first — before tax; the slip says so                                                                                                                                                                                                                                                                       | D1.7        |
+| Win tax            | Each payout tax with its base (gross win, net win, profit) applies on the **whole** base once it is strictly above its threshold                                                                                                                                                                                                                        | D1.8, D9    |
+| Net payout         | What the player would receive                                                                                                                                                                                                                                                                                                                           |             |
+| Total odds         | Display only: product floored to two decimals, single-line bets only                                                                                                                                                                                                                                                                                    | D1.11       |
 
 "How is this calculated?" expands every step in D1's order with the tax names and rates from the rule
 set (`betSlip.taxRate` "{tax} · {rate}"). The rule set is the tenant's `betting` section of
 `/v1/config/public`, with `rules_version`; while it has not loaded the slip shows "Can't price this
-slip" and a retry rather than a number from a guessed rule set.
+slip" and a retry rather than a number from a guessed rule set. The shop kiosk prices with
+`retail_betting` instead (D1.12, F8cb), and a tenant without it shows no figure there, never the online
+set's (10-terminal).
 
 Copy about money — tax names, thresholds, what is refunded — is never invented here: it names the
 rule set's own codes and amounts, and D9's open questions (whole-win tax, cap before tax, stake tax taken
