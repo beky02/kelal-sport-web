@@ -29,7 +29,7 @@ export function BetSlipHeader({
           first thing inside it. */}
       <h2 className="sr-only">{t.t("betSlip.title")}</h2>
 
-      {count > 0 && (
+      {(
         <button
           type="button"
           onClick={clear}
