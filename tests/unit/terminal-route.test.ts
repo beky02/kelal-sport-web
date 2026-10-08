@@ -1195,12 +1195,13 @@ describe("POST /api/terminal/slip-codes (F8cc AC-c1, AC-6)", () => {
 
   const KEY = "0b7e2a5c-5d1e-4f43-9a2b-6c1d2e3f4a5b";
   /**
-   * The slip as the browser sends it: its exact text, with the keys in an
-   * order and a spacing no serialiser of ours would produce — so a body that
-   * reaches the API unchanged was forwarded, not rebuilt.
+   * The slip as the browser sends it — `JSON.stringify`'s text, the only form
+   * the route takes (review SEC1) — with its keys in an order the route's
+   * own schema wouldn't produce: a body that reaches the API unchanged was
+   * forwarded, not rebuilt.
    */
   const TEXT =
-    '{"legs":[{"odds":"2.10","outcome_id":"oc_ac_1"}, {"outcome_id":"oc_sg_1","odds":"1.85"}],\n "stake_hint":"50.00","bet_type":"multiple"}';
+    '{"legs":[{"odds":"2.10","outcome_id":"oc_ac_1"},{"outcome_id":"oc_sg_1","odds":"1.85"}],"stake_hint":"50.00","bet_type":"multiple"}';
 
   const CREATED = () =>
     responseExample("/v1/retail/slip-codes", "post", 201) as {
@@ -1396,6 +1397,22 @@ describe("POST /api/terminal/slip-codes (F8cc AC-c1, AC-6)", () => {
           headers(mod),
           JSON.stringify({ ...JSON.parse(TEXT), shop: "ADM-004" }),
         ),
+        422,
+      ],
+      [
+        // JSON.parse keeps the last copy; the first would go on unchecked
+        // (review SEC1).
+        "a duplicated key",
+        getCode(
+          mod,
+          headers(mod),
+          '{"bet_type":"single","legs":[{"outcome_id":"x/../y"}],"legs":[{"outcome_id":"oc_1"}]}',
+        ),
+        422,
+      ],
+      [
+        "whitespace, or any form JSON.stringify wouldn't make",
+        getCode(mod, headers(mod), TEXT.replace(",", ", ")),
         422,
       ],
       [

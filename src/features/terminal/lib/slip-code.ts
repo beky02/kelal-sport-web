@@ -1,8 +1,12 @@
-import type { BetSlipTotals } from "@/features/bet-slip/lib/calculate";
+import {
+  smallestStake,
+  type BetSlipTotals,
+} from "@/features/bet-slip/lib/calculate";
 import type { BetSelection } from "@/features/bet-slip/types";
 import { bookingRequestFrom } from "@/features/bookings/lib/request";
 import { ApiError } from "@/lib/api/errors";
 import { MONEY_PATTERN, ODDS_PATTERN } from "@/lib/api/patterns";
+import { compareMoney } from "@/lib/money";
 import type { MessageKey } from "@/lib/i18n";
 import type { SlipCodeRequest, TerminalInfo } from "../types";
 
@@ -64,12 +68,15 @@ const CANNOT = { kind: "message", key: "terminal.code.cannot" } as const;
  * What to tell the customer when Book bet fails, and the fix where there is
  * one (F8cc decision 10). A stake limit is offered only when it is the
  * stake's (`stake_hint`, as request 015 proposes, or `stake`, as the shared
- * example has it) and an amount. A started or suspended leg is named by its
- * place in the request that was sent (`legs[1].outcome_id`).
+ * example has it) and an amount above zero; a minimum as the smallest total
+ * that clears it on every one of the slip's `lines` (D1.3, as the player's
+ * slip offers it). A started or suspended leg is named by its place in the
+ * request that was sent (`legs[1].outcome_id`).
  */
 export function slipCodeRefusal(
   error: unknown,
   request: SlipCodeRequest,
+  lines = 1,
 ): SlipCodeRefusal {
   if (!(error instanceof ApiError)) return FAILED;
   if (error.code === "RETAIL_SHOP_CLOSED") {
@@ -90,14 +97,21 @@ export function slipCodeRefusal(
       const limit = error.errors.find(
         (e) => e.field === "stake_hint" || e.field === "stake",
       )?.limit;
-      if (!limit || !MONEY_PATTERN.test(limit)) return CANNOT;
+      if (
+        !limit ||
+        !MONEY_PATTERN.test(limit) ||
+        compareMoney(limit, "0.00") <= 0
+      ) {
+        return CANNOT;
+      }
+      const low = error.code === "BET_STAKE_TOO_LOW";
       return {
         kind: "stake",
-        key:
-          error.code === "BET_STAKE_TOO_LOW"
-            ? "betSlip.errors.stakeTooLowBody"
-            : "betSlip.errors.stakeTooHighBody",
-        amount: limit,
+        key: low
+          ? "betSlip.errors.stakeTooLowBody"
+          : "betSlip.errors.stakeTooHighBody",
+        // A maximum splits under itself; a minimum must clear every line.
+        amount: low ? smallestStake(limit, lines) : limit,
       };
     }
     case "BET_EVENT_STARTED":

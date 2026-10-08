@@ -30,6 +30,8 @@ import type { SlipCodeRequest } from "../../types";
  */
 export function BookBet(props: {
   request: SlipCodeRequest | null;
+  /** The lines the slip places: a refused minimum must clear each (D1.3). */
+  lines: number;
   booking: ReturnType<typeof useBookSlip>;
 }) {
   const until = useKioskStore((s) => s.codesPausedUntil);
@@ -41,10 +43,12 @@ export function BookBet(props: {
 function BookBetButton({
   until,
   request,
+  lines,
   booking,
 }: {
   until: number | null;
   request: SlipCodeRequest | null;
+  lines: number;
   booking: ReturnType<typeof useBookSlip>;
 }) {
   const t = useTranslation();
@@ -66,7 +70,7 @@ function BookBetButton({
       title: t.t("terminal.code.paused", { minutes: minutesLeft(remaining) }),
     });
   } else if (!receipt) {
-    const refusal = booking.refusalFor(request);
+    const refusal = booking.refusalFor(request, lines);
     if (refusal?.kind === "paused") {
       // A wait the API gave no length for: said, without holding Book bet.
       if (refusal.retryAfter === null || refusal.retryAfter <= 0) {

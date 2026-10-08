@@ -96,6 +96,23 @@ describe("the slip as a slip-code request (F8cc AC-c1)", () => {
     expect(requestOf([], "50")).toBeNull();
   });
 
+  it("sends the picks without a stake hint over the shop's maximum (review M3)", () => {
+    expect(
+      requestOf(
+        [pick("oc_ac_1", "fx_1", "2.10"), pick("oc_sg_1", "fx_2", "1.85")],
+        "60000",
+      ),
+    ).toEqual({
+      betType: "multiple",
+      systemSizes: [],
+      legs: [
+        { outcomeId: "oc_ac_1", odds: "2.10" },
+        { outcomeId: "oc_sg_1", odds: "1.85" },
+      ],
+      stakeHint: null,
+    });
+  });
+
   it("never sends odds that aren't the contract's shape", () => {
     expect(
       requestOf(
@@ -165,10 +182,35 @@ describe("what a refused Book bet says and offers (F8cc AC-6, AC-c3)", () => {
     });
   });
 
+  it("offers a refused minimum that clears every line, as the player's slip does (D1.3, review M1)", () => {
+    // 3 lines at 5.00 charge 4.98 (floor(500 / 3) = 166 santim a line): 5.01 is
+    // the smallest that clears the minimum. A maximum splits under itself.
+    const low = problem(422, "BET_STAKE_TOO_LOW", [
+      { field: "stake_hint", code: "MIN", limit: "5.00" },
+    ]);
+    expect(slipCodeRefusal(low, REQUEST, 3)).toMatchObject({
+      kind: "stake",
+      amount: "5.01",
+    });
+    expect(slipCodeRefusal(low, REQUEST, 1)).toMatchObject({ amount: "5.00" });
+    expect(
+      slipCodeRefusal(
+        problem(422, "BET_STAKE_TOO_HIGH", [
+          { field: "stake_hint", code: "MAX", limit: "50000.00" },
+        ]),
+        REQUEST,
+        3,
+      ),
+    ).toMatchObject({ amount: "50000.00" });
+  });
+
   it("offers no stake that isn't an amount, or that is a leg's limit", () => {
     for (const errors of [
       [{ field: "stake_hint", code: "MIN", limit: "ten" }],
       [{ field: "legs[0].odds", code: "MIN", limit: "5.00" }],
+      // Not a stake anyone could type (review M2).
+      [{ field: "stake_hint", code: "MIN", limit: "0.00" }],
+      [{ field: "stake", code: "MIN", limit: "-5.00" }],
       [],
     ]) {
       expect(

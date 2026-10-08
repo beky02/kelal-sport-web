@@ -149,7 +149,11 @@ export function KioskSlip({ onClose }: { onClose?: () => void }) {
               (review U1). */}
           <div className="bg-ground sticky bottom-0 z-10 pb-1 shadow-[0_-12px_12px_-12px_rgb(0_0_0/0.5)]">
             {rules && <PayoutSummary totals={totals} rules={rules.calc} />}
-            <BookBet request={request} booking={booking} />
+            <BookBet
+              request={request}
+              lines={totals.lineCount}
+              booking={booking}
+            />
           </div>
         </>
       )}

@@ -99,13 +99,16 @@ export function useBookSlip() {
     /** The code made for this slip, if it has one. */
     receiptFor: (request: SlipCodeRequest | null): SlipCodeReceipt | null =>
       request ? (codes[signatureOf(request)]?.receipt ?? null) : null,
-    /** Why booking this slip last failed; a changed slip shows nothing. */
-    refusalFor: (request: SlipCodeRequest | null) =>
+    /**
+     * Why booking this slip — of `lines` lines — last failed; a changed slip
+     * shows nothing.
+     */
+    refusalFor: (request: SlipCodeRequest | null, lines: number) =>
       mutation.isError &&
       mutation.variables &&
       request &&
       failedFor === signatureOf(request)
-        ? slipCodeRefusal(mutation.error, mutation.variables.request)
+        ? slipCodeRefusal(mutation.error, mutation.variables.request, lines)
         : null,
   };
 }

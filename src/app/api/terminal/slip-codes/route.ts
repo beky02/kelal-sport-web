@@ -26,7 +26,8 @@ const noStore = (response: Response) => {
  * page (origin, the CSRF header, JSON); the terminal's cookie, unexpired; one
  * `Idempotency-Key` per Book bet (a UUID, the browser's, never made here);
  * the device signature's shape and clock (D3); and the body — at most 16 KiB
- * of UTF-8, the contract's `SlipCodeCreate` and nothing more.
+ * of UTF-8, the contract's `SlipCodeCreate` and nothing more, spelt exactly as
+ * `JSON.stringify` spells it.
  *
  * The browser signed the API call over that body's exact bytes, so the text
  * read here is what goes upstream, byte for byte (F8b decision 2); the
@@ -63,7 +64,10 @@ export async function POST(request: Request) {
     json = null;
   }
   const body = slipCodeCreateSchema.safeParse(json);
-  if (text === null || !body.success) {
+  // Exactly the text the browser's `JSON.stringify` makes, or nothing: what
+  // was checked is then all that goes on — no duplicated key whose first copy
+  // JSON.parse dropped, no other spelling of the same value (review SEC1).
+  if (text === null || !body.success || text !== JSON.stringify(json)) {
     return noStore(
       problemResponse(422, "VALIDATION_FAILED", "Not a slip code request"),
     );
