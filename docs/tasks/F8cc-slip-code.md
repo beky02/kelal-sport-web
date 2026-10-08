@@ -1,7 +1,7 @@
 ---
 id: F8cc
 title: Split from F8c — slip to an 8-digit code with a QR, idle reset, the rate limit
-status: todo
+status: planned
 depends_on: [F8cb]
 contract_tags: [Retail - terminal]
 touches_money: true
@@ -45,6 +45,13 @@ Out: the POS that sells the code (F9, `kelalsport-ops`).
 - [ ] **AC-c1** The slip code request is signed over its exact body and carries one `Idempotency-Key` per
       Get code, reused on retry; the route handler checks host, origin, body and signature before calling
       the API.
+- [ ] **AC-c2** (added at the plan gate, from Scope) No price polling while the kiosk is idle; the first
+      touch reads the prices on screen again and polling resumes; the terminal's status is still read while
+      idle.
+- [ ] **AC-c3** (added at the plan gate, from Scope) The other refusals: a refused stake hint offers the
+      server's limit as a tap; a started or suspended leg is marked, with Remove it; a 401, a disallowed
+      device or `RETAIL_SHOP_CLOSED` lets the terminal's status decide; a network failure says so, and Get
+      code tries again with the same key.
 
 ## Verification
 
@@ -61,3 +68,5 @@ Out: the POS that sells the code (F9, `kelalsport-ops`).
   whose order against children's effects matters.
 - 2026-10-08 (from F3c): the slip store holds three slips; the idle reset calls `resetAll()` (every slip
   empty, Slip 1 on screen) along with the language.
+- 2026-10-08 (plan gate): Get code replaces the kiosk's Book bet; after a code the kiosk starts over
+  unless another slip has picks; the QR is drawn from `qrcode`'s matrix. See [F8cc/plan.md](F8cc/plan.md).
