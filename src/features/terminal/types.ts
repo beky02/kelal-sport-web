@@ -92,7 +92,8 @@ export interface SlipCodeRequest {
   betType: "single" | "multiple" | "system";
   /** `[k]` for a system bet; empty for any other. */
   systemSizes: number[];
-  legs: Array<{ outcomeId: string; odds: string }>;
+  /** Each pick, with the odds shown (null when not the contract's shape: never made up). */
+  legs: Array<{ outcomeId: string; odds: string | null }>;
   /** The total stake as typed (`"50.00"`), or null to send the picks alone. */
   stakeHint: string | null;
 }

@@ -64,7 +64,7 @@ export const toSlipCodeCreate = (request: SlipCodeRequest): SlipCodeCreate => ({
     : {}),
   legs: request.legs.map((leg) => ({
     outcome_id: leg.outcomeId,
-    odds: leg.odds,
+    ...(leg.odds !== null ? { odds: leg.odds } : {}),
   })),
   ...(request.stakeHint !== null ? { stake_hint: request.stakeHint } : {}),
 });
