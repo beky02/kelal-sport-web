@@ -17,19 +17,14 @@ export function BetSlipHeader({
   const clear = useBetSlipStore((s) => s.clear);
 
   return (
-    <div
-      className={cn(
-        "flex items-center justify-end gap-2 pr-1.5 pl-4",
-        (count > 0 || onClose) && "min-h-11 py-1",
-      )}
-    >
+    <div className="flex items-center justify-end gap-2 pr-1.5 pl-4">
       {/* No visible title or count (the user's review, 2026-10-08): the panel's
           tab and the slip tabs already say both (the tabs announce each slip's count). Still a heading for screen
           readers, who navigate the slip by it; in the mobile sheet it is the
           first thing inside it. */}
       <h2 className="sr-only">{t.t("betSlip.title")}</h2>
 
-      {(
+      {
         <button
           type="button"
           onClick={clear}
@@ -37,7 +32,7 @@ export function BetSlipHeader({
         >
           {t.t("betSlip.clearAll")}
         </button>
-      )}
+      }
 
       {onClose && (
         <button
