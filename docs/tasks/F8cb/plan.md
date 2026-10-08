@@ -9,6 +9,27 @@ Mode: interactive. Before planning, `pnpm contract:sync --check` found the contr
 behind the backend (additive error responses on bookings and the ticket check); synced on the user's
 go-ahead as this branch's first commit (`aa30414`). `pnpm check` passed on main (1,610 tests).
 
+## Rework (the user's review, 2026-10-08)
+
+After F8cb was verified, the user looked at the keypad and asked, in their words: **"lets remove this i
+think it is too much"**. Their message is the direction, so there is no separate plan gate; the rest of
+this plan stands where this section doesn't replace it.
+
+| #    | Question                                                                                                           | Decision and why                                                                                                                                                                                                                                                                                                                                                                                                   |
+| ---- | ------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| RW-1 | How the stake is typed without the keypad (the shop's set has no quick stakes, so a stake must still be typeable). | **The player's stake field** (`StakeInput`, `balance={null}`): the same row (ETB, the amount, C), a text field typed with the PC's keyboard (physical, or the system's on-screen one), under the same rules. It replaces decision 8. AC-b1 becomes "the stake is typed in the player's stake field". The empty start, a code's hint as the stake, the fixes as a tap and the pinned payout and Book bet (U1) stay. |
+| RW-2 | What goes with it.                                                                                                 | `KioskStake.tsx` and its three strings (`terminal.kiosk.keypad`, `keyPoint`, `keyDelete`). `StakeInput.tsx` goes back to main's (its split existed for the keypad). The review fixes on the keypad (U2, U3, U4) go with it.                                                                                                                                                                                        |
+
+**Files (rework).** Removed: `features/terminal/components/kiosk/KioskStake.tsx`. Changed: `KioskSlip.tsx`
+(the player's `StakeInput`), `KioskShell.tsx` (a comment), `bet-slip/components/StakeInput.tsx` (back to
+main's), `messages/{en,am}.json` and `TRANSLATION-NOTES.md` (three strings out), `TerminalKiosk.test.tsx`,
+`terminal.spec.ts`, `docs/design/10-terminal.md`, the task file.
+
+**Acceptance criteria → tests (rework).** AC-b1: `TerminalKiosk.test.tsx` › "types the stake in the
+player's stake field: digits, one point, two decimals at most, and clear; no keypad (F8cb AC-b1, the user's
+review)"; the other F8cb tests now type into the field. `pnpm ui`: `terminal-kiosk-slip-*`,
+`terminal-kiosk-slip-too-low-*`, `terminal-kiosk-slip-no-rules-*`.
+
 ## Understanding
 
 The kiosk's slip (F8ca) lists picks, books them as a code and loads codes, but shows no stake and no

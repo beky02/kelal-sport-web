@@ -23,6 +23,7 @@ import {
 import { BookingCodeDialog } from "@/features/bet-slip/components/BookingCodeDialog";
 import { PayoutSummary } from "@/features/bet-slip/components/PayoutSummary";
 import { SlipSummary } from "@/features/bet-slip/components/SlipSummary";
+import { StakeInput } from "@/features/bet-slip/components/StakeInput";
 import {
   signatureOf,
   useCreateBooking,
@@ -37,7 +38,6 @@ import {
 import { useBetSlipStore } from "@/features/bet-slip/stores/bet-slip.store";
 import { useTranslation } from "@/lib/i18n/use-translation";
 import { useTerminalConfig } from "../../hooks/use-kiosk";
-import { KioskStake } from "./KioskStake";
 
 /**
  * The kiosk's slip (F8ca, priced in F8cb), from the player's slip parts: its
@@ -45,7 +45,8 @@ import { KioskStake } from "./KioskStake";
  * booking code where the tenant has codes. Its figures are slipcalc's on the
  * shop's rule set (`retail_betting`, D1.12) and nothing else: the player's
  * `SlipSummary` and `PayoutSummary`, with slipcalc's refusals and their fixes
- * above. The stake is optional and typed on a keypad (`KioskStake`).
+ * above. The stake is optional, typed in the player's stake field (the
+ * user's review: no on-screen keypad), with no balance beside it.
  *
  * A pick is priced at its odds when tapped, or a loaded code's current odds;
  * nothing asks to accept a move, since nothing is placed here — the counter
@@ -130,7 +131,11 @@ export function KioskSlip({ onClose }: { onClose?: () => void }) {
           </div>
           {rules ? (
             <>
-              <KioskStake totals={totals} quickStakes={rules.quickStakes} />
+              <StakeInput
+                totals={totals}
+                quickStakes={rules.quickStakes}
+                balance={null}
+              />
               <SlipSummary totals={totals} />
             </>
           ) : (
@@ -149,7 +154,7 @@ export function KioskSlip({ onClose }: { onClose?: () => void }) {
             </div>
           )}
           {/* What the customer came for, always in reach: the picks and the
-              keypad scroll beneath it, in the column and in the sheet
+              stake scroll beneath it, in the column and in the sheet
               (review U1). */}
           {(rules || bookingCodes) && (
             <div className="bg-ground sticky bottom-0 z-10 pb-1 shadow-[0_-12px_12px_-12px_rgb(0_0_0/0.5)]">

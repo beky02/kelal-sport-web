@@ -78,7 +78,7 @@ An active terminal of an open shop is **the player's sportsbook without what nee
 direction, 2026-10-06). It has the same home board, league page, match page, sidebar, search and slip, at
 the same sizes and widths, in the kiosk's own frame. There is no Log in, Register, My bets, Wallet,
 Responsible gaming or Favourites, and no player watchers (session, reality check, deposits). F8cb priced
-the slip with the shop's rules and a stake keypad; F8cc adds Get code.
+the slip with the shop's rules and the player's stake field; F8cc adds Get code.
 
 The terminal frame is brand-only; it contains no shop/address or terminal/PC labels. The kiosk prefers
 English when the tenant offers it, otherwise its configured default. While status or config loads, it uses
@@ -179,18 +179,15 @@ retail is enabled.
   their fix as a tap (the shop's minimum, 10.00 in the contract, where online it is 5.00), and D1's
   warnings. There is no balance, no login, no Place and no odds-change consent: nothing is placed here.
   The payout and Book bet are a footer pinned to the foot of the column or the sheet, so the picks and the
-  keypad scroll beneath them and they are always in reach (review U1).
+  stake scroll beneath them and they are always in reach (review U1).
 - **The odds are those at the tap**, or a loaded code's current odds, as on the player's slip in Release 1
   (realtime off). A code's moved leg shows old → new, priced at the new one. The counter re-prices the
   code at sale and shows old and new (C19 §4.3, §14).
 - **The stake** is optional, a hint the counter sees on the code (C19 §4.2). It starts empty when the
   kiosk comes up (the user's answer, F8cb), so no preset goes out on a code the customer didn't type; the
-  figures show "—" until there is one. It is typed on an on-screen keypad (`KioskStake`): the amount is
-  shown, not a text box (which on a touch PC would open the system keyboard), with 1–9, `.`, 0, delete and
-  the row's C, under the player's rules (digits, one point, two decimals). An amount set from outside the
-  keypad — a fix, a code's hint — shows and edits as a typed one: 50.00 reads 50, and the next key adds to
-  it. Then the "N bets × X" line and
-  the rule set's quick stakes, when it has any. A loaded code's stake hint becomes the stake, under the
+  figures show "—" until there is one. It is typed in the player's stake field (`StakeInput`, no balance),
+  with the PC's keyboard; the user removed the on-screen keypad (2026-10-08). Then the "N bets × X" line
+  and the rule set's quick stakes, when it has any. A loaded code's stake hint becomes the stake, under the
   shop's limits (the user's answer). Book bet sends the stake typed as the code's hint when slipcalc
   accepts it, and a refusal of it offers the server's amount as a tap.
 - **No shop rule set.** A tenant whose config has no `retail_betting` shows the picks, the bet's modes,
@@ -207,7 +204,7 @@ retail is enabled.
 | Config unreadable             | The config read failed (network, 5xx)           | Brand-only bar; "Can't reach the server" + Try again (bilingual)                                                               | `terminal-kiosk-config-offline`                       |
 | Home board                    | Config read, shop betting on                    | The player's home, without what needs a player                                                                                 | `terminal-kiosk-board-{am,en}-{phone,desktop}`        |
 | Picks                         | Prices tapped                                   | The picks in the slip; prices pressed; rows tinted                                                                             | `terminal-kiosk-picks-…`                              |
-| Slip priced                   | Picks and a stake typed on the keypad           | The bet's modes, the keypad, total odds and the payout on the shop's rules; Book bet                                           | `terminal-kiosk-slip-{am,en}-{phone,desktop}`         |
+| Slip priced                   | Picks and a stake typed                         | The bet's modes, the stake, total odds and the payout on the shop's rules; Book bet                                            | `terminal-kiosk-slip-{am,en}-{phone,desktop}`         |
 | Stake too low                 | A stake under the shop's minimum                | "Stake too low" with the minimum as a tap; figures "—"                                                                         | `terminal-kiosk-slip-too-low-…`                       |
 | No shop rule set              | The config has no `retail_betting`              | The picks; "Ask the shop staff what this slip pays."; no stake or figure                                                       | `terminal-kiosk-slip-no-rules-…`                      |
 | A league                      | `/terminal/competition/[id]`                    | That league's board                                                                                                            | `terminal-kiosk-league-…`                             |

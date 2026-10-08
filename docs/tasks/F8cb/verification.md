@@ -1,5 +1,20 @@
 # F8cb — verification
 
+## Rework — the user's review (2026-10-08)
+
+- **What the user asked:** "lets remove this i think it is too much" (the on-screen keypad). The stake is
+  now the player's stake field (`StakeInput`, no balance) on the kiosk; `KioskStake.tsx` and its three
+  strings are gone, and `StakeInput.tsx` is main's again. Plan: "Rework".
+- **Tests:** the F8cb kiosk tests type into the field. › "types the stake in the player's stake field:
+  digits, one point, two decimals at most, and clear; no keypad (F8cb AC-b1, the user's review)" and the
+  seven others that type a stake failed against the keypad build (8 failing: no text box) and pass after.
+  The U4 test went with the keypad. `TerminalKiosk.test.tsx`: 44 pass.
+- **Screens:** `pnpm ui --grep "kiosk-slip|kiosk-picks|kiosk-booking-code"`: 20 pass, Book bet still in
+  view (U1). Looked at `terminal-kiosk-slip-en-desktop` (the whole slip fits at 1440 × 900 now) and
+  `terminal-kiosk-slip-too-low-am-phone`.
+- **Not re-reviewed by the panel:** the change removes a component and reuses the player's tested field;
+  the gate below is the evidence.
+
 ## Review brief
 
 - **Config** (`mappers/config.ts`, `terminal/types.ts`, `terminal-schemas.ts`, new `rules-schema.ts`):
@@ -93,8 +108,9 @@ break was undone.
   (F8cb AC-3)" — the mapper given `config.betting`: fails (with the contract-shape test).
 - › "has no rules without retail_betting, even with betting (F8cb AC-b2)" — the mapper falling back to
   `config.retail_betting ?? config.betting`: fails.
-- `TerminalKiosk.test.tsx` › "types the stake on the keypad: digits, one point, two decimals at most,
-  delete and clear, with no text box (F8cb AC-b1)" — Delete clearing the whole stake: fails.
+- `TerminalKiosk.test.tsx` › "types the stake on the keypad…" (replaced in the rework by › "types the
+  stake in the player's stake field…", which failed against the keypad build) — Delete clearing the whole
+  stake: failed.
 - › "starts with no stake and works without one: the figures wait, and Book bet saves the picks alone
   (F8cb AC-b1)" — `Kiosk` no longer starting the stake empty: fails (the player's 100 shows).
 - › "refuses a stake under the shop's minimum — 10.00, not the online 5.00 — and offers it as a tap (F8cb
@@ -117,9 +133,9 @@ MAJOR). No BLOCKER, so no reviewer was run again. Fixes in `21d0b80`.
 | ID  | Reviewer                     | Severity | Summary                                                                                                         | Decision                                                                                                                                                                                                                                                                                                                                |
 | --- | ---------------------------- | -------- | --------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | U1  | ui-checker                   | MAJOR    | At 1440 × 900 the keypad pushes Book bet below the slip column's edge, with no sign the column scrolls          | Fixed: the payout and Book bet are a footer pinned to the foot of the column and the sheet. `terminal.spec.ts` › kiosk-slip, kiosk-slip-too-low and kiosk-picks now assert the payout and Book bet `toBeInViewport({ ratio: 1 })`: at least 10 of the 12 failed before the fix (both widths; the list was cut there), all 12 pass after |
-| U2  | ui-checker                   | MINOR    | The clear "C" and the "." key don't read as keys on a touch screen                                              | Fixed: C is a key set off from the amount; the point is drawn at 28 px. Screens `terminal-kiosk-slip-*`                                                                                                                                                                                                                                 |
-| U3  | ui-checker                   | MINOR    | The stake's label is 11 px, under the 12 px floor for Amharic                                                   | Fixed on the kiosk (`text-xs`). The player's `StakeInput` has the same: follow-up                                                                                                                                                                                                                                                       |
-| U4  | ui-checker                   | MINOR    | A code's hint shows "50.00", a typed stake "50"                                                                 | Fixed, and with it a trap: after a hint or a fix (two decimals) no digit could be added. The keypad shows and edits the amount without ".00". › "edits a stake it didn't type as one it did…" and the hint/fix displays failed before, pass after                                                                                       |
+| U2  | ui-checker                   | MINOR    | The clear "C" and the "." key don't read as keys on a touch screen                                              | Superseded by the user's rework: the keypad is gone (the player's field, with its own label and C)                                                                                                                                                                                                                                      |
+| U3  | ui-checker                   | MINOR    | The stake's label is 11 px, under the 12 px floor for Amharic                                                   | Superseded by the user's rework: the keypad is gone (the player's field, with its own label and C)                                                                                                                                                                                                                                      |
+| U4  | ui-checker                   | MINOR    | A code's hint shows "50.00", a typed stake "50"                                                                 | Superseded by the user's rework: the keypad is gone (the player's field, with its own label and C)                                                                                                                                                                                                                                      |
 | U5  | ui-checker                   | MINOR    | One pick shows "Multiple" selected with a total odds row                                                        | Follow-up: the slip store's and `BetModeTabs`' behaviour, shared with the player's slip; not changed here                                                                                                                                                                                                                               |
 | U6  | ui-checker                   | MINOR    | The no-rules line is small muted text, easy to miss                                                             | Fixed: an info notice (`AlertList`, icon, `role="status"`); › "shows the picks without any figure…" failed before, passes after                                                                                                                                                                                                         |
 | S1  | spec-verifier                | MINOR    | Plan decision 9 says "no alert", but the picks' own alerts (conflict, suspended) still show without rules       | Fixed in the plan: "no money alert"; the picks' alerts carry no amount and stay                                                                                                                                                                                                                                                         |

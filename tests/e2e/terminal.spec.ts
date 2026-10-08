@@ -685,17 +685,14 @@ for (const [device, viewport] of Object.entries({
         );
       }
 
-      /** Types on the slip's keypad. */
+      /** Types the stake in the player's stake field (the user's review: no keypad). */
       async function press(slip: ReturnType<Page["locator"]>, keys: string) {
-        const keypad = slip.getByRole("group", {
-          name: t.terminal.kiosk.keypad,
-        });
-        for (const key of keys) {
-          await keypad.getByRole("button", { name: key, exact: true }).click();
-        }
+        await slip
+          .getByRole("textbox", { name: t.betSlip.totalStake })
+          .pressSequentially(keys);
       }
 
-      test("kiosk-slip: two picks priced with the shop's rules, the stake on the keypad (F8cb AC-3, AC-b1)", async ({
+      test("kiosk-slip: two picks priced with the shop's rules, the stake in the player's field (F8cb AC-3, AC-b1)", async ({
         page,
         baseURL,
       }) => {
@@ -706,14 +703,14 @@ for (const [device, viewport] of Object.entries({
         await press(slip, "50");
         await expect(slip.getByRole("alert")).toHaveCount(0);
         await expect(
-          slip.getByRole("status", { name: t.betSlip.totalStake }),
-        ).toHaveText("50");
+          slip.getByRole("textbox", { name: t.betSlip.totalStake }),
+        ).toHaveValue("50");
         // slipcalc's figure on the shop's rules, not the dash of an unpriced slip.
         await expect(slip.getByTestId("net-payout")).not.toHaveText("—");
         await expect(
           page.getByRole("button", { name: t.betSlip.placeBet }),
         ).toHaveCount(0);
-        // The payout and Book bet stay in view while the picks and the keypad
+        // The payout and Book bet stay in view while the picks and the stake
         // scroll beneath them (review U1).
         await expect(slip.getByTestId("net-payout")).toBeInViewport({
           ratio: 1,
@@ -766,7 +763,7 @@ for (const [device, viewport] of Object.entries({
         const slip = await openSlip(page, 1);
         await expect(slip.getByText(t.terminal.kiosk.noRules)).toBeVisible();
         await expect(
-          slip.getByRole("group", { name: t.terminal.kiosk.keypad }),
+          slip.getByRole("textbox", { name: t.betSlip.totalStake }),
         ).toHaveCount(0);
         await expect(slip.getByTestId("net-payout")).toHaveCount(0);
         await shoot(page, `kiosk-slip-no-rules-${lang}`, device, errors);

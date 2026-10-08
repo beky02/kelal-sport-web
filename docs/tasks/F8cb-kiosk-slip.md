@@ -1,6 +1,6 @@
 ---
 id: F8cb
-title: Split from F8c — the kiosk's slip priced with the retail rule set, stake on a keypad
+title: Split from F8c — the kiosk's slip priced with the retail rule set, the player's stake field
 status: done
 depends_on: [F8ca]
 contract_tags: [Config]
@@ -15,7 +15,8 @@ Split from [F8c](F8c-terminal-slip-code.md) (2026-10-06, while planning). Carrie
 ## Goal
 
 The kiosk's slip shows what the customer's picks would cost and pay under the shop's own rules (the
-tenant's retail rule set), with a stake typed on an on-screen keypad, and never a figure from the online
+tenant's retail rule set), with a stake typed in the player's stake field (the user removed the on-screen
+keypad, 2026-10-08), and never a figure from the online
 rule set.
 
 ## Read first
@@ -42,7 +43,8 @@ rule set.
 In: `retail_betting` in `/api/terminal/config` (the brand's one shop rule set; no per-shop lookup); the
 slip's modes (single, multiple, system) and figures from `calculateBetSlip` with the retail rules, shown as
 the player's slip shows them since 2026-10-07 (`SlipSummary` and `PayoutSummary`: total odds, bonus, the
-payout; no tax lines or working); the stake (a hint, optional) on an on-screen keypad, with the rule set's quick stakes when it
+payout; no tax lines or working); the stake (a hint, optional) in the player's stake field (planned as an
+on-screen keypad; removed on the user's review), with the rule set's quick stakes when it
 has any; slipcalc's stake fixes (too low, too high) offered as a tap; no balance, no login, no odds-change
 consent; a tenant without `retail_betting` shows the picks without figures rather than the online ones
 (the wording of that state is a copy-about-money question for this sub-task's plan gate).
@@ -54,8 +56,9 @@ Out: slip codes, the idle reset, the rate limit (F8cc).
 - [x] **AC-3** (F8c) The retail rule set is used for slip figures: with the contract's example, a stake
       below the retail minimum (10.00, online 5.00) is refused with its fix, and a multiple shows no
       accumulator bonus (the retail table is empty); figures match slipcalc on the retail rules.
-- [x] **AC-b1** The stake is typed on an on-screen keypad (digits, decimal point, delete, clear), the same
-      rules as the player's stake field (two decimals at most); the slip works without a stake.
+- [x] **AC-b1** The stake is typed in the player's stake field, with the same rules (two decimals at
+      most); the slip works without a stake. (The user's review, 2026-10-08: no on-screen keypad; this
+      replaces "on an on-screen keypad (digits, decimal point, delete, clear)".)
 - [x] **AC-b2** The kiosk's slip shows no balance, no login and no place button; a tenant whose config has
       no `retail_betting` shows the picks without any figure (as the player's slip does before its rules
       load), never the online rule set's.
@@ -75,4 +78,6 @@ Out: slip codes, the idle reset, the rate limit (F8cc).
 - 2026-10-08: verified (`docs/tasks/F8cb/verification.md`): `pnpm verify` passes (1,621 tests, 652
   screens). The panel's one MAJOR (Book bet below the fold at 1440 × 900) is fixed with a pinned footer.
   Follow-ups: a named "start the kiosk's slip" action in F8cc (M2/Q3); a shared booking refusal with the
-  player's slip (Q2); one pick under "Multiple" (U5, shared); the player's 11 px stake label (U3).
+  player's slip (Q2); one pick under "Multiple" (U5, shared); the stake field's 11 px label, on both sites since the rework (U3).
+- 2026-10-08, the user's review: "lets remove this i think it is too much" — the on-screen keypad is gone;
+  the kiosk's stake is the player's stake field (plan, "Rework"). AC-b1 reworded. Verified again.

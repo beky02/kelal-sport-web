@@ -27,6 +27,7 @@ export function StakeInput({
   const t = useTranslation();
   const stake = useBetSlipStore((s) => s.stake);
   const setStake = useBetSlipStore((s) => s.setStake);
+  const { quote } = totals;
 
   return (
     <div className="flex flex-col gap-2 px-4 pt-3">
@@ -60,57 +61,35 @@ export function StakeInput({
         </button>
       </div>
 
-      <StakeLines totals={totals} />
-      <QuickStakes amounts={quickStakes} />
-    </div>
-  );
-}
+      {quote && quote.lines > 1 && (
+        <div className="text-muted numeric text-[11px]">
+          {t.t("betSlip.linesTimesStake", {
+            lines: quote.lines,
+            amount: t.money(quote.stakePerLine),
+          })}
+        </div>
+      )}
 
-/**
- * How a total stake splits across the bets a single or system places
- * ("6 bets × ETB 16.66"), so nobody stakes 6× what they meant to. Shared with
- * the kiosk's keypad (F8cb).
- */
-export function StakeLines({ totals }: { totals: BetSlipTotals }) {
-  const t = useTranslation();
-  const { quote } = totals;
-  if (!quote || quote.lines <= 1) return null;
-  return (
-    <div className="text-muted numeric text-[11px]">
-      {t.t("betSlip.linesTimesStake", {
-        lines: quote.lines,
-        amount: t.money(quote.stakePerLine),
-      })}
-    </div>
-  );
-}
-
-/**
- * The rule set's quick stakes: each sets the total (D7) rather than adding
- * to it. Nothing when the rule set has none. Shared with the kiosk (F8cb).
- */
-export function QuickStakes({ amounts }: { amounts: readonly string[] }) {
-  const stake = useBetSlipStore((s) => s.stake);
-  const setStake = useBetSlipStore((s) => s.setStake);
-  if (amounts.length === 0) return null;
-  return (
-    <div
-      className="grid gap-1.5"
-      style={{
-        gridTemplateColumns: `repeat(${Math.min(amounts.length, 4)}, minmax(0, 1fr))`,
-      }}
-    >
-      {amounts.map((amount) => (
-        <button
-          key={amount}
-          type="button"
-          aria-pressed={plain(stake) === plain(amount)}
-          onClick={() => setStake(plain(amount))}
-          className="border-divider text-text font-body aria-pressed:border-accent h-11 cursor-pointer rounded-md border bg-transparent text-[13px] font-bold"
+      {quickStakes.length > 0 && (
+        <div
+          className="grid gap-1.5"
+          style={{
+            gridTemplateColumns: `repeat(${Math.min(quickStakes.length, 4)}, minmax(0, 1fr))`,
+          }}
         >
-          {plain(amount)}
-        </button>
-      ))}
+          {quickStakes.map((amount) => (
+            <button
+              key={amount}
+              type="button"
+              aria-pressed={plain(stake) === plain(amount)}
+              onClick={() => setStake(plain(amount))}
+              className="border-divider text-text font-body aria-pressed:border-accent h-11 cursor-pointer rounded-md border bg-transparent text-[13px] font-bold"
+            >
+              {plain(amount)}
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
