@@ -6,6 +6,7 @@
  * z.ZodType<Domain>`, as there.
  */
 import { z } from "zod";
+import { bettingRulesSchema } from "./rules-schema";
 import type {
   ActivationForm,
   TerminalActivation,
@@ -78,4 +79,5 @@ export const terminalConfigSchema = z.strictObject({
   bookingCodes: z.boolean(),
   languages: z.array(z.enum(["en", "am"])).min(1),
   defaultLanguage: z.enum(["en", "am"]),
+  rules: bettingRulesSchema.nullable(),
 }) satisfies z.ZodType<TerminalConfigView>;

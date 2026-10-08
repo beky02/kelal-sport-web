@@ -26,7 +26,7 @@ import {
 } from "./catalogue-schemas";
 import type { Bet, BetLeg, BetPage } from "@/features/bets/types";
 import type { BetReceipt, PlaceBetRequest } from "@/features/bet-slip/types";
-import type { BettingRules, PublicConfigView } from "@/features/config/types";
+import type { PublicConfigView } from "@/features/config/types";
 import type { TicketCheck } from "@/features/tickets/types";
 import type {
   FaydaChallengeView,
@@ -62,6 +62,7 @@ export {
   bookingSchema,
 } from "./booking-schemas";
 import { moneySchema } from "./money-schema";
+import { bettingRulesSchema, oddsPolicySchema } from "./rules-schema";
 import {
   DEPOSIT_STATUSES,
   PAYMENT_METHOD_CODES,
@@ -112,6 +113,9 @@ export {
 };
 
 export { moneySchema };
+
+// The rule set lives apart too, so the kiosk can check its shop rules (F8cb).
+export { bettingRulesSchema, oddsPolicySchema };
 
 // ── My bets (F5b) ───────────────────────────────────────────────────────────
 
@@ -427,39 +431,6 @@ export const exclusionSchema = z.object({
 }) satisfies z.ZodType<Exclusion>;
 
 export type BoardSectionDto = z.infer<typeof boardSectionSchema>;
-
-/** A plain decimal string: a rate (`"0.15"`) or a percentage (`"8"`). */
-const decimalSchema = z.string().regex(/^\d+(\.\d+)?$/);
-
-export const oddsPolicySchema = z.enum(["none", "higher", "any"]);
-
-export const bettingRulesSchema = z.object({
-  version: z.number().int(),
-  quickStakes: z.array(moneySchema),
-  defaultOddsPolicy: oddsPolicySchema,
-  calc: z.object({
-    min_stake: moneySchema,
-    max_stake: moneySchema,
-    max_payout: moneySchema,
-    max_legs: z.number().int().positive(),
-    max_lines: z.number().int().positive(),
-    acca_bonus_table: z.array(
-      z.object({ min_legs: z.number().int(), pct: decimalSchema }),
-    ),
-    acca_bonus_min_leg_odds: oddsSchema,
-    acca_bonus_max: moneySchema,
-    taxes: z.array(
-      z.object({
-        code: z.string(),
-        base: z.enum(["stake", "gross_win", "net_win", "profit"]),
-        rate: decimalSchema,
-        threshold: moneySchema.optional(),
-        deduct_from: z.enum(["stake", "payout", "operator"]),
-      }),
-    ),
-    refund_stake_tax_on_void: z.boolean().optional(),
-  }),
-}) satisfies z.ZodType<BettingRules>;
 
 export const publicConfigSchema = z.object({
   betting: bettingRulesSchema,

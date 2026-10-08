@@ -5,7 +5,7 @@ import {
   toTerminalInfo,
 } from "@/lib/api/mappers/terminal";
 import type { components } from "@/lib/api/schema";
-import { toTerminalConfigView } from "@/lib/api/mappers/config";
+import { toBettingRules, toTerminalConfigView } from "@/lib/api/mappers/config";
 import {
   activationFormSchema,
   terminalActivationSchema,
@@ -121,13 +121,14 @@ describe("terminal mappers (F8b)", () => {
 describe("the kiosk's config (F8ca)", () => {
   const config = () => example("/v1/config/public");
 
-  it("maps the contract's config: retail on, the languages, Amharic by default (AC-3, AC-4)", () => {
+  it("maps the contract's config: retail on, the languages, Amharic by default, the shop's rules (AC-3, AC-4)", () => {
     const view = toTerminalConfigView(config());
     expect(view).toEqual({
       retail: true,
       bookingCodes: true,
       languages: ["am", "en"],
       defaultLanguage: "am",
+      rules: toBettingRules(config().retail_betting!),
     });
     expect(terminalConfigSchema.parse(view)).toEqual(view);
   });
@@ -184,5 +185,41 @@ describe("the kiosk's config (F8ca)", () => {
     expect(
       terminalConfigSchema.safeParse({ ...view, betting: {} }).success,
     ).toBe(false);
+  });
+
+  it("takes the kiosk's rules from retail_betting, never the online betting (F8cb AC-3)", () => {
+    const { betting, retail_betting } = config();
+    // The contract's two rule sets differ where the slip shows it: the
+    // shop's minimum is 10.00 (online 5.00), and the shop pays no
+    // accumulator bonus.
+    expect(retail_betting?.min_stake).toBe("10.00");
+    expect(betting.min_stake).toBe("5.00");
+    expect(retail_betting?.acca_bonus_table).toEqual([]);
+    expect(betting.acca_bonus_table.length).toBeGreaterThan(0);
+
+    const { rules } = toTerminalConfigView(config());
+    expect(rules).toEqual(toBettingRules(retail_betting!));
+    expect(rules).not.toEqual(toBettingRules(betting));
+    expect(rules?.calc.min_stake).toBe("10.00");
+    // The shop's set has no quick stakes, so the kiosk offers none.
+    expect(rules?.quickStakes).toEqual([]);
+    expect(
+      terminalConfigSchema.parse({
+        retail: true,
+        bookingCodes: true,
+        languages: ["en"],
+        defaultLanguage: "en",
+        rules,
+      }),
+    ).toMatchObject({ rules });
+  });
+
+  it("has no rules without retail_betting, even with betting (F8cb AC-b2)", () => {
+    const withoutRetail = { ...config() };
+    delete withoutRetail.retail_betting;
+    const view = toTerminalConfigView(withoutRetail);
+    expect(withoutRetail.betting).toBeDefined();
+    expect(view.rules).toBeNull();
+    expect(terminalConfigSchema.parse(view)).toEqual(view);
   });
 });
