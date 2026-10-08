@@ -955,7 +955,11 @@
       "unavailable": {
         "title": "Betting isn't available at this terminal",
         "body": "Ask the shop staff."
-      }
+      },
+      "keypad": "Stake keypad",
+      "keyPoint": "Decimal point",
+      "keyDelete": "Delete last digit",
+      "noRules": "Ask the shop staff what this slip pays."
     }
   }
 }

@@ -69,13 +69,14 @@ export const SPORTS = toSports(DICTIONARY, example("/v1/sports").items);
 /** The morning of 4 October, when the contract's three matches are still to play. */
 const MORNING = new Date("2026-10-04T08:00:00Z");
 
+type ApiEvent = components["schemas"]["EventSummary"];
+
+/** A board of these matches (the contract's shape), read that morning. */
+export const boardOf = (items: ApiEvent[]) =>
+  toBoard({ en: items, am: items }, DICTIONARY, MORNING, false);
+
 /** The board, from the contract's three matches on 4 October, read that morning. */
-export const BOARD = toBoard(
-  { en: example("/v1/events").items, am: example("/v1/events").items },
-  DICTIONARY,
-  MORNING,
-  false,
-);
+export const BOARD = boardOf(example("/v1/events").items);
 
 /** The sidebar's lists, from the contract's `/v1/sports` counts. */
 export const TOP_COMPETITIONS = toTopCompetitions(

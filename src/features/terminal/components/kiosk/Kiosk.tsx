@@ -1,5 +1,7 @@
 "use client";
 
+import { useEffect } from "react";
+import { useBetSlipStore } from "@/features/bet-slip/stores/bet-slip.store";
 import { SportsbookChromeProvider } from "@/features/sportsbook/chrome";
 import { useTerminalConfig } from "../../hooks/use-kiosk";
 import { TerminalBar } from "../TerminalBar";
@@ -22,6 +24,10 @@ import { KioskStarting } from "./KioskStarting";
 export function Kiosk({ children }: { children: React.ReactNode }) {
   const config = useTerminalConfig();
   const view = config.data ?? null;
+  // The stake starts empty (F8cb, the user's answer at the plan gate): it is
+  // a hint the customer may type (C19 §4.2), never the player's preset sent
+  // on a code they didn't choose. F8cc's idle reset starts it the same way.
+  useEffect(() => useBetSlipStore.getState().setStake(""), []);
 
   if (!view && !config.isError) {
     return <KioskStarting>{children}</KioskStarting>;
