@@ -1,0 +1,112 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://api.example.et/events/bet.settled.json",
+  "title": "bet.settled",
+  "description": "A bet was settled for the first time, won or lost (C10 §6). Published by the settlement module on NATS subject evt.bet.settled (version 1), written to the outbox in the transaction that posted its BET_WIN (and ACCA_BONUS) or BET_LOSS. Consumers: C11 (wagering), C12, C13, C14 (BET_WON), C19. This is the `data` payload; the envelope (event_id, type, version, tenant_id, occurred_at, trace_id) is TD-02 §5. Every amount is in santim and every number is the bet's own (slipcalc's quote of its legs' results under its rules version). Ids only, no personal data. New fields are additive only.",
+  "type": "object",
+  "required": [
+    "bet_id",
+    "ticket_id",
+    "player_id",
+    "channel",
+    "rules_version",
+    "stake_santim",
+    "stake_tax_santim",
+    "status",
+    "outcome",
+    "payout_santim",
+    "win_tax_santim",
+    "acca_bonus_santim",
+    "stake_tax_refund_santim",
+    "settlement_version",
+    "settled_at",
+    "ledger_txn_ids"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "bet_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "ticket_id": {
+      "type": "string",
+      "pattern": "^[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]$"
+    },
+    "player_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "channel": {
+      "type": "string",
+      "enum": [
+        "online"
+      ],
+      "description": "Retail tickets settle through C19 (B9)"
+    },
+    "rules_version": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "The tenant config version whose rules priced and settle the bet (C16 §6)"
+    },
+    "stake_santim": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "The stake charged (D1.3: a remainder isn't)"
+    },
+    "stake_tax_santim": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "settlement_version": {
+      "type": "integer",
+      "const": 1,
+      "description": "A bet's first settlement; later ones publish bet.resettled"
+    },
+    "ledger_txn_ids": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "minItems": 1
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "won",
+        "lost"
+      ]
+    },
+    "outcome": {
+      "type": "string",
+      "enum": [
+        "won",
+        "lost",
+        "partial"
+      ],
+      "description": "partial: paid, but a leg lost or half-lost"
+    },
+    "payout_santim": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Paid to the player in all: the quote's net payout, accumulator bonus and stake-tax refund included (0 for a loss)"
+    },
+    "win_tax_santim": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "acca_bonus_santim": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Paid by its own ACCA_BONUS from HOUSE_BONUS_COST (C11)"
+    },
+    "stake_tax_refund_santim": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "settled_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  }
+}
