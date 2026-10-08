@@ -6217,6 +6217,7 @@ export interface operations {
                 };
             };
             422: components["responses"]["Unprocessable"];
+            429: components["responses"]["TooManyRequests"];
             503: components["responses"]["Unavailable"];
         };
     };

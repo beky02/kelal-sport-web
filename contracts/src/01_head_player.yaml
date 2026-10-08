@@ -913,6 +913,8 @@ paths:
                     errors: [ { field: "legs[0].outcome_id", code: EVENT_STARTED } ]
         '404': { $ref: '#/components/responses/NotFound' }
         '422': { $ref: '#/components/responses/Unprocessable' }
+        # betting.max_bets_per_minute: accepted bets per player per rolling minute (C08 §9)
+        '429': { $ref: '#/components/responses/TooManyRequests' }
         '503': { $ref: '#/components/responses/Unavailable' }
     get:
       tags: [Bets]
