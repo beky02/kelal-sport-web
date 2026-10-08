@@ -2143,10 +2143,18 @@ paths:
                 code: 7KQ2M9X
                 expires_at: '2026-10-04T13:00:00Z'
                 share_url: https://example.et/b/7KQ2M9X
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
         '422':
           $ref: '#/components/responses/Unprocessable'
         '429':
           $ref: '#/components/responses/TooManyRequests'
+        '503':
+          $ref: '#/components/responses/Unavailable'
       parameters:
       - $ref: '#/components/parameters/TenantId'
       - $ref: '#/components/parameters/RequestId'
@@ -2205,10 +2213,16 @@ paths:
                   outcome_name: '1'
                   available: false
                   reason: EVENT_STARTED
+        '400':
+          $ref: '#/components/responses/BadRequest'
         '404':
           $ref: '#/components/responses/NotFound'
         '410':
           $ref: '#/components/responses/Gone'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '503':
+          $ref: '#/components/responses/Unavailable'
   /v1/tickets/{ticket_id}:
     get:
       tags:
@@ -2252,8 +2266,14 @@ paths:
                   outcome_name: Over 2.5
                   odds: '1.62'
                   result: win
+        '400':
+          $ref: '#/components/responses/BadRequest'
         '404':
           $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '503':
+          $ref: '#/components/responses/Unavailable'
       security: []
   /v1/promotions:
     get:
