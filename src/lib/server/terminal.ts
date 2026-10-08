@@ -15,16 +15,24 @@ import type {
 import type { SearchResults } from "@/features/search/types";
 import type {
   ActivationForm,
+  SlipCodeReceipt,
   TerminalActivation,
   TerminalStatus,
 } from "@/features/terminal/types";
 import {
   toActivateRequest,
+  toSlipCodeReceipt,
   toTerminalActivation,
   toTerminalInfo,
 } from "@/lib/api/mappers/terminal";
+import type { components } from "@/lib/api/schema";
 import pkg from "../../../package.json";
-import { isTerminalHost, requestHost, tenantFromHeaders } from "./config";
+import {
+  isTerminalHost,
+  requestHost,
+  tenantFromHeaders,
+  usesRealApi,
+} from "./config";
 import { problemResponse } from "./respond";
 import { apiNow } from "./session";
 import { readTerminalSession, type TerminalSession } from "./terminal-session";
@@ -32,6 +40,9 @@ import { unwrap, upstream, type RequestContext } from "./upstream";
 
 /** Rotate when fewer than this remain (`rotateTerminalToken`'s summary). */
 const ROTATE_AHEAD_MS = 7 * 24 * 60 * 60 * 1000;
+
+/** A slip code's life (C19 §11 `retail.code.ttl_minutes`), for the mock's past example only. */
+const CODE_TTL_MS = 240 * 60 * 1000;
 
 /**
  * The terminal's handlers answer only on a terminal host (09-security, the
@@ -248,6 +259,57 @@ export async function rotateTerminalToken(
     token: rotated.access_token,
     expiresAt: apiNow(call.response) + rotated.expires_in * 1000,
   };
+}
+
+/** A slip as the browser signed it: its exact text, and that text checked. */
+export interface SignedSlip {
+  text: string;
+  body: components["schemas"]["SlipCodeCreate"];
+}
+
+/**
+ * Turns a slip into an 8-digit slip code (`POST /v1/retail/slip-codes`, F8cc,
+ * C19 §4.2), as this terminal: its token, its device id from the cookie, the
+ * browser's signature, and its `Idempotency-Key` — never one made here; the
+ * contract doesn't declare it yet (request 015), so the API may ignore it.
+ *
+ * The body goes on as the exact text the browser signed (F8b decision 2),
+ * never re-serialised from what was checked, or the signature would no longer
+ * match it. Refusals pass through as the API's Problem, a 429 with its
+ * `Retry-After`.
+ */
+export async function createSlipCode(
+  ctx: RequestContext,
+  session: TerminalSession,
+  device: DeviceSignature,
+  slip: SignedSlip,
+  idempotencyKey: string,
+): Promise<SlipCodeReceipt> {
+  const call = await asTerminal(ctx, session).POST(
+    TERMINAL_CALLS.slipCodes.api,
+    {
+      params: { header: deviceHeaders(session, device) },
+      headers: { "Idempotency-Key": idempotencyKey },
+      body: slip.body,
+      bodySerializer: () => slip.text,
+    },
+  );
+  const created = unwrap(call);
+  // The mock (Prism) answers with the contract's example, which expired on
+  // 4 October: from the mock only, a past expiry becomes a code's life from
+  // now, by the API's clock (as `createBooking` does). The real API's answer
+  // is never touched.
+  const issued = apiNow(call.response);
+  if (
+    !usesRealApi("Retail - terminal") &&
+    Date.parse(created.expires_at) <= issued
+  ) {
+    return toSlipCodeReceipt({
+      ...created,
+      expires_at: new Date(issued + CODE_TTL_MS).toISOString(),
+    });
+  }
+  return toSlipCodeReceipt(created);
 }
 
 /**

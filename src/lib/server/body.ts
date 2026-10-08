@@ -19,13 +19,14 @@ export const BODY_CAPS = {
 export type BodyCap = (typeof BODY_CAPS)[keyof typeof BODY_CAPS];
 
 /**
- * The request body as JSON, `null` when it is not JSON, or `"too_large"` —
- * without ever holding more than `maxBytes`, whatever `Content-Length` claims.
+ * The request body's bytes — `null` when there is none, `"too_large"` over
+ * `maxBytes` — without ever holding more than that, whatever
+ * `Content-Length` claims.
  */
-export async function readJson(
+async function readBytes(
   request: Request,
   maxBytes: BodyCap,
-): Promise<unknown | "too_large"> {
+): Promise<Buffer | null | "too_large"> {
   const declared = Number(request.headers.get("content-length") ?? "0");
   if (declared > maxBytes) return "too_large";
   if (!request.body) return null;
@@ -42,8 +43,42 @@ export async function readJson(
     }
     chunks.push(value);
   }
+  return Buffer.concat(chunks);
+}
+
+/**
+ * The request body as JSON, `null` when it is not JSON, or `"too_large"` —
+ * without ever holding more than `maxBytes`, whatever `Content-Length` claims.
+ */
+export async function readJson(
+  request: Request,
+  maxBytes: BodyCap,
+): Promise<unknown | "too_large"> {
+  const bytes = await readBytes(request, maxBytes);
+  if (bytes === null || bytes === "too_large") return bytes;
   try {
-    return JSON.parse(new TextDecoder().decode(Buffer.concat(chunks)));
+    return JSON.parse(new TextDecoder().decode(bytes));
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * The request body as the exact text sent, for a body that goes on byte for
+ * byte (a terminal's signed call, F8cc): `null` when there is none or it is
+ * not UTF-8 — nothing is replaced, and a byte-order mark stays (and then is
+ * no JSON) — or `"too_large"` over `maxBytes`.
+ */
+export async function readText(
+  request: Request,
+  maxBytes: BodyCap,
+): Promise<string | null | "too_large"> {
+  const bytes = await readBytes(request, maxBytes);
+  if (bytes === null || bytes === "too_large") return bytes;
+  try {
+    return new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(
+      bytes,
+    );
   } catch {
     return null;
   }

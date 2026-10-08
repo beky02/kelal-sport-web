@@ -28,6 +28,16 @@ export const TERMINAL_CALLS = {
     api: "/v1/retail/terminal/token",
     signed: true,
   },
+  /**
+   * `createSlipCode` (F8cc): Get code, signed over the exact body, which the
+   * route forwards byte for byte; 30 per terminal per 10 minutes.
+   */
+  slipCodes: {
+    route: "/api/terminal/slip-codes",
+    method: "POST",
+    api: "/v1/retail/slip-codes",
+    signed: true,
+  },
 } as const;
 
 export type TerminalCall = (typeof TERMINAL_CALLS)[keyof typeof TERMINAL_CALLS];

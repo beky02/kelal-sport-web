@@ -82,3 +82,29 @@ export interface TerminalConfigView {
    */
   rules: BettingRules | null;
 }
+
+/**
+ * A slip to turn into a slip code (F8cc, C19 §4.2): the picks on sale, each
+ * at the odds the kiosk showed, and the stake typed as a hint for the
+ * counter. Decimal strings throughout (FD4).
+ */
+export interface SlipCodeRequest {
+  betType: "single" | "multiple" | "system";
+  /** `[k]` for a system bet; empty for any other. */
+  systemSizes: number[];
+  legs: Array<{ outcomeId: string; odds: string }>;
+  /** The total stake as typed (`"50.00"`), or null to send the picks alone. */
+  stakeHint: string | null;
+}
+
+/** The slip code the API made (`SlipCodeCreated`), as the kiosk shows it. */
+export interface SlipCodeReceipt {
+  /** Eight digits: what the counter types. */
+  code: string;
+  /** The code grouped for reading, `4829 1735`: never other digits than `code`'s. */
+  display: string;
+  /** ISO UTC. */
+  expiresAt: string;
+  /** What the QR code encodes. */
+  qr: string;
+}

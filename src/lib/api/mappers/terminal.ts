@@ -1,5 +1,7 @@
 import type {
   ActivationForm,
+  SlipCodeReceipt,
+  SlipCodeRequest,
   TerminalActivation,
   TerminalInfo,
 } from "@/features/terminal/types";
@@ -7,6 +9,8 @@ import type { components, operations } from "@/lib/api/schema";
 
 type ActivateRequest = components["schemas"]["TerminalActivateRequest"];
 type Activation = components["schemas"]["TerminalActivation"];
+type SlipCodeCreate = components["schemas"]["SlipCodeCreate"];
+type SlipCodeCreated = components["schemas"]["SlipCodeCreated"];
 type TerminalSelf =
   operations["getTerminalSelf"]["responses"][200]["content"]["application/json"];
 
@@ -46,4 +50,42 @@ export const toTerminalInfo = (self: TerminalSelf): TerminalInfo => ({
   },
   idleResetSeconds: self.idle_reset_seconds ?? null,
   codeDisplaySeconds: self.code_display_seconds ?? null,
+});
+
+/**
+ * The slip as `POST /v1/retail/slip-codes` takes it (F8cc). Made in the
+ * browser, which signs the exact text it sends (D3; F8b decision 2), so the
+ * keys come in the contract's order and what is empty is left out.
+ */
+export const toSlipCodeCreate = (request: SlipCodeRequest): SlipCodeCreate => ({
+  bet_type: request.betType,
+  ...(request.systemSizes.length > 0
+    ? { system_sizes: request.systemSizes }
+    : {}),
+  legs: request.legs.map((leg) => ({
+    outcome_id: leg.outcomeId,
+    odds: leg.odds,
+  })),
+  ...(request.stakeHint !== null ? { stake_hint: request.stakeHint } : {}),
+});
+
+/** `4829 1735`: eight digits in two groups of four (C19 §4.2). */
+const grouped = (code: string) => `${code.slice(0, 4)} ${code.slice(4)}`;
+
+/**
+ * The code the API made. `display` is shown as sent when its digits are the
+ * code's, so it can never show a number other than the one the counter
+ * types; anything else is the code grouped here.
+ */
+export const toSlipCodeReceipt = (
+  created: SlipCodeCreated,
+): SlipCodeReceipt => ({
+  code: created.code,
+  display:
+    created.display.replace(/\s/g, "") === created.code &&
+    /^[\d ]+$/.test(created.display)
+      ? created.display
+      : grouped(created.code),
+  expiresAt: created.expires_at,
+  qr: created.qr,
 });
