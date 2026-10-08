@@ -74,3 +74,7 @@ Out (do not build here):
   forgotten too late and wiping the new player's) is fixed and re-checked. Fast gate: `pnpm check`,
   build, host split, drift, the slip screens; the full 652-screen suite was not run (the user asked for
   fast tests). Follow-ups: drop the dormant `mode`/`systemK` setters; per-slip booking errors.
+- 2026-10-08, the user's review: the slip's own "Bet slip" title and count are gone from view on both
+  sites (the panel's tab and the slip tabs say both); the title stays a heading for screen readers
+  (`BetSlipHeader`; `BetSlip.test.tsx` › "keeps the slip's title for screen readers only…"). Slip screens:
+  80 pass.

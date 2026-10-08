@@ -93,6 +93,17 @@ describe("BetSlip", () => {
     expect(screen.getByText("Total odds").closest(".border")).toBeNull();
   });
 
+  it("keeps the slip's title for screen readers only, with no count beside it (the user's review, 2026-10-08)", () => {
+    seedReferenceSlip();
+    render(<BetSlip />);
+    const heading = screen.getByRole("heading", { name: "Bet slip" });
+    expect(heading).toHaveClass("sr-only");
+    // The counts are the tabs'.
+    expect(
+      screen.getByRole("button", { name: "Slip 1, 3 selections" }),
+    ).toBeInTheDocument();
+  });
+
   it("invites a first selection when empty", () => {
     render(<BetSlip />);
     expect(screen.getByText("Your bet slip is empty")).toBeInTheDocument();
