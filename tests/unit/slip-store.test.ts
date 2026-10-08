@@ -363,12 +363,15 @@ describe("the slip store: three slips, multiple only (F3c)", () => {
   it("sends a ticket, a refusal or no answer to the slip that asked, after a switch (AC-4)", () => {
     slip().placementSent(ATTEMPT("k1"), "p1");
     slip().switchSlip(2);
+    // The slip on screen holds the same pick: the refusal's price isn't its.
+    slip().toggleSelection(pick("m2", "1.80"));
     slip().placementRefused("k1", REFUSAL, {
       odds: [{ outcomeId: "oc_m2", sent: "1.80", current: "1.55" }],
       closed: [],
     });
     // Nothing reached the slip on screen.
     expect(slip().placement.refused).toBeNull();
+    expect(selection("oc_m2").currentOdds).toBe("1.80");
 
     slip().switchSlip(0);
     expect(slip().placement.refused?.key).toBe("k1");
@@ -413,9 +416,10 @@ describe("the slip store: three slips, multiple only (F3c)", () => {
   it("moves or suspends a pick in every slip that holds it (AC-5)", () => {
     slip().switchSlip(1);
     slip().toggleSelection(pick("m1", "2.10"));
-    slip().switchSlip(2);
+    // Slip 2, on screen, and Slip 1, parked, both hold m1.
     slip().applyOddsUpdate(ref("m1"), "2.40");
     slip().applyEventSuspension("m2", true);
+    expect(selection("oc_m1").currentOdds).toBe("2.40");
     slip().switchSlip(0);
     expect(selection("oc_m1").currentOdds).toBe("2.40");
     expect(selection("oc_m2").suspended).toBe(true);
@@ -435,5 +439,42 @@ describe("the slip store: three slips, multiple only (F3c)", () => {
     expect(slip().stake).toBe("10");
     slip().switchSlip(0);
     expect(slip().stake).toBe("");
+  });
+
+  it("forgets only another player's placing, in any slip, and keeps this player's own (review Q1/M1)", () => {
+    // A's bet, unanswered, parked in Slip 1; B signs in and places in Slip 2.
+    slip().placementSent(ATTEMPT("kA"), "A");
+    slip().placementUnanswered("kA");
+    slip().switchSlip(1);
+    slip().placementSent(ATTEMPT("kB"), "B");
+
+    slip().forgetOtherPlayers("B");
+    expect(slip().placement.sending?.key).toBe("kB");
+    slip().placementUnanswered("kB");
+    expect(slip().placement.unconfirmed?.key).toBe("kB");
+    slip().switchSlip(0);
+    expect(slip().placement).toMatchObject({
+      owner: null,
+      sending: null,
+      unconfirmed: null,
+    });
+  });
+
+  it("starts Slip 1 at the minimum again after a reset (review M2)", () => {
+    slip().startStake("10.00");
+    slip().setStake("50");
+    slip().resetAll();
+    expect(slip().active).toBe(0);
+    expect(slip().stake).toBe("10");
+    slip().switchSlip(2);
+    expect(slip().stake).toBe("10");
+  });
+
+  it("changes nothing for a price or match no slip holds (review Q4)", () => {
+    const before = slip();
+    slip().applyOddsUpdate(ref("m9"), "5.00");
+    slip().applyEventSuspension("m9", true);
+    slip().forgetOtherPlayers("p1");
+    expect(slip()).toBe(before);
   });
 });

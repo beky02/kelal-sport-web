@@ -164,6 +164,12 @@ interface BetSlipState extends SlipState {
   active: number;
   /** Every slip; the one at `active` is stale — the store's fields are it. */
   slips: SlipState[];
+  /**
+   * The rule set's minimum, once the rules have arrived: each slip starts at
+   * it the first time it is on screen (`startStake`, `switchSlip`,
+   * `resetAll`).
+   */
+  minStake: string | null;
 
   /** Puts slip `n` on screen and parks the one that was. */
   switchSlip: (n: number) => void;
@@ -195,7 +201,11 @@ interface BetSlipState extends SlipState {
   setMode: (mode: BetSlipMode) => void;
   /** From the keyboard: keeps digits and up to two decimals. */
   setStake: (raw: string) => void;
-  /** The rule set's minimum, once per slip (`"10.00"` reads `"10"`). */
+  /**
+   * The rules arrived with this minimum: remembered for every slip, and the
+   * slip on screen starts at it unless its stake was set (`"10.00"` reads
+   * `"10"`).
+   */
   startStake: (minStake: string) => void;
   setSystemK: (k: number) => void;
 
@@ -238,8 +248,14 @@ interface BetSlipState extends SlipState {
   placementPlaced: (key: string, receipt: BetReceipt) => void;
   /** Back from the ticket to the same picks (Keep selections). */
   dismissReceipt: () => void;
-  /** Another player is signed in: nothing of the last one's placing stays, in any slip. */
+  /** Nothing of anyone's placing stays, in any slip. */
   forgetPlacement: () => void;
+  /**
+   * `playerId` is signed in: every slip's placing that was someone else's
+   * goes; this player's own — a bet on its way, an unconfirmed one, a ticket
+   * — stays wherever it is (review Q1/M1).
+   */
+  forgetOtherPlayers: (playerId: string) => void;
 
   /** Realtime: a price moved. Updates every slip in place, keeping `initialOdds`. */
   applyOddsUpdate: (ref: OutcomeRef, odds: string | null) => void;
@@ -325,6 +341,18 @@ function inEverySlip(
   return next;
 }
 
+/** A slip's starting stake: the minimum, once, unless it has one. */
+const started = (
+  slip: SlipState,
+  minStake: string | null,
+): Partial<SlipState> =>
+  minStake && !slip.stakeStarted && slip.stake === ""
+    ? { stake: minStake.replace(/\.00$/, ""), stakeStarted: true }
+    : {};
+
+/** Only a real change notifies: an update for no slip changes nothing. */
+const changes = (next: object) => Object.keys(next).length > 0;
+
 const sending = (key: string) => (slip: SlipState) =>
   slip.placement.sending?.key === key;
 
@@ -343,23 +371,25 @@ export const useBetSlipStore = create<BetSlipState>()((set, get) => ({
   index: {},
   active: 0,
   slips: Array.from({ length: SLIP_COUNT }, () => EMPTY_SLIP),
+  minStake: null,
 
   switchSlip: (n) => {
     const state = get();
     if (n === state.active || n < 0 || n >= SLIP_COUNT) return;
     const slips = [...state.slips];
     slips[state.active] = onScreen(state);
-    const next = slips[n];
+    const next = { ...slips[n], ...started(slips[n], state.minStake) };
     set({ ...next, index: reindex(next.selections), active: n, slips });
   },
 
   resetAll: () =>
-    set({
+    set((state) => ({
       ...EMPTY_SLIP,
+      ...started(EMPTY_SLIP, state.minStake),
       index: {},
       active: 0,
       slips: Array.from({ length: SLIP_COUNT }, () => EMPTY_SLIP),
-    }),
+    })),
 
   toggleSelection: (selection) => {
     const { selections, placement } = get();
@@ -447,12 +477,8 @@ export const useBetSlipStore = create<BetSlipState>()((set, get) => ({
       stakeStarted: true,
       placement: changed(get().placement),
     }),
-  startStake: (minStake) => {
-    // Never over a stake the slip has, or had and the customer cleared.
-    const { stakeStarted, stake } = get();
-    if (stakeStarted || stake !== "") return;
-    set({ stake: minStake.replace(/\.00$/, ""), stakeStarted: true });
-  },
+  startStake: (minStake) =>
+    set((state) => ({ minStake, ...started(onScreen(state), minStake) })),
   setSystemK: (systemK) =>
     set({ systemK, placement: changed(get().placement) }),
 
@@ -574,38 +600,47 @@ export const useBetSlipStore = create<BetSlipState>()((set, get) => ({
   forgetPlacement: () =>
     set(inEverySlip(get(), () => ({ placement: NO_PLACEMENT }))),
 
-  applyOddsUpdate: (ref, odds) =>
-    set(
-      inEverySlip(get(), (slip) =>
-        slip.selections.some((s) => sameRef(s, ref))
-          ? {
-              selections: slip.selections.map((s) =>
-                sameRef(s, ref)
-                  ? {
-                      ...s,
-                      // A closed price suspends the leg rather than pricing it at zero.
-                      suspended: odds === null,
-                      currentOdds: odds ?? s.currentOdds,
-                    }
-                  : s,
-              ),
-            }
-          : null,
-      ),
-    ),
+  forgetOtherPlayers: (playerId) => {
+    const next = inEverySlip(get(), ({ placement }) =>
+      placement.owner !== null && placement.owner !== playerId
+        ? { placement: NO_PLACEMENT }
+        : null,
+    );
+    if (changes(next)) set(next);
+  },
 
-  applyEventSuspension: (eventId, suspended) =>
-    set(
-      inEverySlip(get(), (slip) =>
-        slip.selections.some((s) => s.eventId === eventId)
-          ? {
-              selections: slip.selections.map((s) =>
-                s.eventId === eventId ? { ...s, suspended } : s,
-              ),
-            }
-          : null,
-      ),
-    ),
+  applyOddsUpdate: (ref, odds) => {
+    const next = inEverySlip(get(), (slip) =>
+      slip.selections.some((s) => sameRef(s, ref))
+        ? {
+            selections: slip.selections.map((s) =>
+              sameRef(s, ref)
+                ? {
+                    ...s,
+                    // A closed price suspends the leg rather than pricing it at zero.
+                    suspended: odds === null,
+                    currentOdds: odds ?? s.currentOdds,
+                  }
+                : s,
+            ),
+          }
+        : null,
+    );
+    if (changes(next)) set(next);
+  },
+
+  applyEventSuspension: (eventId, suspended) => {
+    const next = inEverySlip(get(), (slip) =>
+      slip.selections.some((s) => s.eventId === eventId)
+        ? {
+            selections: slip.selections.map((s) =>
+              s.eventId === eventId ? { ...s, suspended } : s,
+            ),
+          }
+        : null,
+    );
+    if (changes(next)) set(next);
+  },
 }));
 
 /** How many picks each slip holds, for its tab. */

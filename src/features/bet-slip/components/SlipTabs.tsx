@@ -30,7 +30,7 @@ export function SlipTabs() {
           // "Slip 1, 2 selections": the badge's number never runs into the label.
           aria-label={t.t("betSlip.slipNAria", { n: n + 1, count })}
           onClick={() => switchSlip(n)}
-          className="border-divider text-muted aria-pressed:border-accent aria-pressed:bg-raised aria-pressed:text-text font-body flex h-11 cursor-pointer items-center justify-center gap-1.5 rounded-md border bg-transparent text-[13px] font-bold"
+          className="border-divider text-muted aria-pressed:border-accent aria-pressed:ring-accent aria-pressed:bg-raised aria-pressed:ring-1 aria-pressed:text-text font-body flex h-11 cursor-pointer items-center justify-center gap-1.5 rounded-md border bg-transparent text-[13px] font-bold"
         >
           {t.t("betSlip.slipN", { n: n + 1 })}
           {count > 0 && <CountBadge>{count}</CountBadge>}

@@ -599,6 +599,32 @@ describe("booking the slip", () => {
     expect(sent[0].body).toMatchObject({ outcomeIds: ["oc_m3_x", "oc_m4"] });
   });
 
+  it("puts a code that arrives while another slip is on screen into the slip that asked (F3c AC-4, review Q2)", async () => {
+    let release!: () => void;
+    const held = new Promise<void>((resolve) => (release = resolve));
+    vi.spyOn(globalThis, "fetch").mockImplementation(async () => {
+      await held;
+      return Response.json(RECEIPT(), { status: 201 });
+    });
+    render(<BetSlip />);
+    await userEvent.click(screen.getByRole("button", { name: "Book bet" }));
+
+    await userEvent.click(screen.getByRole("button", { name: /^Slip 2/ }));
+    await act(async () => release());
+    await waitFor(() =>
+      expect(
+        useBetSlipStore.getState().slips[0].bookingIntent?.receipt?.code,
+      ).toBe(RECEIPT().code),
+    );
+    expect(useBetSlipStore.getState().bookingIntent).toBeNull();
+
+    // Back on Slip 1, the code it asked for opens.
+    await userEvent.click(screen.getByRole("button", { name: /^Slip 1/ }));
+    expect(
+      await screen.findByRole("dialog", { name: "Booking code" }),
+    ).toHaveTextContent(RECEIPT().code);
+  });
+
   it("keeps a code booked in Slip 1 with Slip 1 (F3c AC-4)", async () => {
     api(() => [201, RECEIPT()]);
     render(<BetSlip />);

@@ -661,7 +661,9 @@ the user's review.)
 
 The tab label is the user's choice ("ትኬት {n}", the slip's own word). All composed; all need review.
 Removed: `betSlip.alerts.useSingle` (no Single to switch to), `booking.sizesNote` (the slip never prices
-a system).
+a system). For the reviewer (F3c review U3): ትኬት now names the tabs ("ትኬት 1"), the placed ticket and
+the slip itself ("ትኬት አስቀምጥ", "per ticket"); on the placed screen "ትኬት 1" sits above the ticket's own
+"ትኬት". The user chose it; confirm it reads clearly or suggest a word for the tabs.
 
 | Key                           | Amharic                                        | Composed from                                                          |
 | ----------------------------- | ---------------------------------------------- | ---------------------------------------------------------------------- |

@@ -36,7 +36,8 @@ export function BookingNotice({
   // was saved as a system, or as singles of more than one pick.
   let sizesNote: string | null = null;
   const sizes = notice.systemSizes;
-  if (priced && sizes && notice.added > 0) {
+  // One pick left is priced as a single: nothing to say about a multiple.
+  if (priced && sizes && notice.added > 1) {
     sizesNote = t.t("booking.sizesNoteMultiple", {
       sizes: sizes.join(t.t("booking.sizesSeparator")),
     });
