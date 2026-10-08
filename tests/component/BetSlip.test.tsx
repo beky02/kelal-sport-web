@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { screen, within } from "@testing-library/react";
+import { act, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { BetSlip } from "@/features/bet-slip/components/BetSlip";
 import {
@@ -51,7 +51,7 @@ const netPayout = () => screen.getByTestId("net-payout");
 
 describe("BetSlip", () => {
   beforeEach(() => {
-    useBetSlipStore.getState().clear();
+    useBetSlipStore.getState().resetAll();
     useBetSlipStore.setState({ mode: "multiple", stake: "100", systemK: 2 });
     useUiStore.setState({ lang: "en" });
     // A player's slip reads the balance: Prism's player's, from `/api/wallet`.
@@ -413,23 +413,97 @@ describe("BetSlip", () => {
     });
   });
 
-  it("refuses to combine two picks from one match", async () => {
+  it("offers no Single or System: one pick is a single, two a multiple (F3c AC-1)", () => {
+    useBetSlipStore
+      .getState()
+      .toggleSelection(pick("m3", "1", "1.62", "Man City"));
+    render(<BetSlip />);
+    for (const name of ["Single", "Multiple", "System"]) {
+      expect(screen.queryByRole("button", { name })).not.toBeInTheDocument();
+    }
+    // One pick is priced as a single: its own odds are the total.
+    expect(screen.getByText("Total odds").closest("div")).toHaveTextContent(
+      "Total odds1.62",
+    );
+    act(() =>
+      useBetSlipStore
+        .getState()
+        .toggleSelection(pick("m4", "X", "3.05", "Draw")),
+    );
+    // 1.62 × 3.05 = 4.941, floored to two decimals (D1.11).
+    expect(screen.getByText("Total odds").closest("div")).toHaveTextContent(
+      "Total odds4.94",
+    );
+  });
+
+  it("replaces a match's pick when another price of it is tapped, and says nothing (F3c AC-2)", () => {
     const store = useBetSlipStore.getState();
     store.toggleSelection(pick("m3", "1", "1.62", "Man City"));
     store.toggleSelection(pick("m3", "X", "4.10", "Draw"));
     render(<BetSlip />);
+    expect(screen.queryByText("Man City")).not.toBeInTheDocument();
+    expect(screen.getByText("Draw")).toBeInTheDocument();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
 
+  it("says a loaded code's two picks of one match can't be combined, with no Single to switch to", async () => {
+    useBetSlipStore.getState().replaceSlip({
+      selections: [
+        pick("m3", "1", "1.62", "Man City"),
+        pick("m3", "X", "4.10", "Draw"),
+      ],
+      mode: "single",
+      systemK: null,
+      stake: null,
+      notice: {
+        code: "7KQ2M9X",
+        added: 2,
+        notAdded: [],
+        systemSizes: null,
+        savedAs: "single",
+      },
+    });
+    render(<BetSlip />);
     expect(await screen.findByRole("alert")).toHaveTextContent(
-      "Can’t combine these picks",
+      "Two picks are from the same match. Remove one of them.",
     );
+    expect(screen.queryByRole("button", { name: "Use Single" })).toBeNull();
     expect(
       screen.getByRole("button", { name: "Remove same-match pick" }),
     ).toBeDisabled();
+  });
 
-    await userEvent.click(screen.getByRole("button", { name: "Use Single" }));
+  it("keeps three slips: each its own picks and stake, its count on its tab (F3c AC-3)", async () => {
+    seedReferenceSlip();
+    render(<BetSlip />);
+    expect(screen.getByRole("button", { name: /^Slip 1/ })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
     expect(
-      await screen.findByRole("button", { name: /Place bet/ }),
-    ).toBeEnabled();
+      screen.getByRole("button", { name: "Slip 1, 3 selections" }),
+    ).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: /^Slip 2/ }));
+    expect(screen.getByText("Your bet slip is empty")).toBeInTheDocument();
+    act(() =>
+      useBetSlipStore
+        .getState()
+        .toggleSelection(pick("m9", "1", "2.00", "Ajax")),
+    );
+    expect(
+      screen.getByRole("button", { name: "Slip 2, 1 selections" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Slip 1, 3 selections" }),
+    ).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: /^Slip 1/ }));
+    expect(screen.getByText("Man City")).toBeInTheDocument();
+    expect(screen.queryByText("Ajax")).not.toBeInTheDocument();
+    expect(screen.getByRole("textbox", { name: "Total stake" })).toHaveValue(
+      "100",
+    );
   });
 
   // Placing — the request, the engine's ticket, its barcode and every refusal —

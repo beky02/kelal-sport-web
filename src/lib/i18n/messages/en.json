@@ -133,8 +133,7 @@
       "oddsChangedTitle": "Odds changed",
       "oddsChangedBody": "Accept the new odds to continue.",
       "conflictTitle": "Can’t combine these picks",
-      "conflictBody": "Two picks are from the same match. Remove one or switch to Single.",
-      "useSingle": "Use Single",
+      "conflictBody": "Two picks are from the same match. Remove one of them.",
       "suspendedTitle": "Selection suspended",
       "suspendedBody": "Betting on this match is paused. Remove it to continue.",
       "removeIt": "Remove",
@@ -209,7 +208,10 @@
     "taxRateStakeOver": "{tax} · {rate} of the whole stake once it’s over {amount}",
     "paused": "Betting paused",
     "minStake": "Minimum stake {amount}",
-    "potentialWin": "Potential win"
+    "potentialWin": "Potential win",
+    "slipN": "Slip {n}",
+    "slipsAria": "Slips",
+    "slipNAria": "Slip {n}, {count} selections"
   },
   "clock": {
     "eat": "EAT · UTC+3",
@@ -856,7 +858,6 @@
     "loaded": "Booking {code} is in your slip.",
     "notAddedTitle": "Not added, no longer available:",
     "notAddedLeg": "{event} · {market} · {pick}: {reason}",
-    "sizesNote": "This code is a {sizes} system; the slip prices {k}/{n}.",
     "dismiss": "Dismiss",
     "loadIntoSlip": "Load into bet slip",
     "replacesSlip": "Loading replaces what's in your slip now.",
@@ -892,11 +893,12 @@
       "notFound": "No booking with this code."
     },
     "nothingAdded": "Nothing in booking {code} can be added now.",
-    "sizesNoteMultiple": "This code is a {sizes} system; with the selections left, the slip can't price a system.",
+    "sizesNoteMultiple": "This code is a {sizes} system; the slip prices it as one multiple.",
     "sizesSeparator": ", ",
     "notFoundBodyNoCode": "Check the code and try again.",
     "booked": "Booked",
-    "openSlip": "Open bet slip"
+    "openSlip": "Open bet slip",
+    "singlesNote": "This code was saved as singles; the slip prices it as one multiple."
   },
   "ticket": {
     "checkTitle": "Check a ticket",

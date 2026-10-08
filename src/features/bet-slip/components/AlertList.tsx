@@ -93,17 +93,17 @@ export function problemAlert(
   }
 }
 
-/** Two picks from one match can't be combined (BET-02): singles can. */
-export function conflictAlert(
-  t: Translator,
-  useSingles: () => void,
-): SlipAlert {
+/**
+ * Two picks from one match can't be combined (BET-02). A tap replaces the
+ * match's pick (F3c), so only a loaded code can bring two; removing one is
+ * the player's call, so there is no button.
+ */
+export function conflictAlert(t: Translator): SlipAlert {
   return {
     id: "conflict",
     tone: "error",
     title: t.t("betSlip.alerts.conflictTitle"),
     body: t.t("betSlip.alerts.conflictBody"),
-    action: { label: t.t("betSlip.alerts.useSingle"), onClick: useSingles },
   };
 }
 

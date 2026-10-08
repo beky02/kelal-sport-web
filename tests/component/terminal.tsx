@@ -180,8 +180,8 @@ export function setUpTerminalTests() {
     // A kiosk starts clean: no picks, no language chosen, at its start page,
     // and its catalogue sent to its own routes, as its root layout says
     // (`<html data-api>`).
-    useBetSlipStore.getState().clear();
-    useBetSlipStore.setState({ stake: "" }); // a fresh page: no stake yet
+    // A fresh page: three empty slips, Slip 1 on screen, no stake yet.
+    useBetSlipStore.getState().resetAll();
     useKioskStore.getState().reset();
     address.go("/");
     document.documentElement.dataset.api = "/api/terminal/";

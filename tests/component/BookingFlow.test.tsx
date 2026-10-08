@@ -92,7 +92,7 @@ async function loadCode(code: string) {
 
 beforeEach(() => {
   sent = [];
-  useBetSlipStore.getState().clear();
+  useBetSlipStore.getState().resetAll();
   useBetSlipStore.setState({ mode: "multiple", stake: "100", systemK: 2 });
   useUiStore.setState({ lang: "en", clock: "eat", calendar: "gregorian" });
 });
@@ -207,7 +207,7 @@ describe("loading a booking code in the slip", () => {
     expect(useBetSlipStore.getState().stake).toBe("100");
   });
 
-  it("names the system the slip prices when it isn't the code's", async () => {
+  it("loads a code saved as a system as one multiple, and says so (F3c AC-1)", async () => {
     const patent = BOOKING();
     patent.betType = "system";
     patent.systemSizes = [1, 2, 3];
@@ -221,7 +221,25 @@ describe("loading a booking code in the slip", () => {
     await loadCode("7KQ2M9X");
 
     expect(await screen.findByTestId("booking-notice")).toHaveTextContent(
-      "This code is a 1, 2, 3 system; the slip prices 2/3.",
+      "This code is a 1, 2, 3 system; the slip prices it as one multiple.",
+    );
+    expect(useBetSlipStore.getState().mode).toBe("multiple");
+  });
+
+  it("loads a code saved as singles as one multiple, and says so (F3c AC-1)", async () => {
+    const singles = BOOKING();
+    singles.betType = "single";
+    singles.legs = ["a", "b"].map((id) => ({
+      ...singles.legs[0],
+      outcomeId: `oc_${id}`,
+      eventId: `fx_${id}`,
+    }));
+    api(() => [200, singles]);
+    render(<BetSlip />);
+    await loadCode("7KQ2M9X");
+
+    expect(await screen.findByTestId("booking-notice")).toHaveTextContent(
+      "This code was saved as singles; the slip prices it as one multiple.",
     );
   });
 
@@ -239,25 +257,7 @@ describe("loading a booking code in the slip", () => {
     await loadCode("7KQ2M9X");
 
     expect(await screen.findByTestId("booking-notice")).toHaveTextContent(
-      "This code is a 2 system; with the selections left, the slip can't price a system.",
-    );
-  });
-
-  it("says nothing about the system when the slip prices the code's own", async () => {
-    const system = BOOKING();
-    system.betType = "system";
-    system.systemSizes = [2];
-    system.legs = ["a", "b", "c"].map((id) => ({
-      ...system.legs[0],
-      outcomeId: `oc_${id}`,
-      eventId: `fx_${id}`,
-    }));
-    api(() => [200, system]);
-    render(<BetSlip />);
-    await loadCode("7KQ2M9X");
-
-    expect(await screen.findByTestId("booking-notice")).not.toHaveTextContent(
-      "system",
+      "This code is a 2 system; the slip prices it as one multiple.",
     );
   });
 
@@ -583,19 +583,39 @@ describe("booking the slip", () => {
     );
   });
 
-  it("can't book two picks from one match", async () => {
+  it("books the second pick of a match in place of the first: a tap replaces it (F3c AC-2)", async () => {
     // Same event as Man City, a different outcome.
     useBetSlipStore.getState().toggleSelection({
       ...pick("m3", "4.10", "Draw again"),
       outcomeId: "oc_m3_x",
     });
-    expect(useBetSlipStore.getState().selections).toHaveLength(3);
+    expect(
+      useBetSlipStore.getState().selections.map((s) => s.outcomeId),
+    ).toEqual(["oc_m3_x", "oc_m4"]);
     api(() => [201, RECEIPT()]);
     render(<BetSlip />);
-    const book = screen.getByRole("button", { name: "Book bet" });
-    expect(book).toHaveAttribute("aria-disabled", "true");
-    await userEvent.click(book);
-    expect(sent).toHaveLength(0);
+    await userEvent.click(screen.getByRole("button", { name: "Book bet" }));
+    await screen.findByRole("dialog", { name: "Booking code" });
+    expect(sent[0].body).toMatchObject({ outcomeIds: ["oc_m3_x", "oc_m4"] });
+  });
+
+  it("keeps a code booked in Slip 1 with Slip 1 (F3c AC-4)", async () => {
+    api(() => [201, RECEIPT()]);
+    render(<BetSlip />);
+    await userEvent.click(screen.getByRole("button", { name: "Book bet" }));
+    await userEvent.click(
+      within(
+        await screen.findByRole("dialog", { name: "Booking code" }),
+      ).getByRole("button", { name: "Done" }),
+    );
+
+    await userEvent.click(screen.getByRole("button", { name: /^Slip 2/ }));
+    expect(
+      screen.queryByRole("button", { name: "Booked" }),
+    ).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: /^Slip 1/ }));
+    expect(screen.getByRole("button", { name: "Booked" })).toBeInTheDocument();
+    expect(sent).toHaveLength(1);
   });
 
   it("hides booking when the tenant turns booking codes off", () => {

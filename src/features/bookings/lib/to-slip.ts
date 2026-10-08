@@ -15,6 +15,11 @@ export interface BookingNotice {
    * may fall back when legs drop out, so it says so when that differs.
    */
   systemSizes: number[] | null;
+  /**
+   * The bet type the code was saved as. The slip prices every code as one
+   * multiple (F3c), and says so when it was saved as singles.
+   */
+  savedAs: BetSlipMode;
 }
 
 /** The code's stake hint, when it is an amount worth starting from. */
@@ -90,6 +95,7 @@ export function slipFromBooking(booking: Booking): SlipFromBooking {
       added: selections.length,
       notAdded,
       systemSizes: sizes.length > 0 ? sizes : null,
+      savedAs: booking.betType,
     },
   };
 }

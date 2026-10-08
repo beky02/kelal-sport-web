@@ -233,7 +233,7 @@ export function SlipAlerts({
   }
 
   if (totals.hasConflict) {
-    alerts.push(conflictAlert(t, () => setMode("single")));
+    alerts.push(conflictAlert(t));
   }
 
   if (totals.suspendedSelection) {

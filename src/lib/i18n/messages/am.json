@@ -133,8 +133,7 @@
       "oddsChangedTitle": "ኦድ ተቀይሯል",
       "oddsChangedBody": "ለመቀጠል አዲሱን ኦድ ይቀበሉ።",
       "conflictTitle": "እነዚህን ምርጫዎች ማጣመር አይቻልም",
-      "conflictBody": "ሁለት ምርጫዎች ከአንድ ጨዋታ ናቸው። አንዱን ያስወግዱ ወይም ነጠላ ይምረጡ።",
-      "useSingle": "ነጠላ",
+      "conflictBody": "ሁለት ምርጫዎች ከአንድ ጨዋታ ናቸው። አንዱን ያስወግዱ።",
       "suspendedTitle": "ምርጫው ታግዷል",
       "suspendedBody": "በዚህ ጨዋታ ላይ ውርርድ ቆሟል። ለመቀጠል ያስወግዱት።",
       "removeIt": "አስወግድ",
@@ -209,7 +208,10 @@
     "taxRateStakeOver": "{tax} · ጠቅላላ የውርርድ መጠኑ ከ{amount} ሲበልጥ {rate}",
     "paused": "ውርርድ ቆሟል",
     "minStake": "ዝቅተኛው የውርርድ መጠን {amount}",
-    "potentialWin": "ሊያሸንፉ የሚችሉት"
+    "potentialWin": "ሊያሸንፉ የሚችሉት",
+    "slipN": "ትኬት {n}",
+    "slipsAria": "ትኬቶች",
+    "slipNAria": "ትኬት {n}፣ {count} ምርጫዎች"
   },
   "clock": {
     "eat": "EAT (UTC+3)",
@@ -856,7 +858,6 @@
     "loaded": "የትኬት ኮድ {code} ትኬትዎ ውስጥ ገብቷል።",
     "notAddedTitle": "አልተጨመሩም፤ ከእንግዲህ አይገኙም፦",
     "notAddedLeg": "{event} · {market} · {pick}፦ {reason}",
-    "sizesNote": "ይህ ኮድ የ{sizes} ሲስተም ነው፤ ትኬቱ {k}/{n} ያሰላል።",
     "dismiss": "ዝጋ",
     "loadIntoSlip": "ወደ ትኬት ጫን",
     "replacesSlip": "መጫን አሁን ትኬትዎ ውስጥ ያለውን ይተካል።",
@@ -892,11 +893,12 @@
       "notFound": "በዚህ ኮድ የተቀመጠ ትኬት የለም።"
     },
     "nothingAdded": "ከትኬት ኮድ {code} አሁን ምንም መጨመር አይቻልም።",
-    "sizesNoteMultiple": "ይህ ኮድ የ{sizes} ሲስተም ነው፤ በቀሩት ምርጫዎች ትኬቱ ሲስተም ማስላት አይችልም።",
+    "sizesNoteMultiple": "ይህ ኮድ የ{sizes} ሲስተም ነው፤ ትኬቱ እንደ አንድ ጥምር ያሰላዋል።",
     "sizesSeparator": "፣ ",
     "notFoundBodyNoCode": "ኮዱን ያረጋግጡና እንደገና ይሞክሩ።",
     "booked": "ተቀምጧል",
-    "openSlip": "ትኬቱን ክፈት"
+    "openSlip": "ትኬቱን ክፈት",
+    "singlesNote": "ይህ ኮድ በነጠላ ተቀምጧል፤ ትኬቱ እንደ አንድ ጥምር ያሰላዋል።"
   },
   "ticket": {
     "checkTitle": "ትኬት ያረጋግጡ",

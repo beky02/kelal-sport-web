@@ -59,13 +59,10 @@ export function useCreateBooking() {
   const mutation = useMutation({
     mutationFn: ({ request, key }: { request: BookingRequest; key: string }) =>
       createBooking(request, key),
-    onSuccess: (receipt, { request, key }) =>
-      setIntent({
-        signature: signatureOf(request),
-        key,
-        receipt,
-        receivedAt: Date.now(),
-      }),
+    // To the slip that asked, by its key, even if another is on screen now
+    // (F3c).
+    onSuccess: (receipt, { key }) =>
+      useBetSlipStore.getState().bookingReceived(key, receipt),
   });
   const { mutate } = mutation;
 

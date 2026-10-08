@@ -13,7 +13,7 @@ import { usePlaceBet } from "../hooks/use-place-bet";
 import type { CtaAction } from "../lib/calculate";
 import { placeRequestFrom, samePrices, slipIsThatBet } from "../lib/placement";
 import { ownPlacement, useBetSlipStore } from "../stores/bet-slip.store";
-import { BetModeTabs } from "./BetModeTabs";
+import { SlipTabs } from "./SlipTabs";
 import { BetPlacedConfirmation } from "./BetPlacedConfirmation";
 import { BetSelectionRow } from "./BetSelectionRow";
 import { BetSlipHeader } from "./BetSlipHeader";
@@ -167,6 +167,8 @@ export function BetSlip({ onClose }: { onClose?: () => void }) {
     return (
       <div className="bg-ground flex w-full flex-col">
         <BetSlipHeader count={totals.count} onClose={onClose} />
+        {/* The other slips stay in reach while this one shows its ticket. */}
+        <SlipTabs />
         <BetPlacedConfirmation
           receipt={placement.receipt}
           onKeepSelections={dismissReceipt}
@@ -183,14 +185,7 @@ export function BetSlip({ onClose }: { onClose?: () => void }) {
     <div className="bg-ground flex w-full flex-col">
       <BetSlipHeader count={totals.count} onClose={onClose} />
 
-      {totals.count > 0 && (
-        <BetModeTabs
-          mode={totals.mode}
-          systemAvailable={totals.systemAvailable}
-          systemK={totals.systemK}
-          liveCount={totals.liveCount}
-        />
-      )}
+      <SlipTabs />
 
       <SlipAlerts
         totals={totals}

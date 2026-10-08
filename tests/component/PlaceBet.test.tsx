@@ -184,8 +184,7 @@ beforeEach(() => {
   meReads = 0;
   meHangs = false;
   push.mockClear();
-  slip().clear();
-  slip().forgetPlacement();
+  slip().resetAll();
   useBetSlipStore.setState({ mode: "multiple", stake: "100", systemK: 2 });
   useUiStore.setState({ lang: "en", clock: "eat", calendar: "gregorian" });
   useAuthStore.getState().close();
@@ -195,6 +194,21 @@ beforeEach(() => {
 afterEach(() => vi.restoreAllMocks());
 
 describe("placing the slip", () => {
+  it("places the slip on screen, and keeps its ticket with it when another slip is opened (F3c AC-4)", async () => {
+    bets([201, TICKET()]);
+    render(<BetSlip />);
+    await placeBet();
+    await screen.findByTestId("ticket-code");
+
+    await userEvent.click(screen.getByRole("button", { name: /^Slip 2/ }));
+    expect(screen.queryByTestId("ticket-code")).not.toBeInTheDocument();
+    expect(screen.getByText("Your bet slip is empty")).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: /^Slip 1/ }));
+    expect(screen.getByTestId("ticket-code")).toBeInTheDocument();
+    expect(sent).toHaveLength(1);
+  });
+
   it("shows the API's ticket and figures, not the preview's (AC-3)", async () => {
     // The engine's figures differ from the slip's preview on every line: its
     // stake tax, its bonus, its payout.
