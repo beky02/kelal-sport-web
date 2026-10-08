@@ -357,9 +357,10 @@ export function BetSlip({ onClose }: { onClose?: () => void }) {
         </>
       )}
 
-      {/* Somewhere to redeem a code: a guest with an empty slip is often someone
-          who was handed one. */}
-      {bookingCodes && (isGuest || totals.count === 0) && <LoadBookingCode />}
+      {/* Somewhere to redeem a code: an empty slip is often someone who was
+          handed one. A code replaces the slip, so it goes once there is a pick
+          (the user's review, 2026-10-08); `/b/{code}` still replaces one. */}
+      {bookingCodes && totals.count === 0 && <LoadBookingCode />}
     </div>
   );
 }

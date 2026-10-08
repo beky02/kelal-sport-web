@@ -173,7 +173,8 @@ retail is enabled.
   (`TerminalConfigView.rules`, D1.12): one brand-level shop rule set, the same in every shop (the user's
   decision, 2026-10-07). The view has no `betting`, so the online rule set can't reach the kiosk. Every
   figure is slipcalc's on those rules, as the player's slip shows them: total odds, the bonus where there
-  is one (the contract's shop set has none), the stake and the payout, with "Max win" and the tax note; no
+  is one (the contract's shop set has none) and the potential win, as plain rows under the stake (the
+  user's review, 2026-10-08: no cards), with "Max win" and the tax note; no
   tax lines. Above the picks are the slip's own alerts, shared with the player's slip (`AlertList`): two
   picks of one match (Use singles), a pick that can't be priced (Remove it), slipcalc's refusals with
   their fix as a tap (over the maximum; under the minimum is said at the stake field, 10.00 in the contract,
@@ -196,7 +197,8 @@ retail is enabled.
 - **No shop rule set.** A tenant whose config has no `retail_betting` shows the picks, the bet's modes,
   Book bet and Load code, and a notice, "Ask the shop staff what this slip pays." (the user's wording): no
   stake, no figure, never the online one's; a loaded code's hint is neither shown nor sent.
-- **Load booking code.** When `features.booking_codes` is enabled, the slip reads and re-prices the code via
+- **Load booking code.** Offered while the slip is empty (a code replaces the slip; the user's review,
+  2026-10-08). When `features.booking_codes` is enabled, the slip reads and re-prices the code via
   `/api/terminal/bookings/[code]`. Invalid codes stop in the browser; the route also validates before the
   upstream call, checks the activated terminal, and returns `no-store`. The shared booking notice names
   unavailable legs such as a match that has started.

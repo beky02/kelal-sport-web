@@ -488,24 +488,37 @@ describe("loading booking codes in the kiosk slip (F8ca AC-9)", () => {
     expect(call?.headers["Accept-Language"]).toBe("en");
   });
 
-  it("leaves the slip as it was when nothing in the code can be added, and says so", async () => {
+  it("leaves the slip empty when nothing in the code can be added, and says so", async () => {
     const user = userEvent.setup();
     routes({
       booking: () => json(200, { ...BOOKING, legs: [STARTED] }),
     });
     renderTerminal();
-    await user.click(await homeWin());
+    await homeWin();
 
-    const slip = await openSlip(user, 1);
+    const slip = await openSlip(user);
     await user.type(slip.getByLabelText(en.betSlip.loadCode), BOOKING.code);
     await user.click(slip.getByRole("button", { name: en.betSlip.load }));
 
     expect(await slip.findByTestId("booking-notice")).toHaveTextContent(
       en.booking.nothingAdded.replace("{code}", BOOKING.code),
     );
-    // The pick tapped on the board is still there, and nothing else is.
-    expect(pickNamed(slip, HOME_WIN.label.en)).not.toBeNull();
     expect(pickNamed(slip, STARTED.outcomeName?.en)).toBeNull();
+    expect(slip.getByText(en.betSlip.emptyTitle)).toBeInTheDocument();
+  });
+
+  it("offers Load booking code only while the slip is empty (the user's review, 2026-10-08)", async () => {
+    const user = userEvent.setup();
+    routes();
+    renderTerminal();
+    await homeWin();
+    expect(slip().getByLabelText(en.betSlip.loadCode)).toBeInTheDocument();
+
+    await user.click(await homeWin());
+    expect(slip().queryByLabelText(en.betSlip.loadCode)).toBeNull();
+
+    await user.click(slip().getByRole("button", { name: en.betSlip.clearAll }));
+    expect(slip().getByLabelText(en.betSlip.loadCode)).toBeInTheDocument();
   });
 
   it("books the slip as a code through the terminal once there is a pick, with one key per slip (the user's third review)", async () => {
@@ -867,11 +880,13 @@ describe("the kiosk's slip, priced with the shop's rules (F8cb)", () => {
     expect(slip().queryByText(/ETB|ብር/)).toBeNull();
 
     // A code's stake hint comes into the slip, but is neither shown nor sent.
+    // The loader is there once the slip is empty again.
+    await user.click(slip().getByRole("button", { name: en.betSlip.clearAll }));
     const sheet = within(
       await (async () => {
         await user.click(
           screen.getByRole("button", {
-            name: en.nav.slipAria.replace("{n}", "1"),
+            name: en.nav.slipAria.replace("{n}", "0"),
           }),
         );
         return screen.getByRole("dialog");

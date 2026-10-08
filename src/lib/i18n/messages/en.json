@@ -89,9 +89,6 @@
     "grossReturn": "Gross return",
     "oddsEach": "Each pick at its own odds",
     "oddsAcross": "Across {n} combinations",
-    "totalReturn": "Total return",
-    "maxReturn": "Max return",
-    "youStake": "You stake",
     "cappedAtMax": "Capped at max win",
     "maxWin": "Max win per ticket {amount}.",
     "taxNote": "Taxes are withheld as required by Ethiopian law.",
@@ -211,7 +208,8 @@
     },
     "taxRateStakeOver": "{tax} · {rate} of the whole stake once it’s over {amount}",
     "paused": "Betting paused",
-    "minStake": "Minimum stake {amount}"
+    "minStake": "Minimum stake {amount}",
+    "potentialWin": "Potential win"
   },
   "clock": {
     "eat": "EAT · UTC+3",

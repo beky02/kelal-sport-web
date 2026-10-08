@@ -164,7 +164,9 @@ export function KioskSlip({ onClose }: { onClose?: () => void }) {
           )}
         </>
       )}
-      {bookingCodes && <LoadBookingCode />}
+      {/* A code replaces the slip: offered only while it is empty (the user's
+          review, 2026-10-08). */}
+      {bookingCodes && totals.count === 0 && <LoadBookingCode />}
     </div>
   );
 }

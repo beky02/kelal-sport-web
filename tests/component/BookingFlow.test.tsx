@@ -144,15 +144,21 @@ describe("loading a booking code in the slip", () => {
     ).toBeInTheDocument();
   });
 
-  it("replaces what was in the slip, and forgets the notice when dismissed", async () => {
+  it("offers no loader once the slip has a pick: a code replaces the slip (the user's review, 2026-10-08)", () => {
     useBetSlipStore.getState().toggleSelection(pick("m9", "1.50", "Old pick"));
+    render(<BetSlip />);
+    expect(
+      screen.queryByLabelText("Load booking code"),
+    ).not.toBeInTheDocument();
+  });
+
+  it("forgets the notice when dismissed", async () => {
     api(() => [200, BOOKING()]);
     render(<BetSlip />);
 
     await loadCode("7KQ2M9X");
 
     await screen.findByTestId("booking-notice");
-    expect(screen.queryByText("Old pick")).not.toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Dismiss" }));
     expect(screen.queryByTestId("booking-notice")).not.toBeInTheDocument();
   });
@@ -185,7 +191,6 @@ describe("loading a booking code in the slip", () => {
   it("keeps the slip when nothing in the code can be added, and says so", async () => {
     const nothing = BOOKING();
     nothing.legs = nothing.legs.filter((leg) => leg.unavailable !== null);
-    useBetSlipStore.getState().toggleSelection(pick("m9", "1.50", "Old pick"));
     api(() => [200, nothing]);
     render(<BetSlip />);
 
@@ -198,9 +203,7 @@ describe("loading a booking code in the slip", () => {
     expect(notice).toHaveTextContent(
       "Saint George v Fasil Kenema · 1X2 · 1: match has started",
     );
-    expect(
-      useBetSlipStore.getState().selections.map((s) => s.outcomeId),
-    ).toEqual(["oc_m9"]);
+    expect(useBetSlipStore.getState().selections).toEqual([]);
     expect(useBetSlipStore.getState().stake).toBe("100");
   });
 

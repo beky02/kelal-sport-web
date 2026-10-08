@@ -32,6 +32,11 @@ Copy about money — tax names, thresholds, what is refunded — is never invent
 rule set's own codes and amounts, and D9's open questions (whole-win tax, cap before tax, stake tax taken
 from the stake, void refunds) stay the backend's to answer.
 
+On the slip itself (both sites, the user's review of 2026-10-08) the figures are plain rows under the stake,
+no cards: total odds (multiples), the system's lines, the bonus where there is one, and **Potential win**
+(slipcalc's net payout) in bold, with the cap per ticket and the tax note below. The stake is in its field,
+so it isn't repeated. Load booking code is offered only while the slip is empty; a code replaces the slip.
+
 ## Selections and prices
 
 - A selection carries the contract's `outcome_id` and the odds as a string. Selecting is optimistic (it

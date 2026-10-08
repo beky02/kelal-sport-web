@@ -81,6 +81,18 @@ describe("BetSlip", () => {
     );
   });
 
+  it("shows total odds and the potential win as plain rows, no cards and no 'you stake' (the user's review, 2026-10-08)", () => {
+    seedReferenceSlip();
+    render(<BetSlip />);
+    const win = netPayout();
+    expect(win.parentElement).toHaveTextContent(/^Potential win/);
+    expect(screen.queryByText("You stake")).not.toBeInTheDocument();
+    expect(screen.queryByText("Total return")).not.toBeInTheDocument();
+    // Neither figure sits in a bordered card.
+    expect(win.closest(".border")).toBeNull();
+    expect(screen.getByText("Total odds").closest(".border")).toBeNull();
+  });
+
   it("invites a first selection when empty", () => {
     render(<BetSlip />);
     expect(screen.getByText("Your bet slip is empty")).toBeInTheDocument();

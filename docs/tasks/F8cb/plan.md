@@ -9,6 +9,21 @@ Mode: interactive. Before planning, `pnpm contract:sync --check` found the contr
 behind the backend (additive error responses on bookings and the ticket check); synced on the user's
 go-ahead as this branch's first commit (`aa30414`). `pnpm check` passed on main (1,610 tests).
 
+## Follow-up after merge (the user's review, 2026-10-08; branch `task/F8cb-simple-slip`)
+
+The user's words: **"lets show the total odds in simple way the card is big · lets show the potential win
+in simple way · lets hide the load code if the user select a bet"**. Asked, they chose plain rows (total
+odds; "Potential win" in bold, larger; the cap and tax note below; no "You stake") on **both sites**. The
+loader goes the same way on both: offered only while the slip is empty (`/b/{code}` still replaces a slip).
+
+- `SlipSummary`: plain rows, no card. `PayoutSummary`: one row, "Potential win" (`betSlip.potentialWin`,
+  new; `totalReturn`, `maxReturn`, `youStake` removed), slipcalc's net payout, the capped tag beside it.
+- `BetSlip` and `KioskSlip`: `LoadBookingCode` only when `totals.count === 0`.
+- Tests: `BetSlip.test.tsx` › "shows total odds and the potential win as plain rows…";
+  `BookingFlow.test.tsx` › "offers no loader once the slip has a pick…" (and two tests now load into an
+  empty slip); `TerminalKiosk.test.tsx` › "offers Load booking code only while the slip is empty…" (and two
+  now load into an empty slip). Each fails with its change undone.
+
 ## Rework 3 (the user's review, 2026-10-08)
 
 The user's words: **"with 0 birr it allow me to book a bet, it should disable the book button when the price
