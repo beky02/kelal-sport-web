@@ -1,5 +1,50 @@
 # F8cc — verification
 
+## Review brief
+
+- **Route** — `POST /api/terminal/slip-codes` (`src/app/api/terminal/slip-codes/route.ts`,
+  `lib/server/terminal.ts` `createSlipCode`, `lib/server/body.ts` `readText`, `lib/api/terminal-schemas.ts`,
+  `lib/api/mappers/terminal.ts`). It checks host → origin → cookie → `Idempotency-Key` → signature → body
+  (16 KiB, strict UTF-8, strict ASCII `SlipCodeCreate`), then forwards the text read, byte for byte, with
+  `X-Device-Id` from the cookie. There is a mock-only expiry fix.
+- **Browser** — the contract body is built and signed in `features/terminal/api/slip-codes.ts`, with
+  `terminalRequest` taking a key. The rules are in `lib/slip-code.ts`: the request (Book bet's rule plus
+  the odds shown), refusals by `code`, timings. One key per intent is in `hooks/use-slip-code.ts` (kiosk
+  store).
+- **Kiosk** — Get code replaces Book bet (`GetCode.tsx`, `KioskSlip.tsx`). The code screen
+  (`SlipCodeScreen.tsx`, `components/ui/QrCode.tsx`, `lib/qr.ts` on `qrcode`'s matrix). Starting over
+  (`use-start-over.ts`) is on idle (`use-idle.ts`) and after a code; the page is re-keyed by `round`
+  (`Kiosk.tsx`). The chrome's `pricePollMs` → `usePricePollMs()`, off while idle.
+- **Removed** — `POST /api/terminal/bookings` and `apiClient`'s POST mirror.
+- **Risk** — the signed bytes, and the new route's checks (security). The stake hint and its refusal fix
+  (money, display only). The idle reset re-making the page, and fake-timer tests. The new dependency
+  `qrcode` (+ `jsqr`, dev).
+- **The user's decisions (gate)** — Get code replaces Book bet; after a code, start over unless another
+  slip has picks; `qrcode`; the copy as proposed. Docs synced on main first.
+- **Not done** — the POS (F9); signed catalogue reads (015 part 1); keeping the wait across a reload;
+  checking the signature here (the API's job); a hardware scanner.
+
+## Automated gate
+
+| Check                                     | Result                                                            | Command                              |
+| ----------------------------------------- | ----------------------------------------------------------------- | ------------------------------------ |
+| Typecheck, lint, format, unit + component | PASS (2 lint warnings, pre-existing on main: `BetSlipHeader.tsx`) | `pnpm check` (1,693 tests, 83 files) |
+| Generated types                           | PASS                                                              | `pnpm api:check`                     |
+| Contract and docs drift                   | PASS                                                              | `pnpm contract:sync --check`         |
+| Build                                     | PASS                                                              | `pnpm build`                         |
+| Host split                                | PASS                                                              | `node scripts/check-host-split.mjs`  |
+| Screens                                   | PASS (3 flaky, Gaps)                                              | `pnpm ui` (673 passed)               |
+
+`pnpm verify` (first run, before review): exit 0.
+
+```
+  3 flaky
+    terminal.spec.ts:257 › terminal · desktop › ready: activates against Prism …
+    terminal.spec.ts:319 › terminal · desktop › revoked: a revoked terminal says so …
+    terminal.spec.ts:343 › terminal · desktop › device-not-allowed: …
+  673 passed (8.9m)
+```
+
 ## Tests proven
 
 Each new acceptance test, green, then failed once against the behaviour it guards broken, then restored.
@@ -76,3 +121,21 @@ Each new acceptance test, green, then failed once against the behaviour it guard
   - `10-terminal.md` has a new section, the signed-calls row and Book bet → Get code;
   - `TRANSLATION-NOTES.md` has an F8cc section;
   - the README status is `verifying`.
+
+## Gaps
+
+- **Flaky in the gate run (passed on retry).** Three F8b screens, which activate against Prism on desktop,
+  ran concurrently. First error, the same for each: the kiosk's heading was not visible 5 s after
+  activation. They took 13–17 s, retries 12–17 s; the phone runs took 4 s. Run alone, they pass in about
+  3 s.
+- **Flaky alone, once.** `terminal.spec.ts` › "revoked …" (desktop) failed twice in a row in a lone rerun:
+  `expect(await controls(page)).toBe(1)` got 17, with the "switched off" heading already shown; the
+  snapshot taken right after shows 1 control. It then passed 10 out of 10 (`--repeat-each=5`, both widths).
+  It is not reproduced, so the cause is unknown; the kiosk's controls under a blocked heading would be a
+  bug, so it is flagged for the reviewers.
+- **Prism can't make a real wait** (`Retry-After: 0`), a named 422 or a closed shop's refusal. Those
+  screens and tests answer the kiosk's own route with request 015's shapes. Prism's real 429 is asserted
+  through the dev server.
+- **No scanner** has read the QR. `jsqr` decodes the drawn path back to `qr` in a unit test.
+- **Signing interoperability** with the real API stays a gap until B9 and request 014: Prism checks only
+  that the headers are present.
