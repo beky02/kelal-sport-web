@@ -6,6 +6,18 @@ screen; the Amharic tab is "ትኬት {n}".
 Mode: interactive. Branched from `task/F8cb-simple-slip` (not yet merged), on the user's
 direction of 2026-10-08.
 
+## Changed while implementing
+
+- `SlipState` lives in the store file, beside `Placement` and `BookingIntent`, not in `types/index.ts`.
+- `simulator.ts` is unchanged: it moves a price of a pick in the slip on screen, which is what a demo shows.
+- The tabs also sit above a placed bet's ticket, so the other slips stay in reach (`BetSlip`).
+- Each tab is named "Slip 1, 2 selections" (`betSlip.slipNAria`): the badge's number ran into the label
+  ("Slip 12") otherwise.
+- `startStake` also leaves a slip alone that already holds a stake (tests set one directly; in the app a
+  stake comes only through actions that mark the slip started).
+- Test harnesses (`terminal.tsx`, `BetSlip`, `PlaceBet`, `BookingFlow`) reset all three slips per test
+  (`resetAll`).
+
 ## Understanding
 
 In Ethiopia people bet accumulators, so the slip drops Single and System and prices every slip as a

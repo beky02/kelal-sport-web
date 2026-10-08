@@ -166,7 +166,8 @@ retail is enabled.
   `lg` the kiosk has the sport tabs and the board, and below `xl` no search, as the player's.
 - **A 401 on any read** makes the terminal's query client read its status again
   (`createTerminalQueryClient`), which then says what the terminal is (lapsed, switched off).
-- **The slip** is the player's slip store and parts (`BetSlipHeader`, `BetModeTabs`, `EmptySlip`,
+- **The slip** is the player's slip store and parts (`BetSlipHeader`, `SlipTabs` — three slips, multiple
+  only (F3c), `EmptySlip`,
   `BetSelectionRow`, `SlipSummary`, `PayoutSummary`), with two picks of one match marked. From `xl` up it
   is the right-hand column, which scrolls on its own; narrower, its bar is always available, including with an empty slip, so the player-sized `Sheet` can load a booking code.
 - **Priced with the shop's rules (F8cb).** The kiosk's config carries the tenant's `retail_betting`

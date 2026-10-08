@@ -1,7 +1,7 @@
 ---
 id: F3c
 title: Multiple only, and three slips to organise bets in
-status: planned
+status: verifying
 depends_on: [F8cb]
 contract_tags: [Bets, Bookings, Config]
 touches_money: true

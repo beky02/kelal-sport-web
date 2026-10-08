@@ -59,3 +59,5 @@ Out: the POS that sells the code (F9, `kelalsport-ops`).
   `Kiosk.tsx`. The idle reset here should own one named action that puts the slip back to the kiosk's
   start (no picks, an empty stake, the language), called both at start and on idle, rather than an effect
   whose order against children's effects matters.
+- 2026-10-08 (from F3c): the slip store holds three slips; the idle reset calls `resetAll()` (every slip
+  empty, Slip 1 on screen) along with the language.

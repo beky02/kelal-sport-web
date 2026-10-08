@@ -37,6 +37,15 @@ no cards: total odds (multiples), the system's lines, the bonus where there is o
 (slipcalc's net payout) in bold, with the cap per ticket and the tax note below. The stake is in its field,
 so it isn't repeated. Load booking code is offered only while the slip is empty; a code replaces the slip.
 
+**Multiple only, three slips (F3c, the user's decision of 2026-10-08).** Ethiopia bets accumulators, so
+neither site offers Single or System: every slip is priced as one multiple (one pick is a single, as a
+multiple needs two), and a code saved as singles or a system loads as one multiple with a note saying so. A
+second price of a match already in the slip replaces its pick. Instead of the type tabs there are three
+slips, Slip 1 to 3, each with its own picks, stake (starting at the minimum once), figures, booked code and
+placing state; taps go into the slip on screen, and a price shows as picked only for it. A ticket, a
+refusal or a code answered after a switch goes to the slip that asked (matched by its key); realtime moves
+reach every slip. The table above still describes the calculator, which prices all three types (D1).
+
 ## Selections and prices
 
 - A selection carries the contract's `outcome_id` and the odds as a string. Selecting is optimistic (it
