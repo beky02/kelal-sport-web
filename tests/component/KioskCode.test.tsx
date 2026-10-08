@@ -84,6 +84,17 @@ async function until<T>(find: () => T | null | undefined): Promise<T> {
 }
 
 /**
+ * Lets everything a tap set off land — signing included, between macrotasks —
+ * before asserting that it sent nothing.
+ */
+async function settle() {
+  for (let i = 0; i < 10; i += 1) {
+    await new Promise((resolve) => setImmediate(resolve));
+    await tick(0);
+  }
+}
+
+/**
  * A touch, as a finger makes one: pointer down, then the click. (Testing
  * Library's async helpers wait on a real timer the fake clock never fires, so
  * events go in directly, as in TerminalStatus.test.tsx.)
@@ -185,7 +196,7 @@ describe("Get code in the kiosk's slip (F8cc, decision 1)", () => {
     type(stake, "");
     expect(getCodeButton()).toHaveAttribute("aria-disabled", "true");
     tap(getCodeButton());
-    await tick(0);
+    await settle();
     expect(codeCalls()).toHaveLength(0);
   });
 });
@@ -481,7 +492,7 @@ describe("the terminal's 30 codes per 10 minutes (F8cc AC-6)", () => {
 
     // A tap while it waits sends nothing.
     tap(getCodeButton());
-    await tick(0);
+    await settle();
     expect(codeCalls()).toHaveLength(1);
 
     await tick(180_000);

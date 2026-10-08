@@ -1,7 +1,7 @@
 ---
 id: F8cc
 title: Split from F8c — slip to an 8-digit code with a QR, idle reset, the rate limit
-status: planned
+status: verifying
 depends_on: [F8cb]
 contract_tags: [Retail - terminal]
 touches_money: true
