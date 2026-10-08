@@ -13,6 +13,41 @@
 - **The user decided (gate):** the no-rules line, an empty start, a code's hint as the stake; the sync.
 - **Not done:** Get code, idle reset, 429 (F8cc); moving odds after the tap; signed reads (015).
 
+## Automated gate
+
+Final run, 2026-10-08, at `20281f6`, against the running `next dev` (simulated board) and Prism on :4010.
+`pnpm verify` exit 0:
+
+```
+ Test Files  80 passed (80)
+      Tests  1619 passed (1619)
+Generated API types match contracts/openapi.yaml.
+contracts/ matches the backend.
+docs/backend/ matches the backend.
+Host split holds: 19 player routes load no module or chunk of (terminal); 3 terminal route(s) load no module of (player) nor a chunk holding one (.next/server/app, 68 manifests).
+  652 passed (7.0m)
+```
+
+| Check                                   | Result | Command                                      |
+| --------------------------------------- | ------ | -------------------------------------------- |
+| Typecheck, lint, format, unit/component | PASS   | `pnpm check` (1,619 tests)                   |
+| Generated types                         | PASS   | `pnpm api:check`                             |
+| Contract drift                          | PASS   | `node scripts/contract-sync.mjs --check`     |
+| Build, host split                       | PASS   | `pnpm build`, `scripts/check-host-split.mjs` |
+| Screens                                 | PASS   | `pnpm ui` (652, none on retry)               |
+| Golden rows                             | PASS   | `tests/unit/golden.test.ts`, unchanged       |
+
+The two runs before it:
+
+1. `ticket-check-failed` (F5b's screen) failed in all four: the contract synced in `aa30414` gives
+   `checkTicket` a 503, and the screen allowed only the 404 an older Prism answered. Two Prisms answer
+   `localhost:4010` here — this repo's `pnpm mock` on 127.0.0.1 (the synced contract: 503) and the
+   backend's Docker one on ::1 (loaded before the backend's change: 404) — so the screen now accepts
+   either log (`c78aa42`). One flaky: `auth.spec.ts` › "refuses a cross-origin POST…" timed out in its
+   `afterEach` (`browser.newContext: Test ended`), then passed.
+2. The drift check: the backend had added `429` to `placeBet` since. Synced (`20281f6`), on the user's
+   standing answer at Phase 0 ("sync on the task branch").
+
 ## Self-review
 
 - **Money moves:** none. Book bet creates a booking (no balance, history or bets to invalidate), as in
