@@ -20,7 +20,7 @@ export function SlipTabs() {
     <div
       role="group"
       aria-label={t.t("betSlip.slipsAria")}
-      className="grid grid-cols-3 gap-1.5 px-4 pb-2.5"
+      className="grid grid-cols-3 gap-1.5 px-4 pt-2 pb-2.5"
     >
       {counts.map((count, n) => (
         <button
@@ -30,7 +30,7 @@ export function SlipTabs() {
           // "Slip 1, 2 selections": the badge's number never runs into the label.
           aria-label={t.t("betSlip.slipNAria", { n: n + 1, count })}
           onClick={() => switchSlip(n)}
-          className="border-divider text-muted aria-pressed:border-accent aria-pressed:ring-accent aria-pressed:bg-raised aria-pressed:ring-1 aria-pressed:text-text font-body flex h-11 cursor-pointer items-center justify-center gap-1.5 rounded-md border bg-transparent text-[13px] font-bold"
+          className="border-divider text-muted aria-pressed:border-accent aria-pressed:bg-raised aria-pressed:shadow-[inset_0_0_0_1px_var(--color-accent)] aria-pressed:text-text font-body flex h-11 cursor-pointer items-center justify-center gap-1.5 rounded-md border bg-transparent text-[13px] font-bold"
         >
           {t.t("betSlip.slipN", { n: n + 1 })}
           {count > 0 && <CountBadge>{count}</CountBadge>}
