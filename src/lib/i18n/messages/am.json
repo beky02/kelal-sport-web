@@ -89,9 +89,6 @@
     "grossReturn": "ጠቅላላ ገቢ",
     "oddsEach": "እያንዳንዱ ምርጫ በራሱ ኦድ",
     "oddsAcross": "በ{n} ጥምረቶች",
-    "totalReturn": "ጠቅላላ ተመላሽ",
-    "maxReturn": "ከፍተኛ ተመላሽ",
-    "youStake": "የሚያስይዙት",
     "cappedAtMax": "ከፍተኛው ገደብ",
     "maxWin": "የአንድ ትኬት ከፍተኛ ክፍያ {amount} ነው።",
     "taxNote": "ግብሮች በኢትዮጵያ ሕግ መሠረት ይቀነሳሉ።",
@@ -211,7 +208,8 @@
     },
     "taxRateStakeOver": "{tax} · ጠቅላላ የውርርድ መጠኑ ከ{amount} ሲበልጥ {rate}",
     "paused": "ውርርድ ቆሟል",
-    "minStake": "ዝቅተኛው የውርርድ መጠን {amount}"
+    "minStake": "ዝቅተኛው የውርርድ መጠን {amount}",
+    "potentialWin": "ሊያሸንፉ የሚችሉት"
   },
   "clock": {
     "eat": "EAT (UTC+3)",

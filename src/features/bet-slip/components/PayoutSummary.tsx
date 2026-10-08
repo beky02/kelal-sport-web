@@ -1,18 +1,18 @@
 "use client";
 
-import { ArrowRight } from "lucide-react";
 import type { RuleSetJson } from "@golden/slipcalc";
 import { useTranslation } from "@/lib/i18n/use-translation";
 import type { BetSlipTotals } from "../lib/calculate";
 import { taxLines } from "../lib/tax-lines";
 
 /**
- * Stake in, return out — the two numbers people actually read.
- *
- * The return is the largest type in the slip because it is the answer to the
- * question they came with. When the tenant's payout cap bites, that is said
- * plainly rather than left as a number that quietly stops growing. Both are
- * slipcalc's figures; "—" until there is a quote.
+ * What the slip could pay: one plain row, the largest figure on the slip
+ * because it is the answer to the question people came with (the user's
+ * review, 2026-10-08: no card, no "you stake" — the stake is in its field).
+ * When the tenant's payout cap bites, that is said beside it rather than left
+ * as a number that quietly stops growing. slipcalc's figure; "—" until there
+ * is a quote. Under it, the cap per ticket and, where the tenant taxes
+ * anything, that taxes are withheld.
  */
 export function PayoutSummary({
   totals,
@@ -24,53 +24,29 @@ export function PayoutSummary({
   const t = useTranslation();
   const { quote } = totals;
 
-  const returnLabel =
-    totals.mode === "system"
-      ? t.t("betSlip.maxReturn")
-      : t.t("betSlip.totalReturn");
-
   return (
-    <>
-      <p className="text-muted mx-4 mt-2 text-[11px] leading-[1.45] text-pretty">
+    <div className="mx-4 mt-2 flex flex-col gap-1.5">
+      <div className="numeric flex items-baseline justify-between gap-3">
+        <span className="flex min-w-0 items-center gap-1.5 text-sm font-bold">
+          {t.t("betSlip.potentialWin")}
+          {quote?.capped && (
+            <span className="bg-raised text-text rounded-full px-[7px] py-px text-[10px] font-bold">
+              {t.t("betSlip.cappedAtMax")}
+            </span>
+          )}
+        </span>
+        <span
+          data-testid="net-payout"
+          className="font-display shrink-0 text-xl leading-none whitespace-nowrap"
+        >
+          {quote ? t.money(quote.netPayout) : "—"}
+        </span>
+      </div>
+      <p className="text-muted text-[11px] leading-[1.45] text-pretty">
         {t.t("betSlip.maxWin", { amount: t.money(rules.max_payout) })}
         {/* Only where the tenant actually taxes something. */}
         {taxLines(rules, null).length > 0 && ` ${t.t("betSlip.taxNote")}`}
       </p>
-
-      <div className="bg-surface border-border numeric mx-4 mt-3 grid grid-cols-[auto_auto_minmax(0,1fr)] items-end gap-3 rounded-lg border p-3.5">
-        <div className="flex flex-col gap-1">
-          <span className="text-muted text-[11px]">
-            {t.t("betSlip.youStake")}
-          </span>
-          <span className="text-base font-bold whitespace-nowrap">
-            {quote ? t.money(quote.totalStake) : "—"}
-          </span>
-        </div>
-
-        <ArrowRight
-          size={18}
-          strokeWidth={1.5}
-          aria-hidden
-          className="text-muted mb-0.5"
-        />
-
-        <div className="flex min-w-0 flex-col items-end gap-1">
-          <span className="text-muted flex items-center gap-1.5 text-[11px]">
-            {quote?.capped && (
-              <span className="bg-raised text-text rounded-full px-[7px] py-px text-[10px] font-bold">
-                {t.t("betSlip.cappedAtMax")}
-              </span>
-            )}
-            {returnLabel}
-          </span>
-          <span
-            data-testid="net-payout"
-            className="font-display text-[28px] leading-none whitespace-nowrap"
-          >
-            {quote ? t.money(quote.netPayout) : "—"}
-          </span>
-        </div>
-      </div>
-    </>
+    </div>
   );
 }

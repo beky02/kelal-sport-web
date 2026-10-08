@@ -29,7 +29,8 @@ export function SlipSummary({ totals }: { totals: BetSlipTotals }) {
   if (totals.mode === "single" && !bonus) return null;
 
   return (
-    <div className="bg-surface border-border numeric mx-4 mt-3 flex flex-col gap-[7px] rounded-lg border p-3">
+    // Plain rows, no card (the user's review, 2026-10-08).
+    <div className="numeric mx-4 mt-3 flex flex-col gap-1.5 text-sm">
       {totals.mode === "multiple" && (
         <Line
           label={<span className="text-muted">{t.t("betSlip.totalOdds")}</span>}
