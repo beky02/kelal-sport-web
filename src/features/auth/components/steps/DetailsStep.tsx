@@ -13,9 +13,13 @@ export interface Details {
   /** As typed, `DD/MM/YYYY`. */
   dateOfBirth: string;
   password: string;
+  /** Optional (REG-12): a promo code for the new account, as typed. */
+  promoCode: string;
 }
 
 const NAME_MIN = 3;
+/** The contract's `promo_code` maximum. */
+const PROMO_MAX = 64;
 const NAME_MAX = 100;
 
 /**
@@ -44,6 +48,7 @@ export function DetailsStep({
   const [dateOfBirth, setDateOfBirth] = useState(initial.dateOfBirth);
   const [password, setPassword] = useState(initial.password);
   const [confirm, setConfirm] = useState(initial.password);
+  const [promoCode, setPromoCode] = useState(initial.promoCode);
   const [touched, setTouched] = useState({ name: false, date: false });
 
   const nameOk = fullName.trim().length >= NAME_MIN;
@@ -65,7 +70,12 @@ export function DetailsStep({
         event.preventDefault();
         if (pending || !nameOk || !dateOk || !passwordReady(password, confirm))
           return;
-        onSubmit({ fullName: fullName.trim(), dateOfBirth, password });
+        onSubmit({
+          fullName: fullName.trim(),
+          dateOfBirth,
+          password,
+          promoCode,
+        });
       }}
       className="flex flex-col gap-4"
       noValidate
@@ -127,7 +137,32 @@ export function DetailsStep({
         error={fieldError("password", undefined)}
       />
 
-      <AuthNotice error={error} onFix={onFix} />
+      <Field
+        label={t.t("auth.promoCode")}
+        help={t.t("auth.promoCodeHelp")}
+        // A refused code is said here, where it can be changed or emptied.
+        error={
+          error?.field === "promo_code" && error.key
+            ? t.t(error.key)
+            : fieldError("promo_code", undefined)
+        }
+      >
+        {(props) => (
+          <TextInput
+            {...props}
+            autoComplete="off"
+            autoCorrect="off"
+            spellCheck={false}
+            maxLength={PROMO_MAX}
+            value={promoCode}
+            onChange={(event) => setPromoCode(event.target.value)}
+            // O and 0 must look different in a code.
+            className="font-mono slashed-zero"
+          />
+        )}
+      </Field>
+
+      <AuthNotice error={error?.field ? null : error} onFix={onFix} />
 
       <SubmitButton
         disabled={

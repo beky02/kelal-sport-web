@@ -1,7 +1,7 @@
 ---
 id: F7c
 title: Split from F7 — promotions, my bonus and free bets, promo codes, the inbox
-status: todo
+status: in_progress
 depends_on: [F4]
 contract_tags: [Promotions, Inbox]
 touches_money: true
@@ -11,6 +11,11 @@ touches_ui: true
 # F7c — Promotions and inbox
 
 Split from [F7](F7-account-rg-inbox.md) (2026-10-03, before planning).
+
+Split again (2026-10-09, while planning; about 3,400 changed lines in one PR) into
+[F7ca — promotions](F7ca-promotions.md) (**AC-11**, **AC-12**) and [F7cb — inbox](F7cb-inbox.md)
+(**AC-13**). F7c is done when both are. F7ca is done (2026-10-09): AC-11 and AC-12 ticked below; F7cb (AC-13) is next. The plan is [`F7c/plan.md`](F7c/plan.md); F7ca is built on this
+branch.
 
 ## Goal
 
@@ -34,9 +39,9 @@ push notifications.
 
 ## Acceptance criteria
 
-- [ ] **AC-11** Offers come from `/v1/promotions`; the active bonus shows the API's wagering required and
+- [x] **AC-11** Offers come from `/v1/promotions`; the active bonus shows the API's wagering required and
       done and its expiry; free bets are listed (mapper and component tests; `pnpm ui`).
-- [ ] **AC-12** A promo code is redeemed with one `Idempotency-Key` per intent, reused on a retry after no
+- [x] **AC-12** A promo code is redeemed with one `Idempotency-Key` per intent, reused on a retry after no
       answer; `PROMO_INVALID` and `PROMO_ALREADY_USED` say so (route and component tests).
 - [ ] **AC-13** The inbox lists messages; the badge comes from `/v1/inbox/unread-count`; opening messages
       marks them read through `POST /v1/inbox/read` (component test; `pnpm ui`).

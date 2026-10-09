@@ -53,6 +53,8 @@ export interface RegisterState {
   /** As typed, `DD/MM/YYYY`. */
   dateOfBirth: string;
   password: string;
+  /** A promo code, as typed; sent trimmed, and only when there is one. */
+  promoCode: string;
   /** The account exists: nothing before the ID step to go back to. */
   created: boolean;
   /** The Fayda number, kept for Try again and Send a new code. */
@@ -79,6 +81,7 @@ export type RegisterEvent =
       fullName: string;
       dateOfBirth: string;
       password: string;
+      promoCode: string;
     }
   | { type: "created" }
   | { type: "startFayda"; fin: string }
@@ -105,6 +108,7 @@ export function initialRegister(mode: RegisterState["mode"]): RegisterState {
     fullName: "",
     dateOfBirth: "",
     password: "",
+    promoCode: "",
     created: mode === "verify",
     fin: "",
     caseId: null,
@@ -120,7 +124,7 @@ export function initialRegister(mode: RegisterState["mode"]): RegisterState {
 const FIELDS: Record<RegisterStep, readonly string[]> = {
   phone: ["phone"],
   otp: [],
-  details: ["full_name", "date_of_birth", "password"],
+  details: ["full_name", "date_of_birth", "password", "promo_code"],
   kyc: ["fayda_number"],
   kycOtp: [],
   result: [],
@@ -202,6 +206,7 @@ export function registerReducer(
         fullName: event.fullName,
         dateOfBirth: event.dateOfBirth,
         password: event.password,
+        promoCode: event.promoCode,
         pending: true,
         error: null,
       };

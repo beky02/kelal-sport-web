@@ -32,7 +32,9 @@ Engineering Decisions say differently. The order follows the Build Plan's fronte
 | [F7](F7-account-rg-inbox.md)                  | Account, limits, self-exclusion, reality check, promotions, inbox; delete the mocks                    | F4                 | B8, B13       | todo        |
 | [F7a](F7a-responsible-gambling.md)            | Split from F7: limits, breaks and self-exclusion on the account; RG refusals everywhere                | F4, F6a            | B8            | done        |
 | [F7b](F7b-account-reality-check.md)           | Split from F7: profile preferences, active devices, the reality check from the server                  | F4                 | B5, B8        | done        |
-| [F7c](F7c-promotions-inbox.md)                | Split from F7: promotions, my bonus and free bets, promo codes, the inbox                              | F4                 | —             | todo        |
+| [F7c](F7c-promotions-inbox.md)                | Split from F7: promotions, my bonus and free bets, promo codes, the inbox                              | F4                 | —             | in_progress |
+| [F7ca](F7ca-promotions.md)                    | Split from F7c: offers, my bonus and free bets, promo codes                                            | F4                 | —             | done        |
+| [F7cb](F7cb-inbox.md)                         | Split from F7c: the inbox, its unread badge, marking read                                              | F7ca               | —             | todo        |
 | [F7d](F7d-content-mocks.md)                   | Split from F7: content pages from the API; the mock repository deleted                                 | F6c, F7a, F7b, F7c | B1            | todo        |
 | [F7e](F7e-reality-check-figures.md)           | Split from F7b: the reality check's figures and play session from the API (after contract request 012) | F7b                | B8            | todo        |
 | [F8a](F8a-host-split.md)                      | Split the app by host: `(player)` and `(terminal)` route groups (FD1)                                  | F7b                | —             | done        |
@@ -67,7 +69,7 @@ can move from Prism to the real API (`API_REAL_TAGS`, D7) — none of the tasks 
 the server refuses `Bookings` in `API_REAL_TAGS` until contract request 004 (the player's IP and device)
 and a trusted-proxy setting land.
 
-F6 through F10 are split into sub-tasks of about one reviewable PR each (F6a–F6c, F7a–F7d, F8b–F8c, F8ca–F8cc,
+F6 through F10 are split into sub-tasks of about one reviewable PR each (F6a–F6c, F7a–F7e, F7ca–F7cb, F8b–F8c, F8ca–F8cc,
 F9a–F9c, F10a–F10g; F8a, the host split, stays one task): run `/task` with the sub-task's id. The parent's
 criteria name the sub-task that carries each one, and a parent is done when all its sub-tasks are.
 

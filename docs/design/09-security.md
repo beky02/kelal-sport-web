@@ -175,7 +175,10 @@ both) is forwarded only under `next dev` and never to the real API (route test w
 type and period with an amount above zero or whole minutes (never `amount: null`, which removes a limit),
 or a contract kind and duration — and a session for this tenant, all before anything goes upstream. The
 API revokes every session as it starts a break, so the route handler clears the session cookie with its
-201; a refusal keeps it.
+201; a refusal keeps it. `POST /api/promo-codes/redeem` (F7ca) is checked as deposits are: CSRF, a UUID
+`Idempotency-Key` forwarded unchanged, a strict 4 KiB `{ code }` of 1–32 characters, a session — all before
+anything goes upstream. `GET /api/promotions` is public, as the contract has it: no session token goes
+with it. An offer's image is kept only when it is an absolute `https:` URL, and loads with no referrer.
 
 ## Logging
 

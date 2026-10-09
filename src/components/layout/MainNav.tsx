@@ -8,17 +8,20 @@ import { features } from "@/config/features";
 import { routes } from "@/config/routes";
 import { useSession } from "@/features/auth/hooks/use-session";
 import { useAuthStore } from "@/features/auth/stores/auth.store";
+import { usePublicConfig } from "@/features/config/hooks/use-public-config";
 import { useLiveEventCount } from "@/features/sports/hooks/use-sports";
 import { cn } from "@/lib/utils/cn";
 import type { MessageKey } from "@/lib/i18n";
 
-const LINKS: Array<{
+interface NavLink {
   href: string;
   label: MessageKey;
   live?: boolean;
   /** Nothing to show a guest here — ask them to log in instead. */
   requiresAccount?: boolean;
-}> = [
+}
+
+const LINKS: NavLink[] = [
   { href: routes.home, label: "nav.sports" },
   ...(features.live
     ? [{ href: routes.live, label: "nav.live" as const, live: true }]
@@ -26,6 +29,12 @@ const LINKS: Array<{
   { href: routes.myBets, label: "nav.myBets", requiresAccount: true },
   { href: routes.wallet, label: "nav.wallet", requiresAccount: true },
 ];
+
+/** Offers are anyone's to read; shown while the tenant runs bonuses (F7ca). */
+const PROMOTIONS: NavLink = {
+  href: routes.promotions,
+  label: "nav.promotions",
+};
 
 export function MainNav() {
   const t = useTranslation();
@@ -36,10 +45,12 @@ export function MainNav() {
   const openAuth = useAuthStore((s) => s.open);
 
   const liveCount = useLiveEventCount();
+  const bonuses = usePublicConfig().data?.features.bonuses ?? true;
+  const links = bonuses ? [...LINKS, PROMOTIONS] : LINKS;
 
   return (
     <nav className="no-scrollbar ml-3 hidden self-stretch overflow-x-auto md:flex">
-      {LINKS.map((link) => {
+      {links.map((link) => {
         const active =
           link.href === routes.home
             ? pathname === routes.home

@@ -55,6 +55,7 @@ describe("toPublicConfigView", () => {
   it("carries the tenant's booking-codes switch", () => {
     expect(toPublicConfigView(config()).features).toEqual({
       bookingCodes: true,
+      bonuses: true,
     });
     expect(
       toPublicConfigView({
@@ -67,6 +68,18 @@ describe("toPublicConfigView", () => {
   it("keeps booking codes on when the tenant's config doesn't mention them", () => {
     expect(
       toPublicConfigView({ ...config(), features: {} }).features.bookingCodes,
+    ).toBe(true);
+  });
+
+  it("carries the tenant's bonuses switch, on unless the config says false (F7ca)", () => {
+    expect(
+      toPublicConfigView({
+        ...config(),
+        features: { ...config().features, bonuses: false },
+      }).features.bonuses,
+    ).toBe(false);
+    expect(
+      toPublicConfigView({ ...config(), features: {} }).features.bonuses,
     ).toBe(true);
   });
 

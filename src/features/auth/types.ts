@@ -118,6 +118,8 @@ export interface RegisterForm {
   password: string;
   acceptTerms: true;
   termsVersion: string;
+  /** A promo code typed at sign-up, trimmed; left out when none (REG-12). */
+  promoCode?: string;
 }
 
 /** Registration's answer: who was created. The tokens are in the cookie. */

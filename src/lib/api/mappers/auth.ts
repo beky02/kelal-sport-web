@@ -98,10 +98,11 @@ export function toOtpChallenge(challenge: OtpChallenge): OtpChallengeView {
 /**
  * The contract's `RegisterRequest`: what the player typed, the code they were
  * sent, the tenant's terms version (never the browser's), the UI language and
- * this browser. No national ID, deposit limit or promo code: the ID goes to
- * Fayda after the account exists, and the rest are not asked at sign-up (F4b
- * scope). Marketing consent is not asked either, so it is the contract's
- * default, `false` — never assumed given.
+ * this browser, and a promo code when the player typed one (REG-12, F7ca).
+ * No national ID or deposit limit: the ID goes to Fayda after the account
+ * exists, and a limit is not asked at sign-up (F4b scope). Marketing consent
+ * is not asked either, so it is the contract's default, `false` — never
+ * assumed given.
  */
 export function toRegisterRequest(
   form: RegisterForm,
@@ -118,6 +119,7 @@ export function toRegisterRequest(
     language,
     accept_terms_version: termsVersion,
     marketing_consent: false,
+    ...(form.promoCode ? { promo_code: form.promoCode } : {}),
     device: toDevice(device),
   };
 }

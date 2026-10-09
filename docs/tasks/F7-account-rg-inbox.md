@@ -16,7 +16,8 @@ AC-2, AC-5–AC-7), [F7b — account and reality check](F7b-account-reality-chec
 [F7d — content pages and the mocks' removal](F7d-content-mocks.md) (AC-3, AC-4): one reviewable PR each.
 F7 is done when all four are. F7a is done (2026-10-05): AC-1, AC-2, AC-5, AC-6, AC-7 ticked below. F7b is done (2026-10-05): AC-8 and AC-9 ticked; AC-10 stays open: the reality check shows time played, and its figures
 were split into [F7e](F7e-reality-check-figures.md), waiting for contract request 012, so F7 is done when
-F7a–F7e are.
+F7a–F7e are. F7c was split again (2026-10-09) into F7ca and F7cb; F7ca is done (2026-10-09): AC-11 and AC-12
+ticked; AC-13 waits for F7cb.
 
 ## Goal
 
@@ -67,8 +68,8 @@ Added at the split (2026-10-03) so every scope item has an observable criterion:
       `DELETE /v1/me/sessions/{id}`.
 - [ ] **AC-10** The reality check opens every `rg.reality_check_minutes` of play with the API's figures
       only.
-- [ ] **AC-11** Offers, the active bonus's wagering progress and free bets show the API's figures.
-- [ ] **AC-12** A promo code is redeemed with one `Idempotency-Key` per intent; `PROMO_INVALID` and
+- [x] **AC-11** Offers, the active bonus's wagering progress and free bets show the API's figures.
+- [x] **AC-12** A promo code is redeemed with one `Idempotency-Key` per intent; `PROMO_INVALID` and
       `PROMO_ALREADY_USED` say so.
 - [ ] **AC-13** The inbox, its unread badge and marking read come from the inbox operations.
 

@@ -48,7 +48,8 @@ function tabFor(pathname: string): Tab | null {
     return "bets";
   if (
     pathname.startsWith(routes.profile) ||
-    pathname.startsWith(routes.responsibleGaming)
+    pathname.startsWith(routes.responsibleGaming) ||
+    pathname.startsWith(routes.promotions)
   )
     return "menu";
   if (pathname.startsWith(routes.wallet)) return null;

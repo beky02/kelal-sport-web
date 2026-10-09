@@ -684,3 +684,47 @@ need review.
 | `terminal.code.paused`, `pausedLater` | ይህ ተርሚናል በጣም ብዙ ኮዶች ሠርቷል። ትኬት ማስቀመጥ ከ{minutes} ደቂቃ በኋላ ይመለሳል። / … ቆየት ብለው እንደገና ይሞክሩ። | `terminal.activate.tooMany` / `tooManyLater` (ብዙ…, ከ{minutes} ደቂቃ በኋላ); ሠርቷል (has made); ትኬት ማስቀመጥ (Book bet, `betSlip.bookBet` ትኬት አስቀምጥ) |
 | `terminal.code.failed`                | ኮድ ማግኘት አልተቻለም። እንደገና ይሞክሩ።                                                           | As `booking.errors.failed` (… አልተቻለም። እንደገና ይሞክሩ።)                                                                                         |
 | `terminal.code.cannot`                | ይህ ትኬት እንዳለ ኮድ ሊሆን አይችልም።                                                             | As `booking.errors.cannotBook` (ይህ ትኬት እንዳለ … አይችልም)                                                                                       |
+
+## Promotions (F7ca, 2026-10-09)
+
+No design-project page has these strings: every one is composed and needs review. Vocabulary is the
+catalogue's own — ቅናሾች (`profile.notifOffers`), ቦነስ (`wallet.bonus`), ኦድ (`betSlip.totalOdds`), ገቢ
+(`header.deposit`), ደንቦች (`footer.terms`), ጊዜው … (`bets.status.expired`) — and "promo code" is borrowed as
+ፕሮሞ ኮድ.
+
+| Key                                                             | Amharic                                                 | Composed from                                                          |
+| --------------------------------------------------------------- | ------------------------------------------------------- | ---------------------------------------------------------------------- |
+| `nav.promotions`, `promotions.title`, `offersTitle`             | ቅናሾች                                                    | `profile.notifOffers`                                                  |
+| `promotions.intro`, `menuBody`                                  | ቅናሾች፣ ቦነስዎና የፕሮሞ ኮዶች። / ቅናሾች፣ ቦነስና ነፃ ውርርዶች             | ቅናሾች; ቦነስ (`wallet.bonus`); ነፃ ውርርድ (free bet) new                     |
+| `promotions.yourBonus`, `bonusUnnamed`                          | ቦነስዎ / ቦነስ                                              | `wallet.bonus` with the possessive                                     |
+| `promotions.wagered`                                            | ከ{required} ውስጥ {done} ተወራርደዋል                          | As `rg.usedDay` (ከ{limit} ውስጥ {used} …); ተወራርደዋል (have wagered)        |
+| `promotions.expires`                                            | {date} ላይ ጊዜው ያልፋል                                      | `bets.status.expired` (ጊዜው አልፏል) in the future tense                   |
+| `promotions.noBonus`, `noBonusBody`                             | ንቁ ቦነስ የለም / ቦነስና ምን ያህሉን እንደተወራረዱበት እዚህ ይታያሉ።          | ንቁ (active) new; "… እዚህ ይታያሉ" as `bets.guestBody`                      |
+| `promotions.bonusFailedTitle`, `offersFailedTitle`              | ቦነስዎን መጫን አልተሳካም / ቅናሾቹን መጫን አልተሳካም                     | As `wallet.loadFailedTitle`                                            |
+| `promotions.loadFailedBody`                                     | ግንኙነትዎን ያረጋግጡ እና እንደገና ይሞክሩ።                            | `wallet.loadFailedBody`                                                |
+| `promotions.freeBets`, `freeBetStake`, `noFreeBets`             | ነፃ ውርርዶች / {stake} ነፃ ውርርድ / ነፃ ውርርድ የለም                | ነፃ (free) + ውርርድ (`nav.myBets`)                                        |
+| `promotions.noFreeBetsBody`                                     | የሚያገኟቸው ነፃ ውርርዶች እዚህ ይታያሉ።                              | ነፃ ውርርድ; "… እዚህ ይታያሉ" (review U3)                                      |
+| `promotions.freeBetPicks`, `freeBetLegOdds`, `freeBetTotalOdds` | ምርጫዎች፦ {n} ወይም ከዚያ በላይ / የእያንዳንዱ ምርጫ ኦድ፦ … / ጠቅላላ ኦድ፦ … | ምርጫ (`nav.slipAria`), ኦድ, ጠቅላላ ኦድ (`betSlip.totalOdds`); "or more" new |
+| `promotions.codeLabel`, `codeHelp`                              | የፕሮሞ ኮድ / ኮድ አለዎት? ቅናሹን ለማግኘት ያስገቡት።                    | ኮድ (booking codes); ያስገቡ (`betSlip.alerts.deposit`)                    |
+| `promotions.redeem`, `redeeming`                                | ተጠቀም / በመጠቀም ላይ…                                        | ተጠቀም (use), imperative as `profile.verify`                             |
+| `promotions.granted`, `pendingDeposit`                          | ኮዱ ተቀባይነት አግኝቷል። / … በሚቀጥለው ገቢዎ ላይ ይተገበራል።              | ተቀባይነት አግኝቷል (was accepted) new; ገቢ                                    |
+| `promotions.codeInvalidTitle`, `codeInvalidBody`                | ይህ ኮድ ትክክል አይደለም / ኮዱን ያረጋግጡ እና እንደገና ይሞክሩ።             | As `booking.expiredTitle` (ይህ ኮድ …); `common.retry`                    |
+| `promotions.codeUsedTitle`                                      | ይህን ኮድ አስቀድመው ተጠቅመውበታል                                  | ተጠቅመውበታል (have used it) new                                            |
+| `promotions.codeCheckTitle`, `codeRefusedTitle`                 | ኮዱን ያረጋግጡ / ኮድዎ ተቀባይነት አላገኘም                            | ያረጋግጡ; the negative of `granted`                                       |
+| `promotions.unconfirmedTitle`, `unconfirmedBody`                | ኮድዎን ማረጋገጥ አልቻልንም / ኮዱ ተቀባይነት አግኝቶ ሊሆን ይችላል። …          | As `deposit.unconfirmedTitle` / `unconfirmedBody`                      |
+| `promotions.unconfirmedBody` (the plan's wording, review M2)    | … እንደገና ይሞክሩ፤ አንድ ኮድ የሚያገለግለው አንድ ጊዜ ብቻ ነው።             | "a code is only ever used once": የሚያገለግለው (serves) … ብቻ ነው new         |
+| `promotions.offersNone`, `offersNoneBody`                       | አሁን ምንም ቅናሽ የለም / አዲስ ቅናሾች እዚህ ይታያሉ።                    | ቅናሽ; "… እዚህ ይታያሉ"                                                      |
+| `promotions.from`, `until`, `between`                           | ከ{date} ጀምሮ / እስከ {date} / ከ{from} እስከ {until}          | As `deposit.refused.amount` (ከ{min} እስከ {max}); ጀምሮ (from) new         |
+| `promotions.needsCode`, `enterCode`                             | የፕሮሞ ኮድ ያስፈልጋል / ኮድ ያስገቡ                                | ያስፈልጋል (is needed) new                                                 |
+| `promotions.terms`                                              | ደንቦች                                                    | `footer.terms`                                                         |
+| `promotions.guestTitle`, `guestBody`                            | ቦነስዎን ለማየት ይግቡ / ቦነስዎ፣ ነፃ ውርርዶችዎና የፕሮሞ ኮዶች እዚህ ይታያሉ።    | As `wallet.guestTitle` / `wallet.guestBody`                            |
+
+### Promo code at sign-up (F7ca, the user's review, 2026-10-09)
+
+| Key                            | Amharic                                           | Composed from                                               |
+| ------------------------------ | ------------------------------------------------- | ----------------------------------------------------------- |
+| `auth.promoCode`               | የፕሮሞ ኮድ (ካለዎት)                                    | `promotions.codeLabel` + ካለዎት (if you have one)             |
+| `auth.promoCodeHelp`           | ኮድ ካለዎት ከአዲሱ መለያዎ ጋር ለመጠቀም እዚህ ያስገቡት።             | As `promotions.codeHelp`; መለያ (account)                     |
+| `auth.errors.promoInvalid`     | ይህ ኮድ ትክክል አይደለም። ይቀይሩት፣ ወይም መለያዎን ለመፍጠር ባዶ ይተዉት። | `promotions.codeInvalidTitle`; ባዶ ይተዉት (leave it empty) new |
+| `auth.errors.promoUsed`        | ይህ ኮድ አስቀድሞ ጥቅም ላይ ውሏል። መለያዎን ለመፍጠር ባዶ ይተዉት።      | As `promotions.codeUsedTitle`                               |
+| `promotions.guestRegisterBody` | አዲስ ነዎት? ሲመዘገቡ የፕሮሞ ኮድዎን ያስገቡ።                    | ሲመዘገቡ (when you register), as `header.register`             |

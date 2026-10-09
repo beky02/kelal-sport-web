@@ -95,6 +95,24 @@ export const accountKeys = {
   update: () => [...accountKeys.all, "update"] as const,
 };
 
+/**
+ * The tenant's offers (F7ca): public, not the player's, so the session
+ * watcher leaves them. One language per entry: their texts are the API's.
+ */
+export const promotionKeys = {
+  all: ["promotions"] as const,
+  offers: (lang: string) => [...promotionKeys.all, "offers", lang] as const,
+};
+
+/**
+ * The player's bonus and free bets (F7ca) — personal data, under one root the
+ * session watcher drops when the player changes.
+ */
+export const bonusKeys = {
+  all: ["bonuses"] as const,
+  mine: () => [...bonusKeys.all, "mine"] as const,
+};
+
 export const walletKeys = {
   all: ["wallet"] as const,
   balance: () => [...walletKeys.all, "balance"] as const,

@@ -41,10 +41,13 @@ export function render(
   {
     rules = CONTRACT_RULES,
     bookingCodes = true,
+    bonuses = true,
     session = "player",
   }: {
     rules?: BettingRules | null;
     bookingCodes?: boolean;
+    /** The tenant's `features.bonuses`: whether Promotions is offered (F7ca). */
+    bonuses?: boolean;
     session?: "player" | "guest" | Player | null;
   } = {},
 ) {
@@ -68,7 +71,7 @@ export function render(
   if (rules) {
     queryClient.setQueryData(configKeys.public(), {
       betting: rules,
-      features: { bookingCodes },
+      features: { bookingCodes, bonuses },
       legal: CONTRACT_LEGAL,
     });
     // Fresh for the test's lifetime, so nothing refetches over the seed.

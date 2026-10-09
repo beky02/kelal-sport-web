@@ -306,6 +306,21 @@ describe("POST /api/auth/register", () => {
     });
   });
 
+  it("sends a promo code typed at sign-up as the contract's promo_code (REG-12, F7ca)", async () => {
+    const mod = await load();
+    upstreamAnswers(() => ({
+      status: 201,
+      body: responseExample("/v1/auth/register", "post", 201),
+    }));
+
+    await post(mod.register, REGISTER, {
+      ...REGISTRATION,
+      promoCode: "WELCOME",
+    });
+
+    expect(await sent[0].json()).toMatchObject({ promo_code: "WELCOME" });
+  });
+
   it("answers who was created and seals the session, never the tokens (AC-1)", async () => {
     const mod = await load();
     const result = responseExample(
@@ -451,6 +466,11 @@ describe("POST /api/auth/register", () => {
       { ...REGISTRATION, acceptTermsVersion: "1999-01" },
       { ...REGISTRATION, termsVersion: undefined },
       { ...REGISTRATION, nationalId: "1234" },
+      // A promo code is 1 to 64 characters (the contract), or not sent.
+      { ...REGISTRATION, promoCode: "" },
+      { ...REGISTRATION, promoCode: "x".repeat(65) },
+      { ...REGISTRATION, promoCode: 50 },
+      { ...REGISTRATION, promo_code: "WELCOME" },
     ]) {
       const response = await post(mod.register, REGISTER, body);
       expect(response.status, JSON.stringify(body)).toBe(422);

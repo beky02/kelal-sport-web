@@ -7,6 +7,7 @@ import type { KycResultView } from "@/features/auth/types";
 import { toPublicConfigView } from "@/lib/api/mappers/config";
 import { CSRF_HEADER, CSRF_VALUE } from "@/lib/session-cookie";
 import { configKeys, sessionKeys } from "@/lib/query/keys";
+import en from "@/lib/i18n/messages/en.json";
 import { useUiStore } from "@/stores/ui.store";
 import { example } from "../contract";
 import { CONTRACT_PLAYER, render } from "./render";
@@ -129,6 +130,7 @@ async function detailsStep({
   name = "Abebe Kebede",
   born = "12/04/1998",
   password = "correct horse battery",
+  promo = "",
 } = {}) {
   const fullName = await screen.findByLabelText("Full name as on your ID");
   await userEvent.clear(fullName);
@@ -141,6 +143,9 @@ async function detailsStep({
     await userEvent.clear(field);
     await userEvent.type(field, password);
   }
+  const code = screen.getByLabelText("Promo code (optional)");
+  await userEvent.clear(code);
+  if (promo) await userEvent.type(code, promo);
   await userEvent.click(screen.getByRole("button", { name: "Create account" }));
 }
 
@@ -393,6 +398,52 @@ describe("registering through the dialog", () => {
     expect(password).toHaveAccessibleDescription(
       "At least 8 characters (done) Both passwords match (not yet)",
     );
+  });
+});
+
+describe("a promo code at sign-up (REG-12, F7ca)", () => {
+  it("sends the code typed on the details step, trimmed, and nothing when it is left empty", async () => {
+    api((call) => happy(call));
+    render(<AuthDialog />, { session: "guest" });
+
+    await phoneStep();
+    await codeStep();
+    await detailsStep({ promo: "  WELCOME " });
+
+    expect(posts("/api/auth/register")[0].body).toMatchObject({
+      promoCode: "WELCOME",
+    });
+  });
+
+  it("says a refused code under its field and keeps the details; without it the account is created", async () => {
+    let refuse = true;
+    api((call) => {
+      if (call.path === "/api/auth/register" && refuse) {
+        refuse = false;
+        return [422, problem(422, "PROMO_INVALID")];
+      }
+      return happy(call);
+    });
+    render(<AuthDialog />, { session: "guest" });
+
+    await phoneStep();
+    await codeStep();
+    await detailsStep({ promo: "WELC0ME" });
+
+    const code = await screen.findByLabelText("Promo code (optional)");
+    await waitFor(() =>
+      expect(code).toHaveAccessibleDescription(
+        expect.stringContaining(en.auth.errors.promoInvalid),
+      ),
+    );
+    expect(code).toHaveAttribute("aria-invalid", "true");
+    expect(screen.getByLabelText("Full name as on your ID")).toHaveValue(
+      "Abebe Kebede",
+    );
+
+    await detailsStep({ promo: "" });
+    expect(posts("/api/auth/register")).toHaveLength(2);
+    expect(posts("/api/auth/register")[1].body).not.toHaveProperty("promoCode");
   });
 });
 
