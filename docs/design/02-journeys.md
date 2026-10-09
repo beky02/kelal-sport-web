@@ -66,6 +66,20 @@ read again (the wallet's card shares them), and again on focus, after a bet, a c
 refusal. Can fail with: a 422 → "Your limit wasn't saved" and the API's title and `detail`; no answer →
 "We couldn't save your limit" (saving again sends the same value); 401 → the session-ended path.
 
+## Redeem a promo code (BON-04, built in F7ca)
+
+Promotions (nav, or Menu on a phone) → Promo code → types it → Redeem → `/api/promo-codes/redeem`
+(`POST`, CSRF, a UUID `Idempotency-Key`, a strict 4 KiB body: `{ code }` of 1–32 characters) →
+`POST /v1/promo-codes/redeem`. The key is made when Redeem is pressed and belongs to that code for that
+player: while the try has no answer (network, 30 s, a 5xx, a 429) Try again — or Redeem with the same code
+— sends the same key, after `/api/me` says it is still that player; another code, another player or any
+answer starts a new key. Kept in memory across pages, not a reload (the API's one-per-player rule answers a
+repeat). The answer is the API's: `granted` or `pending_deposit` (with Deposit), its message shown when it
+sends one; the bonus, the wallet and the history are then read again — nothing is added in the browser.
+Can fail with: `PROMO_INVALID` / `NOT_FOUND` (change the code), `PROMO_ALREADY_USED`, `VALIDATION_FAILED`,
+`KYC_REQUIRED` (Verify), `RG_*` (the API's title; `/api/me` and the limits read again); 401 → the
+session-ended path.
+
 ## Take a break or self-exclude (RG-02, RG-03, built in F7a)
 
 Responsible gaming → choose the break (24 h, 7 d, 30 d) or the exclusion (6 m, 1 y, 5 y, permanent) →
