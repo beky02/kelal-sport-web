@@ -1,5 +1,41 @@
 # F7c — verification (F7ca — promotions)
 
+## Review brief
+
+- **What:** a new `/promotions` page (no screen existed): offers from `/v1/promotions` for anyone; for a player,
+  the bonus with the API's wagering figures and expiry, free bets with their conditions (`/v1/me/bonuses`),
+  and a promo-code form (`POST /v1/promo-codes/redeem`). F7c was split; the inbox is F7cb.
+- **Server:** `src/lib/server/promotions.ts`, `src/lib/api/mappers/promotions.ts`, `src/lib/api/promotion-schemas.ts`,
+  routes `src/app/api/{promotions,me/bonuses,promo-codes/redeem}/route.ts`.
+- **Browser:** `src/features/promotions/*` — the key-per-intent store (`stores/promo.store.ts`), outcome and notice
+  rules (`lib/redeem.ts`), hooks, four components; entry points in `MainNav`, `ProfileView`, `MobileTabBar`
+  behind the tenant's new `features.bonuses`; `forgetPlayer` drops `bonusKeys`; `moneyArrived` marks it stale.
+- **Risk:** the redeem's `Idempotency-Key` rule (decision 10: same key only after no answer, same code, same
+  player; memory only), refusals by `code` (decision 11), the https-only image and plain-text terms
+  (decisions 5–6), the one `no-img-element` lint exception.
+- **User's decisions (plan gate):** the split; the fallback lines when the API sends no `message` (decision 12).
+- **Not done:** the inbox (F7cb); using a free bet or bonus money on the slip; forfeiting; Markdown terms (F7d).
+
+## Automated gate
+
+| Check                                           | Command                                  | Result                                                                                    |
+| ----------------------------------------------- | ---------------------------------------- | ----------------------------------------------------------------------------------------- |
+| Typecheck, lint, format, unit + component tests | `pnpm check`                             | PASS — 86 files, 1,754 tests; lint 0 errors (2 warnings, both on `main` before this task) |
+| Generated types                                 | `pnpm api:check`                         | PASS                                                                                      |
+| Contract drift                                  | `node scripts/contract-sync.mjs --check` | PASS — `contracts/` and `docs/backend/` match the backend                                 |
+| Build                                           | `pnpm build`                             | PASS — `/promotions` and the three routes compiled                                        |
+| Host split                                      | `node scripts/check-host-split.mjs`      | PASS                                                                                      |
+| UI screens and e2e                              | `pnpm ui`                                | PASS — 713 passed, **3 flaky** (see Gaps)                                                 |
+
+Final `pnpm verify` (2026-10-09): exit 0 — `713 passed (9.4m)`, `3 flaky`.
+
+## Acceptance criteria
+
+| AC    | Status | Evidence                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| ----- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| AC-11 | PASS   | `promotions-mappers` (contract examples: offers, active bonus, free bets, https-only image), `promotions-route` (offers public in the UI's language; bonuses with the session, 401 without), `Promotions` component tests (offers, wagered line "ETB 850.00 of ETB 2,500.00 wagered", expiry "17 Oct 2026, 12:00", free bet conditions, empty, failures, guest, player switch, entry points) — all green; screens `promotions`, `promotions-guest`, `promotions-none`, `promotions-bonus-failed`, `promotions-offers-failed` × en/am × 375/1440, looked at                                 |
+| AC-12 | PASS   | `promotions-route` (key and code forwarded; refusals before upstream; PROMO_* passed through by code), `promotions-redeem` (outcome rule, notice per code, key-per-intent store), `Promotions` (same key on Try again and on Redeem after no answer; new key for another code or after an answer; PROMO_INVALID keeps the code to edit; PROMO_ALREADY_USED; granted re-reads bonus and wallet; pending_deposit offers Deposit) — all green; screens `promotions-redeemed`, `promotions-redeemed-pending`, `promotions-code-invalid`, `promotions-code-used`, `promotions-code-unconfirmed` |
+
 ## Self-review
 
 - **Money moves:** a redeem re-reads `bonusKeys`, `walletKeys` and `transactionKeys` once the API has
@@ -64,3 +100,16 @@ the code was then restored.
 | `Promotions` › is in the desktop nav and the phone's Menu while the tenant offers bonuses                                                          | The Menu row removed                                                                    |
 | `Promotions` › is in neither when the tenant has no bonuses                                                                                        | The nav link shown whatever `features.bonuses` says                                     |
 | `Promotions` › lights the phone's Menu tab                                                                                                         | `/promotions` left out of `tabFor`                                                      |
+
+## Gaps
+
+- **Flaky (not this task's):** three terminal kiosk tests, en · phone, failed once in the full run and passed on
+  retry — `kiosk-code-paused`, `kiosk-code-refused`, `kiosk-league`. First error, each:
+  `expect(getByRole('heading', { name: /^Football/, level: 2 })).toBeVisible()` — element not found within
+  5,000 ms. They ran back to back at the run's slowest point (neighbours took 24–31 s). Run alone with
+  `--retries=0`, all 12 variants pass; no terminal code reads anything this task changed. Risk: none to
+  F7ca; the kiosk board's 5 s wait is tight under load.
+- **Prism has no `PROMO_*` example:** the refusals are proven by route and component tests and shown by screens
+  that answer the route with the Problem; the real API's status for them (404/409/422) is unknown, which is why
+  the UI switches on `code` only.
+- **Loading state** is skeletons, covered by component tests, not screenshotted (as for the other account pages).
