@@ -1,7 +1,7 @@
 ---
 id: F7c
 title: Split from F7 — promotions, my bonus and free bets, promo codes, the inbox
-status: todo
+status: planned
 depends_on: [F4]
 contract_tags: [Promotions, Inbox]
 touches_money: true
@@ -11,6 +11,11 @@ touches_ui: true
 # F7c — Promotions and inbox
 
 Split from [F7](F7-account-rg-inbox.md) (2026-10-03, before planning).
+
+Split again (2026-10-09, while planning; about 3,400 changed lines in one PR) into
+[F7ca — promotions](F7ca-promotions.md) (**AC-11**, **AC-12**) and [F7cb — inbox](F7cb-inbox.md)
+(**AC-13**). F7c is done when both are. The plan is [`F7c/plan.md`](F7c/plan.md); F7ca is built on this
+branch.
 
 ## Goal
 
