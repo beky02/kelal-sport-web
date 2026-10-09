@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ChevronRight, Phone, Send, ShieldCheck } from "lucide-react";
+import { ChevronRight, Gift, Phone, Send, ShieldCheck } from "lucide-react";
 import { useTranslation } from "@/lib/i18n/use-translation";
 import { Segmented } from "@/components/ui/Segmented";
 import { Switch } from "@/components/ui/Switch";
@@ -14,6 +14,7 @@ import { useLogout, useSession } from "@/features/auth/hooks/use-session";
 import { authErrorMessage } from "@/features/auth/lib/errors";
 import { maskPhone } from "@/features/auth/lib/phone";
 import { useAuthStore } from "@/features/auth/stores/auth.store";
+import { usePublicConfig } from "@/features/config/hooks/use-public-config";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { formatLongDate } from "@/lib/i18n/dates";
 import { useUiStore } from "@/stores/ui.store";
@@ -75,6 +76,8 @@ export function ProfileView() {
   const saving = useAccountSaving();
   const consent = useUpdateAccount();
   const language = useUpdateAccount();
+  // The phone's way to Promotions, while the tenant runs bonuses (F7ca).
+  const bonuses = usePublicConfig().data?.features.bonuses ?? true;
 
   // The language this page reads in isn't the account's: a save failed, or
   // another device changed it. Said once nothing is being saved.
@@ -196,6 +199,29 @@ export function ProfileView() {
         </span>
         <ChevronRight size={18} strokeWidth={1.5} aria-hidden />
       </Link>
+
+      {bonuses && (
+        <Link
+          href={routes.promotions}
+          className="bg-surface text-text mx-4 mt-2 flex min-h-15 items-center gap-3 rounded-lg p-2.5 px-3 no-underline"
+        >
+          <Gift
+            size={22}
+            strokeWidth={1.5}
+            aria-hidden
+            className="text-accent shrink-0"
+          />
+          <span className="flex-1">
+            <span className="block text-sm font-semibold">
+              {t.t("nav.promotions")}
+            </span>
+            <span className="text-muted block text-[11px]">
+              {t.t("promotions.menuBody")}
+            </span>
+          </span>
+          <ChevronRight size={18} strokeWidth={1.5} aria-hidden />
+        </Link>
+      )}
 
       {player && (
         <>
