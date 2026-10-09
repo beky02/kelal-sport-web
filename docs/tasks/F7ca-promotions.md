@@ -1,7 +1,7 @@
 ---
 id: F7ca
 title: Split from F7c — offers, my bonus and free bets, promo codes
-status: verifying
+status: done
 depends_on: [F4]
 contract_tags: [Promotions]
 touches_money: true
@@ -40,9 +40,9 @@ F7d picks a renderer); push notifications.
 
 ## Acceptance criteria
 
-- [ ] **AC-11** Offers come from `/v1/promotions`; the active bonus shows the API's wagering required and
+- [x] **AC-11** Offers come from `/v1/promotions`; the active bonus shows the API's wagering required and
       done and its expiry; free bets are listed (mapper and component tests; `pnpm ui`).
-- [ ] **AC-12** A promo code is redeemed with one `Idempotency-Key` per intent, reused on a retry after no
+- [x] **AC-12** A promo code is redeemed with one `Idempotency-Key` per intent, reused on a retry after no
       answer; `PROMO_INVALID` and `PROMO_ALREADY_USED` say so (route and component tests).
 
 ## Verification

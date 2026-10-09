@@ -27,7 +27,12 @@
 | Host split                                      | `node scripts/check-host-split.mjs`      | PASS                                                                                      |
 | UI screens and e2e                              | `pnpm ui`                                | PASS — 713 passed, **3 flaky** (see Gaps)                                                 |
 
-Final `pnpm verify` (2026-10-09): exit 0 — `713 passed (9.4m)`, `3 flaky`.
+First `pnpm verify` (2026-10-09, before the review): exit 0 — `713 passed (9.4m)`, `3 flaky`.
+
+Final `pnpm verify` (2026-10-09, after the review fixes, `99c1c76`): **exit 0** — vitest `86 passed`, `1757 passed`;
+`contracts/ matches the backend.`, `docs/backend/ matches the backend.`; `✓ Compiled successfully`; Playwright
+`714 passed (9.6m)`, `6 flaky` (see Gaps). `pnpm check` after the fixes: 1,757 tests pass; `pnpm ui --grep
+promotions`: 44 passed.
 
 ## Acceptance criteria
 
@@ -112,7 +117,7 @@ the code was then restored.
 ## Review findings
 
 Panel: spec-verifier, quality-reviewer, money-reviewer, security-reviewer, ui-checker — every verdict PASS, no
-BLOCKER or MAJOR. Fixes in the commit after `8b849c7` ("F7ca: review fixes …"); each behaviour fix has a test
+BLOCKER or MAJOR. Fixes in `99c1c76`; each behaviour fix has a test
 that failed without it (Tests proven, last eight rows).
 
 | Id   | Reviewer            | Severity | Summary                                                                       | Decision                                                                                                                                                                                   |
@@ -154,6 +159,15 @@ Notes, no decision needed:
   5,000 ms. They ran back to back at the run's slowest point (neighbours took 24–31 s). Run alone with
   `--retries=0`, all 12 variants pass; no terminal code reads anything this task changed. Risk: none to
   F7ca; the kiosk board's 5 s wait is tight under load.
+- **Flaky in the final run (not this task's):** six tests failed once and passed on retry — `auth.spec`: "logs
+  in through the dialog and leaves no token in the browser (AC-3)", "sends a visitor without a session from the
+  wallet to log in, and back afterwards", "logging in on another device takes the language saved on the account
+  (F7b AC-8)", "logging out clears the session and the account pages close again (AC-8)"; `terminal.spec`:
+  "revoked: a revoked terminal says so …" (phone), "kiosk-board" (en · desktop). First errors: 5,000 ms waits
+  timing out — the header's balance link (`getByRole('link', { name: /balance/i })`), the URL after login, `<html
+lang>`, the revoked heading, the board heading. Run alone with `--retries=0`: `auth.spec` 8/8 and the two
+  terminal tests 6/6 pass. A different set flaked in each full run; the header these touch gained only the
+  Promotions link. Risk: the e2e suite's 5 s waits are tight under a full parallel run.
 - **Prism has no `PROMO_*` example:** the refusals are proven by route and component tests and shown by screens
   that answer the route with the Problem; the real API's status for them (404/409/422) is unknown, which is why
   the UI switches on `code` only.
