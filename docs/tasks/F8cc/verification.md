@@ -36,8 +36,17 @@
 | Host split                                | PASS                                                              | `node scripts/check-host-split.mjs`  |
 | Screens                                   | PASS (3 flaky, Gaps)                                              | `pnpm ui` (673 passed)               |
 
-`pnpm verify` (first run, before review and the user's rework): exit 0. It runs once more before the task
-is finished, after the user's comments on the rework.
+`pnpm verify` (first run, before review and the user's rework): exit 0.
+
+`pnpm verify` (final, after the rework and the review fixes, at `3100900`): exit 0. 1,694 unit and
+component tests; contract and docs in sync; build; host split.
+
+```
+  2 flaky
+    auth.spec.ts:170 › logging in on another device takes the language saved on the account (F7b AC-8)
+    terminal.spec.ts:883 › terminal kiosk · am · desktop › kiosk-code-prism-429 …
+  674 passed (9.2m)
+```
 
 ```
   3 flaky
@@ -169,7 +178,21 @@ Notes: the security reviewer suggests request 015 say whether a key reused after
 tie `qr` to `code` (moot without the QR). The money reviewer notes the player's Book bet on main offers a
 refused minimum without the line rule (`bookings/lib/errors.ts`), outside this task.
 
+## Acceptance criteria
+
+| AC    | Status | Evidence                                                                                                                      |
+| ----- | ------ | ----------------------------------------------------------------------------------------------------------------------------- |
+| AC-1  | PASS   | `KioskCode.test.tsx` dialog, Booked, idle-reset tests (pass); `terminal-kiosk-code-*` screens                                 |
+| AC-6  | PASS   | `KioskCode.test.tsx` 429 tests; `terminal-route.test.ts` Retry-After; `kiosk-code-paused`, `kiosk-code-prism-429`             |
+| AC-c1 | PASS   | `terminal-route.test.ts` byte-for-byte and refusals; `KioskCode.test.tsx` signature and key tests; `kiosk-code` against Prism |
+| AC-c2 | PASS   | `KioskCode.test.tsx` › "stops reading prices while idle …"                                                                    |
+| AC-c3 | PASS   | `KioskCode.test.tsx` refusal tests; `slip-code.test.ts`; `kiosk-code-refused`                                                 |
+
 ## Gaps
+
+- **Flaky in the final gate (passed on retry).** `kiosk-code-prism-429` (am, desktop): the shared
+  `activate()` helper's 5 s wait for the kiosk after activation, as in the first gate, not the 429 itself.
+  `auth.spec.ts:170` (F7b), outside this task.
 
 - **Flaky in the gate run (passed on retry).** Three F8b screens, which activate against Prism on desktop,
   ran concurrently. First error, the same for each: the kiosk's heading was not visible 5 s after

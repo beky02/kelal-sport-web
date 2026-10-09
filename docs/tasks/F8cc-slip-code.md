@@ -1,7 +1,7 @@
 ---
 id: F8cc
 title: Split from F8c — slip to an 8-digit code with a QR, idle reset, the rate limit
-status: verifying
+status: done
 depends_on: [F8cb]
 contract_tags: [Retail - terminal]
 touches_money: true
@@ -38,19 +38,19 @@ Out: the POS that sells the code (F9, `kelalsport-ops`).
 
 ## Acceptance criteria
 
-- [ ] **AC-1** (F8c; changed in the user's review, 2026-10-09) Book bet on the kiosk shows slip code
+- [x] **AC-1** (F8c; changed in the user's review, 2026-10-09) Book bet on the kiosk shows slip code
       `4829 1735` in the player's booking-code dialog (its barcode, no QR). The dialog stays until it is
       closed (Done or a tap outside), with no display timer, and the screen resets after the idle timeout
       (fake timers; `pnpm ui`).
-- [ ] **AC-6** (F8c) A 429 from `POST /v1/retail/slip-codes` says when the terminal can make the next code
+- [x] **AC-6** (F8c) A 429 from `POST /v1/retail/slip-codes` says when the terminal can make the next code
       (`Retry-After`), and Get code waits until then.
-- [ ] **AC-c1** The slip code request is signed over its exact body and carries one `Idempotency-Key` per
+- [x] **AC-c1** The slip code request is signed over its exact body and carries one `Idempotency-Key` per
       Get code, reused on retry; the route handler checks host, origin, body and signature before calling
       the API.
-- [ ] **AC-c2** (added at the plan gate, from Scope) No price polling while the kiosk is idle; the first
+- [x] **AC-c2** (added at the plan gate, from Scope) No price polling while the kiosk is idle; the first
       touch reads the prices on screen again and polling resumes; the terminal's status is still read while
       idle.
-- [ ] **AC-c3** (added at the plan gate, from Scope) The other refusals: a refused stake hint offers the
+- [x] **AC-c3** (added at the plan gate, from Scope) The other refusals: a refused stake hint offers the
       server's limit as a tap; a started or suspended leg is marked, with Remove it; a 401, a disallowed
       device or `RETAIL_SHOP_CLOSED` lets the terminal's status decide; a network failure says so, and Get
       code tries again with the same key.
@@ -74,3 +74,5 @@ Out: the POS that sells the code (F9, `kelalsport-ops`).
   unless another slip has picks; the QR is drawn from `qrcode`'s matrix. See [F8cc/plan.md](F8cc/plan.md).
 - 2026-10-09 (the user's review): no QR — the player's Book bet dialog is enough; the button says Book bet
   again; no timer on the code — it closes on Done or a tap outside. See the plan's "Rework" section.
+- 2026-10-09 (finish): a refused started match keeps the slip's "Selection suspended" alert (review S1);
+  the user asked to finish with the wording as it is.
