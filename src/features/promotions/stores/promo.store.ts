@@ -2,6 +2,7 @@
 
 import { create } from "zustand";
 import { newIdempotencyKey } from "@/lib/idempotency";
+import type { RedeemAnswer } from "../lib/redeem";
 
 /**
  * One promo-code intent: a code, for one player, with its `Idempotency-Key`.
@@ -27,16 +28,31 @@ interface PromoState {
   /** The open intent, or null when every try has been answered. */
   intent: PromoIntent | null;
   /**
+   * What the API said to the last try, for whom — kept here, not in the form,
+   * so an answer that lands while the player is on another page is shown when
+   * they come back.
+   */
+  last: { owner: string; answer: RedeemAnswer } | null;
+  /**
    * A try of `code` for `owner`: the open intent's key when it is this very
    * code, for this player, with no answer (Try again); otherwise a new intent
-   * with a new key. Null while a try is on its way — one at a time, however
-   * quickly Redeem is pressed.
+   * with a new key. Null while this player's try is on its way — one at a
+   * time, however quickly Redeem is pressed. Another player's try on its way
+   * stops nothing: its late answer no longer matches the open key.
    */
   send: (owner: string, code: string) => PromoTry | null;
   /** The try with `key` had no answer: its intent stays open. */
   unanswered: (key: string) => void;
-  /** The try with `key` was answered — granted or refused — or dropped: its intent ends. */
-  answered: (key: string) => void;
+  /**
+   * The try with `key` was answered — granted or refused — or dropped: its
+   * intent ends, and what the API said is kept for the form.
+   */
+  answered: (
+    key: string,
+    answer?: { owner: string; answer: RedeemAnswer },
+  ) => void;
+  /** The player moved on from the last answer. */
+  dismiss: () => void;
 }
 
 /**
@@ -47,16 +63,17 @@ interface PromoState {
  */
 export const usePromoStore = create<PromoState>()((set, get) => ({
   intent: null,
+  last: null,
   send: (owner, code) => {
     const open = get().intent;
-    if (open?.state === "sending") return null;
+    if (open?.state === "sending" && open.owner === owner) return null;
     const again =
       open !== null &&
       open.state === "unanswered" &&
       open.owner === owner &&
       open.code === code;
     const key = again ? open.key : newIdempotencyKey();
-    set({ intent: { owner, code, key, state: "sending" } });
+    set({ intent: { owner, code, key, state: "sending" }, last: null });
     return { owner, code, key, again };
   },
   unanswered: (key) =>
@@ -65,5 +82,9 @@ export const usePromoStore = create<PromoState>()((set, get) => ({
         ? { intent: { ...s.intent, state: "unanswered" } }
         : s,
     ),
-  answered: (key) => set((s) => (s.intent?.key === key ? { intent: null } : s)),
+  answered: (key, answer) =>
+    set((s) =>
+      s.intent?.key === key ? { intent: null, last: answer ?? null } : s,
+    ),
+  dismiss: () => set({ last: null }),
 }));

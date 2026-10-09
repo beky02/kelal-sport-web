@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback } from "react";
-import { TicketPercent } from "lucide-react";
+import { ChevronDown, TicketPercent } from "lucide-react";
 import { formatLongDate, toEat } from "@/lib/i18n/dates";
 import { useLocale } from "@/lib/i18n/locale";
 import { useTranslation } from "@/lib/i18n/use-translation";
@@ -89,9 +89,16 @@ export function OfferCard({
           </div>
         )}
         {offer.terms && (
-          <details className="pt-1">
-            <summary className="text-accent flex min-h-11 cursor-pointer items-center text-xs font-bold">
+          <details className="group pt-1">
+            {/* Its own open/close cue: a flex summary loses the browser's. */}
+            <summary className="text-accent flex min-h-11 cursor-pointer list-none items-center gap-1 text-xs font-bold [&::-webkit-details-marker]:hidden">
               {t.t("promotions.terms")}
+              <ChevronDown
+                size={14}
+                strokeWidth={2}
+                aria-hidden
+                className="transition-transform group-open:rotate-180"
+              />
             </summary>
             {/* The API's Markdown, shown as text — never as HTML — until F7d
                 picks a renderer (plan decision 5). */}

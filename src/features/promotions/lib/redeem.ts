@@ -1,5 +1,6 @@
 import { ApiError } from "@/lib/api/errors";
 import type { MessageKey } from "@/lib/i18n";
+import type { RedeemResult } from "../types";
 
 /**
  * What a failed redeem means for the code the player sent.
@@ -80,3 +81,8 @@ export function redeemNotice(error: ApiError): RedeemNotice {
       };
   }
 }
+
+/** What the API said to the last code a player sent, until they move on from it. */
+export type RedeemAnswer =
+  | { kind: "answered"; result: RedeemResult }
+  | { kind: "refused"; code: string; notice: RedeemNotice };

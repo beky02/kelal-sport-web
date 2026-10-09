@@ -2399,6 +2399,34 @@ const SCREENS: Array<{
     allowConsole: /503/,
   },
   {
+    // An offer taken up with a code, and its terms open (review U2): Prism's
+    // offers need none.
+    name: "promotions-code-offer",
+    path: "/promotions",
+    before: promotionsFor(
+      promoAnswer("/api/promotions", 200, [
+        {
+          id: "01J9A810000000000000000003",
+          title: "Derby day free bet",
+          summary: "A 50 ETB free bet with code DERBY50",
+          terms:
+            "One per player.\nThe free bet needs 3 or more picks at 1.50 or more each.",
+          imageUrl: null,
+          startsAt: "2026-10-10T00:00:00Z",
+          endsAt: "2026-10-12T21:00:00Z",
+          requiresCode: true,
+        },
+      ]),
+    ),
+    prepare: async (page, _device, lang) => {
+      const t = MESSAGES[lang];
+      await page
+        .getByRole("list", { name: t.promotions.offersTitle })
+        .getByText(t.promotions.terms, { exact: true })
+        .click();
+    },
+  },
+  {
     // Prism's answer: granted, with the API's own message (AC-12).
     name: "promotions-redeemed",
     path: "/promotions",

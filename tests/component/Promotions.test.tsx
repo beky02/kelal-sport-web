@@ -186,6 +186,10 @@ describe("offers, the bonus and free bets (AC-11)", () => {
     await within(section).findByText("ETB 850.00 of ETB 2,500.00 wagered");
     expect(within(section).getByText("100% first deposit bonus")).toBeTruthy();
     expect(within(section).getByText("ETB 500.00")).toBeTruthy();
+    // The bar is the API's two figures: 850.00 of 2,500.00 is 34%.
+    expect(
+      section.querySelector<HTMLElement>("[data-wagered]")?.style.width,
+    ).toBe("34%");
     // 09:00 UTC is 12:00 in East Africa Time.
     expect(
       within(section).getByText("Expires 17 Oct 2026, 12:00"),
@@ -228,7 +232,10 @@ describe("offers, the bonus and free bets (AC-11)", () => {
 
     bonuses = [200, BONUSES()];
     await userEvent.click(
-      screen.getByRole("button", { name: en.common.retry }),
+      screen.getByRole("button", {
+        name: en.common.retry,
+        description: en.promotions.bonusFailedTitle,
+      }),
     );
     await screen.findByText("ETB 850.00 of ETB 2,500.00 wagered");
     expect(asked("/api/me/bonuses")).toHaveLength(2);
@@ -240,10 +247,12 @@ describe("offers, the bonus and free bets (AC-11)", () => {
 
     await screen.findByText(en.promotions.offersFailedTitle);
     offers = [200, []];
-    const retry = screen
-      .getAllByRole("button", { name: en.common.retry })
-      .at(-1)!;
-    await userEvent.click(retry);
+    await userEvent.click(
+      screen.getByRole("button", {
+        name: en.common.retry,
+        description: en.promotions.offersFailedTitle,
+      }),
+    );
     await screen.findByText(en.promotions.offersNone);
     expect(asked("/api/promotions")).toHaveLength(2);
   });
@@ -334,7 +343,15 @@ describe("promo codes (AC-12)", () => {
     await screen.findByText(en.promotions.unconfirmedTitle);
 
     // Try again: /api/me says it is still this player, then the same key.
-    await user.click(screen.getByRole("button", { name: en.common.retry }));
+    await user.click(
+      screen.getByRole("button", {
+        name: en.common.retry,
+        description: en.promotions.unconfirmedTitle,
+      }),
+    );
+    // The button goes with its notice while the try is out: focus waits in
+    // the field rather than falling to the page.
+    expect(document.activeElement).toBe(codeField());
     await waitFor(() => expect(redeems()).toHaveLength(2));
     await screen.findByText(en.promotions.unconfirmedTitle);
 
@@ -392,6 +409,10 @@ describe("promo codes (AC-12)", () => {
     expect((codeField() as HTMLInputElement).value).toBe("DERBY5O");
     expect(document.activeElement).toBe(codeField());
     expect(codeField().getAttribute("aria-invalid")).toBe("true");
+    // The field says why whenever it is reached again, not only once.
+    expect(codeField()).toHaveAccessibleDescription(
+      expect.stringContaining(en.promotions.codeInvalidTitle),
+    );
   });
 
   it("says the code was already used on PROMO_ALREADY_USED", async () => {
@@ -521,6 +542,50 @@ describe("promo codes (AC-12)", () => {
     expect(new Set(redeems().map((c) => c.key)).size).toBe(1);
   });
 
+  it("reads the bonus and the wallet again when a code had no answer", async () => {
+    redeemAnswers = ["drop"];
+    const { queryClient } = render(<PromotionsView />);
+    queryClient.setQueryData(
+      walletKeys.balance(),
+      toWalletBalances(example("/v1/wallet")),
+    );
+    await bonusSection();
+    expect(asked("/api/me/bonuses")).toHaveLength(1);
+
+    await typeAndRedeem("DERBY50");
+    await screen.findByText(en.promotions.unconfirmedTitle);
+
+    // It may have gone through: what the server holds now is what shows.
+    await waitFor(() => expect(asked("/api/me/bonuses")).toHaveLength(2));
+    expect(queryClient.getQueryState(walletKeys.balance())?.isInvalidated).toBe(
+      true,
+    );
+  });
+
+  it("shows the answer to a code sent before the player left when they come back", async () => {
+    let answer!: (reply: [number, unknown]) => void;
+    redeemAnswers = [new Promise((resolve) => (answer = resolve))];
+    const first = render(<PromotionsView />);
+    await bonusSection();
+    await typeAndRedeem("DERBY50");
+    await screen.findByRole("button", { name: en.promotions.redeeming });
+    first.unmount();
+
+    render(<PromotionsView />);
+    await bonusSection();
+    expect(
+      screen.getByRole("button", { name: en.promotions.redeeming }),
+    ).toBeTruthy();
+    answer([422, problem(422, "PROMO_INVALID")]);
+
+    const alert = await screen.findByRole("alert");
+    expect(
+      within(alert).getByText(en.promotions.codeInvalidTitle),
+    ).toBeTruthy();
+    // The refused code is back in the field, to change.
+    expect((codeField() as HTMLInputElement).value).toBe("DERBY50");
+  });
+
   it("sends nothing on Try again when someone else is signed in now", async () => {
     redeemAnswers = ["drop"];
     render(<PromotionsView />);
@@ -536,7 +601,12 @@ describe("promo codes (AC-12)", () => {
       screen.getByRole("button", { name: en.common.retry }),
     );
 
+    // The second read is the session's, read again because someone else is
+    // signed in: only the refused path makes it, so nothing more can follow.
     await waitFor(() => expect(asked("/api/me")).toHaveLength(2));
+    await waitFor(() =>
+      expect(screen.queryByText(en.promotions.unconfirmedTitle)).toBeNull(),
+    );
     expect(redeems()).toHaveLength(1);
   });
 });

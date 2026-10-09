@@ -157,6 +157,20 @@ describe("one Idempotency-Key per intent (AC-12)", () => {
     expect(send("p1", "DERBY50")).not.toBeNull();
   });
 
+  it("lets another player send while someone else's code is on its way", () => {
+    const first = send("p1", "DERBY50")!;
+    const other = send("p2", "DERBY50")!;
+    expect(other).not.toBeNull();
+    expect(other.key).not.toBe(first.key);
+    // The first player's late answer doesn't touch the second's try.
+    usePromoStore.getState().answered(first.key);
+    expect(usePromoStore.getState().intent).toMatchObject({
+      owner: "p2",
+      key: other.key,
+      state: "sending",
+    });
+  });
+
   it("ignores an answer for a key that is no longer the open one", () => {
     const first = send("p1", "DERBY50")!;
     usePromoStore.getState().unanswered(first.key);

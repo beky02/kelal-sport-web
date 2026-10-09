@@ -35,19 +35,28 @@ export function PromoCodeForm({
   const field = useId();
   const help = useId();
   const openAuth = useAuthStore((s) => s.open);
-  const { sending, unanswered, answer, redeem, dismiss } =
+  const refusal = useId();
+  const unconfirmed = useId();
+  const { open, sending, unanswered, answer, redeem, dismiss } =
     useRedeemPromoCode(owner);
-  // A code that had no answer is still there when the player comes back.
-  const [value, setValue] = useState(() => unanswered ?? "");
+  // A code on its way, unanswered or refused is still there when the player
+  // comes back.
+  const [value, setValue] = useState(
+    () => open ?? (answer?.kind === "refused" ? answer.code : ""),
+  );
   const refused = answer?.kind === "refused" ? answer.notice : null;
 
-  /**
-   * Sends a code. Granted or waiting for a deposit: the field is ready for
-   * another. Refused with a code to fix: the field, to fix it.
-   */
+  // Granted or waiting for a deposit, here or while the player was away: the
+  // field is ready for another code.
+  const [seen, setSeen] = useState(answer);
+  if (answer !== seen) {
+    setSeen(answer);
+    if (answer?.kind === "answered") setValue("");
+  }
+
+  /** Sends a code. Refused with a code to fix: the field, to fix it. */
   const send = (code: string) =>
     redeem(code, {
-      onAnswered: () => setValue(""),
       onRefused: (notice) => {
         if (notice.fix === "edit") fieldRef.current?.focus();
       },
@@ -80,9 +89,14 @@ export function PromoCodeForm({
           autoComplete="off"
           autoCorrect="off"
           spellCheck={false}
-          aria-describedby={help}
+          // A refusal to fix is said again whenever the field is reached.
+          aria-describedby={
+            refused?.fix === "edit" ? `${help} ${refusal}` : help
+          }
           aria-invalid={refused?.fix === "edit" || undefined}
-          className="bg-ground border-border text-text numeric aria-invalid:border-loss h-12 min-w-0 flex-1 rounded-md border px-3 text-base font-semibold"
+          // Monospace with a slashed zero: O and 0 must look different in a
+          // code (review U1).
+          className="bg-ground border-border text-text aria-invalid:border-loss h-12 min-w-0 flex-1 rounded-md border px-3 font-mono text-base font-semibold slashed-zero"
         />
         <button
           type="submit"
@@ -99,7 +113,10 @@ export function PromoCodeForm({
           role="alert"
           className="bg-warn-bg mt-3 flex flex-col gap-2 rounded-lg p-3.5"
         >
-          <p className="flex items-center gap-2 text-sm font-semibold">
+          <p
+            id={unconfirmed}
+            className="flex items-center gap-2 text-sm font-semibold"
+          >
             <CircleAlert
               size={18}
               strokeWidth={1.5}
@@ -114,7 +131,11 @@ export function PromoCodeForm({
           <div>
             <button
               type="button"
+              aria-describedby={unconfirmed}
               onClick={() => {
+                // This button goes while the try is out: focus waits in the
+                // field rather than falling to the page.
+                fieldRef.current?.focus();
                 setValue(unanswered);
                 send(unanswered);
               }}
@@ -128,6 +149,7 @@ export function PromoCodeForm({
 
       {refused && (
         <div
+          id={refusal}
           role="alert"
           className="bg-loss-bg mt-3 flex flex-col gap-1.5 rounded-lg p-3.5"
         >

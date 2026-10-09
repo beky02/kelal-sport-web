@@ -84,6 +84,7 @@ export function PromotionsView() {
 function Offers({ onEnterCode }: { onEnterCode?: () => void }) {
   const t = useTranslation();
   const heading = useId();
+  const failed = useId();
   const offers = usePromotions();
 
   return (
@@ -116,7 +117,7 @@ function Offers({ onEnterCode }: { onEnterCode?: () => void }) {
       ) : offers.isError ? (
         <div className="bg-raised mt-2 flex min-h-14 items-center gap-3 rounded-lg px-3.5 py-2">
           <span className="flex-1">
-            <span className="block text-sm font-semibold">
+            <span id={failed} className="block text-sm font-semibold">
               {t.t("promotions.offersFailedTitle")}
             </span>
             <span className="text-muted block text-xs">
@@ -125,6 +126,7 @@ function Offers({ onEnterCode }: { onEnterCode?: () => void }) {
           </span>
           <button
             type="button"
+            aria-describedby={failed}
             onClick={() => void offers.refetch()}
             className="bg-surface text-text font-body min-h-11 shrink-0 cursor-pointer rounded-lg px-3 text-xs font-bold"
           >

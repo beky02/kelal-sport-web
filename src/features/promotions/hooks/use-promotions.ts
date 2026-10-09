@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { getMe } from "@/features/auth/api/auth";
 import {
@@ -18,9 +18,13 @@ import {
   redeemDeadline,
   redeemPromoCode,
 } from "../api/promotions";
-import { redeemNotice, redeemOutcome, type RedeemNotice } from "../lib/redeem";
+import {
+  redeemNotice,
+  redeemOutcome,
+  type RedeemAnswer,
+  type RedeemNotice,
+} from "../lib/redeem";
 import { usePromoStore, type PromoTry } from "../stores/promo.store";
-import type { RedeemResult } from "../types";
 
 /** Offers change when the operator edits them: a few minutes is fresh enough. */
 const OFFERS_STALE_MS = 5 * 60_000;
@@ -38,26 +42,23 @@ export function usePromotions() {
   });
 }
 
-/** The player's bonus in progress and free bets. A signed-in player's only (`enabled`). */
-export function useMyBonuses(enabled: boolean) {
+/**
+ * The player's bonus in progress and free bets. A signed-in player's only:
+ * the page renders what reads it only for one.
+ */
+export function useMyBonuses() {
   return useQuery({
     queryKey: bonusKeys.mine(),
     queryFn: ({ signal }) => getMyBonuses(signal),
     staleTime: BONUS_STALE_MS,
     refetchOnWindowFocus: true,
-    enabled,
   });
 }
 
-/** What the API said to the last code this page sent, while it is on screen. */
-export type RedeemAnswer =
-  | { kind: "answered"; result: RedeemResult }
-  | { kind: "refused"; code: string; notice: RedeemNotice };
+export type { RedeemAnswer };
 
-/** What the form does when an answer lands, while it is on screen. */
+/** What the form does when a refusal lands, while it is on screen. */
 export interface RedeemCallbacks {
-  /** Granted, or waiting for a deposit. */
-  onAnswered?: (result: RedeemResult) => void;
   /** Refused, with what it offers. */
   onRefused?: (notice: RedeemNotice) => void;
 }
@@ -76,15 +77,23 @@ class NotTheirSession extends Error {}
  * asks `/api/me` who is signed in, within the try's 30 s, and sends nothing
  * for anyone else.
  *
- * What an answer means is recorded by the mutation itself, which runs whether
- * or not the form is still on screen; only the line the form shows waits for
- * it.
+ * What an answer means — and the answer itself — is recorded by the mutation
+ * in `promo.store.ts`, which runs whether or not the form is on screen; only
+ * what the form does with its field (empty it, focus it) waits for the form.
  */
 export function useRedeemPromoCode(owner: string | null) {
   const queryClient = useQueryClient();
   const intent = usePromoStore((s) => s.intent);
   const mine = intent !== null && intent.owner === owner ? intent : null;
-  const [answer, setAnswer] = useState<RedeemAnswer | null>(null);
+  const last = usePromoStore((s) => s.last);
+  const answer = last !== null && last.owner === owner ? last.answer : null;
+
+  /** A code's reward is the server's: the bonus, the wallet and the history are read again. */
+  const rewardMayHaveMoved = useCallback(() => {
+    void queryClient.invalidateQueries({ queryKey: bonusKeys.all });
+    void queryClient.invalidateQueries({ queryKey: walletKeys.all });
+    void queryClient.invalidateQueries({ queryKey: transactionKeys.all });
+  }, [queryClient]);
 
   const { mutate } = useMutation({
     mutationFn: async (attempt: PromoTry) => {
@@ -96,11 +105,12 @@ export function useRedeemPromoCode(owner: string | null) {
       }
       return redeemPromoCode(attempt.code, attempt.key, deadline);
     },
-    onSuccess: (_result, attempt) => {
-      usePromoStore.getState().answered(attempt.key);
-      void queryClient.invalidateQueries({ queryKey: bonusKeys.all });
-      void queryClient.invalidateQueries({ queryKey: walletKeys.all });
-      void queryClient.invalidateQueries({ queryKey: transactionKeys.all });
+    onSuccess: (result, attempt) => {
+      usePromoStore.getState().answered(attempt.key, {
+        owner: attempt.owner,
+        answer: { kind: "answered", result },
+      });
+      rewardMayHaveMoved();
     },
     onError: (error, attempt) => {
       const store = usePromoStore.getState();
@@ -113,13 +123,23 @@ export function useRedeemPromoCode(owner: string | null) {
       const outcome = redeemOutcome(error);
       if (outcome.kind === "unanswered") {
         store.unanswered(attempt.key);
+        // It may have gone through: show what the server holds now.
+        rewardMayHaveMoved();
         return;
       }
-      store.answered(attempt.key);
       if (outcome.kind === "session") {
+        store.answered(attempt.key);
         void queryClient.invalidateQueries({ queryKey: sessionKeys.me() });
         return;
       }
+      store.answered(attempt.key, {
+        owner: attempt.owner,
+        answer: {
+          kind: "refused",
+          code: attempt.code,
+          notice: redeemNotice(outcome.error),
+        },
+      });
       if (outcome.error.code.startsWith("RG_")) {
         // A break or a limit is server state: read it again.
         void queryClient.invalidateQueries({ queryKey: sessionKeys.me() });
@@ -140,19 +160,13 @@ export function useRedeemPromoCode(owner: string | null) {
       // two presses in the same moment can't both go.
       const attempt = usePromoStore.getState().send(owner, code);
       if (!attempt) return;
-      setAnswer(null);
       mutate(attempt, {
-        onSuccess: (result) => {
-          setAnswer({ kind: "answered", result });
-          callbacks.onAnswered?.(result);
-        },
-        onError: (error) => {
-          const outcome =
-            error instanceof NotTheirSession ? null : redeemOutcome(error);
-          if (outcome?.kind === "refused") {
-            const notice = redeemNotice(outcome.error);
-            setAnswer({ kind: "refused", code: attempt.code, notice });
-            callbacks.onRefused?.(notice);
+        // The mutation has recorded the answer by now; this is only what the
+        // form on screen does with it.
+        onSettled: () => {
+          const { last } = usePromoStore.getState();
+          if (last?.owner === attempt.owner && last.answer.kind === "refused") {
+            callbacks.onRefused?.(last.answer.notice);
           }
         },
       });
@@ -161,9 +175,11 @@ export function useRedeemPromoCode(owner: string | null) {
   );
 
   /** The player moved on from an answer: it no longer applies. */
-  const dismiss = useCallback(() => setAnswer(null), []);
+  const dismiss = useCallback(() => usePromoStore.getState().dismiss(), []);
 
   return {
+    /** The code of this player's open intent — on its way or unanswered — or null. */
+    open: mine?.code ?? null,
     sending: mine?.state === "sending",
     /** The code that had no answer, for Try again; null when there is none. */
     unanswered: mine?.state === "unanswered" ? mine.code : null,

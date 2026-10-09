@@ -703,6 +703,7 @@ catalogue's own — ቅናሾች (`profile.notifOffers`), ቦነስ (`wallet.bon
 | `promotions.bonusFailedTitle`, `offersFailedTitle`              | ቦነስዎን መጫን አልተሳካም / ቅናሾቹን መጫን አልተሳካም                     | As `wallet.loadFailedTitle`                                            |
 | `promotions.loadFailedBody`                                     | ግንኙነትዎን ያረጋግጡ እና እንደገና ይሞክሩ።                            | `wallet.loadFailedBody`                                                |
 | `promotions.freeBets`, `freeBetStake`, `noFreeBets`             | ነፃ ውርርዶች / {stake} ነፃ ውርርድ / ነፃ ውርርድ የለም                | ነፃ (free) + ውርርድ (`nav.myBets`)                                        |
+| `promotions.noFreeBetsBody`                                     | የሚያገኟቸው ነፃ ውርርዶች እዚህ ይታያሉ።                              | ነፃ ውርርድ; "… እዚህ ይታያሉ" (review U3)                                      |
 | `promotions.freeBetPicks`, `freeBetLegOdds`, `freeBetTotalOdds` | ምርጫዎች፦ {n} ወይም ከዚያ በላይ / የእያንዳንዱ ምርጫ ኦድ፦ … / ጠቅላላ ኦድ፦ … | ምርጫ (`nav.slipAria`), ኦድ, ጠቅላላ ኦድ (`betSlip.totalOdds`); "or more" new |
 | `promotions.codeLabel`, `codeHelp`                              | የፕሮሞ ኮድ / ኮድ አለዎት? ቅናሹን ለማግኘት ያስገቡት።                    | ኮድ (booking codes); ያስገቡ (`betSlip.alerts.deposit`)                    |
 | `promotions.redeem`, `redeeming`                                | ተጠቀም / በመጠቀም ላይ…                                        | ተጠቀም (use), imperative as `profile.verify`                             |
@@ -711,6 +712,7 @@ catalogue's own — ቅናሾች (`profile.notifOffers`), ቦነስ (`wallet.bon
 | `promotions.codeUsedTitle`                                      | ይህን ኮድ አስቀድመው ተጠቅመውበታል                                  | ተጠቅመውበታል (have used it) new                                            |
 | `promotions.codeCheckTitle`, `codeRefusedTitle`                 | ኮዱን ያረጋግጡ / ኮድዎ ተቀባይነት አላገኘም                            | ያረጋግጡ; the negative of `granted`                                       |
 | `promotions.unconfirmedTitle`, `unconfirmedBody`                | ኮድዎን ማረጋገጥ አልቻልንም / ኮዱ ተቀባይነት አግኝቶ ሊሆን ይችላል። …          | As `deposit.unconfirmedTitle` / `unconfirmedBody`                      |
+| `promotions.unconfirmedBody` (the plan's wording, review M2)    | … እንደገና ይሞክሩ፤ አንድ ኮድ የሚያገለግለው አንድ ጊዜ ብቻ ነው።             | "a code is only ever used once": የሚያገለግለው (serves) … ብቻ ነው new         |
 | `promotions.offersNone`, `offersNoneBody`                       | አሁን ምንም ቅናሽ የለም / አዲስ ቅናሾች እዚህ ይታያሉ።                    | ቅናሽ; "… እዚህ ይታያሉ"                                                      |
 | `promotions.from`, `until`, `between`                           | ከ{date} ጀምሮ / እስከ {date} / ከ{from} እስከ {until}          | As `deposit.refused.amount` (ከ{min} እስከ {max}); ጀምሮ (from) new         |
 | `promotions.needsCode`, `enterCode`                             | የፕሮሞ ኮድ ያስፈልጋል / ኮድ ያስገቡ                                | ያስፈልጋል (is needed) new                                                 |

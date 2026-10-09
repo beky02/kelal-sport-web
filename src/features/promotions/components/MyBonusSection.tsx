@@ -21,7 +21,8 @@ const RETRY =
 export function MyBonusSection() {
   const t = useTranslation();
   const heading = useId();
-  const bonuses = useMyBonuses(true);
+  const failed = useId();
+  const bonuses = useMyBonuses();
 
   return (
     <section aria-labelledby={heading} className="px-4 pt-5">
@@ -45,7 +46,7 @@ export function MyBonusSection() {
       ) : bonuses.isError ? (
         <div className="bg-raised mt-2 flex min-h-14 items-center gap-3 rounded-lg px-3.5 py-2">
           <span className="flex-1">
-            <span className="block text-sm font-semibold">
+            <span id={failed} className="block text-sm font-semibold">
               {t.t("promotions.bonusFailedTitle")}
             </span>
             <span className="text-muted block text-xs">
@@ -54,6 +55,8 @@ export function MyBonusSection() {
           </span>
           <button
             type="button"
+            // One of up to three Try agains on the page: say which.
+            aria-describedby={failed}
             onClick={() => void bonuses.refetch()}
             className={RETRY}
           >
@@ -88,7 +91,11 @@ function ActiveBonusCard({ bonus }: { bonus: ActiveBonus }) {
       </div>
       {/* Recessed track, as the limits' bar: the figures below say it in words. */}
       <div className="bg-ground h-1.5 overflow-hidden rounded-full" aria-hidden>
-        <div className="bg-accent h-full" style={{ width: `${share}%` }} />
+        <div
+          data-wagered
+          className="bg-accent h-full"
+          style={{ width: `${share}%` }}
+        />
       </div>
       <p className="numeric text-sm">
         {t.t("promotions.wagered", {
@@ -112,9 +119,13 @@ function FreeBets({ bets }: { bets: FreeBet[] }) {
         {t.t("promotions.freeBets")}
       </h3>
       {bets.length === 0 ? (
-        <p className="text-muted pt-1 text-sm">
-          {t.t("promotions.noFreeBets")}
-        </p>
+        // As "No active bonus" above: one look for every empty part.
+        <div className="bg-raised mt-2 rounded-lg p-3.5">
+          <p className="font-semibold">{t.t("promotions.noFreeBets")}</p>
+          <p className="text-muted text-xs">
+            {t.t("promotions.noFreeBetsBody")}
+          </p>
+        </div>
       ) : (
         <ul aria-label={t.t("promotions.freeBets")} className="mt-1">
           {bets.map((bet) => (

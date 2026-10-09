@@ -32,7 +32,7 @@ Engineering Decisions say differently. The order follows the Build Plan's fronte
 | [F7](F7-account-rg-inbox.md)                  | Account, limits, self-exclusion, reality check, promotions, inbox; delete the mocks                    | F4                 | B8, B13       | todo        |
 | [F7a](F7a-responsible-gambling.md)            | Split from F7: limits, breaks and self-exclusion on the account; RG refusals everywhere                | F4, F6a            | B8            | done        |
 | [F7b](F7b-account-reality-check.md)           | Split from F7: profile preferences, active devices, the reality check from the server                  | F4                 | B5, B8        | done        |
-| [F7c](F7c-promotions-inbox.md)                | Split from F7: promotions, my bonus and free bets, promo codes, the inbox                              | F4                 | —             | verifying   |
+| [F7c](F7c-promotions-inbox.md)                | Split from F7: promotions, my bonus and free bets, promo codes, the inbox                              | F4                 | —             | in_progress |
 | [F7ca](F7ca-promotions.md)                    | Split from F7c: offers, my bonus and free bets, promo codes                                            | F4                 | —             | verifying   |
 | [F7cb](F7cb-inbox.md)                         | Split from F7c: the inbox, its unread badge, marking read                                              | F7ca               | —             | todo        |
 | [F7d](F7d-content-mocks.md)                   | Split from F7: content pages from the API; the mock repository deleted                                 | F6c, F7a, F7b, F7c | B1            | todo        |
