@@ -33,6 +33,8 @@ export const routes = {
   withdrawal: (id: string) => `/wallet?withdrawal=${encodeURIComponent(id)}`,
   transactions: "/transactions",
   profile: "/profile",
+  /** The tenant's offers; a player's bonus, free bets and promo codes (F7ca). */
+  promotions: "/promotions",
 
   login: "/login",
   register: "/register",

@@ -22,6 +22,8 @@ export interface BettingRules {
 export interface TenantFeatures {
   /** Book bet, load a code and `/b/{code}` (C09). */
   bookingCodes: boolean;
+  /** Offers, the player's bonus and promo codes: their entry points (C11, F7ca). */
+  bonuses: boolean;
 }
 
 /** What the tenant's registration consent and age copy need (`PublicConfig.legal`). */

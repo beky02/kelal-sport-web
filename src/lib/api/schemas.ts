@@ -434,7 +434,7 @@ export type BoardSectionDto = z.infer<typeof boardSectionSchema>;
 
 export const publicConfigSchema = z.object({
   betting: bettingRulesSchema,
-  features: z.object({ bookingCodes: z.boolean() }),
+  features: z.object({ bookingCodes: z.boolean(), bonuses: z.boolean() }),
   legal: z.object({
     termsVersion: z.string().nullable(),
     minAge: z.number().int().positive().nullable(),

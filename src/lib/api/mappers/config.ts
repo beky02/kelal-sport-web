@@ -33,7 +33,10 @@ export function toBettingRules(r: ApiRuleSet): BettingRules {
 export function toPublicConfigView(config: ApiPublicConfig): PublicConfigView {
   return {
     betting: toBettingRules(config.betting),
-    features: { bookingCodes: config.features.booking_codes !== false },
+    features: {
+      bookingCodes: config.features.booking_codes !== false,
+      bonuses: config.features.bonuses !== false,
+    },
     legal: {
       termsVersion: config.legal?.terms_version?.trim() || null,
       minAge: config.legal?.min_age ?? null,

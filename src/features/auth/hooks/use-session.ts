@@ -11,6 +11,7 @@ import {
 import {
   accountKeys,
   betKeys,
+  bonusKeys,
   paymentKeys,
   rgKeys,
   sessionKeys,
@@ -70,8 +71,8 @@ export function useSession(): SessionState {
 /**
  * Drops everything only a player may see. Done whenever the session changes
  * hands — logout, a session found gone, a login — so the next player never
- * sees the previous one's balance, payments, bets, break or devices, however
- * fresh the cache.
+ * sees the previous one's balance, payments, bets, break, devices or bonus,
+ * however fresh the cache.
  */
 export function forgetPlayer(queryClient: QueryClient): void {
   for (const key of [
@@ -81,6 +82,7 @@ export function forgetPlayer(queryClient: QueryClient): void {
     transactionKeys.all,
     rgKeys.all,
     accountKeys.all,
+    bonusKeys.all,
   ]) {
     queryClient.removeQueries({ queryKey: key });
   }
