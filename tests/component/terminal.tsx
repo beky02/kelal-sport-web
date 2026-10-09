@@ -21,9 +21,10 @@ import {
   toSports,
   toTopCompetitions,
 } from "@/lib/api/mappers/catalogue";
-import { toBooking, toBookingReceipt } from "@/lib/api/mappers/bookings";
+import { toBooking } from "@/lib/api/mappers/bookings";
 import { toTerminalConfigView } from "@/lib/api/mappers/config";
 import {
+  toSlipCodeReceipt,
   toTerminalActivation,
   toTerminalInfo,
 } from "@/lib/api/mappers/terminal";
@@ -49,11 +50,21 @@ import { address } from "./navigation";
 export const TERMINAL = toTerminalInfo(example("/v1/retail/terminal"));
 
 /** That terminal, running, its token due for rotation or not. */
-export const active = (rotateDue = false): TerminalStatus => ({
+export const active = (
+  rotateDue = false,
+  terminal = TERMINAL,
+): TerminalStatus => ({
   state: "active",
-  terminal: TERMINAL,
+  terminal,
   rotateDue,
 });
+
+/**
+ * That terminal with an hour's idle time, for a test that watches the screen
+ * stay as it is for minutes: the kiosk would otherwise start over after 90 s
+ * without a touch (F8cc), which is the idle reset's own test.
+ */
+export const UNHURRIED = { ...TERMINAL, idleResetSeconds: 3600 };
 
 /** The kiosk's config as `/api/terminal/config` answers it: the contract's, mapped. */
 export const KIOSK_CONFIG = toTerminalConfigView(example("/v1/config/public"));
@@ -102,20 +113,19 @@ export const SEARCH = toSearchResults(
   false,
 );
 
+/** The contract's slip code (`POST /v1/retail/slip-codes`, F8cc: the kiosk's Book bet), mapped. */
+export const SLIP_CODE = toSlipCodeReceipt(
+  responseExample(
+    "/v1/retail/slip-codes",
+    "post",
+    201,
+  ) as components["schemas"]["SlipCodeCreated"],
+);
+
 /**
  * The contract's booking (`/v1/bookings/{code}`), mapped: one leg still on
  * sale, re-priced from 2.05 to 2.10, and one whose match has started.
  */
-/** The contract's answer to Book bet (`POST /v1/bookings`), mapped. */
-export const BOOKED = toBookingReceipt(
-  responseExample(
-    "/v1/bookings",
-    "post",
-    201,
-  ) as components["schemas"]["BookingCreated"],
-  "2026-10-04T08:00:00Z",
-);
-
 export const BOOKING = toBooking({
   en: example("/v1/bookings/{code}"),
   am: example("/v1/bookings/{code}"),
@@ -132,6 +142,10 @@ export const kioskHeading = () => screen.findByRole("heading", KIOSK_HEADING);
 
 /** The kiosk's board heading, now (for fake-timer tests that tick first). */
 export const kioskHeadingNow = () => screen.getByRole("heading", KIOSK_HEADING);
+
+/** The kiosk's board heading if it is up, or null (to wait on under a fake clock). */
+export const kioskHeadingQuery = () =>
+  screen.queryByRole("heading", KIOSK_HEADING);
 
 /** The contract's answer to an activation. */
 export const ACTIVATION = toTerminalActivation(
@@ -182,7 +196,8 @@ export function setUpTerminalTests() {
     // (`<html data-api>`).
     // A fresh page: three empty slips, Slip 1 on screen, no stake yet.
     useBetSlipStore.getState().resetAll();
-    useKioskStore.getState().reset();
+    // Every kiosk field: language, idle, round, each slip's code and the wait.
+    useKioskStore.setState(useKioskStore.getInitialState(), true);
     address.go("/");
     document.documentElement.dataset.api = "/api/terminal/";
     document.documentElement.lang = "en";
@@ -241,7 +256,7 @@ export function routes({
   event = () => json(200, EVENT),
   search = () => json(200, SEARCH),
   booking = () => json(200, BOOKING),
-  bookBet = () => json(201, BOOKED),
+  slipCodes,
 }: {
   status?: Answer;
   activate?: Answer;
@@ -255,8 +270,8 @@ export function routes({
   event?: Answer;
   search?: Answer;
   booking?: Answer;
-  /** `POST /api/terminal/bookings`: Book bet. */
-  bookBet?: Answer;
+  /** `POST /api/terminal/slip-codes`: the kiosk's Book bet (F8cc); answers only when given. */
+  slipCodes?: Answer;
 } = {}) {
   const answers = new Map<string, Answer | undefined>([
     ["/api/terminal/status", status],
@@ -268,7 +283,7 @@ export function routes({
     ["/api/terminal/catalogue/competitions/top", top],
     ["/api/terminal/catalogue/competitions/countries", countries],
     ["/api/terminal/catalogue/search", search],
-    ["/api/terminal/bookings", bookBet],
+    ["/api/terminal/slip-codes", slipCodes],
   ]);
   const since = Date.now();
   vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {

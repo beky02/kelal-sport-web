@@ -6,9 +6,13 @@
  * z.ZodType<Domain>`, as there.
  */
 import { z } from "zod";
+import type { components } from "@/lib/api/schema";
+import { compareMoney } from "@/lib/money";
+import { MONEY_PATTERN, ODDS_PATTERN } from "./patterns";
 import { bettingRulesSchema } from "./rules-schema";
 import type {
   ActivationForm,
+  SlipCodeReceipt,
   TerminalActivation,
   TerminalConfigView,
   TerminalInfo,
@@ -81,3 +85,42 @@ export const terminalConfigSchema = z.strictObject({
   defaultLanguage: z.enum(["en", "am"]),
   rules: bettingRulesSchema.nullable(),
 }) satisfies z.ZodType<TerminalConfigView>;
+
+/**
+ * An outcome id as the slip-code route forwards it: opaque (D3), of URL-safe
+ * ASCII, so the text the browser signed is the text that goes on, byte for
+ * byte (F8cc decision 4).
+ */
+const OUTCOME_ID = /^[A-Za-z0-9_.:-]{1,64}$/;
+
+/**
+ * What `/api/terminal/slip-codes` forwards (F8cc): the contract's
+ * `SlipCodeCreate`, strict, every field ASCII — checked before anything goes
+ * upstream. A stake hint is an amount above zero.
+ */
+export const slipCodeCreateSchema = z.strictObject({
+  bet_type: z.enum(["single", "multiple", "system"]),
+  system_sizes: z.array(z.number().int().min(1).max(30)).max(30).optional(),
+  legs: z
+    .array(
+      z.strictObject({
+        outcome_id: z.string().regex(OUTCOME_ID),
+        odds: z.string().regex(ODDS_PATTERN).optional(),
+      }),
+    )
+    .min(1)
+    .max(30),
+  stake_hint: z
+    .string()
+    .regex(MONEY_PATTERN, { abort: true })
+    .refine((stake) => compareMoney(stake, "0.00") > 0, "Not a stake")
+    .optional(),
+}) satisfies z.ZodType<components["schemas"]["SlipCodeCreate"]>;
+
+/** `/api/terminal/slip-codes`'s answer: the code to show (F8cc). */
+export const slipCodeReceiptSchema = z.strictObject({
+  code: z.string().regex(/^\d{8}$/),
+  display: z.string().min(1).max(32),
+  expiresAt: z.string(),
+  qr: z.string().min(1).max(2048),
+}) satisfies z.ZodType<SlipCodeReceipt>;

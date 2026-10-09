@@ -12,8 +12,8 @@ type Method = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
  * (D3). They call the sportsbook API from the server, with the tenant header
  * and the session cookie the browser never sees.
  *
- * On the shop kiosk the catalogue's reads, a booking's read by its code and
- * Book bet go to its own handlers, under `/api/terminal/` (FD1, F8ca): its root layout
+ * On the shop kiosk the catalogue's reads and a booking's read by its code go
+ * to its own handlers, under `/api/terminal/` (FD1, F8ca): its root layout
  * says so on `<html data-api>`, so the same fetchers work on both sites.
  */
 const BASE_PATH = "/api/";
@@ -22,13 +22,13 @@ const BASE_PATH = "/api/";
 const TERMINAL_BASE_PATH = "/api/terminal/";
 
 /**
- * What the terminal mirrors (F8ca): catalogue reads, a booking read by its
- * code — exactly `bookings/{code}` (review SEC1) — and Book bet, exactly
- * `POST bookings`. Never the player's other calls. No `.` or `..` segment,
- * so nothing re-rooted can resolve outside the mirror.
+ * What the terminal mirrors (F8ca): catalogue reads and a booking read by its
+ * code — exactly `bookings/{code}` (review SEC1). Reads only: the kiosk's one
+ * write, Book bet, is its own signed call for a slip code (F8cc), so no write
+ * of the player's is ever re-rooted. No `.` or `..` segment, so nothing
+ * re-rooted can resolve outside the mirror.
  */
 function mirrored(method: Method, path: string): boolean {
-  if (method === "POST") return path === "bookings";
   if (method !== "GET") return false;
   if (
     path.split(/[/?]/).some((segment) => segment === "." || segment === "..")

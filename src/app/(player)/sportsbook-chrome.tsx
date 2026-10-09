@@ -49,7 +49,7 @@ function useExpandedCountries() {
 const PLAYER_CHROME: SportsbookChrome = {
   Shell: SportsbookShell,
   useRealtimeTopics,
-  pricePollMs: POLL_UNLESS_REALTIME,
+  usePricePollMs: () => POLL_UNLESS_REALTIME,
   useDataSaver: () => useUiStore((s) => s.dataSaver),
   useOddsLocked,
   useAfterPick: useShowSlip,

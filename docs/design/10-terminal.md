@@ -78,7 +78,8 @@ An active terminal of an open shop is **the player's sportsbook without what nee
 direction, 2026-10-06). It has the same home board, league page, match page, sidebar, search and slip, at
 the same sizes and widths, in the kiosk's own frame. There is no Log in, Register, My bets, Wallet,
 Responsible gaming or Favourites, and no player watchers (session, reality check, deposits). F8cb priced
-the slip with the shop's rules and the player's stake field; F8cc adds Get code.
+the slip with the shop's rules and the player's stake field; F8cc made Book bet a slip code for the counter
+and added the idle reset (next section but one).
 
 The terminal frame is brand-only; it contains no shop/address or terminal/PC labels. The kiosk prefers
 English when the tenant offers it, otherwise its configured default. While status or config loads, it uses
@@ -193,7 +194,7 @@ retail is enabled.
   minimum and maximum equal to the online ones, so both sites ask the same. It is typed in the player's stake field (`StakeInput`, no balance),
   with the PC's keyboard; the user removed the on-screen keypad (2026-10-08). Then the "N bets × X" line
   and the rule set's quick stakes, when it has any. A loaded code's stake hint becomes the stake, under the
-  shop's limits (the user's answer). Book bet sends the stake typed as the code's hint when slipcalc
+  shop's limits (the user's answer). Book bet sends the stake typed as the slip code's hint when slipcalc
   accepts it, and a refusal of it offers the server's amount as a tap.
 - **No shop rule set.** A tenant whose config has no `retail_betting` shows the picks, the bet's modes,
   Book bet and Load code, and a notice, "Ask the shop staff what this slip pays." (the user's wording): no
@@ -210,7 +211,7 @@ retail is enabled.
 | Config unreadable             | The config read failed (network, 5xx)           | Brand-only bar; "Can't reach the server" + Try again (bilingual)                                                               | `terminal-kiosk-config-offline`                       |
 | Home board                    | Config read, shop betting on                    | The player's home, without what needs a player                                                                                 | `terminal-kiosk-board-{am,en}-{phone,desktop}`        |
 | Picks                         | Prices tapped                                   | The picks in the slip; prices pressed; rows tinted                                                                             | `terminal-kiosk-picks-…`                              |
-| Slip priced                   | Picks and a stake typed                         | The bet's modes, the stake, total odds and the payout on the shop's rules; Book bet                                            | `terminal-kiosk-slip-{am,en}-{phone,desktop}`         |
+| Slip priced                   | Picks and a stake typed                         | The slips' tabs, the stake, total odds and the payout on the shop's rules; Book bet                                            | `terminal-kiosk-slip-{am,en}-{phone,desktop}`         |
 | Stake too low                 | A stake under the shop's minimum                | The field red, the minimum below it; figures "—"; Book bet off                                                                 | `terminal-kiosk-slip-too-low-…`                       |
 | No shop rule set              | The config has no `retail_betting`              | The picks; "Ask the shop staff what this slip pays."; no stake or figure                                                       | `terminal-kiosk-slip-no-rules-…`                      |
 | A league                      | `/terminal/competition/[id]`                    | That league's board                                                                                                            | `terminal-kiosk-league-…`                             |
@@ -221,17 +222,96 @@ retail is enabled.
 | Sports unreadable             | The sports read failed                          | No tabs; read again every 30 s (`useSports`, both sites)                                                                       | — (component test)                                    |
 | A match in play               | The terminal's route answers `null`             | The player's "match not found"                                                                                                 | — (component test)                                    |
 
+## Slip codes and starting over (F8cc)
+
+**Book bet on the kiosk makes a slip code**: the 8-digit code the counter sells from (C19 §4.2, §4.3), not
+the player's 7-character booking code. The button reads Book bet, then Booked, as on the player's slip, and
+the code shows in the player's booking-code dialog (the user's review, 2026-10-09). Load booking code stays,
+so an online code still loads into the slip and becomes a slip code. `apiClient` re-roots no write to the
+terminal; the kiosk's one write is its own signed call.
+
+- **When it is on:** Book bet's rule (`bookingRequestFrom`): live picks, no two of one match, and slipcalc
+  happy with the stake. Under the shop's minimum it is off; over the maximum the picks go without the
+  stake. Each pick goes with the odds shown (for the counter's "changed" flag, C19 §14), when they are the
+  contract's shape, and the stake as `stake_hint`. Without a shop rule set there is no stake.
+- **Signed over the exact body.** The browser builds the contract's `SlipCodeCreate` (a pure mapper,
+  `toSlipCodeCreate`) and signs its `JSON.stringify` text, which is the text it sends.
+  `POST /api/terminal/slip-codes` checks, before any call:
+  - a terminal host;
+  - this site's page (origin, the CSRF header, JSON);
+  - the terminal's cookie;
+  - an `Idempotency-Key` UUID;
+  - the signature's shape and clock;
+  - the body: at most 16 KiB of strict UTF-8, the contract's shape, every field ASCII, spelt exactly as
+    `JSON.stringify` spells it (so no duplicated key).
+
+  It then forwards **the text it read**, never a re-serialisation, with the token, `X-Device-Id` from the
+  cookie and the key. It answers `no-store`, and forwards Prism's `Prefer` under `next dev` only.
+
+- **One `Idempotency-Key` per slip**, kept in the kiosk store by the slip's request with its code: the same
+  key on a retry of the same slip (after a network failure, a 5xx or a waited-out 429), a new one when the
+  slip changes. Booked opens the same code again, so the same slip is never booked twice. The contract
+  doesn't declare the key yet ([request 015](../contract-requests/015-terminal-reads-and-slip-codes.md)).
+- **The dialog** (`BookingCodeDialog`) shows:
+  - "Booking code";
+  - the code as `display` (`4829 1735`, or the code grouped 4 + 4 when `display` holds other digits) and its
+    Code 128 barcode;
+  - "Valid until …" (East Africa Time);
+  - Done.
+
+  There is no Copy or Share (a shop PC is no one's to copy to) and no QR. **No timer:** it stays until Done
+  or a tap outside, and closing it changes nothing else. The terminal's `code_display_seconds` is not used.
+
+- **Refusals**, by `code`:
+
+  | Refusal                                                     | What the kiosk does                                                                                                                                                                                                                                                                            |
+  | ----------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+  | 429 `RATE_LIMITED` (30 per terminal per 10 minutes)         | "This terminal has made too many codes. Book bet is back in {minutes} min." from `Retry-After`. Book bet is off until then, and the wait survives a start over (it is the terminal's); once over it is dropped. With no `Retry-After` (or `0`, Prism's): "… Try again later." and nothing held |
+  | `BET_STAKE_TOO_LOW` / `BET_STAKE_TOO_HIGH` with a limit     | The slip's message with the amount, and "Set {amount}" as a tap: a maximum as given, a minimum as the smallest stake that clears it on every line (D1.3). The limit is read from `stake_hint` (request 015) or `stake` (the shared example), and only when it is an amount above zero          |
+  | `BET_EVENT_STARTED` / `BET_MARKET_SUSPENDED` with `legs[i]` | That pick is marked: the slip's own "Selection suspended" alert with Remove it. The board reads its prices again. The next Book bet leaves the pick out                                                                                                                                        |
+  | Any 401, `RETAIL_DEVICE_NOT_ALLOWED`, `RETAIL_SHOP_CLOSED`  | The status is read again and decides (lapsed, switched off, not allowed, closed). Meanwhile "Couldn't get a code. Try again." or "This shop is closed"                                                                                                                                         |
+  | Network, 5xx                                                | "Couldn't get a code. Try again.", with the same key                                                                                                                                                                                                                                           |
+  | Any other refusal                                           | "This slip can't be made into a code as it is."                                                                                                                                                                                                                                                |
+
+  A refusal is read from the shared mutation cache, so the slip shows it wherever it is opened next (the
+  column, or the phone's sheet).
+
+**Starting over** (`useStartOver`) is what the idle reset does. It does all of:
+
+- every slip empty, Slip 1 on screen, the stake at the shop's minimum (`resetAll`);
+- the kiosk's first language;
+- every slip's code and key dropped (so a code left open on screen goes too);
+- the address back to `/`, which clears the board's filters;
+- a new round of the page, re-keyed whole, so a typed search, an open sheet or dialog and a half-typed
+  booking code all go.
+
+It keeps the 429 wait, the query cache, the learnt clock offset, and the status and config reads.
+
+**Idle** (`useIdle`): no `pointerdown`, `keydown` or `wheel` on the document for `idle_reset_seconds` (90
+when the terminal has none). Then the kiosk starts over and stops polling prices (`KIOSK_CHROME`'s
+`usePricePollMs` returns `false`). The first touch reads the prices on screen again at once and polls
+again. The status and config are still read every 5 minutes, so a revocation or a closed shop still
+reaches an idle kiosk.
+
+| State                | When                                      | Shows                                                                | Screenshot                                    |
+| -------------------- | ----------------------------------------- | -------------------------------------------------------------------- | --------------------------------------------- |
+| Code                 | Book bet answered 201 (Prism's example)   | The booking-code dialog: `4829 1735`, its barcode, Valid until, Done | `terminal-kiosk-code-{am,en}-{phone,desktop}` |
+| Book bet waits       | 429 with `Retry-After: 240`               | Book bet off; "… back in 4 min." under it                            | `terminal-kiosk-code-paused-…`                |
+| A pick can't be sold | 422 `BET_EVENT_STARTED` naming `legs[1]`  | That pick locked, "Selection suspended" with Remove it               | `terminal-kiosk-code-refused-…`               |
+| Prism's own 429      | `Prefer: code=429` through the dev server | "… Try again later."; `Retry-After: 0` reached the page              | — (e2e assertion)                             |
+
 ## Signed calls (D3)
 
 The browser holds the device key but never calls the API, so it signs **the API call that the route
 handler will make**: its method, its contract path and the exact body bytes. One table,
 `features/terminal/lib/calls.ts`, pairs each route with its API call, and both sides read it.
 
-| Route                         | API call                             | Signed | CSRF header | Body                          |
-| ----------------------------- | ------------------------------------ | ------ | ----------- | ----------------------------- |
-| `POST /api/terminal/activate` | `POST /v1/retail/terminals/activate` | no     | yes         | code + public key (4 KiB cap) |
-| `GET /api/terminal/status`    | `GET /v1/retail/terminal`            | yes    | —           | —                             |
-| `POST /api/terminal/token`    | `POST /v1/retail/terminal/token`     | yes    | yes         | none read or sent             |
+| Route                           | API call                             | Signed | CSRF header | Body                                        |
+| ------------------------------- | ------------------------------------ | ------ | ----------- | ------------------------------------------- |
+| `POST /api/terminal/activate`   | `POST /v1/retail/terminals/activate` | no     | yes         | code + public key (4 KiB cap)               |
+| `GET /api/terminal/status`      | `GET /v1/retail/terminal`            | yes    | —           | —                                           |
+| `POST /api/terminal/token`      | `POST /v1/retail/terminal/token`     | yes    | yes         | none read or sent                           |
+| `POST /api/terminal/slip-codes` | `POST /v1/retail/slip-codes`         | yes    | yes         | the signed text, byte for byte (16 KiB cap) |
 
 The kiosk's reads (F8ca) are not signed. Each route composes several API calls (the board is
 `/v1/events` in two languages and `/v1/dictionary`), read **anonymously**, as the contract allows. The

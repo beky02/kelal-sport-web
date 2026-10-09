@@ -958,6 +958,12 @@
         "body": "Ask the shop staff."
       },
       "noRules": "Ask the shop staff what this slip pays."
+    },
+    "code": {
+      "paused": "This terminal has made too many codes. Book bet is back in {minutes} min.",
+      "pausedLater": "This terminal has made too many codes. Try again later.",
+      "failed": "Couldn’t get a code. Try again.",
+      "cannot": "This slip can’t be made into a code as it is."
     }
   }
 }

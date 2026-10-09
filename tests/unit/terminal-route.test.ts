@@ -683,7 +683,7 @@ describe("the terminal cookie", () => {
 /** The kiosk's reads (F8ca), with the cookie helpers of the routes above. */
 async function loadReads() {
   const mod = await load();
-  const [config, sports, board, top, countries, event, search, booking, books] =
+  const [config, sports, board, top, countries, event, search, booking] =
     await Promise.all([
       import("@/app/api/terminal/config/route"),
       import("@/app/api/terminal/catalogue/sports/route"),
@@ -693,7 +693,6 @@ async function loadReads() {
       import("@/app/api/terminal/catalogue/events/[id]/route"),
       import("@/app/api/terminal/catalogue/search/route"),
       import("@/app/api/terminal/bookings/[code]/route"),
-      import("@/app/api/terminal/bookings/route"),
     ]);
   return {
     ...mod,
@@ -703,7 +702,6 @@ async function loadReads() {
     top: top.GET,
     countries: countries.GET,
     search: search.GET,
-    bookBet: books.POST,
     booking: (request: Request) =>
       booking.GET(request, {
         params: Promise.resolve({
@@ -1169,63 +1167,6 @@ describe("the kiosk's reads (F8ca AC-1, AC-5)", () => {
     expect(sent).toHaveLength(0);
   });
 
-  it("books a slip for an activated terminal, with the browser's key, and refuses it otherwise before calling the API (the user's third review)", async () => {
-    vi.stubEnv("NODE_ENV", "development");
-    const mod = await loadReads();
-    upstreamAnswers((request) =>
-      path(request) === "/v1/bookings" && request.method === "POST"
-        ? { status: 201, body: responseExample("/v1/bookings", "post", 201) }
-        : { status: 404, body: { code: "NOT_FOUND" } },
-    );
-    const key = "0b7e2a5c-5d1e-4f43-9a2b-6c1d2e3f4a5b";
-    const body = JSON.stringify({
-      betType: "single",
-      systemSizes: [],
-      outcomeIds: ["oc_ac_1"],
-      stake: null,
-    });
-    const book = (headers: Record<string, string>, payload = body) =>
-      mod.bookBet(
-        new Request(`${BASE}/api/terminal/bookings`, {
-          method: "POST",
-          headers,
-          body: payload,
-        }),
-      );
-    const signed = (extra: Record<string, string> = {}) =>
-      withCookie(mod, terminal(), {
-        ...SAME_SITE,
-        "idempotency-key": key,
-        prefer: "code=500",
-        ...extra,
-      });
-
-    const created = await book(signed());
-    expect(created.status).toBe(201);
-    expect(created.headers.get("cache-control")).toBe("no-store");
-    expect(sent).toHaveLength(1);
-    expect(sent[0].method).toBe("POST");
-    expect(sent[0].headers.get("idempotency-key")).toBe(key);
-    expect(sent[0].headers.get("prefer")).toBeNull();
-
-    sent.length = 0;
-    const refusals = [
-      // A player host: not the terminal's route at all.
-      await book({ ...signed(), host: "localhost:3000" }),
-      // No terminal cookie.
-      await book({ ...SAME_SITE, "idempotency-key": key }),
-      // Another site's page.
-      await book(signed({ origin: "https://evil.example" })),
-      // No key, or not a booking.
-      await book(signed({ "idempotency-key": "" })),
-      await book(signed(), JSON.stringify({ outcomeIds: [] })),
-    ];
-    expect(refusals.map((response) => response.status)).toEqual([
-      404, 401, 403, 400, 422,
-    ]);
-    expect(sent).toHaveLength(0);
-  });
-
   it("never sends Prism's Prefer upstream, not even under next dev", async () => {
     vi.stubEnv("NODE_ENV", "development");
     const mod = await loadReads();
@@ -1241,5 +1182,275 @@ describe("the kiosk's reads (F8ca AC-1, AC-5)", () => {
     for (const request of sent) {
       expect(request.headers.get("prefer")).toBeNull();
     }
+  });
+});
+
+describe("POST /api/terminal/slip-codes (F8cc AC-c1, AC-6)", () => {
+  async function loadCodes() {
+    const mod = await load();
+    const route = await import("@/app/api/terminal/slip-codes/route");
+    return { ...mod, getCode: route.POST };
+  }
+  type Codes = Awaited<ReturnType<typeof loadCodes>>;
+
+  const KEY = "0b7e2a5c-5d1e-4f43-9a2b-6c1d2e3f4a5b";
+  /**
+   * The slip as the browser sends it — `JSON.stringify`'s text, the only form
+   * the route takes (review SEC1) — with its keys in an order the route's
+   * own schema wouldn't produce: a body that reaches the API unchanged was
+   * forwarded, not rebuilt.
+   */
+  const TEXT =
+    '{"legs":[{"odds":"2.10","outcome_id":"oc_ac_1"},{"outcome_id":"oc_sg_1","odds":"1.85"}],"stake_hint":"50.00","bet_type":"multiple"}';
+
+  const CREATED = () =>
+    responseExample("/v1/retail/slip-codes", "post", 201) as {
+      expires_at: string;
+    };
+
+  const headers = (mod: Codes, extra: Record<string, string> = {}) =>
+    withCookie(mod, terminal(), {
+      ...SAME_SITE,
+      ...signed(),
+      "idempotency-key": KEY,
+      ...extra,
+    });
+
+  const getCode = (
+    mod: Codes,
+    head: Record<string, string>,
+    body: BodyInit | null = TEXT,
+  ) =>
+    mod.getCode(
+      new Request(`${BASE}/api/terminal/slip-codes`, {
+        method: "POST",
+        headers: head,
+        body,
+      }),
+    );
+
+  it("forwards the body byte for byte with the device headers, the device id from the cookie, the token and the key", async () => {
+    const mod = await loadCodes();
+    upstreamAnswers(() => ({ status: 201, body: CREATED() }));
+    const response = await getCode(
+      mod,
+      // A device id the browser names is never the one sent.
+      headers(mod, { "x-device-id": "someone-else" }),
+    );
+    expect(response.status).toBe(201);
+    expect(response.headers.get("cache-control")).toBe("no-store");
+
+    expect(sent).toHaveLength(1);
+    const [call] = sent;
+    expect(call.method).toBe("POST");
+    expect(path(call)).toBe("/v1/retail/slip-codes");
+    expect(await call.text()).toBe(TEXT);
+    expect(call.headers.get("x-device-id")).toBe(terminal().terminalId);
+    expect(call.headers.get("x-device-timestamp")).toBe(String(NOW));
+    expect(call.headers.get("x-device-signature")).toBe(SIGNATURE);
+    expect(call.headers.get("authorization")).toBe(
+      `Bearer ${terminal().token}`,
+    );
+    expect(call.headers.get("idempotency-key")).toBe(KEY);
+    expect(call.headers.get("x-tenant-id")).toBe("demo");
+  });
+
+  it("answers with the code to show: the contract's 201, mapped", async () => {
+    const mod = await loadCodes();
+    // The real API's own expiry, in the future, is passed on untouched.
+    const later = new Date(NOW + 3 * 60 * 60 * 1000).toISOString();
+    upstreamAnswers(() => ({
+      status: 201,
+      body: { ...CREATED(), expires_at: later },
+    }));
+    const response = await getCode(mod, headers(mod));
+    expect(await response.json()).toEqual({
+      code: "48291735",
+      display: "4829 1735",
+      expiresAt: later,
+      qr: "https://example.et/r/48291735",
+    });
+  });
+
+  it("gives the mock's past example a code's life from the API's clock, and only the mock's", async () => {
+    const mod = await loadCodes();
+    upstreamAnswers(() => ({ status: 201, body: CREATED() }));
+    const response = await getCode(mod, headers(mod));
+    const { expiresAt } = (await response.json()) as { expiresAt: string };
+    expect(CREATED().expires_at < new Date(NOW).toISOString()).toBe(true);
+    expect(expiresAt).toBe(new Date(NOW + 240 * 60 * 1000).toISOString());
+  });
+
+  it("passes a 429 through with its Retry-After, and the API's refusals with their code and fix", async () => {
+    const mod = await loadCodes();
+    upstreamAnswers(() => ({
+      status: 429,
+      body: responseExample("/v1/retail/slip-codes", "post", 429),
+      headers: { "Retry-After": "240" },
+    }));
+    const limited = await getCode(mod, headers(mod));
+    expect(limited.status).toBe(429);
+    expect(limited.headers.get("retry-after")).toBe("240");
+    expect(limited.headers.get("cache-control")).toBe("no-store");
+    expect(await limited.json()).toMatchObject({ code: "RATE_LIMITED" });
+
+    sent = [];
+    upstreamAnswers(() => ({
+      status: 422,
+      body: responseExample(
+        "/v1/retail/slip-codes",
+        "post",
+        422,
+        "stake_too_low",
+      ),
+    }));
+    const low = await getCode(mod, headers(mod));
+    expect(low.status).toBe(422);
+    expect(await low.json()).toMatchObject({
+      code: "BET_STAKE_TOO_LOW",
+      errors: [{ field: "stake", code: "MIN", limit: "5.00" }],
+    });
+  });
+
+  it("refuses another host, another site, no terminal, no or a malformed key, an unsigned call or a skewed clock, and an oversized, non-UTF-8, non-JSON or off-contract body — before calling the API", async () => {
+    const mod = await loadCodes();
+    upstreamAnswers(() => ({ status: 201, body: CREATED() }));
+    const big = JSON.stringify({
+      bet_type: "multiple",
+      legs: [{ outcome_id: "x".repeat(17_000) }],
+    });
+    const cases: [string, Promise<Response>, number, string?][] = [
+      [
+        "a player host",
+        getCode(mod, headers(mod, { host: "localhost:3000" })),
+        404,
+      ],
+      [
+        "another site's page",
+        getCode(mod, headers(mod, { origin: "https://evil.example" })),
+        403,
+      ],
+      [
+        "no CSRF header",
+        getCode(mod, headers(mod, { [CSRF_HEADER]: "" })),
+        403,
+      ],
+      [
+        "not JSON's content type",
+        getCode(mod, headers(mod, { "content-type": "text/plain" })),
+        415,
+      ],
+      [
+        "no terminal cookie",
+        getCode(mod, {
+          ...SAME_SITE,
+          ...signed(),
+          "idempotency-key": KEY,
+        }),
+        401,
+        "AUTH_INVALID_CREDENTIALS",
+      ],
+      [
+        "an expired terminal",
+        getCode(mod, {
+          ...withCookie(mod, terminal(NOW - 1)),
+          ...SAME_SITE,
+          ...signed(),
+          "idempotency-key": KEY,
+        }),
+        401,
+      ],
+      [
+        "no key",
+        getCode(mod, headers(mod, { "idempotency-key": "" })),
+        400,
+        "VALIDATION_FAILED",
+      ],
+      [
+        "a key that isn't a UUID",
+        getCode(mod, headers(mod, { "idempotency-key": "again" })),
+        400,
+      ],
+      [
+        "unsigned",
+        getCode(mod, headers(mod, { "X-Device-Signature": "" })),
+        400,
+      ],
+      ["a skewed clock", getCode(mod, headers(mod, signed(NOW - 60_000))), 400],
+      ["over 16 KiB", getCode(mod, headers(mod), big), 413],
+      [
+        "not UTF-8",
+        getCode(
+          mod,
+          headers(mod),
+          new Uint8Array([0x7b, 0x22, 0xff, 0x22, 0x7d]),
+        ),
+        422,
+      ],
+      ["a byte-order mark", getCode(mod, headers(mod), `﻿${TEXT}`), 422],
+      ["not JSON", getCode(mod, headers(mod), "{legs"), 422],
+      ["no body", getCode(mod, headers(mod), null), 422],
+      [
+        "something beside the slip",
+        getCode(
+          mod,
+          headers(mod),
+          JSON.stringify({ ...JSON.parse(TEXT), shop: "ADM-004" }),
+        ),
+        422,
+      ],
+      [
+        // JSON.parse keeps the last copy; the first would go on unchecked
+        // (review SEC1).
+        "a duplicated key",
+        getCode(
+          mod,
+          headers(mod),
+          '{"bet_type":"single","legs":[{"outcome_id":"x/../y"}],"legs":[{"outcome_id":"oc_1"}]}',
+        ),
+        422,
+      ],
+      [
+        "whitespace, or any form JSON.stringify wouldn't make",
+        getCode(mod, headers(mod), TEXT.replace(",", ", ")),
+        422,
+      ],
+      [
+        "an id that isn't ASCII",
+        getCode(
+          mod,
+          headers(mod),
+          JSON.stringify({
+            bet_type: "single",
+            legs: [{ outcome_id: "oc_é" }],
+          }),
+        ),
+        422,
+      ],
+    ];
+    for (const [name, response, status, code] of cases) {
+      const answer = await response;
+      expect(answer.status, name).toBe(status);
+      if (code) expect((await answer.json()).code, name).toBe(code);
+      if (status !== 404) {
+        expect(answer.headers.get("cache-control"), name).toBe("no-store");
+      }
+    }
+    expect(sent).toHaveLength(0);
+  });
+
+  it("forwards Prism's Prefer under next dev only", async () => {
+    vi.stubEnv("NODE_ENV", "development");
+    const dev = await loadCodes();
+    upstreamAnswers(() => ({ status: 201, body: CREATED() }));
+    await getCode(dev, headers(dev, { prefer: "code=429" }));
+    expect(sent[0].headers.get("prefer")).toBe("code=429");
+
+    vi.stubEnv("NODE_ENV", "test");
+    const test = await loadCodes();
+    sent = [];
+    upstreamAnswers(() => ({ status: 201, body: CREATED() }));
+    await getCode(test, headers(test, { prefer: "code=429" }));
+    expect(sent[0].headers.get("prefer")).toBeNull();
   });
 });

@@ -332,7 +332,9 @@ for (const [device, viewport] of Object.entries({
           am.terminal.blocked.revokedTitle,
         );
         // The terminal's bar: the brand, home, and nothing else to press.
-        expect(await controls(page)).toBe(1);
+        // Retried: a reload under `next dev` can show the kiosk starting for a
+        // moment (review Q9).
+        await expect.poll(() => controls(page)).toBe(1);
         await expect(
           page.getByRole("link", { name: /KelalSport/ }),
         ).toHaveAttribute("href", "/");
@@ -353,7 +355,7 @@ for (const [device, viewport] of Object.entries({
       await expect(heading(page)).toContainText(
         en.terminal.blocked.deviceTitle,
       );
-      expect(await controls(page)).toBe(1);
+      await expect.poll(() => controls(page)).toBe(1);
       await shoot(page, "device-not-allowed", device, errors);
     });
 
@@ -828,6 +830,152 @@ for (const [device, viewport] of Object.entries({
           remove.locator("xpath=..").getByText(/2\.10/),
         ).toBeVisible();
         await shoot(page, `kiosk-booking-code-${lang}`, device, errors);
+      });
+
+      /** Book bet's route on the kiosk: slip codes (F8cc). */
+      const CODES = "**/api/terminal/slip-codes";
+
+      test("kiosk-code: Book bet against Prism — the signed slip goes through, and the booking-code dialog shows slip code 4829 1735 (F8cc AC-1, AC-c1)", async ({
+        page,
+        baseURL,
+      }) => {
+        await open(page, baseURL);
+        await price(page, 0).click();
+        await (await otherMatchPrice(page)).click();
+        const slip = await openSlip(page, 2);
+        const sent = page.waitForRequest(CODES);
+        const answered = page.waitForResponse(CODES);
+        await slip.getByRole("button", { name: t.betSlip.bookBet }).click();
+
+        // Signed in the browser over the contract's body, with its key; the
+        // route added the token and the device id, and Prism — which checks
+        // them, the device headers and the body against the contract — made
+        // the code.
+        const request = await sent;
+        const headers = request.headers();
+        expect(headers["x-device-signature"]).toMatch(/^[A-Za-z0-9+/]{86}==$/);
+        expect(headers["x-device-timestamp"]).toMatch(/^\d{13}$/);
+        expect(headers["idempotency-key"]).toMatch(/^[0-9a-f-]{36}$/);
+        expect(headers.authorization).toBeUndefined();
+        const body = JSON.parse(request.postData()!);
+        expect(body.bet_type).toBe("multiple");
+        expect(body.legs).toHaveLength(2);
+        expect((await answered).status()).toBe(201);
+
+        // The player's booking-code dialog (the user's review): the code, its
+        // barcode, how long it lasts, Done — no QR, no timer.
+        const code = page.getByRole("dialog", { name: t.betSlip.bookingCode });
+        await expect(code).toContainText("4829 1735");
+        await expect(
+          code.getByRole("img", {
+            name: `${t.betSlip.bookingCode}: 4829 1735`,
+          }),
+        ).toBeVisible();
+        await shoot(page, `kiosk-code-${lang}`, device, errors);
+
+        // Done closes it and leaves the slip; Booked opens the same code.
+        await code.getByRole("button", { name: t.betSlip.done }).click();
+        await expect(code).toHaveCount(0);
+        await slip.getByRole("button", { name: t.booking.booked }).click();
+        await expect(code).toContainText("4829 1735");
+      });
+
+      test("kiosk-code-prism-429: Prism's own 429 through the dev server, its Retry-After passed through (F8cc AC-6)", async ({
+        page,
+        baseURL,
+      }) => {
+        await page.route(CODES, prefer("code=429"));
+        await open(page, baseURL);
+        await price(page, 0).click();
+        const slip = await openSlip(page, 1);
+        const answered = page.waitForResponse(CODES);
+        await slip.getByRole("button", { name: t.betSlip.bookBet }).click();
+        const response = await answered;
+        expect(response.status()).toBe(429);
+        // Prism has no wait to give (the contract has no example): "0".
+        expect(response.headers()["retry-after"]).toBe("0");
+        await expect(slip.getByText(t.terminal.code.pausedLater)).toBeVisible();
+        await expect(
+          slip.getByRole("button", { name: t.betSlip.bookBet }),
+        ).not.toHaveAttribute("aria-disabled", "true");
+      });
+
+      test("kiosk-code-paused: after the terminal's 30 codes, Book bet says when it is back and waits (F8cc AC-6)", async ({
+        page,
+        baseURL,
+      }) => {
+        // Request 015's wait, as the route would pass it through.
+        await page.route(CODES, (route) =>
+          route.fulfill({
+            status: 429,
+            contentType: "application/problem+json",
+            headers: { "Retry-After": "240" },
+            json: {
+              type: "about:blank",
+              title: "Too many slip codes",
+              status: 429,
+              code: "RATE_LIMITED",
+            },
+          }),
+        );
+        await open(page, baseURL);
+        await price(page, 0).click();
+        const slip = await openSlip(page, 1);
+        await slip.getByRole("button", { name: t.betSlip.bookBet }).click();
+        await expect(
+          slip.getByText(t.terminal.code.paused.replace("{minutes}", "4")),
+        ).toBeVisible();
+        await expect(
+          slip.getByRole("button", { name: t.betSlip.bookBet }),
+        ).toHaveAttribute("aria-disabled", "true");
+        await shoot(
+          page,
+          `kiosk-code-paused-${lang}`,
+          device,
+          errors,
+          /status of 429/,
+        );
+      });
+
+      test("kiosk-code-refused: a match started since it was picked — marked in the slip, with Remove it (F8cc AC-c3)", async ({
+        page,
+        baseURL,
+      }) => {
+        // Request 015's named example: legs[1] has started.
+        await page.route(CODES, (route) =>
+          route.fulfill({
+            status: 422,
+            contentType: "application/problem+json",
+            json: {
+              type: "about:blank",
+              title: "A match has started",
+              status: 422,
+              code: "BET_EVENT_STARTED",
+              errors: [{ field: "legs[1].outcome_id", code: "EVENT_STARTED" }],
+            },
+          }),
+        );
+        await open(page, baseURL);
+        await price(page, 0).click();
+        await (await otherMatchPrice(page)).click();
+        const slip = await openSlip(page, 2);
+        await slip.getByRole("button", { name: t.betSlip.bookBet }).click();
+        await expect(
+          slip.getByText(t.betSlip.alerts.suspendedTitle),
+        ).toBeVisible();
+        await expect(
+          slip.getByRole("button", {
+            name: t.betSlip.alerts.removeIt,
+            exact: true,
+          }),
+        ).toBeVisible();
+        await shoot(
+          page,
+          `kiosk-code-refused-${lang}`,
+          device,
+          errors,
+          /status of 422/,
+        );
       });
 
       test("kiosk-league: a league's page, from the kiosk's own address (AC-6)", async ({

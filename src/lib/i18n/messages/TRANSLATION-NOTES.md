@@ -672,3 +672,15 @@ the slip itself ("ትኬት አስቀምጥ", "per ticket"); on the placed scree
 | `betSlip.alerts.conflictBody` | ሁለት ምርጫዎች ከአንድ ጨዋታ ናቸው። አንዱን ያስወግዱ።            | The old body without "ወይም ነጠላ ይምረጡ"                                    |
 | `booking.sizesNoteMultiple`   | ይህ ኮድ የ{sizes} ሲስተም ነው፤ ትኬቱ እንደ አንድ ጥምር ያሰላዋል። | The old opening; ጥምር (multiple, the old tab's word); ያሰላዋል (prices it) |
 | `booking.singlesNote`         | ይህ ኮድ በነጠላ ተቀምጧል፤ ትኬቱ እንደ አንድ ጥምር ያሰላዋል።       | ነጠላ (single, the old tab's word); ተቀምጧል (was saved) new                |
+
+## Slip codes on the kiosk (F8cc, 2026-10-08)
+
+The kiosk's Book bet makes a slip code, shown in the player's booking-code dialog (the user's review), so
+it needs only the wait after the terminal's 30 codes per 10 minutes and the refusals. All composed; all
+need review.
+
+| Key                                   | Amharic                                                                               | Composed from                                                                                                                              |
+| ------------------------------------- | ------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| `terminal.code.paused`, `pausedLater` | ይህ ተርሚናል በጣም ብዙ ኮዶች ሠርቷል። ትኬት ማስቀመጥ ከ{minutes} ደቂቃ በኋላ ይመለሳል። / … ቆየት ብለው እንደገና ይሞክሩ። | `terminal.activate.tooMany` / `tooManyLater` (ብዙ…, ከ{minutes} ደቂቃ በኋላ); ሠርቷል (has made); ትኬት ማስቀመጥ (Book bet, `betSlip.bookBet` ትኬት አስቀምጥ) |
+| `terminal.code.failed`                | ኮድ ማግኘት አልተቻለም። እንደገና ይሞክሩ።                                                           | As `booking.errors.failed` (… አልተቻለም። እንደገና ይሞክሩ።)                                                                                         |
+| `terminal.code.cannot`                | ይህ ትኬት እንዳለ ኮድ ሊሆን አይችልም።                                                             | As `booking.errors.cannotBook` (ይህ ትኬት እንዳለ … አይችልም)                                                                                       |

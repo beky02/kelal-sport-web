@@ -11,7 +11,9 @@ import { useTranslation } from "@/lib/i18n/use-translation";
  * user's fourth review), so it never sits in the list of picks: the code
  * large, its barcode for a scanner, how long it lasts, then whatever the site
  * offers to do with it (`children`: the player's Copy and Share; nothing on a
- * shop kiosk) and Done. Above the slip's phone sheet (z-50).
+ * shop kiosk) and Done. Above the slip's phone sheet (z-50). The shop kiosk
+ * shows its slip code in it too (F8cc, the user's review): any code and its
+ * expiry.
  */
 export function BookingCodeDialog({
   receipt,
@@ -19,7 +21,7 @@ export function BookingCodeDialog({
   onClose,
   children,
 }: {
-  receipt: BookingReceipt;
+  receipt: Pick<BookingReceipt, "code" | "expiresAt">;
   open: boolean;
   onClose: () => void;
   children?: React.ReactNode;

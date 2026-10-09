@@ -52,8 +52,9 @@ function serverTimeIn(error: ApiError): number | null {
  * A signed call is signed here with the device key, for the API call the
  * route will make (`call.method`, `call.api`) over the exact body sent. If the
  * route answers that this PC's clock is off, the offset is learnt from the
- * server's time in the answer and the call signed again — once. Every answer
- * is checked against `schema` before it reaches a hook.
+ * server's time in the answer and the call signed again — once, with the same
+ * `Idempotency-Key` when it has one (a header, outside the signature). Every
+ * answer is checked against `schema` before it reaches a hook.
  */
 export async function terminalRequest<T>(
   call: TerminalCall,
@@ -61,8 +62,15 @@ export async function terminalRequest<T>(
   {
     body,
     key,
+    idempotencyKey,
     signal,
-  }: { body?: unknown; key?: CryptoKey; signal?: AbortSignal } = {},
+  }: {
+    body?: unknown;
+    key?: CryptoKey;
+    /** One per intent, made by the caller and reused on its retries (F8cc). */
+    idempotencyKey?: string;
+    signal?: AbortSignal;
+  } = {},
 ): Promise<T> {
   const text = body === undefined ? undefined : JSON.stringify(body);
   if (call.signed && !key) {
@@ -77,6 +85,7 @@ export async function terminalRequest<T>(
       // Every call that changes something carries the header the route
       // handlers insist on (09-security, CSRF).
       ...(call.method !== "GET" ? { [CSRF_HEADER]: CSRF_VALUE } : {}),
+      ...(idempotencyKey ? { "Idempotency-Key": idempotencyKey } : {}),
       ...(call.signed && key
         ? await signRequest(key, call, { body: text ?? "", now: serverNow() })
         : {}),
