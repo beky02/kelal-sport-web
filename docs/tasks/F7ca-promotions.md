@@ -1,7 +1,7 @@
 ---
 id: F7ca
 title: Split from F7c — offers, my bonus and free bets, promo codes
-status: planned
+status: verifying
 depends_on: [F4]
 contract_tags: [Promotions]
 touches_money: true

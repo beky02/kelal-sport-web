@@ -13,6 +13,7 @@ import {
 } from "@/features/wallet/hooks/use-wallet";
 import { toDeposit } from "@/lib/api/mappers/payments";
 import { toWalletBalances, toWalletTxnPage } from "@/lib/api/mappers/wallet";
+import { bonusKeys } from "@/lib/query/keys";
 import type { components } from "@/lib/api/schema";
 import { useUiStore } from "@/stores/ui.store";
 import { example, responseExample } from "../contract";
@@ -69,7 +70,7 @@ async function tick(ms: number) {
 }
 
 describe("polling a deposit (AC-2)", () => {
-  it("polls a phone deposit every 3 s until it completes, then reads the balance and the history again (AC-2)", async () => {
+  it("polls a phone deposit every 3 s until it completes, then reads the balance and the history again, and marks the bonus stale (AC-2, F7ca)", async () => {
     vi.useFakeTimers({
       now: Date.parse("2026-10-03T13:58:12Z"),
       toFake: [
@@ -106,6 +107,9 @@ describe("polling a deposit (AC-2)", () => {
       <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
     );
 
+    // The player's bonus, read earlier on Promotions (F7ca).
+    queryClient.setQueryData(bonusKeys.mine(), { active: null, freeBets: [] });
+
     const { result } = renderHook(
       () => {
         // The balance and recent activity on screen, as the wallet has them.
@@ -136,6 +140,11 @@ describe("polling a deposit (AC-2)", () => {
     // Completed: the balance and the history are read again, once.
     expect(reread("/api/wallet")).toBe(2);
     expect(reread("/api/wallet/transactions?limit=5")).toBe(2);
+    // A deposit can grant a bonus, or apply a code that waited for it (C11
+    // §5): the bonus is stale too, read when Promotions is next shown.
+    expect(queryClient.getQueryState(bonusKeys.mine())?.isInvalidated).toBe(
+      true,
+    );
 
     // Final: no more polling, and no more re-reads.
     await tick(9_000);

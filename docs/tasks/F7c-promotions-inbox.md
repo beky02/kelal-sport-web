@@ -1,7 +1,7 @@
 ---
 id: F7c
 title: Split from F7 — promotions, my bonus and free bets, promo codes, the inbox
-status: planned
+status: verifying
 depends_on: [F4]
 contract_tags: [Promotions, Inbox]
 touches_money: true

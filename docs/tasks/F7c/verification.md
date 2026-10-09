@@ -1,5 +1,28 @@
 # F7c — verification (F7ca — promotions)
 
+## Self-review
+
+- **Money moves:** a redeem re-reads `bonusKeys`, `walletKeys` and `transactionKeys` once the API has
+  answered; nothing is patched. Found and fixed here: a completed deposit (which can grant a bonus or apply a
+  code that waited for it, C11 §5) did not mark the bonus stale — `moneyArrived` now invalidates `bonusKeys`
+  too. `DepositPolling` › "… and marks the bonus stale" failed before the fix (`expected false to be true`)
+  and passes after it.
+- **New values:** `wageringDone`/`wageringRequired` are shown only in `MyBonusSection`'s wagered line (in that
+  order, tested), `amount` only beside the title, a free bet's `stake` only in its own row; the bar uses
+  `percentOf(done, required)`.
+- **Async tests:** each component test waits for the data it asserts on (`findByText` on the loaded figure or
+  message, `waitFor` on the request count); the entry-point tests read config the render helper seeds.
+- **Personal data:** `bonusKeys` is in `forgetPlayer` (test: another player signs in → the bonus is read
+  again); the promo intent carries its owner and a Try again asks `/api/me` first (test). Offers are public.
+- **Route handlers:** session on `/api/me/bonuses` and the redeem; CSRF, UUID key, strict 4 KiB body on the
+  redeem; `no-store` on all three; `Prefer` only under `next dev` and never to the real API — each tested
+  (`promotions-route`).
+- **Screens:** ten `promotions-*` screens, en/am × 375/1440, looked at; two fixes made from them (offer cards
+  stretched to their neighbour's height; the bonus's Try again blended into its box). Loading is skeletons,
+  covered by component tests, not screenshotted — as for the other account pages.
+- **Docs:** plan Files and AC→tests names match the code; 00-overview, 01-screens, 02-journeys, 05-errors,
+  09-security and the translation notes updated; README and task statuses current.
+
 ## Tests proven
 
 Each new acceptance test, once green, was run against a deliberately broken implementation and failed;
