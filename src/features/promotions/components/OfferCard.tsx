@@ -49,7 +49,7 @@ export function OfferCard({
           : null;
 
   return (
-    <article className="bg-raised flex h-full flex-col overflow-hidden rounded-lg">
+    <article className="bg-raised flex flex-col overflow-hidden rounded-lg">
       {offer.imageUrl && !dataSaver && (
         // A fixed 16:9 box, so nothing moves when the image lands.
         <div className="bg-ground aspect-video">
@@ -89,7 +89,7 @@ export function OfferCard({
           </div>
         )}
         {offer.terms && (
-          <details className="mt-auto pt-1">
+          <details className="pt-1">
             <summary className="text-accent flex min-h-11 cursor-pointer items-center text-xs font-bold">
               {t.t("promotions.terms")}
             </summary>

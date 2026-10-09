@@ -9,8 +9,9 @@ import { useTranslation } from "@/lib/i18n/use-translation";
 import { useMyBonuses } from "../hooks/use-promotions";
 import type { ActiveBonus, FreeBet } from "../types";
 
+/** On the raised box it sits in, so it reads as a button. */
 const RETRY =
-  "bg-raised text-text font-body min-h-11 shrink-0 cursor-pointer rounded-lg px-3 text-xs font-bold";
+  "bg-surface text-text font-body min-h-11 shrink-0 cursor-pointer rounded-lg px-3 text-xs font-bold";
 
 /**
  * The signed-in player's bonus in progress and free bets (AC-11), from

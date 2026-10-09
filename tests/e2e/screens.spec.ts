@@ -1066,6 +1066,59 @@ async function loadBooking(page: Page, _device: Device, lang: Lang) {
 }
 
 /**
+ * Prism's offer image lives on a host that doesn't exist: a picture of the
+ * right shape stands in for it, so the card is seen as a player would.
+ */
+const PROMO_IMAGE =
+  '<svg xmlns="http://www.w3.org/2000/svg" width="640" height="360">' +
+  '<rect width="640" height="360" fill="steelblue"/>' +
+  '<text x="40" y="210" font-size="64" font-family="sans-serif" fill="white">100%</text></svg>';
+const promoImages = async (page: Page) => {
+  await page.route("https://cdn.example.et/**", (route) =>
+    route.fulfill({ contentType: "image/svg+xml", body: PROMO_IMAGE }),
+  );
+};
+
+/** One of this app's promotion routes answered by the browser. */
+const promoAnswer =
+  (route: string, status: number, json: unknown) => (page: Page) =>
+    page.route(`**${route}`, (r) =>
+      r.fulfill({
+        status,
+        contentType:
+          status >= 400 ? "application/problem+json" : "application/json",
+        json,
+      }),
+    );
+
+/** Promotions for a signed-in player (F7ca), with whatever the screen changes. */
+const promotionsFor =
+  (...changes: Array<(page: Page) => Promise<unknown>>) =>
+  async (page: Page) => {
+    await promoImages(page);
+    await loginViaApi(page);
+    for (const change of changes) await change(page);
+  };
+
+/** A redeem that never answers: the connection drops. */
+const redeemDrops = (page: Page) =>
+  page.route("**/api/promo-codes/redeem", (route) => route.abort());
+
+/** Types a code and redeems it, then waits for what the page says. */
+const redeemCode =
+  (code: string, says: (t: (typeof MESSAGES)[Lang]) => string) =>
+  async (page: Page, _device: Device, lang: Lang) => {
+    const t = MESSAGES[lang];
+    await page
+      .getByRole("textbox", { name: t.promotions.codeLabel })
+      .fill(code);
+    await page
+      .getByRole("button", { name: t.promotions.redeem, exact: true })
+      .click();
+    await page.getByText(says(t), { exact: true }).first().waitFor();
+  };
+
+/**
  * Screens worth looking at. Fixture IDs are the contract's examples, which is
  * what Prism serves.
  */
@@ -2288,6 +2341,115 @@ const SCREENS: Array<{
   },
   { name: "reset-code", path: "/login", prepare: resetTo("code") },
   { name: "reset-done", path: "/login", prepare: resetTo("done") },
+  {
+    // The player's bonus with its wagering, a free bet, the code form, then
+    // the offers (F7ca, AC-11).
+    name: "promotions",
+    path: "/promotions",
+    before: promotionsFor(),
+  },
+  {
+    name: "promotions-guest",
+    path: "/promotions",
+    before: promoImages,
+  },
+  {
+    name: "promotions-none",
+    path: "/promotions",
+    before: promotionsFor(
+      promoAnswer("/api/me/bonuses", 200, { active: null, freeBets: [] }),
+      promoAnswer("/api/promotions", 200, []),
+    ),
+  },
+  {
+    // Retried twice, as every read is, before it says so.
+    name: "promotions-bonus-failed",
+    path: "/promotions",
+    before: promotionsFor(
+      promoAnswer(
+        "/api/me/bonuses",
+        503,
+        problemJson(503, "SERVICE_UNAVAILABLE"),
+      ),
+    ),
+    prepare: async (page, _device, lang) => {
+      await page
+        .getByText(MESSAGES[lang].promotions.bonusFailedTitle, { exact: true })
+        .waitFor();
+    },
+    allowConsole: /503/,
+  },
+  {
+    name: "promotions-offers-failed",
+    path: "/promotions",
+    before: promotionsFor(
+      promoAnswer(
+        "/api/promotions",
+        503,
+        problemJson(503, "SERVICE_UNAVAILABLE"),
+      ),
+    ),
+    prepare: async (page, _device, lang) => {
+      await page
+        .getByText(MESSAGES[lang].promotions.offersFailedTitle, {
+          exact: true,
+        })
+        .waitFor();
+    },
+    allowConsole: /503/,
+  },
+  {
+    // Prism's answer: granted, with the API's own message (AC-12).
+    name: "promotions-redeemed",
+    path: "/promotions",
+    before: promotionsFor(),
+    prepare: redeemCode("DERBY50", () => "50 ETB free bet added"),
+  },
+  {
+    name: "promotions-redeemed-pending",
+    path: "/promotions",
+    before: promotionsFor(
+      promoAnswer("/api/promo-codes/redeem", 200, {
+        result: "pending_deposit",
+        message: null,
+      }),
+    ),
+    prepare: redeemCode("FIRSTDEP", (t) => t.promotions.pendingDeposit),
+  },
+  {
+    // Prism has no PROMO_* example: the route answers with the Problem.
+    name: "promotions-code-invalid",
+    path: "/promotions",
+    before: promotionsFor(
+      promoAnswer(
+        "/api/promo-codes/redeem",
+        422,
+        problemJson(422, "PROMO_INVALID"),
+      ),
+    ),
+    prepare: redeemCode("DERBY5O", (t) => t.promotions.codeInvalidTitle),
+    allowConsole: /status of 422/,
+  },
+  {
+    name: "promotions-code-used",
+    path: "/promotions",
+    before: promotionsFor(
+      promoAnswer(
+        "/api/promo-codes/redeem",
+        409,
+        problemJson(409, "PROMO_ALREADY_USED"),
+      ),
+    ),
+    prepare: redeemCode("DERBY50", (t) => t.promotions.codeUsedTitle),
+    allowConsole: /status of 409/,
+  },
+  {
+    name: "promotions-code-unconfirmed",
+    path: "/promotions",
+    before: promotionsFor(redeemDrops),
+    prepare: redeemCode("DERBY50", (t) => t.promotions.unconfirmedTitle),
+    allowConsole: /ERR_FAILED/,
+  },
 ];
 
 const DEVICES = {

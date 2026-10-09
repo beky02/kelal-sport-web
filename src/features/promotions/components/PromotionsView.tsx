@@ -102,7 +102,9 @@ function Offers({ onEnterCode }: { onEnterCode?: () => void }) {
         ) : (
           <ul
             aria-label={t.t("promotions.offersTitle")}
-            className="mt-2 grid gap-3 sm:grid-cols-2"
+            // Each card its own height: one with an image beside one without
+            // would otherwise stretch the second into an empty box.
+            className="mt-2 grid items-start gap-3 sm:grid-cols-2"
           >
             {offers.data.map((offer) => (
               <li key={offer.id}>
