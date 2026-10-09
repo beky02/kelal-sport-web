@@ -100,8 +100,10 @@ codes, the Fayda number and the date of birth never reach the URL, storage or a 
   (`REG_UNDERAGE`). The password needs 8 characters and a match, no composition rules (C01 §2, REG-06);
   a breached one comes back from the API on the field. The UI language is the account's language;
   marketing consent is not asked (the contract's default, `false`). No national ID at registration — the
-  ID goes to Fayda once the account exists. No deposit limit or promo code at sign-up (no design; F7
-  owns limits).
+  ID goes to Fayda once the account exists. No deposit limit at sign-up (no design; F7 owns limits). An
+  optional promo code on the details step (REG-12, F7ca) goes as the contract's `promo_code`, trimmed, and
+  not at all when empty; `PROMO_INVALID` / `NOT_FOUND` / `PROMO_ALREADY_USED` are said under that field
+  ("… Change it, or leave it empty to create your account") and nothing is created.
 - **Signed in from Create account on.** A session this browser already had is revoked at the API (as on
   login); the previous player's caches go and `/api/me` is read, as after a login. From the ID step there is no going back; closing the dialog leaves the player signed in.
 

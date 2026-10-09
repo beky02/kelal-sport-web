@@ -372,13 +372,17 @@
       "VALIDATION_FAILED": "Some details need fixing.",
       "termsUpdated": "Our terms were updated. Please read and accept them again.",
       "rateLimitedSeconds": "Too many attempts. Try again in {seconds} seconds.",
-      "rateLimitedMinutes": "Too many attempts. Try again in {minutes} minutes."
+      "rateLimitedMinutes": "Too many attempts. Try again in {minutes} minutes.",
+      "promoInvalid": "This code isn't valid. Change it, or leave it empty to create your account.",
+      "promoUsed": "This code has already been used. Leave it empty to create your account."
     },
     "opensInNewTab": "(opens in a new tab)",
     "dateOfBirthHelp": "Day / month / year (DD/MM/YYYY)",
     "fullNamePlaceholder": "Abebe Kebede Tesfaye",
     "ruleMet": "(done)",
-    "ruleNotMet": "(not yet)"
+    "ruleNotMet": "(not yet)",
+    "promoCode": "Promo code (optional)",
+    "promoCodeHelp": "Have a code? Enter it here to use it with your new account."
   },
   "system": {
     "offlineTitle": "You’re offline.",
@@ -896,7 +900,8 @@
     "enterCode": "Enter code",
     "terms": "Terms",
     "guestTitle": "Log in to see your bonus",
-    "guestBody": "Your bonus, free bets and promo codes show up here."
+    "guestBody": "Your bonus, free bets and promo codes show up here.",
+    "guestRegisterBody": "New here? Enter your promo code when you register."
   },
   "booking": {
     "validUntil": "Valid until {day} {date}, {time}",

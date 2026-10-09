@@ -111,6 +111,9 @@ export function RegisterFlow({ mode }: { mode: "register" | "verify" }) {
         password: details.password,
         acceptTerms: true,
         termsVersion: state.termsVersion ?? "",
+        ...(details.promoCode.trim()
+          ? { promoCode: details.promoCode.trim() }
+          : {}),
       });
       dispatch({ type: "created" });
     } catch (error) {
@@ -219,6 +222,7 @@ export function RegisterFlow({ mode }: { mode: "register" | "verify" }) {
             fullName: state.fullName,
             dateOfBirth: state.dateOfBirth,
             password: state.password,
+            promoCode: state.promoCode,
           }}
           pending={state.pending}
           error={state.error}

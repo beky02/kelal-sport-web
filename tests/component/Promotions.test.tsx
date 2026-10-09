@@ -283,6 +283,12 @@ describe("offers, the bonus and free bets (AC-11)", () => {
       screen.getByRole("button", { name: en.header.login }),
     );
     expect(useAuthStore.getState().entry).toBe("login");
+    // New here: a code is entered while signing up (REG-12).
+    expect(screen.getByText(en.promotions.guestRegisterBody)).toBeTruthy();
+    await userEvent.click(
+      screen.getByRole("button", { name: en.header.register }),
+    );
+    expect(useAuthStore.getState().entry).toBe("register");
     // Nothing of a player's is asked for.
     expect(asked("/api/me/bonuses")).toHaveLength(0);
   });

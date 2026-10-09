@@ -655,6 +655,8 @@ export const registerFormSchema = z.strictObject({
   // The consent the phone step required, and the terms version it showed.
   acceptTerms: z.literal(true),
   termsVersion: z.string().max(64),
+  // The contract's `promo_code`: 1 to 64 characters, or not sent.
+  promoCode: z.string().min(1).max(64).optional(),
 }) satisfies z.ZodType<RegisterForm>;
 
 export const passwordResetFormSchema = z.strictObject({

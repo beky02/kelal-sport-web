@@ -172,6 +172,25 @@ The user tried the page against Prism and reported: "the redeem does not work", 
 `pnpm check`: 1,759 tests pass. `pnpm ui --grep promotions`: 44 passed. Checked by hand in the browser pane
 (empty field, a redeem, the image fallback).
 
+### A promo code at sign-up (the user's choice, option A)
+
+The user asked why only a signed-in player can use a code. Redeem needs an account (`playerAuth`; the reward
+and the one-per-player rule live on it); the contract also takes `promo_code` at registration (REG-12),
+which F4b had left out. Built: an optional field on the details step, the code sent trimmed or not at all,
+refusals under the field; a Register button and line in Promotions' guest box.
+
+| Test                                                                                                                    | Proven by breaking                                       |
+| ----------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------- |
+| `register-route` › sends a promo code typed at sign-up as the contract's promo_code                                     | The mapper's `promo_code` removed                        |
+| `register-route` › validates the body before sending anything on (empty, 65 characters, a number, the API's field name) | The schema's 1–64 bounds removed                         |
+| `RegisterFlow` › sends the code typed on the details step, trimmed, and nothing when it is left empty                   | Sent untrimmed                                           |
+| `RegisterFlow` › says a refused code under its field and keeps the details; without it the account is created           | `PROMO_INVALID` shown in the notice, not under the field |
+| `Promotions` › asks a guest to log in and still shows the offers (now with Register)                                    | Register opened login                                    |
+
+`pnpm check`: 1,762 tests pass. `pnpm ui --grep "register|promotions-guest"`: 33 passed; new screen
+`register-promo-invalid` (en/am × phone/desktop) looked at — the Amharic message under the field, the details
+kept, the code in monospace.
+
 ## Gaps
 
 - **Flaky (not this task's):** three terminal kiosk tests, en · phone, failed once in the full run and passed on

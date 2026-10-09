@@ -28,6 +28,11 @@ export interface AuthErrorView {
    * named — `null` when it gave a code but no words.
    */
   fields?: Record<string, string | null>;
+  /**
+   * The whole refusal belongs under this field of the step (the contract's
+   * name), not in the notice: a promo code at sign-up (F7ca).
+   */
+  field?: string;
 }
 
 export interface AuthErrorOptions {
@@ -124,6 +129,15 @@ export function authErrorMessage(
       return { key: "auth.errors.AUTH_TOKEN_EXPIRED", fix: "logInAgain" };
     case "VALIDATION_FAILED":
       return validation(error, fields);
+    // A code typed at sign-up (REG-12): the account isn't created; the code
+    // can be changed, or left out.
+    case "PROMO_INVALID":
+    case "NOT_FOUND":
+      if (!fields.includes("promo_code")) break;
+      return { key: "auth.errors.promoInvalid", field: "promo_code" };
+    case "PROMO_ALREADY_USED":
+      if (!fields.includes("promo_code")) break;
+      return { key: "auth.errors.promoUsed", field: "promo_code" };
   }
   // The network, the API down, or a response that was not a Problem.
   if (

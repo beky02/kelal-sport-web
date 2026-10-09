@@ -42,28 +42,44 @@ export function PromotionsView() {
           />
         </>
       ) : guest ? (
-        <div className="bg-raised mx-4 mt-5 flex items-center gap-3 rounded-lg p-3.5">
-          <LogIn
-            size={22}
-            strokeWidth={1.5}
-            aria-hidden
-            className="text-accent shrink-0"
-          />
-          <span className="min-w-0 flex-1">
-            <span className="block text-sm font-semibold">
-              {t.t("promotions.guestTitle")}
+        <div className="bg-raised mx-4 mt-5 flex flex-col gap-3 rounded-lg p-3.5">
+          <div className="flex items-center gap-3">
+            <LogIn
+              size={22}
+              strokeWidth={1.5}
+              aria-hidden
+              className="text-accent shrink-0"
+            />
+            <span className="min-w-0 flex-1">
+              <span className="block text-sm font-semibold">
+                {t.t("promotions.guestTitle")}
+              </span>
+              <span className="text-muted block text-xs">
+                {t.t("promotions.guestBody")}
+              </span>
             </span>
-            <span className="text-muted block text-xs">
-              {t.t("promotions.guestBody")}
-            </span>
-          </span>
-          <button
-            type="button"
-            onClick={() => openAuth("login")}
-            className="bg-accent text-on-accent font-body min-h-11 shrink-0 cursor-pointer rounded-md px-3.5 text-sm font-bold"
-          >
-            {t.t("header.login")}
-          </button>
+          </div>
+          {/* A code needs an account to land on (C11): a new player enters
+              theirs while signing up (REG-12). */}
+          <p className="text-muted text-xs">
+            {t.t("promotions.guestRegisterBody")}
+          </p>
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={() => openAuth("login")}
+              className="bg-surface text-text font-body min-h-11 cursor-pointer rounded-md px-3.5 text-sm font-bold"
+            >
+              {t.t("header.login")}
+            </button>
+            <button
+              type="button"
+              onClick={() => openAuth("register")}
+              className="bg-accent text-on-accent font-body min-h-11 cursor-pointer rounded-md px-3.5 text-sm font-bold"
+            >
+              {t.t("header.register")}
+            </button>
+          </div>
         </div>
       ) : null}
 

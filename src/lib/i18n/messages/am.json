@@ -372,13 +372,17 @@
       "VALIDATION_FAILED": "አንዳንድ መረጃዎች መስተካከል አለባቸው።",
       "termsUpdated": "ደንቦቻችን ተሻሽለዋል። እባክዎ አንብበው እንደገና ይቀበሉ።",
       "rateLimitedSeconds": "በጣም ብዙ ሙከራዎች። ከ{seconds} ሰከንድ በኋላ እንደገና ይሞክሩ።",
-      "rateLimitedMinutes": "በጣም ብዙ ሙከራዎች። ከ{minutes} ደቂቃ በኋላ እንደገና ይሞክሩ።"
+      "rateLimitedMinutes": "በጣም ብዙ ሙከራዎች። ከ{minutes} ደቂቃ በኋላ እንደገና ይሞክሩ።",
+      "promoInvalid": "ይህ ኮድ ትክክል አይደለም። ይቀይሩት፣ ወይም መለያዎን ለመፍጠር ባዶ ይተዉት።",
+      "promoUsed": "ይህ ኮድ አስቀድሞ ጥቅም ላይ ውሏል። መለያዎን ለመፍጠር ባዶ ይተዉት።"
     },
     "opensInNewTab": "(በአዲስ ትር ይከፈታል)",
     "dateOfBirthHelp": "ቀን / ወር / ዓመት (DD/MM/YYYY)",
     "fullNamePlaceholder": "አበበ ከበደ ተስፋዬ",
     "ruleMet": "(ተሟልቷል)",
-    "ruleNotMet": "(ገና አልተሟላም)"
+    "ruleNotMet": "(ገና አልተሟላም)",
+    "promoCode": "የፕሮሞ ኮድ (ካለዎት)",
+    "promoCodeHelp": "ኮድ ካለዎት ከአዲሱ መለያዎ ጋር ለመጠቀም እዚህ ያስገቡት።"
   },
   "system": {
     "offlineTitle": "ከመስመር ውጭ ነዎት።",
@@ -896,7 +900,8 @@
     "enterCode": "ኮድ ያስገቡ",
     "terms": "ደንቦች",
     "guestTitle": "ቦነስዎን ለማየት ይግቡ",
-    "guestBody": "ቦነስዎ፣ ነፃ ውርርዶችዎና የፕሮሞ ኮዶች እዚህ ይታያሉ።"
+    "guestBody": "ቦነስዎ፣ ነፃ ውርርዶችዎና የፕሮሞ ኮዶች እዚህ ይታያሉ።",
+    "guestRegisterBody": "አዲስ ነዎት? ሲመዘገቡ የፕሮሞ ኮድዎን ያስገቡ።"
   },
   "booking": {
     "validUntil": "እስከ {day} {date}፣ {time} ያገለግላል",

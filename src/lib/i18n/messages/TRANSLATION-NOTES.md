@@ -718,3 +718,13 @@ catalogue's own — ቅናሾች (`profile.notifOffers`), ቦነስ (`wallet.bon
 | `promotions.needsCode`, `enterCode`                             | የፕሮሞ ኮድ ያስፈልጋል / ኮድ ያስገቡ                                | ያስፈልጋል (is needed) new                                                 |
 | `promotions.terms`                                              | ደንቦች                                                    | `footer.terms`                                                         |
 | `promotions.guestTitle`, `guestBody`                            | ቦነስዎን ለማየት ይግቡ / ቦነስዎ፣ ነፃ ውርርዶችዎና የፕሮሞ ኮዶች እዚህ ይታያሉ።    | As `wallet.guestTitle` / `wallet.guestBody`                            |
+
+### Promo code at sign-up (F7ca, the user's review, 2026-10-09)
+
+| Key                            | Amharic                                           | Composed from                                               |
+| ------------------------------ | ------------------------------------------------- | ----------------------------------------------------------- |
+| `auth.promoCode`               | የፕሮሞ ኮድ (ካለዎት)                                    | `promotions.codeLabel` + ካለዎት (if you have one)             |
+| `auth.promoCodeHelp`           | ኮድ ካለዎት ከአዲሱ መለያዎ ጋር ለመጠቀም እዚህ ያስገቡት።             | As `promotions.codeHelp`; መለያ (account)                     |
+| `auth.errors.promoInvalid`     | ይህ ኮድ ትክክል አይደለም። ይቀይሩት፣ ወይም መለያዎን ለመፍጠር ባዶ ይተዉት። | `promotions.codeInvalidTitle`; ባዶ ይተዉት (leave it empty) new |
+| `auth.errors.promoUsed`        | ይህ ኮድ አስቀድሞ ጥቅም ላይ ውሏል። መለያዎን ለመፍጠር ባዶ ይተዉት።      | As `promotions.codeUsedTitle`                               |
+| `promotions.guestRegisterBody` | አዲስ ነዎት? ሲመዘገቡ የፕሮሞ ኮድዎን ያስገቡ።                    | ሲመዘገቡ (when you register), as `header.register`             |

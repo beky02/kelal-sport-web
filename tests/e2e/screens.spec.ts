@@ -219,6 +219,26 @@ const registerStep =
     }
   };
 
+/**
+ * A promo code typed at sign-up that the API refuses (REG-12, F7ca): Prism has
+ * no `PROMO_*` example, so the route answers with the Problem.
+ */
+async function promoRefusedAtSignUp(page: Page, _device: Device, lang: Lang) {
+  const t = MESSAGES[lang];
+  await page.route("**/api/auth/register", (route) =>
+    route.fulfill({
+      status: 422,
+      contentType: "application/problem+json",
+      json: problemJson(422, "PROMO_INVALID"),
+    }),
+  );
+  await registerTo(page, lang, "details");
+  const dialog = page.getByRole("dialog");
+  await dialog.getByLabel(t.auth.promoCode).fill("WELC0ME");
+  await dialog.getByRole("button", { name: t.auth.createAccount }).click();
+  await dialog.getByText(t.auth.errors.promoInvalid).waitFor();
+}
+
 /** `REG_PHONE_TAKEN`: Prism's 409 on `/v1/auth/otp`. */
 async function phoneTaken(page: Page, _device: Device, lang: Lang) {
   await preferOn(page, "/api/auth/otp", "code=409");
@@ -2310,6 +2330,12 @@ const SCREENS: Array<{
     name: "register-details",
     path: "/register",
     prepare: registerStep("details"),
+  },
+  {
+    name: "register-promo-invalid",
+    path: "/register",
+    prepare: promoRefusedAtSignUp,
+    allowConsole: /status of 422/,
   },
   { name: "register-id", path: "/register", prepare: registerStep("created") },
   {

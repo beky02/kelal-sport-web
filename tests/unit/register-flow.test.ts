@@ -42,6 +42,7 @@ const DETAILS = {
   fullName: "Abebe Kebede",
   dateOfBirth: "12/04/1998",
   password: "correct horse battery",
+  promoCode: "",
 };
 
 const run = (state: RegisterState, ...events: RegisterEvent[]) =>
