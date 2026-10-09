@@ -179,6 +179,22 @@ describe("offers, the bonus and free bets (AC-11)", () => {
     expect((await offersList()).querySelector("img")).toBeNull();
   });
 
+  it("drops an offer's image that fails to load, leaving the text card", async () => {
+    render(<PromotionsView />);
+    const list = await offersList();
+    const image = list.querySelector("img")!;
+    expect(image.closest("[data-offer-image]")).not.toBeNull();
+
+    // Prism's example host doesn't exist: the browser can't load it.
+    act(() => {
+      image.dispatchEvent(new Event("error"));
+    });
+
+    expect(list.querySelector("img")).toBeNull();
+    expect(list.querySelector("[data-offer-image]")).toBeNull();
+    expect(within(list).getByText("100% first deposit bonus")).toBeTruthy();
+  });
+
   it("shows the active bonus's wagered and required amounts and its expiry exactly as the API sends them", async () => {
     render(<PromotionsView />);
 
@@ -471,6 +487,23 @@ describe("promo codes (AC-12)", () => {
         .getByRole("link", { name: en.header.deposit })
         .getAttribute("href"),
     ).toBe("/wallet?action=deposit");
+  });
+
+  it("keeps Redeem off until a code is typed, and takes the player to the field", async () => {
+    render(<PromotionsView />);
+    await bonusSection();
+    const user = userEvent.setup();
+    const button = screen.getByRole("button", { name: en.promotions.redeem });
+
+    expect(button.getAttribute("aria-disabled")).toBe("true");
+    await user.click(button);
+    expect(document.activeElement).toBe(codeField());
+    await user.type(codeField(), "   ");
+    expect(button.getAttribute("aria-disabled")).toBe("true");
+
+    await user.type(codeField(), "DERBY50");
+    expect(button.getAttribute("aria-disabled")).toBeNull();
+    expect(redeems()).toHaveLength(0);
   });
 
   it("sends nothing while a code is on its way, and nothing empty", async () => {

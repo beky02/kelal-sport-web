@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback } from "react";
+import { useCallback, useState } from "react";
 import { ChevronDown, TicketPercent } from "lucide-react";
 import { formatLongDate, toEat } from "@/lib/i18n/dates";
 import { useLocale } from "@/lib/i18n/locale";
@@ -35,6 +35,8 @@ export function OfferCard({
   const t = useTranslation();
   const day = useDayText();
   const dataSaver = useUiStore((s) => s.dataSaver);
+  // An image the browser couldn't load goes, rather than a broken box.
+  const [imageFailed, setImageFailed] = useState(false);
 
   const dates =
     offer.startsAt && offer.endsAt
@@ -50,9 +52,9 @@ export function OfferCard({
 
   return (
     <article className="bg-raised flex flex-col overflow-hidden rounded-lg">
-      {offer.imageUrl && !dataSaver && (
+      {offer.imageUrl && !dataSaver && !imageFailed && (
         // A fixed 16:9 box, so nothing moves when the image lands.
-        <div className="bg-ground aspect-video">
+        <div data-offer-image className="bg-ground aspect-video">
           {/* The operator's CDN, at its own size: next/image would fetch it
               through this server, which has no remote patterns (plan
               decision 6). No referrer goes with it. */}
@@ -63,6 +65,7 @@ export function OfferCard({
             loading="lazy"
             decoding="async"
             referrerPolicy="no-referrer"
+            onError={() => setImageFailed(true)}
             className="size-full object-cover"
           />
         </div>

@@ -151,6 +151,27 @@ Notes, no decision needed:
 - Profile's ID badge is 10 px with tracking in Amharic (`ProfileView.tsx:157`): there before this task;
   follow-up.
 
+## After the user's review (2026-10-09)
+
+The user tried the page against Prism and reported: "the redeem does not work", "the image is broken".
+
+- **Redeem:** reproduced in the browser pane as Prism's player: typing `DERBY50` and pressing Redeem sends
+  `POST /api/promo-codes/redeem` → 200, shows "50 ETB free bet added", empties the field and re-reads the bonus
+  and the wallet. What could not work: pressing Redeem with the field empty did nothing and said nothing. Now
+  Redeem is off (`aria-disabled`, dimmed) until a code is typed, and pressing it goes to the field. Note: Prism
+  answers every code `granted` and always returns the same example bonus, so nothing else on the page moves.
+- **Image:** Prism's example `image_url` is `https://cdn.example.et/…`, a host that doesn't exist
+  (`net::ERR_NAME_NOT_RESOLVED`). An image that fails to load now leaves the offer as a text card instead of a
+  broken box.
+
+| Test                                                                                     | Before the fix                | After                                                                   |
+| ---------------------------------------------------------------------------------------- | ----------------------------- | ----------------------------------------------------------------------- |
+| `Promotions` › drops an offer's image that fails to load, leaving the text card          | Failed (the box stayed)       | Passes; fails again with `onError` removed                              |
+| `Promotions` › keeps Redeem off until a code is typed, and takes the player to the field | Failed (`aria-disabled` null) | Passes; fails again with either the disabled state or the focus removed |
+
+`pnpm check`: 1,759 tests pass. `pnpm ui --grep promotions`: 44 passed. Checked by hand in the browser pane
+(empty field, a redeem, the image fallback).
+
 ## Gaps
 
 - **Flaky (not this task's):** three terminal kiosk tests, en · phone, failed once in the full run and passed on

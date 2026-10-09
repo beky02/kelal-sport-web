@@ -45,6 +45,8 @@ export function PromoCodeForm({
     () => open ?? (answer?.kind === "refused" ? answer.code : ""),
   );
   const refused = answer?.kind === "refused" ? answer.notice : null;
+  /** Nothing typed yet: Redeem is off, and pressing it goes to the field. */
+  const empty = value.trim() === "";
 
   // Granted or waiting for a deposit, here or while the player was away: the
   // field is ready for another code.
@@ -67,7 +69,8 @@ export function PromoCodeForm({
       className="px-4 pt-5"
       onSubmit={(event) => {
         event.preventDefault();
-        if (!sending) send(value);
+        if (empty) fieldRef.current?.focus();
+        else if (!sending) send(value);
       }}
     >
       <label htmlFor={field} className="label-caps text-muted block">
@@ -101,8 +104,8 @@ export function PromoCodeForm({
         <button
           type="submit"
           aria-busy={sending || undefined}
-          aria-disabled={sending || undefined}
-          className="bg-accent text-on-accent font-body h-12 shrink-0 cursor-pointer rounded-md px-4 text-sm font-bold aria-disabled:cursor-wait aria-disabled:opacity-60"
+          aria-disabled={sending || empty || undefined}
+          className="bg-accent text-on-accent font-body h-12 shrink-0 cursor-pointer rounded-md px-4 text-sm font-bold aria-busy:cursor-wait aria-disabled:cursor-not-allowed aria-disabled:opacity-60"
         >
           {t.t(sending ? "promotions.redeeming" : "promotions.redeem")}
         </button>
